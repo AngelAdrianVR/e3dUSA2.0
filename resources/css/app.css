@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+[x-cloak] {
+    display: none;
+}
+
+*::-webkit-scrollbar {
+	width: 3px;
+	height: 6px;
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: #cccccc;
+	border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: #a4a4a4;
+}
+
+/* @layer components{
+    .input{
+        @apply h-8 bg-transparent border placeholder:text-gray-400 dark:border-[#d9d9d9] dark:focus:border-primary text-gray-700 dark:text-white text-sm rounded-lg focus:ring-0 focus:border-primary block w-full p-2.5 disabled:cursor-not-allowed placeholder:text-xs placeholder:lg:text-sm;
+    }
+
+    .textarea{
+        @apply bg-[#CCCCCC] dark:bg-transparent dark:border-[#d9d9d9] dark:text-white dark:focus:border-primary placeholder:text-gray-400 disabled:cursor-not-allowed dark:disabled:bg-[#333333] border border-transparent text-gray-700 text-sm rounded-lg focus:ring-0 focus:border-primary block w-full p-2.5;
+    }
+
+    .label{
+        @apply block mb-2 text-sm font-medium text-gray-600;
+    }
+    .hover-3dbuttom{
+        @apply hover:shadow-sm hover:shadow-gray-400 hover:bg-gray-700 hover:text-white transition ease-in-out duration-300 hover:-translate-y-1;
+    }
+} */
