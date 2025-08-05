@@ -62,11 +62,13 @@ defineExpose({ focus: () => input.value.focus() });
             :type="type"
             ref="input"
             class="
+                caret-blue-400
                 block w-full px-3 py-2 rounded-md shadow-sm 
                 bg-gray-50 dark:bg-gray-700 
                 border transition-colors duration-300
                 placeholder-gray-400 dark:placeholder-gray-500
                 focus:outline-none focus:ring-2
+                text-gray-800 dark:text-gray-100
             "
             :class="{
                 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/50': !error,

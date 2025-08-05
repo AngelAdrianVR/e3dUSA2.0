@@ -51,7 +51,7 @@ const showPassword = ref(false);
           autofocus
           autocomplete="username"
           placeholder="Ingresa tu ID"
-          class="bg-transparent text-white placeholder:text-gray-400 border-0 border-b-2 border-gray-600 focus:ring-0 focus:border-indigo-400"
+          class="bg-transparent text-white placeholder:text-gray-400 border-0 border-b-2 pb-5 border-gray-600 focus:ring-0 focus:border-indigo-400"
       />
 
       <!-- Campo de Contraseña -->

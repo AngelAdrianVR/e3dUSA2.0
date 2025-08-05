@@ -4,8 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// redireccion al Estado de carga de la aplicación
-Route::redirect('/', 'inicio');
+
 
 // Estado de carga de la aplicación
 Route::get('/inicio', function () {
@@ -14,7 +13,7 @@ Route::get('/inicio', function () {
 
 // Rutas de autenticación
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
+    return Inertia::render('Auth/Inicio', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,

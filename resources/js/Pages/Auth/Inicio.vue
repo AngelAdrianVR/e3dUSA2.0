@@ -1,10 +1,11 @@
 <template>
+<Head title="Bienvenido" />
   <div class="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-800 via-gray-600 to-slate-300">
     <div class="relative w-48 h-48 md:w-56 md:h-56 flex items-center justify-center">
       
       <div class="spinning-border absolute inset-0 rounded-full border-8 border-transparent"></div>
 
-      <figure class="w-40 h-32 md:w-48 md:h-36 p-2 bg-white dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center">
+      <figure class="w-40 h-32 md:w-48 md:h-36 p-2 bg-gray-100 dark:bg-gray-800 rounded-full shadow-lg flex items-center justify-center">
         <img class="w-full h-full object-contain rounded-full" 
              src="/images/isoLogoEmblems.png" 
              alt="Logo de la Empresa" />
@@ -16,7 +17,7 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
+import { router, Head, Link } from '@inertiajs/vue3';
 
 onMounted(() => {
   setTimeout(() => {
