@@ -25,6 +25,9 @@ export default {
                 gray1: '#9A9A9A',
                 gray2: '#D9D9D9',
             },
+            animation: {
+                'ping-delay': 'ping 1s cubic-bezier(0, 0, 0.2, 1) infinite 0.5s',
+            }
         },
     },
 

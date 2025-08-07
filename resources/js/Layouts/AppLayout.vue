@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -8,12 +8,23 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import SideNav from "@/Components/MyComponents/SideNav.vue";
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue";
 
 defineProps({
     title: String,
 });
 
 const showingNavigationDropdown = ref(false);
+const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
+const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
+
+
+const toggleDarkMode = () => {
+    isDarkMode.value = !isDarkMode.value;
+    darkModeSwitch.value = isDarkMode.value;
+    localStorage.setItem('darkMode', isDarkMode.value); // Guardar el estado en localStorage+
+    document.documentElement.classList.toggle('dark', isDarkMode.value);
+};
 
 const switchToTeam = (team) => {
     router.put(route('current-team.update'), {
@@ -26,6 +37,11 @@ const switchToTeam = (team) => {
 const logout = () => {
     router.post(route('logout'));
 };
+
+onMounted(() => {
+  document.documentElement.classList.toggle('dark', isDarkMode.value);
+});
+
 </script>
 
 <template>
@@ -34,13 +50,13 @@ const logout = () => {
 
         <Banner />
 
-        <div class="overflow-hidden h-screen bg-[#F2F2F2] dark:bg-[#0D0D0D] md:grid md:grid-cols-12">
+        <div class="overflow-hidden h-screen bg-[#F2F2F2] dark:bg-zinc-700 md:grid md:grid-cols-12">
             <aside>
                 <SideNav />
             </aside>
             
             <main class="md:col-span-11">
-                <nav class="bg-white border-b border-gray-100">
+                <nav class="bg-white border-b dark:bg-zinc-900 border-gray-200 dark:border-slate-700">
                     <!-- Primary Navigation Menu -->
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div class="flex justify-between h-16">
@@ -60,7 +76,40 @@ const logout = () => {
                                 </div>
                             </div>
 
-                            <div class="hidden sm:flex sm:items-center sm:ms-6">
+                            <div class="hidden sm:flex sm:items-center sm:ms-6 transition duration-300 space-x-1">
+                                <!-- Dark mode toggle -->
+                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                                    <ThemeToggleSwitch2 v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
+                                </div>
+
+                                 <!-- calendario -->
+                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
+                                    <el-tooltip content="Calendario">
+                                        <!-- <Link :href="route('calendars.index')"> -->
+                                        <button class="flex justify-center items-center size-14 p-2">
+                                            <img src="/images/calendar_3d.png" alt="" class="w-full">
+                                        </button>
+                                        <!-- </Link> -->
+                                    </el-tooltip>
+                                    <!-- <i v-if="$page.props.auth.user?.notifications?.some(notification => {
+                                        return notification.data.module === 'calendar';
+                                    })" class="fa-solid fa-circle fa-flip text-primary text-sm absolute -top-2 -right-0"></i> -->
+                                </div>
+
+                                <!-- chat -->
+                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
+                                    <el-tooltip v-if="$page.props.auth.user?.permissions?.includes('Chatear') || true" content="Chat"
+                                        placement="bottom">
+                                        <a :href="'#'" target="_blank" class="size-14 flex justify-center items-center p-2">
+                                            <img src="/images/chat_3d.png" alt="" class="w-full">
+                                        </a>
+                                    </el-tooltip>
+                                    <div v-if="unseenMessages > 0"
+                                        class="absolute bottom-6 right-4 bg-primary text-white w-4 h-4 flex items-center justify-center text-[10px] rounded-full">
+                                        {{ unseenMessages }}
+                                    </div>
+                                </div>
+
                                 <div class="ms-3 relative">
                                     <!-- Teams Dropdown -->
                                     <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
@@ -167,6 +216,12 @@ const logout = () => {
 
                             <!-- Hamburger -->
                             <div class="-me-2 flex items-center sm:hidden">
+
+                                <!-- Dark mode toggle -->
+                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition duration-300">
+                                    <ThemeToggleSwitch2 v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
+                                </div>
+
                                 <button class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out" @click="showingNavigationDropdown = ! showingNavigationDropdown">
                                     <svg
                                         class="size-6"
@@ -279,16 +334,10 @@ const logout = () => {
                     </div>
                 </nav>
 
-                <!-- Page Heading -->
-                <!-- <header v-if="$slots.header" class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        <slot name="header" />
-                    </div>
-                </header> -->
-
                 <!-- Page Content -->
-            
-                <slot />
+                <div class="">
+                    <slot />
+                </div>
             </main>
         </div>
     </div>

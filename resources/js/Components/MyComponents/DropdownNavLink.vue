@@ -1,25 +1,30 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 
 defineProps({
     href: String,
-    active: Boolean, // Aunque no se usa en el original, es bueno tenerlo
+    as: String,
+    notifications: Boolean,
 });
+
+const hovering = ref(false);
+
+const iconClass = computed(() => {
+  return 'fa-solid fa-circle fa-flip text-' + (hovering.value ? 'white' : 'primary') + ' text-[7px]';
+});
+
 </script>
 
 <template>
-    <Link 
-        :href="href"
-        class="
-            flex items-center w-full px-3 py-1.5 rounded
-            text-sm font-medium text-slate-400
-            transition-colors duration-200
-            hover:text-white hover:bg-slate-700/50
-            focus:outline-none focus:text-white focus:bg-slate-700
-        "
-    >
-        <!-- Pequeño punto como viñeta -->
-        <span class="w-1.5 h-1.5 mr-3 bg-slate-600 rounded-full"></span>
-        <slot />
-    </Link>
+    <div>
+        <Link @mouseenter="hovering = true" @mouseleave="hovering = false" :href="href"
+            class=" w-full px-3 py-2 text-sm leading-5 text-gray-700 dark:text-gray-300
+                   hover:bg-primary hover:text-white dark:hover:bg-primary
+                   focus:outline-none focus:bg-primary focus:text-white
+                   transition duration-150 ease-in-out flex justify-between items-center rounded-md">
+            <slot />
+            <i v-if="notifications" :class="iconClass"></i>
+        </Link>
+    </div>
 </template>

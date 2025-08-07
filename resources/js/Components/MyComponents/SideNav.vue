@@ -1,40 +1,95 @@
 <template>
-    <aside class="h-screen hidden md:block shadow-2xl relative w-24">
-        <!-- Fondo oscuro y tecnológico -->
-        <div class="bg-slate-900 h-full overflow-y-auto overflow-x-hidden">
-            <nav class="pt-4 px-2 relative">
-                
-                <!-- Borde verde animado -->
-                <div 
-                    class="absolute left-0 w-1 h-[56px] bg-red-500 rounded-r-full shadow-[0_0_15px_rgba(200,0,0,0.9)]
-                           transition-transform duration-500 ease-in-out"
-                    :style="indicatorStyle"
-                ></div>
+    <!-- sideNav -->
+    <div class="h-screen hidden md:block p-3 bg-white dark:bg-zinc-900">
+        <div class="bg-gray-100 dark:bg-zinc-800 h-full rounded-2xl flex flex-col p-2 relative mx-1">
+            <div class="">
+                <figure class="size-16 mb-3 mx-auto relative p-2">
+                    <img class="w-full h-full object-contain rounded-full" 
+                         src="/images/isoLogoEmblems.png" 
+                         alt="Logo de la Empresa" />
+                    
+                    <div v-if="loading" 
+                         class="absolute inset-0 rounded-full animate-spin
+                                border-2 border-blue-500 border-t-red-500">
+                    </div>
+                </figure>
+            </div>
+            <nav class="flex flex-col h-full">
+                <div @click="showModal = true" v-if="$page.props.auth.user?.employee_properties"
+                    class="cursor-pointer hover:underline mb-4 p-2 items-center font-semibold text-xs text-[#0355B5] flex flex-col text-center">
+                    <span>Horas / semana</span>
+                    <span>{{ '$page.props.week_time.formatted' }} / {{
+                       ' $page.props.auth.user?.employee_properties?.hours_per_week_formatted' ?? '0 h' }}</span>
+                </div>
 
-                <!-- Itera sobre los menús -->
-                <div class="space-y-2">
-                    <template v-for="menu in menus" :key="menu.label">
-                        <SideNavLink v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown">
+                <div class="space-y-2 mx-auto">
+                    <template v-for="(menu, index) in topMenus" :key="'top-' + index">
+                        <SideNavLink class="relative" v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown" :label="menu.label">
                             <template #trigger>
                                 <span v-html="menu.icon"></span>
-                                <span class="mt-1 text-[10px] font-bold tracking-wider">
-                                    {{ menu.label }}
-                                </span>
-                                <i v-if="menu.notifications" class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></i>
+                                <div v-if="menu.notifications"
+                                    class="absolute top-1 right-1">
+                                    <span class="relative flex h-2.5 w-2.5">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                                    </span>
+                                </div>
                             </template>
                             <template #content>
-                                <div v-for="option in menu.options" :key="option.label">
-                                    <DropdownNavLink v-if="option.show" :href="route(option.route)">
-                                        {{ option.label }}
-                                    </DropdownNavLink>
+                                <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
+                                <div class="border-t border-gray-200 dark:border-zinc-700"></div>
+                                <div class="p-1 space-y-1">
+                                    <div v-for="option in menu.options" :key="option.route">
+                                        <DropdownNavLink v-if="option.show" :href="route(option.route)"
+                                            :notifications="option.notifications">
+                                            {{ option.label }}
+                                        </DropdownNavLink>
+                                    </div>
                                 </div>
                             </template>
                         </SideNavLink>
                     </template>
                 </div>
+
+                <div class="mt-auto space-y-2 pt-4">
+                    <template v-for="(menu, index) in bottomMenus" :key="'bottom-' + index">
+                        <SideNavLink v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown" :label="menu.label">
+                            <template #trigger>
+                                <span v-html="menu.icon"></span>
+                                <i v-if="menu.notifications" class="fa-solid fa-circle fa-flip text-primary text-[10px] absolute top-1 right-1"></i>
+                            </template>
+                            <template #content>
+                               <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
+                               <div class="border-t border-gray-200 dark:border-zinc-700"></div>
+                               <div class="p-1 space-y-1">
+                                 <div v-for="option in menu.options" :key="option.route">
+                                     <DropdownNavLink v-if="option.show" :href="route(option.route)"
+                                         :notifications="option.notifications">
+                                         {{ option.label }}
+                                     </DropdownNavLink>
+                                 </div>
+                               </div>
+                            </template>
+                        </SideNavLink>
+                    </template>
+                    
+                    <!-- Avatar de usuario -->
+                    <div class="text-center w-full flex justify-center mb-4 border-t-2 border-gray-300 dark:border-zinc-700 pt-4">
+                        <button v-if="$page.props.jetstream.managesProfilePhotos"
+                            @click="showProfileCard = !showProfileCard"
+                            class="flex items-center space-x-2 text-sm border-2 rounded-full focus:outline-none transition"
+                            :class="{ 'border-primary': showProfileCard, 'border-transparent': !showProfileCard }">
+                            <div class="flex items-center p-1">
+                                <img class="size-11 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url"
+                                    :alt="$page.props.auth.user.name">
+                            </div>
+                        </button>
+                        <ProfileCard v-if="showProfileCard" @close="showProfileCard = false" class="bottom-0 left-[calc(100%+0.3rem)]" />
+                    </div>
+                </div>
             </nav>
         </div>
-    </aside>
+    </div>
 
     <DialogModal :show="showModal" @close="showModal = false">
         <template #title>
@@ -65,6 +120,7 @@
 import SideNavLink from "@/Components/MyComponents/SideNavLink.vue";
 import DropdownNavLink from "@/Components/MyComponents/DropdownNavLink.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import ProfileCard from './ProfileCard.vue';
 // import PayrollTemplate from "@/Components/MyComponents/payrollTemplate.vue";
 import DialogModal from "@/Components/DialogModal.vue";
 
@@ -82,18 +138,16 @@ export default {
                     dropdown: false,
                     show: true
                 },
-                {
-                    label: 'Catálogo de productos',
-                    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>',
-                    route: route('dashboard'),
-                    // route: route('catalog-products.index'),
-                    active: route().current('catalog-products.*'),
-                    notifications: false,
-                    options: [],
-                    dropdown: false,
-                    show: true
-                    // show: this.$page.props.auth.user.permissions.includes('Ver catalogo de productos')
-                },
+                // {
+                //     label: 'Catálogo de productos',
+                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>',
+                //     route: route('catalog-products.index'),
+                //     active: route().current('catalog-products.*'),
+                //     notifications: false,
+                //     options: [],
+                //     dropdown: false,
+                //     show: this.$page.props.auth.user.permissions.includes('Ver catalogo de productos')
+                // },
                 // {
                 //     label: 'CRM',
                 //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" /></svg>',
@@ -183,18 +237,18 @@ export default {
                     options: [
                         {
                             label: 'Proveedores',
-                            route: 'login',
+                            route: 'dashboard',
                             show: true,
                             // route: 'suppliers.index',
                             // show: this.$page.props.auth.user.permissions.includes('Ver proveedores'),
                             // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                                // return notification.data.module === 'suppler';
+                            //     return notification.data.module === 'suppler';
                             // }),
                             notifications: false,
                         },
                         {
                             label: 'Órdenes de compra',
-                            route: 'login',
+                            route: 'dashboard',
                             show: true,
                             // route: 'purchases.index',
                             // show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
@@ -205,9 +259,9 @@ export default {
 
                     ],
                     dropdown: true,
-                    show: true
+                    show: true,
                     // show: this.$page.props.auth.user.permissions.includes('Ver proveedores') ||
-                        // this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
+                    //     this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
                 },
                 // {
                 //     label: 'Logistica',
@@ -534,51 +588,53 @@ export default {
             showModal: false,
             payrollId: null,
             payrolls: null,
+            showProfileCard: false,
+        }
+    },
+    props: {
+        loading: {
+            type: Boolean,
+            default: false,
         }
     },
     components: {
-        SideNavLink,
         DropdownNavLink,
-        DialogModal,
         CancelButton,
+        ProfileCard,
+        SideNavLink,
+        DialogModal,
         // PayrollTemplate
     },
     computed: {
-        /**
-         * Encuentra el índice del menú activo para posicionar el borde.
-         */
-        activeIndex() {
-            const index = this.menus.findIndex(menu => menu.active && menu.show);
-            return index > -1 ? index : 0; // Por defecto en el primer elemento si no hay ninguno activo
+        // Separa los menús que irán en la parte inferior
+        bottomMenus() {
+            const bottomLabels = ['Más', 'Configuración'];
+            return this.menus.filter(menu => bottomLabels.includes(menu.label));
         },
-
-        /**
-         * Calcula el estilo 'transform' para mover el borde verde.
-         * 72px es la altura de cada SideNavLink.
-         */
-        indicatorStyle() {
-            return {
-                transform: `translateY(${this.activeIndex * 72}px)`,
-            };
+        // Filtra los menús que no están en la parte inferior
+        topMenus() {
+            const bottomLabels = ['Más', 'Configuración'];
+            return this.menus.filter(menu => !bottomLabels.includes(menu.label));
         }
     },
     methods: {
-        async getAllPayrolls() {
-            try {
-                const response = await axios.post(route('payrolls.get-all-payrolls'));
+        // async getAllPayrolls() {
+        //     try {
+        //         const response = await axios.post(route('payrolls.get-all-payrolls'));
 
-                if (response.status === 200) {
-                    this.payrolls = response.data.items;
-                    this.payrollId = this.payrolls[0].id;
-                }
+        //         if (response.status === 200) {
+        //             this.payrolls = response.data.items;
+        //             this.payrollId = this.payrolls[0].id;
+        //         }
 
-            } catch (error) {
-                console.log(error.message);
-            }
-        }
+        //     } catch (error) {
+        //         console.log(error.message);
+        //     }
+        // }
     },
     mounted() {
-        this.getAllPayrolls();
+        // this.getAllPayrolls();
+
     }
 }
 </script>
