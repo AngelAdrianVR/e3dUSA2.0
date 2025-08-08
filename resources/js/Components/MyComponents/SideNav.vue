@@ -87,7 +87,7 @@
                             class="flex items-center space-x-2 text-sm border-2 rounded-full focus:outline-none transition"
                             :class="{ 'border-primary': showProfileCard || route().current('profile.*'), 'border-transparent': !showProfileCard && !route().current('profile.*') }">
                             <div class="flex items-center p-1">
-                                <img class="size-11 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url"
+                                <img class="size-14 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url"
                                     :alt="$page.props.auth.user.name">
                             </div>
                         </button>
@@ -389,7 +389,7 @@ export default {
                         // route().current('payrolls.*')
                         // || route().current('admin-additional-times.*')
                          route().current('users.*')
-                        // || route().current('role-permission.*')
+                        || route().current('role-permissions.*')
                         || route().current('bonuses.*')
                         // || route().current('holidays.*')
                         || route().current('discounts.*'),
@@ -417,32 +417,30 @@ export default {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),
-                            show: true,
-                            // show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
                             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                                 return notification.data.module === 'user';
                             }),
                         },
-                        // {
-                        //     label: 'Roles y permisos',
-                        //     route: 'role-permission.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver roles y permisos'),
-                        //     notifications: false,
-                        // },
+                        {
+                            label: 'Roles y permisos',
+                            route: 'role-permissions.index',
+                            active: route().current('role-permissions.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver roles y permisos'),
+                            notifications: false,
+                        },
                         {
                             label: 'Bonos',
                             route: 'bonuses.index',
                             active: route().current('bonuses.*'),
-                            show: true,
-                            // show: this.$page.props.auth.user.permissions?.includes('Ver bonos'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver bonos'),
                             notifications: false,
                         },
                         {
                             label: 'Descuentos',
                             route: 'discounts.index',
                             active: route().current('discounts.*'),
-                            show: true,
-                            // show: this.$page.props.auth.user.permissions?.includes('Ver descuentos')
+                            show: this.$page.props.auth.user.permissions?.includes('Ver descuentos')
                         },
                         // {
                         //     label: 'Dias festivos',
@@ -452,12 +450,12 @@ export default {
                         // },
                     ],
                     dropdown: true,
-                    show: true
-                    // show: this.$page.props.auth.user.permissions.includes('Ver nominas') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver roles y permisos') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver bonos') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver dias festivos')
+                    show: 
+                        this.$page.props.auth.user.permissions.includes('Ver roles y permisos') 
+                        || this.$page.props.auth.user.permissions.includes('Ver bonos') 
+                        // this.$page.props.auth.user.permissions.includes('Ver nominas') 
+                        // || this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') 
+                        // || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                 },
                 // {
                 //     label: 'Diseño',

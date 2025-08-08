@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -66,5 +68,17 @@ Route::resource('discounts', DiscountController::class)->middleware('auth');
 Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');
 
 
-// ------- Recursos humanos(Discounts Routes)  ---------
+// ------- Historial de acciones rutas  ---------
 Route::get('/audits', [AuditController::class, 'index'])->name('audits.index');
+
+
+// ------- Roles rutas  ---------
+Route::resource('role-permissions', RolePermissionController::class)
+->only(['index', 'store', 'update', 'destroy'])
+->middleware(['auth', 'verified']);
+
+
+// ------- Permisos rutas  ---------
+Route::resource('permissions', PermissionController::class)
+    ->only(['store', 'update', 'destroy'])
+    ->middleware(['auth', 'verified']);
