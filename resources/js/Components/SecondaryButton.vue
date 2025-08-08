@@ -18,7 +18,7 @@ defineProps({
         :disabled="loading"
         class="
             relative inline-flex items-center justify-center px-6 py-2.5 overflow-hidden
-            bg-secondary border border-transparent rounded-lg 
+            bg-secondary border border-transparent rounded-xl 
             font-semibold text-sm text-white tracking-widest 
             transition-all duration-300 ease-in-out
             hover:bg-blue-800 hover:shadow-lg

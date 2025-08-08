@@ -22,13 +22,20 @@
                        ' $page.props.auth.user?.employee_properties?.hours_per_week_formatted' ?? '0 h' }}</span>
                 </div>
 
-                <div class="space-y-2 mx-auto">
+                <div class="space-y-1 mx-auto">
                     <template v-for="(menu, index) in topMenus" :key="'top-' + index">
                         <SideNavLink class="relative" v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown" :label="menu.label">
                             <template #trigger>
+                                <div v-if="menu.active" class="absolute left-0 h-7 w-1 rounded-r-md bg-blue-700 dark:bg-blue-300
+                                    dark:shadow-[0_0_8px_5px_rgba(50,50,255,0.9)] 
+                                    before:content-[''] before:absolute before:inset-0 
+                                    before:rounded-r-md before:blur-md 
+                                    before:bg-secondary before:opacity-50 
+                                    ">
+                                </div>
                                 <span v-html="menu.icon"></span>
                                 <div v-if="menu.notifications"
-                                    class="absolute top-1 right-1">
+                                    class="absolute top-2 right-2">
                                     <span class="relative flex h-2.5 w-2.5">
                                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
@@ -78,7 +85,7 @@
                         <button v-if="$page.props.jetstream.managesProfilePhotos"
                             @click="showProfileCard = !showProfileCard"
                             class="flex items-center space-x-2 text-sm border-2 rounded-full focus:outline-none transition"
-                            :class="{ 'border-primary': showProfileCard, 'border-transparent': !showProfileCard }">
+                            :class="{ 'border-primary': showProfileCard || route().current('profile.*'), 'border-transparent': !showProfileCard && !route().current('profile.*') }">
                             <div class="flex items-center p-1">
                                 <img class="size-11 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url"
                                     :alt="$page.props.auth.user.name">
@@ -375,75 +382,78 @@ export default {
                 //         this.$page.props.auth.user.permissions.includes('Ver producto terminado') ||
                 //         this.$page.props.auth.user.permissions.includes('Ver scrap')
                 // },
-                // {
-                //     label: 'Recursos Humanos',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>',
-                //     active: route().current('payrolls.*')
-                //         || route().current('admin-additional-times.*')
-                //         || route().current('users.*')
-                //         || route().current('role-permission.*')
-                //         || route().current('bonuses.*')
-                //         || route().current('holidays.*')
-                //         || route().current('discounts.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
-                //     }),
-                //     options: [
-                //         {
-                //             label: 'Nóminas',
-                //             route: 'payrolls.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver nominas'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'payroll';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Solicitudes de tiempo adicional',
-                //             route: 'admin-additional-times.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'admin-additional-time';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Personal',
-                //             route: 'users.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver personal'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'user';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Roles y permisos',
-                //             route: 'role-permission.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver roles y permisos'),
-                //             notifications: false,
-                //         },
-                //         {
-                //             label: 'Bonos',
-                //             route: 'bonuses.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver bonos'),
-                //             notifications: false,
-                //         },
-                //         {
-                //             label: 'Descuentos',
-                //             route: 'discounts.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver descuentos')
-                //         },
-                //         {
-                //             label: 'Dias festivos',
-                //             route: 'holidays.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
-                //             notifications: false,
-                //         },
-                //     ],
-                //     dropdown: true,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver nominas') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver roles y permisos') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver bonos') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver dias festivos')
-                // },
+                {
+                    label: 'Recursos Humanos',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>',
+                    active: 
+                        // route().current('payrolls.*')
+                        // || route().current('admin-additional-times.*')
+                         route().current('users.*'),
+                        // || route().current('role-permission.*')
+                        // || route().current('bonuses.*')
+                        // || route().current('holidays.*')
+                        // || route().current('discounts.*'),
+                    notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                        return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
+                    }),
+                    options: [
+                        // {
+                        //     label: 'Nóminas',
+                        //     route: 'payrolls.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver nominas'),
+                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                        //         return notification.data.module === 'payroll';
+                        //     }),
+                        // },
+                        // {
+                        //     label: 'Solicitudes de tiempo adicional',
+                        //     route: 'admin-additional-times.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional'),
+                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                        //         return notification.data.module === 'admin-additional-time';
+                        //     }),
+                        // },
+                        {
+                            label: 'Personal',
+                            route: 'users.index',
+                            show: true,
+                            // show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
+                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                                return notification.data.module === 'user';
+                            }),
+                        },
+                        // {
+                        //     label: 'Roles y permisos',
+                        //     route: 'role-permission.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver roles y permisos'),
+                        //     notifications: false,
+                        // },
+                        // {
+                        //     label: 'Bonos',
+                        //     route: 'bonuses.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver bonos'),
+                        //     notifications: false,
+                        // },
+                        // {
+                        //     label: 'Descuentos',
+                        //     route: 'discounts.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver descuentos')
+                        // },
+                        // {
+                        //     label: 'Dias festivos',
+                        //     route: 'holidays.index',
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
+                        //     notifications: false,
+                        // },
+                    ],
+                    dropdown: true,
+                    show: true
+                    // show: this.$page.props.auth.user.permissions.includes('Ver nominas') ||
+                    //     this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') ||
+                    //     this.$page.props.auth.user.permissions.includes('Ver roles y permisos') ||
+                    //     this.$page.props.auth.user.permissions.includes('Ver bonos') ||
+                    //     this.$page.props.auth.user.permissions.includes('Ver dias festivos')
+                },
                 // {
                 //     label: 'Diseño',
                 //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" /></svg>',

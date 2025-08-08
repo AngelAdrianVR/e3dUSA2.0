@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, nextTick } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -17,6 +17,9 @@ defineProps({
 const showingNavigationDropdown = ref(false);
 const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
 const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
+const isFocused = ref(false); // Variable para controlar el estado del input de búsqueda
+const searchInput = ref(null); // Referencia al input de búsqueda global
+const unseenMessages = ref(null); // Variable para contar los mensajes no leídos
 
 
 const toggleDarkMode = () => {
@@ -32,6 +35,18 @@ const switchToTeam = (team) => {
     }, {
         preserveState: false,
     });
+};
+
+const openSearch = async () => {
+  isFocused.value = true;
+  // Espera a que Vue actualice el DOM para que el input sea visible
+  await nextTick(); 
+  // Ahora enfoca el input
+  searchInput.value.focus();
+};
+
+const closeSearch = () => {
+  isFocused.value = false;
 };
 
 const logout = () => {
@@ -50,32 +65,16 @@ onMounted(() => {
 
         <Banner />
 
-        <div class="overflow-hidden h-screen bg-[#F2F2F2] dark:bg-zinc-700 md:grid md:grid-cols-12">
+        <div class="overflow-hidden h-screen bg-white dark:bg-zinc-900 md:grid md:grid-cols-12">
             <aside>
                 <SideNav />
             </aside>
             
-            <main class="md:col-span-11">
-                <nav class="bg-white border-b dark:bg-zinc-900 border-gray-200 dark:border-slate-700">
+            <section class="md:col-span-11">
+                <nav class="bg-white dark:bg-zinc-900 dark:border-slate-700">
                     <!-- Primary Navigation Menu -->
                     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div class="flex justify-between h-16">
-                            <div class="flex">
-                                <!-- Logo -->
-                                <div class="shrink-0 flex items-center">
-                                    <Link :href="route('dashboard')">
-                                        <ApplicationMark class="block h-9 w-auto" />
-                                    </Link>
-                                </div>
-
-                                <!-- Navigation Links -->
-                                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                                    <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                        Dashboard
-                                    </NavLink>
-                                </div>
-                            </div>
-
+                        <div class="flex justify-end h-14">
                             <div class="hidden sm:flex sm:items-center sm:ms-6 transition duration-300 space-x-1">
                                 <!-- Dark mode toggle -->
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
@@ -86,8 +85,8 @@ onMounted(() => {
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
                                     <el-tooltip content="Calendario">
                                         <!-- <Link :href="route('calendars.index')"> -->
-                                        <button class="flex justify-center items-center size-14 p-2">
-                                            <img src="/images/calendar_3d.png" alt="" class="w-full">
+                                        <button class="flex justify-center items-center size-14 p-3">
+                                            <img src="/images/calendar_3d.webp" alt="" class="w-full">
                                         </button>
                                         <!-- </Link> -->
                                     </el-tooltip>
@@ -100,8 +99,8 @@ onMounted(() => {
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
                                     <el-tooltip v-if="$page.props.auth.user?.permissions?.includes('Chatear') || true" content="Chat"
                                         placement="bottom">
-                                        <a :href="'#'" target="_blank" class="size-14 flex justify-center items-center p-2">
-                                            <img src="/images/chat_3d.png" alt="" class="w-full">
+                                        <a :href="'#'" target="_blank" class="size-14 flex justify-center items-center p-3">
+                                            <img src="/images/chat_3d.webp" alt="" class="w-full">
                                         </a>
                                     </el-tooltip>
                                     <div v-if="unseenMessages > 0"
@@ -110,107 +109,53 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <div class="ms-3 relative">
-                                    <!-- Teams Dropdown -->
-                                    <Dropdown v-if="$page.props.jetstream.hasTeamFeatures" align="right" width="60">
-                                        <template #trigger>
-                                            <span class="inline-flex rounded-md">
-                                                <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none focus:bg-gray-50 active:bg-gray-50 transition ease-in-out duration-150">
-                                                    {{ $page.props.auth.user.current_team.name }}
+                                <!-- Buscador global -->
+                                <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
+                                    <!-- Contenedor del input y el ícono interno -->
+                                    <div 
+                                        class="relative transition-all duration-500 ease-in-out"
+                                        :class="isFocused ? 'w-64' : 'w-10'"
+                                    >
+                                        <!-- El input de búsqueda -->
+                                        <input
+                                            ref="searchInput"
+                                            type="text"
+                                            placeholder="Buscar..."
+                                            @blur="closeSearch"
+                                            class="
+                                                w-full h-9 pl-10 pr-4 rounded-full border 
+                                                text-sm transition-all duration-300 ease-in-out
+                                                bg-gray-100 dark:bg-slate-700 
+                                                border-gray-200 dark:border-slate-600
+                                                text-gray-700 dark:text-gray-200
+                                                focus:outline-none focus:ring-1 focus:ring-blue-500
+                                            "
+                                            :class="{ 'opacity-100': isFocused, 'opacity-0': !isFocused }"
+                                        />
+                                        <!-- Ícono de lupa dentro del input (siempre visible) -->
+                                        <div class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                        </div>
+                                    </div>
 
-                                                    <svg class="ms-2 -me-0.5 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
-                                                    </svg>
-                                                </button>
-                                            </span>
-                                        </template>
-
-                                        <template #content>
-                                            <div class="w-60">
-                                                <!-- Team Management -->
-                                                <div class="block px-4 py-2 text-xs text-gray-400">
-                                                    Manage Team
-                                                </div>
-
-                                                <!-- Team Settings -->
-                                                <DropdownLink :href="route('teams.show', $page.props.auth.user.current_team)">
-                                                    Team Settings
-                                                </DropdownLink>
-
-                                                <DropdownLink v-if="$page.props.jetstream.canCreateTeams" :href="route('teams.create')">
-                                                    Create New Team
-                                                </DropdownLink>
-
-                                                <!-- Team Switcher -->
-                                                <template v-if="$page.props.auth.user.all_teams.length > 1">
-                                                    <div class="border-t border-gray-200" />
-
-                                                    <div class="block px-4 py-2 text-xs text-gray-400">
-                                                        Switch Teams
-                                                    </div>
-
-                                                    <template v-for="team in $page.props.auth.user.all_teams" :key="team.id">
-                                                        <form @submit.prevent="switchToTeam(team)">
-                                                            <DropdownLink as="button">
-                                                                <div class="flex items-center">
-                                                                    <svg v-if="team.id == $page.props.auth.user.current_team_id" class="me-2 size-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                                    </svg>
-
-                                                                    <div>{{ team.name }}</div>
-                                                                </div>
-                                                            </DropdownLink>
-                                                        </form>
-                                                    </template>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </Dropdown>
-                                </div>
-
-                                <!-- Settings Dropdown -->
-                                <div class="ms-3 relative">
-                                    <Dropdown align="right" width="48">
-                                        <template #trigger>
-                                            <button v-if="$page.props.jetstream.managesProfilePhotos" class="flex text-sm border-2 border-transparent rounded-full focus:outline-none focus:border-gray-300 transition">
-                                                <img class="size-8 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url" :alt="$page.props.auth.user.name">
-                                            </button>
-
-                                            <span v-else class="inline-flex rounded-md">
-                                                <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none focus:bg-gray-50 active:bg-gray-50 transition ease-in-out duration-150">
-                                                    {{ $page.props.auth.user.name }}
-
-                                                    <svg class="ms-2 -me-0.5 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                                                    </svg>
-                                                </button>
-                                            </span>
-                                        </template>
-
-                                        <template #content>
-                                            <!-- Account Management -->
-                                            <div class="block px-4 py-2 text-xs text-gray-400">
-                                                Manage Account
-                                            </div>
-
-                                            <DropdownLink :href="route('profile.show')">
-                                                Profile
-                                            </DropdownLink>
-
-                                            <DropdownLink v-if="$page.props.jetstream.hasApiFeatures" :href="route('api-tokens.index')">
-                                                API Tokens
-                                            </DropdownLink>
-
-                                            <div class="border-t border-gray-200" />
-
-                                            <!-- Authentication -->
-                                            <form @submit.prevent="logout">
-                                                <DropdownLink as="button">
-                                                    Log Out
-                                                </DropdownLink>
-                                            </form>
-                                        </template>
-                                    </Dropdown>
+                                    <!-- Botón de la lupa que activa el buscador -->
+                                    <!-- Se oculta cuando el buscador está abierto -->
+                                    <button
+                                        v-if="!isFocused"
+                                        @click="openSearch"
+                                        class="
+                                            absolute top-0 left-0 flex items-center justify-center h-9 w-9 rounded-full ml-5
+                                            text-gray-500 dark:text-gray-400 
+                                            bg-gray-200 dark:bg-slate-700
+                                            transition-opacity duration-300
+                                        "
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </button>
                                 </div>
                             </div>
 
@@ -335,10 +280,10 @@ onMounted(() => {
                 </nav>
 
                 <!-- Page Content -->
-                <div class="">
+                <div class="overflow-auto h-[calc(100vh-4rem)] rounded-l-3xl z-50 bg-[#f2f2f2] dark:bg-zinc-700">
                     <slot />
                 </div>
-            </main>
+            </section>
         </div>
     </div>
 </template>
