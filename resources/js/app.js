@@ -11,10 +11,6 @@ import ElementPlus from 'element-plus';
 import es from 'element-plus/dist/locale/es.js';
 import 'element-plus/dist/index.css';
 
-//primevue
-import PrimeVue from 'primevue/config';
-import Aura from '@primeuix/themes/aura';
-
 // apexcharts
 import VueApexCharts from 'vue3-apexcharts';
 
@@ -28,11 +24,6 @@ createInertiaApp({
             .use(plugin)
             .use(ZiggyVue)
             .use(ElementPlus, { es })
-            .use(PrimeVue, {
-                theme: {
-                    preset: Aura
-                }
-            })
             .use(VueApexCharts)
             .mount(el);
     },

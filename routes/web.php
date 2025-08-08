@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\BonusController;
+use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -51,3 +53,13 @@ Route::post('users-read-notifications', [UserController::class, 'readNotificatio
 Route::post('users-delete-notifications', [UserController::class, 'deleteNotifications'])->middleware('auth')->name('users.delete-notifications');
 Route::get('users-get-all', [UserController::class, 'getAllUsers'])->middleware('auth')->name('users.get-all');
 Route::get('users-get-operators', [UserController::class, 'getOperators'])->middleware('auth')->name('users.get-operators');
+
+
+// ------- Recursos humanos(Bonuses Routes)  ---------
+Route::resource('bonuses', BonusController::class)->middleware('auth');
+Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])->name('bonuses.massive-delete');
+
+
+// ------- Recursos humanos(Discounts Routes)  ---------
+Route::resource('discounts', DiscountController::class)->middleware('auth');
+Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');

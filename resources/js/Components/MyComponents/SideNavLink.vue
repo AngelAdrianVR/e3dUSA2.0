@@ -44,7 +44,7 @@ const classes = computed(() => {
     const baseClasses = 'relative flex items-center justify-center size-12 rounded-lg transition-colors duration-200';
     
     if (props.active) {
-        return `${baseClasses} bg-zinc-400 dark:bg-zinc-600 text-white shadow-lg`;
+        return `${baseClasses} bg-gray-200 dark:bg-zinc-600 text-gray-600 dark:text-gray-200 shadow-lg`;
     }
     
     return `${baseClasses} text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-700`;

@@ -43,9 +43,9 @@
                                 </div>
                             </template>
                             <template #content>
-                                <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
-                                <div class="border-t border-gray-200 dark:border-zinc-700"></div>
-                                <div class="p-1 space-y-1">
+                                <div class="px-3 py-2 text-sm font-semibold bg-[#EAEAEA] dark:bg-zinc-800 text-gray-900 dark:text-white">{{ menu.label }}</div>
+                                <div class="border-t border-gray-300 dark:border-zinc-100"></div>
+                                <div class="p-1 space-y-1 bg-[#f2f2f2] dark:bg-zinc-800">
                                     <div v-for="option in menu.options" :key="option.route">
                                         <DropdownNavLink v-if="option.show" :href="route(option.route)"
                                             :notifications="option.notifications">
@@ -66,16 +66,16 @@
                                 <i v-if="menu.notifications" class="fa-solid fa-circle fa-flip text-primary text-[10px] absolute top-1 right-1"></i>
                             </template>
                             <template #content>
-                               <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
-                               <div class="border-t border-gray-200 dark:border-zinc-700"></div>
-                               <div class="p-1 space-y-1">
-                                 <div v-for="option in menu.options" :key="option.route">
-                                     <DropdownNavLink v-if="option.show" :href="route(option.route)"
-                                         :notifications="option.notifications">
-                                         {{ option.label }}
-                                     </DropdownNavLink>
-                                 </div>
-                               </div>
+                                <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
+                                <div class="border-t border-gray-200 dark:border-zinc-700"></div>
+                                <div class="p-1 space-y-1">
+                                    <div v-for="option in menu.options" :key="option.route">
+                                        <DropdownNavLink v-if="option.show" :href="route(option.route)"
+                                            :notifications="option.notifications">
+                                            {{ option.label }}
+                                        </DropdownNavLink>
+                                    </div>
+                                </div>
                             </template>
                         </SideNavLink>
                     </template>
@@ -388,11 +388,11 @@ export default {
                     active: 
                         // route().current('payrolls.*')
                         // || route().current('admin-additional-times.*')
-                         route().current('users.*'),
+                         route().current('users.*')
                         // || route().current('role-permission.*')
-                        // || route().current('bonuses.*')
+                        || route().current('bonuses.*')
                         // || route().current('holidays.*')
-                        // || route().current('discounts.*'),
+                        || route().current('discounts.*'),
                     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                         return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
                     }),
@@ -428,17 +428,19 @@ export default {
                         //     show: this.$page.props.auth.user.permissions.includes('Ver roles y permisos'),
                         //     notifications: false,
                         // },
-                        // {
-                        //     label: 'Bonos',
-                        //     route: 'bonuses.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver bonos'),
-                        //     notifications: false,
-                        // },
-                        // {
-                        //     label: 'Descuentos',
-                        //     route: 'discounts.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver descuentos')
-                        // },
+                        {
+                            label: 'Bonos',
+                            route: 'bonuses.index',
+                            show: true,
+                            // show: this.$page.props.auth.user.permissions?.includes('Ver bonos'),
+                            notifications: false,
+                        },
+                        {
+                            label: 'Descuentos',
+                            route: 'discounts.index',
+                            show: true,
+                            // show: this.$page.props.auth.user.permissions?.includes('Ver descuentos')
+                        },
                         // {
                         //     label: 'Dias festivos',
                         //     route: 'holidays.index',
@@ -625,7 +627,7 @@ export default {
         topMenus() {
             const bottomLabels = ['Más', 'Configuración'];
             return this.menus.filter(menu => !bottomLabels.includes(menu.label));
-        }
+        },
     },
     methods: {
         // async getAllPayrolls() {
