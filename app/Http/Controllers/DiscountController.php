@@ -27,9 +27,7 @@ class DiscountController extends Controller
             'amount' => 'required|numeric|min:0',
         ]);
 
-        $discount = Discount::create($request->all());
-
-        // event(new RecordCreated($discount));
+        Discount::create($request->all());
 
         return to_route('discounts.index');
     }
@@ -54,8 +52,6 @@ class DiscountController extends Controller
 
         $discount->update($request->all());
 
-        // event(new RecordEdited($discount));
-
         return to_route('discounts.index');
     }
 
@@ -69,8 +65,6 @@ class DiscountController extends Controller
         foreach ($request->ids as $id) {
             $bonus = Discount::find($id);
             $bonus?->delete();
-
-            // event(new RecordDeleted($bonus));
         }
     }
 }

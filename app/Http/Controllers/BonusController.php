@@ -28,10 +28,7 @@ class BonusController extends Controller
             'half_time' => 'required|numeric|min:1',
         ]);
 
-        $bonus = Bonus::create($request->all());
-        
-        // // Tegistrar el evento de creación en historial
-        // event(new RecordCreated($bonus));
+        Bonus::create($request->all());
 
         return to_route('bonuses.index');
     }
@@ -57,9 +54,6 @@ class BonusController extends Controller
 
         $bonus->update($request->all());
 
-        // // Registrar el evento de edición en historial
-        // event(new RecordEdited($bonus));
-
         return to_route('bonuses.index');
     }
 
@@ -73,8 +67,6 @@ class BonusController extends Controller
         foreach ($request->ids as $id) {
             $bonus = Bonus::find($id);
             $bonus?->delete();
-
-            // event(new RecordDeleted($bonus));
         }
     }
 

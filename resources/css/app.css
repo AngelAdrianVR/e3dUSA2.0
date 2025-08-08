@@ -155,3 +155,35 @@
         border-color: #2d3748;
     }
 }
+
+/* Estilos para el componente de pestañas (el-tabs) */
+
+/* Color de la barra inferior de las pestañas */
+.el-tabs__active-bar {
+  background-color: var(--el-color-primary) !important;
+}
+
+/* Color del texto de la pestaña inactiva */
+.el-tabs__item {
+  color: var(--el-text-color-secondary) !important;
+}
+
+/* Color del texto de la pestaña activa */
+.el-tabs__item.is-active {
+  color: var(--el-color-primary) !important;
+}
+
+/* Color del texto de la pestaña al pasar el cursor */
+.el-tabs__item:hover {
+  color: var(--el-color-primary) !important;
+}
+
+/* Color de la línea inferior del contenedor de pestañas */
+.el-tabs__nav-wrap::after {
+  background-color: var(--el-border-color-light) !important;
+}
+
+/* --- Estilos para Dark Mode --- */
+.dark .el-tabs__nav-wrap::after {
+    background-color: var(--el-border-color-darker) !important;
+}

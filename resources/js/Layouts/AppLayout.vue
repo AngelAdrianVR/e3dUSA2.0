@@ -12,6 +12,7 @@ import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue
 
 defineProps({
     title: String,
+    externalLoading: Boolean,
 });
 
 const showingNavigationDropdown = ref(false);
@@ -67,7 +68,7 @@ onMounted(() => {
 
         <div class="overflow-hidden h-screen bg-white dark:bg-zinc-900 md:grid md:grid-cols-12">
             <aside>
-                <SideNav />
+                <SideNav :loading="externalLoading" />
             </aside>
             
             <section class="md:col-span-11">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\UserController;
@@ -63,3 +64,7 @@ Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])
 // ------- Recursos humanos(Discounts Routes)  ---------
 Route::resource('discounts', DiscountController::class)->middleware('auth');
 Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');
+
+
+// ------- Recursos humanos(Discounts Routes)  ---------
+Route::get('/audits', [AuditController::class, 'index'])->name('audits.index');
