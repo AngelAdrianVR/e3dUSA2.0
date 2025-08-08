@@ -19,7 +19,7 @@ const iconClass = computed(() => {
 <template>
     <div>
         <Link @mouseenter="hovering = true" @mouseleave="hovering = false" :href="href"
-            class=" w-full px-3 py-2 text-sm leading-5 text-gray-700 dark:text-gray-200
+            class=" w-full px-3 py-1 text-sm leading-5 text-gray-700 dark:text-gray-200
                    hover:bg-secondary hover:text-white dark:hover:bg-secondary
                    focus:outline-none focus:bg-secondary focus:text-white
                    transition duration-150 ease-in-out flex justify-between items-center rounded-md">

@@ -2,7 +2,7 @@
     <AppLayout title="Bonos">
         <!-- Encabezado de la página -->
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            Gestión de Bonos
+            Gestión de Descuentos
         </h2>
 
         <!-- Contenido principal -->
@@ -14,7 +14,7 @@
                         <!-- Botón para abrir el modal de creación -->
                         <SecondaryButton @click="openCreateModal">
                             <i class="fa-solid fa-plus mr-2"></i>
-                            Nuevo Bono
+                            Nuevo Descuento
                         </SecondaryButton>
                         
                         <!-- Botón de eliminación masiva -->
@@ -31,7 +31,7 @@
                     <!-- Tabla de Bonos -->
                     <el-table
                         max-height="550"
-                        :data="bonuses.data" 
+                        :data="discounts.data" 
                         style="width: 100%" 
                         v-loading="loading" 
                         stripe
@@ -43,11 +43,8 @@
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
                         <el-table-column prop="description" label="Descripción" />
-                        <el-table-column prop="full_time" label="Tiempo completo" align="right">
-                            <template #default="scope">${{ formatCurrency(scope.row.full_time) }}</template>
-                        </el-table-column>
-                        <el-table-column prop="half_time" label="Medio tiempo" align="right">
-                            <template #default="scope">${{ formatCurrency(scope.row.half_time) }}</template>
+                        <el-table-column prop="amount" label="Tiempo completo" align="right">
+                            <template #default="scope">${{ formatCurrency(scope.row.amount) }}</template>
                         </el-table-column>
                         <el-table-column label="Estatus" width="120" align="center">
                             <template #default="scope">
@@ -59,11 +56,11 @@
                     </el-table>
 
                     <!-- Paginación -->
-                    <div v-if="bonuses.total > 0" class="flex justify-center mt-6">
+                    <div v-if="discounts.total > 0" class="flex justify-center mt-6">
                         <el-pagination
-                            v-model:current-page="bonuses.current_page"
-                            :page-size="bonuses.per_page"
-                            :total="bonuses.total"
+                            v-model:current-page="discounts.current_page"
+                            :page-size="discounts.per_page"
+                            :total="discounts.total"
                             layout="prev, pager, next"
                             background
                             @current-change="handlePageChange"
@@ -80,7 +77,7 @@
                 <form @submit.prevent="submit" class="grid grid-cols-2 gap-2">
                     <!-- Campo Nombre -->
                     <div class="col-span-2">
-                        <TextInput v-model="form.name" label="Nombre del bono*" :error="form.errors.name" class="w-full" />
+                        <TextInput v-model="form.name" label="Nombre del descuento*" :error="form.errors.name" class="w-full" />
                     </div>
 
                     <!-- Campo Descripción -->
@@ -90,16 +87,10 @@
                             class="w-full" :isTextarea="true" :withMaxLength="true" :maxLength="255" />
                     </div>
 
-                    <!-- Campo Tiempo Completo -->
+                    <!-- Campo monto -->
                     <div>
-                        <TextInput type="number" step="0.01" label="Monto para tiempo completo*" :error="form.errors.full_time"
-                            v-model="form.full_time" required class="w-full" placeholder="$0.00" />
-                    </div>
-
-                    <!-- Campo Medio Tiempo -->
-                    <div>
-                        <TextInput type="number" step="0.01" label="Monto para medio tiempo*" :error="form.errors.half_time"
-                            v-model="form.half_time" required class="w-full" placeholder="$0.00" />
+                        <TextInput type="number" step="0.01" label="Monto de descuento*" :error="form.errors.amount"
+                            v-model="form.amount" required class="w-full" placeholder="$0.00" />
                     </div>
 
                     <!-- Switch de Estatus -->
@@ -145,19 +136,18 @@ export default {
         InputError,
     },
     props: {
-        bonuses: Object,
+        discounts: Object,
     },
     data() {
         return {
             // Formulario de Inertia
             form: useForm({
-                id: null,
                 name: null,
                 description: null,
-                full_time: null,
-                half_time: null,
+                amount: null,
                 is_active: true,
             }),
+
             // Estado del componente
             showModal: false,
             isEditing: false,
@@ -168,11 +158,11 @@ export default {
     computed: {
         // Título dinámico para el modal
         modalTitle() {
-            return this.isEditing ? 'Editar Bono' : 'Crear Nuevo Bono';
+            return this.isEditing ? 'Editar descuento' : 'Crear Nuevo descuento';
         }
     },
     methods: {
-        // Abre el modal para crear un nuevo bono
+        // Abre el modal para crear un nuevo descuento
         openCreateModal() {
             this.isEditing = false;
             this.form.reset();
@@ -186,8 +176,7 @@ export default {
             this.form.id = row.id;
             this.form.name = row.name;
             this.form.description = row.description;
-            this.form.full_time = row.full_time;
-            this.form.half_time = row.half_time;
+            this.form.amount = row.amount;
             this.form.is_active = !! row.is_active; // Convierte 1/0 a true/false
             this.showModal = true;
         },
@@ -204,20 +193,20 @@ export default {
                 this.store();
             }
         },
-        // Envía la petición para crear un bono
+        // Envía la petición para crear un Descuento
         store() {
-            this.form.post(route('bonuses.store'), {
+            this.form.post(route('discounts.store'), {
                 onSuccess: () => {
-                    ElMessage.success('Bono creado correctamente');
+                    ElMessage.success('Descuento creado correctamente');
                     this.closeModal();
                 },
             });
         },
-        // Envía la petición para actualizar un bono
+        // Envía la petición para actualizar un Descuento
         update() {
-            this.form.put(route('bonuses.update', this.form.id), {
+            this.form.put(route('discounts.update', this.form.id), {
                 onSuccess: () => {
-                    ElMessage.success('Bono actualizado correctamente');
+                    ElMessage.success('Descuento actualizado correctamente');
                     this.closeModal();
                 },
             });
@@ -226,18 +215,18 @@ export default {
         handleSelectionChange(selection) {
             this.selectedItems = selection;
         },
-        // Elimina los bonos seleccionados
+        // Elimina los Descuentos seleccionados
         deleteSelections() {
             const ids = this.selectedItems.map(item => item.id);
-            this.$inertia.post(route('bonuses.massive-delete'), { ids }, {
+            this.$inertia.post(route('discounts.massive-delete'), { ids }, {
                 onSuccess: () => {
-                    ElMessage.success('Bonos seleccionados eliminados');
+                    ElMessage.success('Descuentos seleccionados eliminados');
                 },
             });
         },
         // Maneja el cambio de página
         handlePageChange(page) {
-            this.$inertia.get(route('bonuses.index', { page }));
+            this.$inertia.get(route('discounts.index', { page }));
         },
         // Formatea un número a formato de moneda
         formatCurrency(value) {

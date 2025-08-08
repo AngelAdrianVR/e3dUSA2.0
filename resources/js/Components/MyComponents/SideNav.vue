@@ -44,7 +44,7 @@
                             </template>
                             <template #content>
                                 <div class="px-3 py-2 text-sm font-semibold bg-[#EAEAEA] dark:bg-zinc-800 text-gray-900 dark:text-white">{{ menu.label }}</div>
-                                <div class="border-t border-gray-300 dark:border-zinc-100"></div>
+                                <div class="border-t border-gray-300 dark:border-zinc-500"></div>
                                 <div class="p-1 space-y-1 bg-[#f2f2f2] dark:bg-zinc-800">
                                     <div v-for="option in menu.options" :key="option.route">
                                         <DropdownNavLink v-if="option.show" :href="route(option.route)"

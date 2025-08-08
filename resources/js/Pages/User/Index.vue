@@ -6,7 +6,7 @@
         </h2>
 
         <!-- Contenido principal -->
-        <div class="py-12">
+        <div class="py-7">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- Tarjeta contenedora con diseño moderno -->
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
@@ -22,9 +22,9 @@
                     </div>
 
                     <!-- Tabla de Element Plus -->
-                    <!-- :data="users.data" es para acceder a los registros de la página actual -->
                     <el-table :data="users.data" style="width: 100%" v-loading="loading" stripe
                         table-layout="auto"
+                        max-height="550"
                         class="dark:!bg-slate-900 dark:!text-gray-300"
                     >
                         <!-- Columna ID -->

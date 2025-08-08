@@ -9,7 +9,7 @@ class BonusController extends Controller
 {
     public function index()
     {
-        $bonuses = Bonus::all();
+        $bonuses = Bonus::latest()->paginate(30);
 
         return inertia('Bonus/Index', compact('bonuses'));
     }
@@ -70,13 +70,12 @@ class BonusController extends Controller
 
     public function massiveDelete(Request $request)
     {
-        foreach ($request->bonuses as $bonus) {
-            $bonus = Bonus::find($bonus['id']);
+        foreach ($request->ids as $id) {
+            $bonus = Bonus::find($id);
             $bonus?->delete();
 
             // event(new RecordDeleted($bonus));
         }
-
-        return response()->json(['message' => 'Bono(s) eliminado(s)']);
     }
+
 }
