@@ -417,7 +417,7 @@ export default {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),
-                            show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver personal') || true,
                             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                                 return notification.data.module === 'user';
                             }),
@@ -521,19 +521,21 @@ export default {
                         // route().current('meetings.*') ||
                         // route().current('samples.*') || 
                         // route().current('production-costs.*') ||
+                        route().current('manuals.*') ||
                         route().current('audits.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                     //     return ['machine', 'meeting', 'samples', 'media-library'].includes(notification.data.module);
                     // }),
                     options: [
-                        // {
-                        //     label: 'Tutoriales y manuales',
-                        //     route: 'manuals.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver manuales'),
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'manual';
-                        //     }),
-                        // },
+                        {
+                            label: 'Tutoriales y manuales',
+                            route: 'manuals.index',
+                            active: route().current('manuals.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver tutoriales y manuales'),
+                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                                return notification.data.module === 'manual';
+                            }),
+                        },
                         // {
                         //     label: 'Máquinas',
                         //     route: 'machines.index',

@@ -187,3 +187,87 @@
 .dark .el-tabs__nav-wrap::after {
     background-color: var(--el-border-color-darker) !important;
 }
+
+/* --- Estilos base para Input, Textarea y Select --- */
+.el-input__wrapper,
+.el-textarea__inner {
+  @apply w-full rounded-md shadow-sm bg-gray-50 border border-gray-300 text-gray-800 transition-colors duration-300;
+  /* Eliminamos el padding del wrapper para evitar conflictos, se aplica al inner */
+  padding: 0 !important;
+  /* Anulamos el box-shadow de focus de Element Plus para usar el nuestro */
+  box-shadow: none !important;
+}
+
+/* Estilos para el elemento de texto interno */
+.el-input__inner,
+.el-textarea__inner {
+  @apply caret-blue-400 text-gray-800;
+  /* El padding se aplica aquí para un control preciso */
+  padding-top: 0.25rem;    /* py-1 */
+  padding-bottom: 0.25rem; /* py-1 */
+  padding-left: 0.75rem;   /* px-3 */
+  padding-right: 0.75rem;  /* px-3 */
+}
+
+/* Estilos para el placeholder */
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  @apply text-gray-400;
+}
+
+/* --- Estado de Focus --- */
+.el-input__wrapper:focus-within,
+.el-textarea__inner:focus {
+  @apply outline-none ring-2 border-blue-500 ring-blue-500/50;
+}
+
+/* --- Estado de Error --- */
+.el-form-item.is-error .el-input__wrapper,
+.el-form-item.is-error .el-textarea__inner {
+  @apply border-red-500;
+}
+
+.el-form-item.is-error .el-input__wrapper:focus-within,
+.el-form-item.is-error .el-textarea__inner:focus {
+  @apply ring-red-500/50 border-red-500;
+}
+
+/*
+ * ==========================================================================
+ * Dark Mode
+ * ==========================================================================
+ */
+
+.dark {
+  /* --- Estilos base (Dark) --- */
+  .el-input__wrapper,
+  .el-textarea__inner {
+    @apply bg-gray-700 border-gray-600;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    @apply text-gray-100;
+  }
+
+  .el-input__inner::placeholder,
+  .el-textarea__inner::placeholder {
+    @apply text-gray-500;
+  }
+
+  /* --- Estado de Error (Dark) --- */
+  .el-form-item.is-error .el-input__wrapper,
+  .el-form-item.is-error .el-textarea__inner {
+    @apply border-red-600;
+  }
+
+  .el-form-item.is-error .el-input__wrapper:focus-within,
+  .el-form-item.is-error .el-textarea__inner:focus {
+    @apply ring-red-500/50 border-red-600;
+  }
+
+  /* --- Label del Form Item (Dark) --- */
+  .el-form-item__label {
+    @apply text-gray-100;
+  }
+}

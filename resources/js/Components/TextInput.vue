@@ -111,7 +111,7 @@ const baseClasses = computed(() => [
             :value="modelValue"
             :maxlength="withMaxLength ? maxLength : undefined"
             @input="$emit('update:modelValue', $event.target.value)"
-            rows="4"
+            rows="3"
         />
         
         <!-- Renderiza un <input> en caso contrario -->
@@ -130,7 +130,7 @@ const baseClasses = computed(() => [
         <div class="flex justify-between items-center min-h-[1rem]">
             <!-- Mensaje de error -->
             <p v-if="error" class="text-xs text-red-600 dark:text-red-500 ml-4">
-                campo obligatorio
+                {{ error}}
             </p>
             
             <!-- Contador de caracteres -->

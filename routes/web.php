@@ -3,12 +3,14 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\ManualController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 
 
@@ -69,7 +71,7 @@ Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDele
 
 
 // ------- Historial de acciones rutas  ---------
-Route::get('/audits', [AuditController::class, 'index'])->name('audits.index');
+Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->name('audits.index');
 
 
 // ------- Roles rutas  ---------
@@ -82,3 +84,21 @@ Route::resource('role-permissions', RolePermissionController::class)
 Route::resource('permissions', PermissionController::class)
     ->only(['store', 'update', 'destroy'])
     ->middleware(['auth', 'verified']);
+
+
+// ------- tutorials & manuals routes  -------------
+Route::resource('manuals', ManualController::class)->middleware('auth');
+Route::put('manuals/increase-views/{manual}', [ManualController::class, 'increaseViews'])->name('manuals.increase-views')->middleware('auth');
+Route::post('manuals/update-with-media/{manual}', [ManualController::class, 'updateWithMedia'])->name('manuals.update-with-media')->middleware('auth');
+
+
+// eliminacion de archivo desde componente FileView
+Route::delete('/media/{media}', function (Media $media) {
+    try {
+        $media->delete(); // Elimina el archivo y su registro
+
+        return response()->json(['message' => 'Archivo eliminado correctamente.'], 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Error al eliminar el archivo.'], 500);
+    }
+})->name('media.delete-file');
