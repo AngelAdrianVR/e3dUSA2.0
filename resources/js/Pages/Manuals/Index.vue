@@ -145,7 +145,9 @@ export default {
     },
     mounted() {
         // Configuramos el observador cuando el componente se monta
-        this.setupObserver();
+        if ( this.manuals.data.length > 10 ) {
+            this.setupObserver();
+        }
     },
     beforeUnmount() {
         // Limpiamos el observador para evitar memory leaks

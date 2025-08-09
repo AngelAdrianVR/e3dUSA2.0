@@ -50,7 +50,7 @@
                                 />
                             </el-form-item>
 
-                            <div v-if="manual.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-4 gap-3 col-span-full mb-3">
+                            <div v-if="manual.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
                                 <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
                                 <FileView v-for="file in manual.media" :key="file" :file="file" :deletable="true"
                                     @delete-file="deleteFile($event)" />

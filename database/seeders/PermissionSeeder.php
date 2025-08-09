@@ -22,6 +22,7 @@ class PermissionSeeder extends Seeder
             'Historial de acciones' => ['Ver historial de acciones'],
             'Roles' => ['Ver roles y permisos', 'Crear roles y permisos', 'Editar roles y permisos', 'Eliminar roles y permisos'],
             'Tutoriales y manuales' => ['Ver tutoriales y manuales', 'Crear tutoriales y manuales', 'Editar tutoriales y manuales', 'Eliminar tutoriales y manuales'],
+            'Maquinaria' => ['Ver maquinas', 'Crear maquinas', 'Editar maquinas', 'Eliminar maquinas'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

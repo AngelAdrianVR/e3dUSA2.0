@@ -417,7 +417,7 @@ export default {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),
-                            show: this.$page.props.auth.user.permissions?.includes('Ver personal') || true,
+                            show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
                             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                                 return notification.data.module === 'user';
                             }),
@@ -516,7 +516,7 @@ export default {
                     label: 'Más',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
                     active: 
-                        // route().current('machines.*') ||
+                        route().current('machines.*') ||
                         // route().current('more-additional-times.*') || 
                         // route().current('meetings.*') ||
                         // route().current('samples.*') || 
@@ -536,14 +536,14 @@ export default {
                                 return notification.data.module === 'manual';
                             }),
                         },
-                        // {
-                        //     label: 'Máquinas',
-                        //     route: 'machines.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'machine';
-                        //     }),
-                        // },
+                        {
+                            label: 'Máquinaria',
+                            route: 'machines.index',
+                            show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
+                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                                return notification.data.module === 'machine';
+                            }),
+                        },
                         // {
                         //     label: 'Solicitudes de tiempo adicional',
                         //     route: 'more-additional-times.index',
@@ -586,8 +586,7 @@ export default {
                             label: 'Historial de acciones',
                             route: 'audits.index',
                             active: route().current('audits.*'),
-                            show: true,
-                            // show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
+                            show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
                         },
                     ],
                     dropdown: true,

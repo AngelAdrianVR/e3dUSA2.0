@@ -236,10 +236,9 @@ export default {
                 onSuccess: () => {
                     this.statusForm.reset();
                     this.showChangeStatusModal = false;
-                    this.$notify({
-                        title: "Éxito",
-                        message: "",
-                        type: "success",
+                    ElMessage({
+                        type: 'success',
+                        message: 'Estatus actualizado',
                     });
                 },
             });

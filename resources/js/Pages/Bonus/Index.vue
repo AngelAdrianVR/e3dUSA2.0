@@ -33,7 +33,6 @@
                         max-height="550"
                         :data="bonuses.data" 
                         style="width: 100%" 
-                        v-loading="loading" 
                         stripe
                         @selection-change="handleSelectionChange"
                         @row-click="handleRowClick"
