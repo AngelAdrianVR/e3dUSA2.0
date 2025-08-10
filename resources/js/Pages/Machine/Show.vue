@@ -1,559 +1,563 @@
 <template>
-  <div class="dark:text-white">
-    <AppLayoutNoHeader title="Ver maquinaria">
-      <div class="flex justify-between text-lg mx-14 mt-11">
-        <span>Maquinaria</span>
+  <AppLayout title="Detalles de Maquinaria">
+    <div class="p-4 sm:p-6 lg:p-8 dark:text-white font-sans">
+      <!-- Encabezado y Acciones -->
+      <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Detalles de Maquinaria</h1>
+          <p class="text-sm text-gray-500 dark:text-gray-300 mt-1">Visualiza y gestiona la información de tus máquinas.</p>
+        </div>
         <Link :href="route('machines.index')"
-          class="cursor-pointer w-7 h-7 rounded-full hover:bg-[#D9D9D9] dark:hover:bg-[#191919] hover:!text-primary dark:text-white flex items-center justify-center">
-        <i class="fa-solid fa-xmark"></i>
+          class="mt-4 sm:mt-0 flex-shrink-0 size-9 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+          <i class="fa-solid fa-xmark"></i>
         </Link>
-      </div>
-      <div class="flex justify-between mt-5 mx-14">
-        <div class="md:w-1/3 mr-2">
-          <el-select v-model="selectedMachine" clearable filterable placeholder="Buscar máquina"
+      </header>
+
+      <!-- Selector de Máquina y Botones de Acción -->
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+        <div class="w-full md:w-1/3">
+          <el-select v-model="selectedMachineId" clearable filterable placeholder="Buscar una máquina…"
+            class="w-full"
             no-data-text="No hay maquinaria registrada" no-match-text="No se encontraron coincidencias">
-            <el-option v-for="item in machines.data" :key="item.id" :label="item.name" :value="item.id" />
+            <el-option v-for="item in machines" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </div>
-        <div class="flex items-center space-x-2">
-          <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar maquinas') && currentMachine"
-            content="Editar" placement="top">
-            <Link :href="route('machines.edit', selectedMachine)">
-                <button class="size-9 flex items-center justify-center rounded-[10px] bg-[#D9D9D9] dark:bg-[#202020] dark:text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                    </svg>
-                </button>
+        <div v-if="machine" class="flex items-center space-x-2">
+          <el-tooltip v-if="canEdit" content="Editar Máquina" placement="top">
+            <Link :href="route('machines.edit', selectedMachineId)">
+              <button class="action-button">
+                <i class="fa-solid fa-pencil"></i>
+              </button>
             </Link>
           </el-tooltip>
-          <Dropdown align="right" width="48"
-            v-if="$page.props.auth.user.permissions.includes('Crear maquinas') && $page.props.auth.user.permissions.includes('Crear mantenimientos') && $page.props.auth.user.permissions.includes('Crear refacciones') && $page.props.auth.user.permissions.includes('Eliminar maquinas') && currentMachine">
+          <Dropdown v-if="canDoMoreActions" align="right" width="48">
             <template #trigger>
-              <button class="h-9 px-3 rounded-lg bg-[#D9D9D9] dark:bg-[#202020] dark:text-white flex items-center justify-center text-sm">
-                  Más <i class="fa-solid fa-chevron-down text-[10px] ml-2 pb-[2px]"></i>
+              <button class="action-button-primary">
+                Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
               </button>
             </template>
             <template #content>
-              <DropdownLink :href="route('machines.create')"
-                v-if="$page.props.auth.user.permissions.includes('Crear maquinas')">
-                Agregar nueva máquina
-              </DropdownLink>
-              <DropdownLink :href="route('maintenances.create', selectedMachine)"
-                v-if="$page.props.auth.user.permissions.includes('Crear mantenimientos')">
-                Registrar mantenimiento
-              </DropdownLink>
-              <DropdownLink :href="route('spare-parts.create', selectedMachine)"
-                v-if="$page.props.auth.user.permissions.includes('Crear refacciones')">
-                Registrar refacción
-              </DropdownLink>
-              <DropdownLink @click="uploadFilesModal = true" as="button"
-                v-if="$page.props.auth.user.permissions.includes('Crear maquinas')">
-                Subir archivos
-              </DropdownLink>
-              <DropdownLink @click="showConfirmModal = true" as="button"
-                v-if="$page.props.auth.user.permissions.includes('Eliminar maquinas')">
-                Eliminar
+              <DropdownLink v-if="canCreate" :href="route('machines.create')">Agregar nueva máquina</DropdownLink>
+              <DropdownLink v-if="canCreateMaintenance" :href="route('maintenances.create', selectedMachineId)">Registrar mantenimiento</DropdownLink>
+              <DropdownLink v-if="canCreateSparePart" :href="route('spare-parts.create', selectedMachineId)">Registrar refacción</DropdownLink>
+              <DropdownLink v-if="canCreate" @click="uploadFilesModal = true" as="button">Subir archivos</DropdownLink>
+              <div class="border-t border-gray-200 dark:border-slate-700" />
+              <DropdownLink v-if="canDelete" @click="showConfirmModal = true" as="button" class="text-red-600 dark:text-red-500 hover:!bg-red-50 dark:hover:!bg-red-500/10">
+                Eliminar Máquina
               </DropdownLink>
             </template>
           </Dropdown>
         </div>
       </div>
-      <div class="lg:grid grid-cols-3 mt-12 border-b-2">
-        <div class="px-7">
-          <h2 class="text-xl font-bold text-center mb-6">
-            {{ currentMachine?.name }}
-          </h2>
-          <div class="flex items-center justify-center">
-            <i :class="currentIndexMachine == 0 ? 'hidden' : 'block'" @click="previus"
-              class="fa-solid fa-chevron-left mr-4 text-lg text-gray-600 cursor-pointer p-1 rounded-full"></i>
-            <figure @mouseover="showOverlay" @mouseleave="hideOverlay"
-              :class="currentMachine?.media?.length ? 'dark:bg-[#333333] bg-[#d9d9d9]' : 'bg-[#D9D9D9]'"
-              class="w-full h-60 rounded-lg relative flex items-center justify-center">
-              <!-- <el-image style="height: 100%; " :src="currentMachine?.media[0]?.original_url" fit="fit">
-              <template #error>
-                <div class="flex justify-center items-center text-[#ababab]">
-                  <i class="fa-solid fa-image text-6xl"></i>
-                </div>
-              </template>
-            </el-image> -->
-              <img class="object-contain h-60" :src="currentMachine?.media[0]?.original_url" alt="">
-              <div v-if="imageHovered" @click="openImage(currentMachine?.media[0]?.original_url)"
-                class="cursor-pointer h-full w-full absolute top-0 left-0 opacity-50 bg-black flex items-center justify-center rounded-lg transition-all duration-300 ease-in">
+
+      <!-- Contenido Principal -->
+      <div v-if="machine" class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        
+        <!-- Columna Izquierda: Carrusel de Imágenes -->
+        <div class="lg:col-span-2">
+          <h2 class="text-xl font-bold text-center mb-4">{{ machine.name }}</h2>
+          <div class="relative group">
+            <!-- Carrusel -->
+            <div class="relative w-full h-72 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-lg">
+              <figure v-if="hasImages">
+                <img :src="currentImageUrl" :key="currentImageUrl" class="object-contain h-full w-full transition-opacity duration-500" alt="Imagen de la máquina">
+              </figure>
+              <div v-else class="text-center text-gray-500">
+                <i class="fa-solid fa-image text-6xl"></i>
+                <p class="mt-2 text-sm">Sin imágenes</p>
+              </div>
+               <!-- Overlay para ampliar imagen -->
+              <div v-if="hasImages" @click="openImage(currentImageUrl)" class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity duration-300">
                 <i class="fa-solid fa-magnifying-glass-plus text-white text-4xl"></i>
               </div>
-            </figure>
-            <i :class="currentIndexMachine == machines.data.length - 1 ? 'hidden' : 'block'" @click="next"
-              class="fa-solid fa-chevron-right ml-4 text-lg text-gray-600 cursor-pointer p-1 mb-2 rounded-full"></i>
+            </div>
+            <!-- Controles de Navegación del Carrusel -->
+            <template v-if="hasMultipleImages">
+              <button @click="prevImage" class="carousel-nav-button left-0 -translate-x-1/2">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <button @click="nextImage" class="carousel-nav-button right-0 translate-x-1/2">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </template>
+          </div>
+           <!-- Indicadores de Puntos del Carrusel -->
+          <div v-if="hasMultipleImages" class="flex justify-center space-x-2 mt-4">
+            <button v-for="(image, index) in machine.media" :key="image.id" @click="currentImageIndex = index"
+              :class="['h-2 w-2 rounded-full transition-colors', currentImageIndex === index ? 'bg-primary' : 'bg-gray-300 dark:bg-slate-600 hover:bg-primary/70']">
+            </button>
           </div>
         </div>
 
-        <!-- ------------------------Information panel tabs--------------------- -->
-        <div class="col-span-2 border-2">
-          <div class="border-b-2 px-7 py-3 flex">
-            <p @click="tabs = 1" :class="tabs == 1 ? 'bg-secondary-gray rounded-xl text-primary' : ''
-              "
-              class="h-10 p-2 cursor-pointer md:ml-5 transition duration-300 ease-in-out text-sm md:text-base leading-none">
-              Información general
-            </p>
-            <div class="border-r-2 border-[#cccccc] h-10 ml-3"></div>
-            <p @click="tabs = 2" :class="tabs == 2 ? 'bg-secondary-gray rounded-xl text-primary' : ''
-              " class="ml-3 h-10 p-2 cursor-pointer transition duration-300 ease-in-out text-sm md:text-base">
-              Mantenimiento
-            </p>
-            <div class="border-r-2 border-[#cccccc] h-10 ml-3"></div>
-            <p @click="tabs = 3" :class="tabs == 3 ? 'bg-secondary-gray rounded-xl text-primary' : ''
-              " class="ml-3 h-10 p-2 cursor-pointer transition duration-300 ease-in-out text-sm md:text-base">
-              Refacciones
-            </p>
+        <!-- Columna Derecha: Panel de Información -->
+        <div class="lg:col-span-3 bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+          <!-- Pestañas -->
+          <div class="border-b border-gray-200 dark:border-slate-700 px-4">
+            <nav class="-mb-px flex space-x-6">
+              <button @click="activeTab = 'info'" :class="getTabClass('info')">Información General</button>
+              <button @click="activeTab = 'maintenance'" :class="getTabClass('maintenance')">Mantenimiento</button>
+              <button @click="activeTab = 'spares'" :class="getTabClass('spares')">Refacciones</button>
+            </nav>
           </div>
 
-          <!-- --------------------- Tab 1 Información general starts------------------ -->
-          <div v-if="tabs == 1" class="px-7 py-7 text-sm">
-            <div class="flex space-x-2 mb-6">
-              <p class="w-1/3 text-[#9A9A9A]">Fecha de adquisición</p>
-              <p>{{ currentMachine?.aquisition_date }}</p>
+          <!-- Contenido de las Pestañas -->
+          <div class="p-6 text-sm min-h-[400px]">
+            <!-- Tab 1: Información General -->
+            <div v-if="activeTab === 'info'">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                    <InfoItem label="Fecha de adquisición" :value="machine.aquisition_date" />
+                    <InfoItem label="Número de serie" :value="machine.serial_number" />
+                    <InfoItem label="Proveedor" :value="machine.supplier" />
+                    <InfoItem label="Costo" :value="`$${machine.cost}`" value-class="text-green-600 font-semibold" />
+                    <InfoItem label="Peso" :value="`${machine.weight} kg`" />
+                    <InfoItem label="Ancho" :value="`${machine.width} cm`" />
+                    <InfoItem label="Largo" :value="`${machine.large} cm`" />
+                    <InfoItem label="Alto" :value="`${machine.height} cm`" />
+                </div>
+                <h3 class="text-base font-semibold mt-8 mb-3 border-t border-gray-200 dark:border-slate-700 pt-6">Archivos Adjuntos</h3>
+                <div v-if="machine.media?.filter(m => m.collection_name == 'files')?.length" class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                    <FileView v-for="file in machine.media?.filter(m => m.collection_name == 'files')" 
+                      :key="file" :file="file" :deletable="false" />
+                </div>
+                <Empty v-else />
             </div>
-            <div class="flex mb-2 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Número de serie</p>
-              <p>{{ currentMachine?.serial_number }}</p>
-            </div>
-            <p class="mt-7 mb-3">Dimensiones</p>
-            <div class="flex mb-6 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Peso</p>
-              <p>{{ currentMachine?.weight }} kg</p>
-            </div>
-            <div class="flex mb-6 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Ancho</p>
-              <p>{{ currentMachine?.width }} cm</p>
-            </div>
-            <div class="flex mb-6 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Largo</p>
-              <p>{{ currentMachine?.large }} cm</p>
-            </div>
-            <div class="flex mb-6 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Alto</p>
-              <p>{{ currentMachine?.height }} cm</p>
-            </div>
-            <p class="mt-7 mb-3">Datos de compra</p>
-            <div class="flex mb-2 space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Proveedor</p>
-              <p>{{ currentMachine?.supplier }}</p>
-            </div>
-            <div class="flex space-x-2">
-              <p class="w-1/3 text-[#9A9A9A]">Costo</p>
-              <p class="text-green-600">
-                ${{ currentMachine?.cost_number_format }}
-              </p>
-            </div>
-            <!-- <div class="flex mt-7 mb-2 items-center">
-              <i class="fa-solid fa-paperclip mr-2"></i>
-              <p class="text-[#9A9A9A]">Archivos adjuntos</p>
-            </div> -->
-            <!-- <a class="hover:underline text-primary hover:text-secondary" v-for="file in currentMachine?.files" :key="file.id" :href="file.original_url" target="_blank">{{file.file_name }}</a> -->
-            <p class="text-secondary col-span-2 mb-2 mt-5">Archivos adjuntos</p>
-            <div v-if="currentMachine?.files?.length">
-              <li v-for="file in currentMachine?.files" :key="file"
-                class="flex items-center justify-between col-span-full">
-                <a :href="file.original_url" target="_blank" class="flex items-center">
-                  <i :class="getFileTypeIcon(file.file_name)"></i>
-                  <span class="ml-2">{{ file.file_name }}</span>
-                </a>
-              </li>
-            </div>
-            <p class="text-sm text-gray-400" v-else><i class="fa-regular fa-file-excel mr-3"></i>No hay archivos
-              adjuntos</p>
-            <div class="flex flex-col">
-            </div>
-          </div>
-          <!-- --------------------- Tab 1 Información general ends------------------ -->
 
-          <!-- --------------------- Tab 2 Mantenimient starts------------------ -->
-          <div v-if="tabs == 2" class="px-7 py-7 text-sm overflow-scroll h-96">
-            <table v-if="currentMachine?.maintenances?.length > 0" class="border-separate border-spacing-x-8">
-              <thead>
-                <tr>
-                  <th class="pr-4">#</th>
-                  <th class="px-4">Tipo de mantenimiento</th>
-                  <th class="px-4">Relizado el</th>
-                  <th class="px-4">Costo</th>
-                  <th class="px-4">Realizó</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(maintenance, index) in currentMachine?.maintenances" :key="index"
-                  class="text-[#9A9A9A] cursor-pointer mb-4">
-                  <td @click="openMaintenanceModal(maintenance, index)" class="text-left pb-3">
-                    {{ index + 1 }}
-                  </td>
-                  <td @click="openMaintenanceModal(maintenance, index)" class="px-4 pb-3">
-                    <div v-if="maintenance.maintenance_type_id == 2" class="flex items-center space-x-2">
-                      <el-tooltip v-if="!maintenance.validated_by" content="Esperando validación" placement="top">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-                          stroke="currentColor" class="size-4 text-[#BE6E04]">
-                          <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
-                      </el-tooltip>
-                      <el-tooltip v-else :content="`Validado el ${maintenance.validated_at}`" placement="top">
-                        <i class="fa-solid fa-check text-[#0FA430]"></i>
-                      </el-tooltip>
-                      <span>{{ maintenanceTypes[maintenance?.maintenance_type_id] }}</span>
-                    </div>
-                    <span v-else>{{ maintenanceTypes[maintenance?.maintenance_type_id] }}</span>
-                  </td>
-                  <td @click="openMaintenanceModal(maintenance, index)" class="px-4 pb-3">
-                    {{ maintenance?.start_date }}
-                  </td>
-                  <td @click="openMaintenanceModal(maintenance, index)" class="px-4 pb-3">
-                    ${{ maintenance?.cost }}
-                  </td>
-                  <td @click="openMaintenanceModal(maintenance, index)" class="px-4 pb-3">
-                    {{ maintenance?.responsible }}
-                  </td>
-                  <td class="px-4 pb-3">
-                    <div>
-                      <el-popconfirm confirm-button-text="Si" cancel-button-text="No" icon-color="#FFFFFF"
-                        title="¿Continuar?" @confirm="deleteRow(maintenance)">
-                        <template #reference>
-                          <i class="fa-solid fa-trash-can text-[#9A9A9A] hover:text-red-600"></i>
-                        </template>
-                      </el-popconfirm>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="text-center text-xs text-gray-500">No hay mantenimientos registrados</p>
-          </div>
-          <!-- --------------------- Tab 2 Mantenimient ends------------------ -->
+            <!-- Tab 2: Mantenimiento -->
+            <div v-if="activeTab === 'maintenance'" class="overflow-x-auto">
+                <table v-if="machine.maintenances?.length" class="w-full text-left">
+                    <thead>
+                        <tr class="border-b dark:border-slate-700">
+                            <th class="py-2 pr-4">Tipo</th>
+                            <th class="py-2 px-4">Fecha</th>
+                            <th class="py-2 px-4">Costo</th>
+                            <th class="py-2 px-4">Responsable</th>
+                            <th class="py-2 pl-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(maintenance, index) in machine.maintenances" :key="maintenance.id" @click="openMaintenanceModal(maintenance, index)"
+                            class="border-b dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer">
+                            <td class="py-3 pr-4">
+                                <div class="flex items-center space-x-2">
+                                  <el-tooltip v-if="maintenance.validated_at" placement="top">
+                                    <template #content>
+                                      <div>
+                                        <p class="text-sm">Validado el: <strong class="ml-2">{{ maintenance.validated_at }}</strong></p>
+                                        <p class="text-sm">Validado por: <strong class="ml-2">{{ maintenance.validated_by }}</strong></p>
+                                      </div>
+                                    </template>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mx-2 text-green-500">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                  </el-tooltip>
+                                  <el-tooltip v-else content="Esperando validación" placement="top">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-orange-400 mx-2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                    </svg>
+                                  </el-tooltip>
+                                    <StatusIndicator :item="maintenance" type="maintenance" :types="maintenanceTypes" />
+                                    <span>{{ maintenance.maintenance_type }}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ formatDate(maintenance.maintenance_date) }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">${{ maintenance.cost }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ maintenance.responsible }}</td>
+                            <td class="py-3 pl-4 text-right">
+                                <el-popconfirm title="¿Eliminar este registro?" @confirm.stop="deleteRow(maintenance.id, 'maintenance')">
+                                    <template #reference>
+                                        <button @click.stop class="delete-icon-button">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </template>
+                                </el-popconfirm>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <Empty v-else />
+            </div>
 
-          <!-- --------------------- Tab 3 refacciones starts------------------ -->
-          <div v-if="tabs == 3" class="px-7 py-7 text-sm overflow-scroll h-96">
-            <table v-if="currentMachine?.spare_parts?.length > 0" class="border-separate border-spacing-x-8">
-              <thead>
-                <tr>
-                  <th class="pr-4">#</th>
-                  <th class="px-4">Refacción</th>
-                  <th class="px-4">Cantidad</th>
-                  <th class="px-4">Costo</th>
-                  <th class="px-4">Adquirida el</th>
-                  <th class="px-4">Ubicación en bodega</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(spare_part, index) in currentMachine?.spare_parts" :key="index"
-                  class="text-[#9A9A9A] cursor-pointer mb-4">
-                  <td @click="openSparePartModal(spare_part, index)" class="text-left pb-3">
-                    {{ index + 1 }}
-                  </td>
-                  <td @click="openSparePartModal(spare_part, index)" class="text-center pb-3">
-                    {{ spare_part?.name }}
-                  </td>
-                  <td @click="openSparePartModal(spare_part, index)" class="text-center pb-3">
-                    {{ spare_part?.quantity }}
-                  </td>
-                  <td @click="openSparePartModal(spare_part, index)" class="text-center pb-3">
-                    ${{ spare_part?.cost }}
-                  </td>
-                  <td @click="openSparePartModal(spare_part, index)" class="text-center pb-3">
-                    {{ spare_part?.created_at }}
-                  </td>
-                  <td @click="openSparePartModal(spare_part, index)" class="text-center pb-3">
-                    {{ spare_part?.location }}
-                  </td>
-                  <td class="text-center pb-3">
-                    <div>
-                      <el-popconfirm confirm-button-text="Si" cancel-button-text="No" icon-color="#FFFFFF"
-                        title="¿Continuar?" @confirm="deleteRow(spare_part)">
-                        <template #reference>
-                          <i class="fa-solid fa-trash-can text-[#9A9A9A] hover:text-red-600"></i>
-                        </template>
-                      </el-popconfirm>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <p v-else class="text-center text-xs text-gray-500">No hay refacciones registradas</p>
+            <!-- Tab 3: Refacciones -->
+            <div v-if="activeTab === 'spares'" class="overflow-x-auto">
+                <table v-if="machine.spare_parts?.length" class="w-full text-left">
+                    <thead>
+                        <tr class="border-b dark:border-slate-700">
+                            <th class="py-2 pr-4">Refacción</th>
+                            <th class="py-2 px-4">Cantidad</th>
+                            <th class="py-2 px-4">Costo Unit.</th>
+                            <th class="py-2 px-4">Ubicación</th>
+                            <th class="py-2 pl-4"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="spare in machine.spare_parts" :key="spare.id" @click="openSparePartModal(spare)"
+                            class="border-b dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer">
+                            <td class="py-3 pr-4 font-medium">{{ spare.name }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ spare.quantity }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">${{ spare.cost }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ spare.location }}</td>
+                            <td class="py-3 pl-4 text-right">
+                                <el-popconfirm title="¿Eliminar este registro?" @confirm.stop="deleteRow(spare.id, 'spare-part')">
+                                    <template #reference>
+                                        <button @click.stop class="delete-icon-button">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </template>
+                                </el-popconfirm>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <Empty v-else />
+            </div>
           </div>
-          <!-- --------------------- Tab 3 refacciones ends------------------ -->
         </div>
       </div>
+      <!-- Placeholder si no hay máquina seleccionada -->
+      <div v-else class="text-center py-20 bg-white dark:bg-slate-800/50 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700">
+          <i class="fa-solid fa-robot text-5xl text-gray-400"></i>
+          <h3 class="mt-4 text-xl font-semibold">Selecciona una máquina</h3>
+          <p class="text-gray-500">Usa el buscador para ver los detalles de una máquina.</p>
+      </div>
+    </div>
 
-      <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
-        <template #title> Eliminar máquina </template>
-        <template #content> Continuar con la eliminación? </template>
-        <template #footer>
-          <div>
-            <CancelButton @click="showConfirmModal = false" class="mr-2">Cancelar</CancelButton>
-            <PrimaryButton @click="deleteItem">Eliminar</PrimaryButton>
-          </div>
-        </template>
-      </ConfirmationModal>
+    <!-- Modales -->
+    <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
+      <template #title>Eliminar Máquina</template>
+      <template #content>¿Estás seguro de que deseas eliminar '{{ machine?.name }}'? Esta acción no se puede deshacer.</template>
+      <template #footer>
+        <CancelButton @click="showConfirmModal = false" class="mr-2">Cancelar</CancelButton>
+        <PrimaryButton @click="deleteMachine" :disabled="form.processing">Eliminar</PrimaryButton>
+      </template>
+    </ConfirmationModal>
 
-      <!-- Mantenimientos -->
-      <DialogModal :show="maintenanceModal" @close="maintenanceModal = false">
-        <template #title>
-          <h1 class="font-bold flex items-center justify-between mt-3">
-            <span>Registro de mantenimiento</span>
-            <PrimaryButton
-              v-if="this.$page.props.auth.user.permissions.includes('Validar mantenimiento de maquinas') && !selectedMaintenance?.validated_at"
-              @click="validateMaintenance" :disabled="form.processing">
-              Validar mantenimiento
-            </PrimaryButton>
-            <PrimaryButton v-else @click="$inertia.visit(route('maintenances.edit', selectedMaintenance))">
-              Editar
-            </PrimaryButton>
-          </h1>
-        </template>
-        <template #content>
-          <section class="mt-3">
-            <div class="grid grid-cols-3 gap-2">
-              <p class="text-[#373737] dark:text-gray-500">Máquina:</p>
-              <p class=" col-span-2">{{ currentMachine.name }}</p>
-              <p class="text-[#373737] dark:text-gray-500">No. Mantenimiento:</p>
-              <p class=" col-span-2">{{ maintenanceIndex }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Tipo de mantenimiento:</p>
-              <p class=" col-span-2"> {{ maintenanceTypes[selectedMaintenance.maintenance_type_id] }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Fecha:</p>
-              <p class=" col-span-2"> {{ selectedMaintenance.start_date }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Costo:</p>
-              <p class=" col-span-2"> ${{ selectedMaintenance.cost }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Realizado por:</p>
-              <p class=" col-span-2">{{ selectedMaintenance.responsible }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Descripción de acciones:</p>
-              <p class=" col-span-2">{{ selectedMaintenance.actions }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Validado por:</p>
-              <div v-if="selectedMaintenance.maintenance_type_id == 2" class=" col-span-2">
-                <div v-if="!selectedMaintenance.validated_by" class="flex items-center space-x-2">
-                  <el-tooltip content="Esperando validación" placement="top">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-                      stroke="currentColor" class="size-4 text-[#BE6E04]">
-                      <path stroke-linecap="round" stroke-linejoin="round"
-                        d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                  </el-tooltip>
-                  <span>-</span>
-                </div>
-                <div v-else class="flex items-center space-x-2">
-                  <el-tooltip :content="`Validado el ${selectedMaintenance?.validated_at}`" placement="top">
-                    <i class="fa-solid fa-check text-[#0FA430]"></i>
-                  </el-tooltip>
-                  <span>{{ selectedMaintenance.validated_by }}</span>
-                </div>
+    <!-- Implementar modales para Mantenimiento y Refacciones aquí si se desea -->
+    <!-- Modal Mantenimientos -->
+    <DialogModal :show="maintenanceModal" @close="maintenanceModal = false">
+      <template #title>
+        <h1 class="font-bold flex items-center justify-between mt-5">
+          <span>Registro de mantenimiento</span>
+          <Link v-if="!selectedMaintenance.validated_at" :href="route('maintenances.edit', selectedMaintenance)">
+            <button class="action-button">
+              <i class="fa-solid fa-pencil"></i>
+            </button>
+          </Link>
+        </h1>
+      </template>
+      <template #content>
+        <section class="mt-3">
+          <div class="grid grid-cols-3 gap-2">
+            <p class="text-[#373737] dark:text-gray-400">Máquina:</p>
+            <p class=" col-span-2 dark:text-white">{{ machine.name }}</p>
+            <p class="text-[#373737] dark:text-gray-400">No. Mantenimiento:</p>
+            <p class=" col-span-2 dark:text-white">{{ maintenanceIndex }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Tipo de mantenimiento:</p>
+            <p class="col-span-2 dark:text-white"> {{ selectedMaintenance.maintenance_type }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Fecha:</p>
+            <p class=" col-span-2 dark:text-white"> {{ formatDate(selectedMaintenance.maintenance_date) }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Costo:</p>
+            <p class=" col-span-2 dark:text-white"> ${{ selectedMaintenance.cost }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Realizado por:</p>
+            <p class=" col-span-2 dark:text-white">{{ selectedMaintenance.responsible }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Descripción de acciones:</p>
+            <p class=" col-span-2 dark:text-white">{{ selectedMaintenance.actions }}</p>
+            <p class="text-[#373737] dark:text-gray-400">Validado por:</p>
+            <div v-if="selectedMaintenance.validated_by" class=" col-span-2">
+              <div v-if="!selectedMaintenance.validated_by" class="flex items-center space-x-2">
+                <el-tooltip content="Esperando validación" placement="top">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                    stroke="currentColor" class="size-4 text-[#BE6E04]">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </el-tooltip>
+                <span>-</span>
               </div>
-              <p v-if="selectedMaintenance.maintenance_type_id != 2" class="text-[#373737]">Evidencia:</p>
-              <template v-if="selectedMaintenance.maintenance_type_id != 2">
-                <div v-for="(media, index) in selectedMaintenance.media" :key="index"
-                  class="text-secondary hover:underline inline-flex space-y-1">
-                  <a :href="media.original_url" target="_blank" rel="noopener noreferrer">
-                    <img :src="media.original_url">
-                  </a>
-                </div>
-              </template>
+              <div v-else class="flex items-center space-x-2">
+                <el-tooltip :content="`Validado el ${selectedMaintenance?.validated_at}`" placement="top">
+                  <i class="fa-solid fa-check text-[#0FA430]"></i>
+                </el-tooltip>
+                <span>{{ selectedMaintenance.validated_by }}</span>
+              </div>
             </div>
-          </section>
-        </template>
-      </DialogModal>
-
-      <!-- Refacciones -->
-      <DialogModal :show="sparePartModal" @close="sparePartModal = false">
-        <template #title>
-          <h1 class="font-bold flex items-center justify-between mt-3">
-            <span>Registro de refacción</span>
-            <PrimaryButton @click="$inertia.visit(route('spare-parts.edit', selectedSparePart))">Editar
-            </PrimaryButton>
-          </h1>
-        </template>
-        <template #content>
-          <section class="mt-3">
-            <div class="grid grid-cols-3 gap-2">
-              <p class="text-[#373737] dark:text-gray-500">Máquina:</p>
-              <p class="col-span-2">{{ currentMachine.name }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Refacción:</p>
-              <p class="col-span-2"> {{ selectedSparePart.name }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Adquirida el:</p>
-              <p class="col-span-2"> {{ selectedSparePart.created_at }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Costo unitario $MXN:</p>
-              <p class="col-span-2"> ${{ selectedSparePart.cost }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Cantidad:</p>
-              <p class="col-span-2">{{ selectedSparePart.quantity }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Proveedor:</p>
-              <p class="col-span-2">{{ selectedSparePart.supplier }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Ubicación:</p>
-              <p class="col-span-2">{{ selectedSparePart.location }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Descripción:</p>
-              <p class="col-span-2">{{ selectedSparePart.actions }}</p>
-              <p class="text-[#373737] dark:text-gray-500">Evidencia:</p>
-              <div v-for="(media, index) in selectedSparePart.media" :key="index"
-                class="text-secondary hover:underline inline-flex space-y-1">
+            <p v-else>Sin validar aún</p>
+            <p class="text-[#373737] dark:text-white col-span-full mt-2">Evidencia:</p>
+            <template v-if="selectedMaintenance.media?.length">
+              <div 
+                v-for="(media, index) in selectedMaintenance.media" 
+                :key="index"
+                class="relative group rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              >
                 <a :href="media.original_url" target="_blank" rel="noopener noreferrer">
-                  <img :src="media.original_url">
+                  <img 
+                    :src="media.original_url" 
+                    alt="Imagen de mantenimiento"
+                    class="w-full h-48 object-cover"
+                  />
+                  <!-- Overlay con efecto hover -->
+                  <div 
+                    class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-all duration-300"
+                  >
+                    <span class="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                      Ver imagen
+                    </span>
+                  </div>
                 </a>
               </div>
-            </div>
-          </section>
-        </template>
-      </DialogModal>
-
-      <DialogModal :show="uploadFilesModal" @close="uploadFilesModal = false">
-        <template #title>
-          <p class="text-center font-bold"> Subir archivos a {{ currentMachine?.name }}</p>
-        </template>
-        <template #content>
-          <div>
-            <form @submit.prevent="uploadFiles" ref="myUploadFilesForm">
-              <div class="col-span-full">
-                <div class="flex items-center">
-                  <span
-                    class="font-bold text-[16px] inline-flex items-center text-gray-600 border border-r-8 border-transparent rounded-l-md h-9">
-                    <el-tooltip content="Archivos de la máquina (Manales, instructivos, etc)" placement="left">
-                      <i class="fa-solid fa-object-group"></i>
-                    </el-tooltip>
-                  </span>
-                  <input @input="form.media = $event.target.files"
-                    class="input h-12 rounded-lg file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:cursor-pointer hover:file:bg-red-600"
-                    aria-describedby="file_input_help" id="file_input" type="file" multiple />
-                </div>
-                <p class="mt-1 text-xs text-right text-gray-500" id="file_input_help">
-                  PDF, SVG, PNG, JPG o GIF (MAX. 4 MB).
-                </p>
-              </div>
-            </form>
+            </template>
+            <p v-else class="text-center dark:text-gray-300 italic"> No hay archivos de evidencia</p>
           </div>
-        </template>
-        <template #footer>
+        </section>
+      </template>
+
+      <template #footer>
+        <div>
+          <SecondaryButton
+            v-if="this.$page.props.auth.user.permissions.includes('Validar mantenimiento de maquinas') && !selectedMaintenance?.validated_at || true"
+            @click="validateMaintenance" :loading="form.processing">
+            Validar mantenimiento
+          </SecondaryButton>
+          <div v-else-if="selectedMaintenance?.validated_at" 
+            class="flex items-center text-green-800 bg-green-200 dark:bg-green-700 dark:text-green-100 py-1 px-3 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            Validado
+          </div>
+        </div>
+      </template>
+    </DialogModal>
+
+    <!-- //Modal para subir archivo -->
+    <DialogModal :show="uploadFilesModal" @close="uploadFilesModal = false">
+      <template #title>
+        <p class="text-center font-bold"> Subir archivos a {{ currentMachine?.name }}</p>
+      </template>
+      <template #content>
+        <div>
+          <form @submit.prevent="uploadFiles" ref="myUploadFilesForm">
+            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="4" />
+          </form>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex space-x-3">
           <CancelButton @click="uploadFilesModal = false; form.reset()" :disabled="form.processing">Cancelar
           </CancelButton>
-          <PrimaryButton @click="submitUploadFilesForm" :disabled="form.processing">Subir archivos
-          </PrimaryButton>
-        </template>
-      </DialogModal>
-    </AppLayoutNoHeader>
-  </div>
+          <SecondaryButton @click="uploadFiles" :disabled="!form.media.length" :loading="form.processing">Subir archivos
+          </SecondaryButton>
+        </div>
+      </template>
+    </DialogModal>
+
+  </AppLayout>
 </template>
 
 <script>
-import AppLayoutNoHeader from "@/Layouts/AppLayoutNoHeader.vue";
+// Importaciones de componentes
+import AppLayout from "@/Layouts/AppLayout.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
+import Empty from "@/Components/MyComponents/Empty.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
-import Modal from "@/Components/Modal.vue";
+import FileView from "@/Components/MyComponents/FileView.vue";
 import DialogModal from "@/Components/DialogModal.vue";
-import { Link, useForm } from "@inertiajs/vue3";
+import { ElMessage, ElMessageBox } from 'element-plus'; // Para notificaciones
+// Importa `router` para la navegación y `useForm`
+import { Link, useForm, router } from "@inertiajs/vue3"; 
+// Componentes locales (si los creas)
+import InfoItem from './InfoItem.vue'; 
+import StatusIndicator from './StatusIndicator.vue'; 
 
 export default {
+  components: {
+    AppLayout, PrimaryButton, FileView, FileUploader, Empty, SecondaryButton, CancelButton, Link, DropdownLink, Dropdown, ConfirmationModal, DialogModal,
+    InfoItem, StatusIndicator
+  },
+
+  props: {
+    machine: Object, // Máquina actual con todos los detalles
+    machines: Array, // Lista de todas las máquinas (solo id y name)
+  },
+
   data() {
-    const form = useForm({
-      media: null,
-    });
     return {
-      form,
-      selectedMachine: "",
-      currentMachine: null,
-      imageHovered: false,
+      form: useForm({ media: [] }),
+      // El v-model del selector ahora se basa en el ID de la prop 'machine'
+      selectedMachineId: this.machine?.id || null, 
+      currentImageIndex: 0,
+      activeTab: 'info', // 'info', 'maintenance', 'spares'
       showConfirmModal: false,
-      maintenanceModal: false,
-      sparePartModal: false,
       uploadFilesModal: false,
+      maintenanceTypes: ['Preventivo', 'Correctivo', 'Limpieza'],
+
+      //mantenimiento
+      maintenanceModal: false,
       maintenanceIndex: null,
-      sparePartIndex: null,
       selectedMaintenance: null,
-      selectedSparePart: null,
-      currentIndexMachine: null,
-      tabs: 1,
-      maintenanceTypes: [
-        'Preventivo',
-        'Correctivo',
-        'Limpieza',
-      ]
+
     };
   },
-  components: {
-    AppLayoutNoHeader,
-    PrimaryButton,
-    CancelButton,
-    Link,
-    DropdownLink,
-    Dropdown,
-    ConfirmationModal,
-    Modal,
-    DialogModal
+
+  computed: {
+    // Todas las computadas ahora usan directamente la prop 'machine'
+    hasImages() {
+      return this.machine?.media && this.machine.media.length > 0;
+    },
+    hasMultipleImages() {
+        return this.machine?.media?.length > 1;
+    },
+    currentImageUrl() {
+      if (!this.hasImages) return null;
+      return this.machine.media[this.currentImageIndex]?.original_url;
+    },
+    // Permisos
+    userPermissions() {
+        return this.$page.props.auth.user.permissions || [];
+    },
+    canEdit() {
+        return this.userPermissions.includes('Editar maquinas');
+    },
+    canCreate() {
+        return this.userPermissions.includes('Crear maquinas');
+    },
+    canDelete() {
+        return this.userPermissions.includes('Eliminar maquinas');
+    },
+    canCreateMaintenance() {
+        return this.userPermissions.includes('Crear mantenimientos');
+    },
+    canCreateSparePart() {
+        return this.userPermissions.includes('Crear refacciones');
+    },
+    canDoMoreActions() {
+        return this.canCreate || this.canCreateMaintenance || this.canCreateSparePart || this.canDelete;
+    }
   },
-  props: {
-    machine: Object,
-    machines: Array,
+
+  watch: {
+    // ESTA ES LA CORRECCIÓN CLAVE
+    selectedMachineId(newId) {
+      // Si se selecciona un ID y es diferente al de la máquina actual,
+      // visita la ruta 'show' para esa nueva máquina.
+      if (newId && newId !== this.machine.id) {
+        router.get(route('machines.show', newId), {}, {
+          preserveState: true, // Mantiene el estado del componente (como el modal abierto)
+          preserveScroll: true, // Mantiene la posición del scroll
+          onSuccess: () => { // Resetea el estado visual al cambiar de máquina
+              this.activeTab = 'info';
+              this.currentImageIndex = 0;
+          }
+        });
+      }
+    },
   },
+
   methods: {
+    // --- Lógica de UI ---
+    getTabClass(tabName) {
+      return this.activeTab === tabName
+        ? 'py-3 px-1 border-b-2 border-primary text-primary'
+        : 'py-3 px-1 border-b-2 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-300';
+    },
     getFileTypeIcon(fileName) {
-      // Asocia extensiones de archivo a iconos
-      const fileExtension = fileName.split('.').pop().toLowerCase();
-      switch (fileExtension) {
-        case 'pdf':
-          return 'fa-regular fa-file-pdf text-red-700';
-        case 'jpg':
-        case 'jpeg':
-        case 'png':
-        case 'gif':
-          return 'fa-regular fa-image text-blue-300';
-        default:
-          return 'fa-regular fa-file-lines';
-      }
+      const extension = fileName?.split('.').pop().toLowerCase() || '';
+      const iconMap = {
+        pdf: 'fa-regular fa-file-pdf text-red-500',
+        jpg: 'fa-regular fa-image text-blue-500',
+        jpeg: 'fa-regular fa-image text-blue-500',
+        png: 'fa-regular fa-image text-blue-500',
+        gif: 'fa-regular fa-image text-blue-500',
+        webp: 'fa-regular fa-image text-blue-500',
+        svg: 'fa-regular fa-image text-blue-500',
+        doc: 'fa-regular fa-file-word text-blue-700',
+        docx: 'fa-regular fa-file-word text-blue-700',
+        xls: 'fa-regular fa-file-excel text-green-600',
+        xlsx: 'fa-regular fa-file-excel text-green-600',
+      };
+      return iconMap[extension] || 'fa-regular fa-file-lines text-gray-400';
     },
-    deleteRow(obj) {
-      if (this.tabs == 2) {
-        this.$inertia.delete(route("maintenances.destroy", obj));
-
-        this.$notify({
-          title: "Éxito",
-          message: "Se eliminó el registro de mantenimiento",
-          type: "success",
-        });
-      } else if (this.tabs == 3) {
-        this.$inertia.delete(route("spare-parts.destroy", obj));
-
-        this.$notify({
-          title: "Éxito",
-          message: "Se eliminó el registro de refacción",
-          type: "success",
-        });
-      }
-      window.location.reload();
+    openImage(url) {
+      window.open(url, "_blank");
     },
+    formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('es-MX', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    },
+    // --- Lógica del Carrusel ---
+    nextImage() {
+      if (!this.hasMultipleImages) return;
+      this.currentImageIndex = (this.currentImageIndex + 1) % this.machine.media.length;
+    },
+    prevImage() {
+      if (!this.hasMultipleImages) return;
+      this.currentImageIndex = (this.currentImageIndex - 1 + this.machine.media.length) % this.machine.media.length;
+    },
+    // --- Lógica de Modales ---
     openMaintenanceModal(maintenance, index) {
       this.selectedMaintenance = maintenance;
       this.maintenanceModal = true;
       this.maintenanceIndex = index + 1;
     },
-    openSparePartModal(spare_part, index) {
-      this.selectedSparePart = spare_part;
-      this.sparePartModal = true;
-      this.sparePartIndex = index + 1;
+    openSparePartModal(spare) {
+      console.log('Abrir modal de refacción:', spare);
     },
-    showOverlay() {
-      this.imageHovered = true;
+    // --- Acciones CRUD ---
+    deleteMachine() {
+      // La acción ahora usa directamente this.machine.id
+      this.$inertia.delete(route("machines.destroy", this.machine.id), {
+        onSuccess: () => {
+          ElMessage({
+              type: 'success',
+              message: 'Máquina Eliminada',
+          });
+          this.selectedMachineId = null; 
+          this.showConfirmModal = false;
+          // Inertia reemplazará la prop 'machine' con null si el controlador lo gestiona,
+          // o puedes redirigir al index.
+        },
+        onError: () => {
+          ElMessage({
+            type: 'error',
+            message: 'Hubo un problema con la elimincaión',
+        });
+        }
+      });
     },
-    hideOverlay() {
-      this.imageHovered = false;
-    },
-    openImage(url) {
-      window.open(url, "_blank");
-    },
-    submitUploadFilesForm() {
-      this.$refs.myUploadFilesForm.dispatchEvent(new Event('submit', { cancelable: true }));
+    deleteRow(id, type) {
+        const routeName = type === 'maintenance' ? 'maintenances.destroy' : 'spare-parts.destroy';
+        this.$inertia.delete(route(routeName, id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                ElMessage({
+                    type: 'success',
+                    message: 'Registro eliminado',
+                });
+                // Inertia actualizará la prop 'machine' automáticamente con los datos frescos.
+            },
+            onError: () => {
+                ElMessage({
+                    type: 'error',
+                    message: 'No se pudo eliminar el registro',
+                });
+            }
+        });
     },
     uploadFiles() {
-      this.form.post(route("machines.upload-files", this.selectedMachine), {
+      this.form.post(route("machines.upload-files", this.machine.id), {
         _method: 'put',
         onSuccess: () => {
-          this.$notify({
-            title: "Éxito",
-            message: "Archivos subidos",
-            type: "success",
+          ElMessage({
+              type: 'success',
+              message: 'Archivos agregados a la máquina',
           });
 
           this.form.reset();
@@ -561,137 +565,38 @@ export default {
         },
       });
     },
-    previus() {
-      this.currentIndexMachine -= 1;
-      this.currentMachine = this.machines.data[this.currentIndexMachine];
-      this.selectedMachine = this.currentMachine.id;
-    },
-    next() {
-      this.currentIndexMachine += 1;
-      this.currentMachine = this.machines.data[this.currentIndexMachine];
-      this.selectedMachine = this.currentMachine.id;
-    },
     validateMaintenance(){
       this.form.put(route('maintenances.validate', this.selectedMaintenance.id), {
         onSuccess: () => {
-          this.$notify({
-            title: "Mantenimiento validado",
-            type: "success"
+          ElMessage({
+              type: 'success',
+              message: 'Mantenimiento validado',
           });
           this.selectedMaintenance.validated_at = new Date().toISOString();
           this.selectedMaintenance.validated_by = this.$page.props.auth.user.name;
+          this.maintenanceModal = false;
         },
         onError: error => {
           console.log(error)
         }
       })
     },
-    // async validateMaintenance() {
-    //   try {
-    //     const response = await axios.post(route("maintenances.validate", {
-    //         catalog_product_id: this.currentMachine?.id,
-    //       })
-    //     );
-
-    //     if (response.status === 200) {
-    //       this.$notify({
-    //         title: "Mantenimiento validado",
-    //         type: "success",
-    //       });
-    //       this.selectedMaintenance.validated_by = response.data.newItem.id;
-    //       this.currentMachine = response.data.newItem;
-    //     }
-    //   } catch (err) {
-    //     this.$notify({
-    //       title: "Algo salió mal",
-    //       message: err.message,
-    //       type: "error",
-    //     });
-    //     console.log(err);
-    //   }
-    // },
-    async clone() {
-      try {
-        const response = await axios.post(
-          route("catalog-products.clone", {
-            catalog_product_id: this.currentMachine?.id,
-          })
-        );
-
-        if (response.status == 200) {
-          this.$notify({
-            title: "Éxito",
-            message: response.data.message,
-            type: "success",
-          });
-          this.machines.data.push(response.data.newItem);
-          this.selectedMachine = response.data.newItem.id;
-          this.currentMachine = response.data.newItem;
-        } else {
-          this.$notify({
-            title: "Algo salió mal",
-            message: response.data.message,
-            type: "error",
-          });
-        }
-      } catch (err) {
-        this.$notify({
-          title: "Algo salió mal",
-          message: err.message,
-          type: "error",
-        });
-        console.log(err);
-      }
-    },
-    async deleteItem() {
-      try {
-        const response = await axios.delete(
-          route("machines.destroy", this.currentMachine?.id)
-        );
-
-        if (response.status == 200) {
-          this.$notify({
-            title: "Éxito",
-            message: response.data.message,
-            type: "success",
-          });
-
-          const index = this.machines.data.findIndex(
-            (item) => item.id === this.currentMachine.id
-          );
-          if (index !== -1) {
-            this.machines.data.splice(index, 1);
-            this.selectedMachine = "";
-          }
-        } else {
-          this.$notify({
-            title: "Algo salió mal",
-            message: response.data.message,
-            type: "error",
-          });
-        }
-      } catch (err) {
-        this.$notify({
-          title: "Algo salió mal",
-          message: err.message,
-          type: "error",
-        });
-        console.log(err);
-      } finally {
-        this.showConfirmModal = false;
-      }
-    },
-  },
-  watch: {
-    selectedMachine(newVal) {
-      this.currentMachine = this.machines.data.find(
-        (item) => item.id == newVal
-      );
-    },
-  },
-  mounted() {
-    this.selectedMachine = this.machine.id;
-    this.currentIndexMachine = this.machines.data.findIndex((obj) => obj.id == this.selectedMachine);
   },
 };
 </script>
+
+<style scoped>
+/* Estilos para botones de acción reutilizables */
+.action-button {
+  @apply size-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-secondary transition-all duration-200;
+}
+.action-button-primary {
+  @apply h-9 px-4 flex items-center justify-center rounded-lg bg-secondary text-white text-sm font-semibold hover:bg-secondary/90 transition-all duration-200;
+}
+.carousel-nav-button {
+    @apply absolute top-1/2 -translate-y-1/2 size-8 flex items-center justify-center rounded-full bg-white/70 dark:bg-black/50 text-gray-800 dark:text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-white dark:hover:bg-black;
+}
+.delete-icon-button {
+    @apply size-7 flex items-center justify-center rounded-full text-gray-400 hover:bg-red-100 dark:hover:bg-red-500/20 hover:text-red-600 dark:hover:text-red-500 transition-colors;
+}
+</style>

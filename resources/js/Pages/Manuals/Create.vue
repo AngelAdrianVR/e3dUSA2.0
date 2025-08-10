@@ -76,6 +76,7 @@ import InputError from "@/Components/InputError.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
+import { ElMessage, ElMessageBox } from 'element-plus'; // Para notificaciones
 import { Link, useForm } from "@inertiajs/vue3";
 
 export default {
@@ -104,10 +105,9 @@ export default {
         store() {
             this.form.post(route("manuals.store"), {
                 onSuccess: () => {
-                    this.$notify({
-                        title: "Éxito",
-                        message: "Se ha registrado el nuevo tutorial / manual",
-                        type: "success",
+                    ElMessage({
+                        type: 'success',
+                        message: 'Tutorial registrado',
                     });
                 },
             });

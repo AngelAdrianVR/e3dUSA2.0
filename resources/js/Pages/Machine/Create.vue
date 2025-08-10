@@ -89,12 +89,12 @@
                         </div>
 
                         <div label="Imagen de la máquina" prop="media" class="col-span-2 mt-5">
-                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" />
+                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="4" />
                             <InputError :message="form.errors.media" class="mt-2" />
                         </div>
                         
                         <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :loading="form.processing" :disabled="form.processing">
+                            <SecondaryButton :loading="form.processing">
                                 Guardar Máquina
                             </SecondaryButton>
                         </div>
@@ -127,7 +127,7 @@ export default {
             height: null,
             cost: null,
             supplier: null,
-            adquisition_date: null,
+            adquisition_date: new Date().toISOString().split('T')[0], // formato YYYY-MM-DD
             days_next_maintenance: null,
             media: null,
         });

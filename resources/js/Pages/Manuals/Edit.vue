@@ -87,6 +87,7 @@ import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
+import { ElMessage, ElMessageBox } from 'element-plus'; // Para notificaciones
 import { Link, useForm } from "@inertiajs/vue3";
 // Importaciones explícitas de Element Plus para claridad
 
@@ -123,20 +124,18 @@ export default {
             if (this.updateMedia) {
                 this.form.post(route("manuals.update-with-media", this.manual), {
                     onSuccess: () => {
-                        this.$notify({
-                            title: "Éxito",
-                            message: "El recurso se ha actualizado correctamente",
-                            type: "success",
+                        ElMessage({
+                            type: 'success',
+                            message: 'Recurso Actualizado',
                         });
                     },
                 });
             } else {
                 this.form.put(route("manuals.update", this.manual), {
                     onSuccess: () => {
-                        this.$notify({
-                            title: "Éxito",
-                            message: "El recurso se ha actualizado correctamente",
-                            type: "success",
+                        ElMessage({
+                            type: 'success',
+                            message: 'Recurso actualizado',
                         });
                     },
                 });

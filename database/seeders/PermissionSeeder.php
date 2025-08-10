@@ -23,6 +23,8 @@ class PermissionSeeder extends Seeder
             'Roles' => ['Ver roles y permisos', 'Crear roles y permisos', 'Editar roles y permisos', 'Eliminar roles y permisos'],
             'Tutoriales y manuales' => ['Ver tutoriales y manuales', 'Crear tutoriales y manuales', 'Editar tutoriales y manuales', 'Eliminar tutoriales y manuales'],
             'Maquinaria' => ['Ver maquinas', 'Crear maquinas', 'Editar maquinas', 'Eliminar maquinas'],
+            'Mantenimiento' => ['Ver mantenimientos', 'Crear mantenimientos', 'Editar mantenimientos', 'Eliminar mantenimientos', 'Validar mantenimiento de maquinas'],
+            'Refacciones' => ['Ver refacciones', 'Crear refacciones', 'Editar refacciones', 'Eliminar refacciones'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

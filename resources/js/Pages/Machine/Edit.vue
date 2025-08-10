@@ -89,15 +89,17 @@
                         </div>
 
                         <div v-if="machine.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
-                              <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
-                              <FileView v-for="file in machine.media" :key="file" :file="file" :deletable="true"
-                                  @delete-file="deleteFile($event)" />
-                          </div>
+                            <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
+                            <FileView v-for="file in machine.media" :key="file" :file="file" :deletable="true"
+                                @delete-file="deleteFile($event)" />
+                        </div>
 
-                        <div label="Imagen de la máquina" prop="media" class="col-span-2 mt-5">
-                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" />
+                        <div v-if="machine.media?.length < 4" label="Imagen de la máquina" prop="media" class="col-span-2 mt-5">
+                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="4 - machine.media?.length" />
                             <InputError :message="form.errors.media" class="mt-2" />
                         </div>
+
+                        <p class="text-amber-600 text-sm mt-4 col-span-full" v-else>*Has alcanzado el límite de imágenes elimina alguna para poder agregar más</p>
                         
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing" :disabled="form.processing">
@@ -137,6 +139,7 @@ export default {
             adquisition_date: this.machine.adquisition_date,
             days_next_maintenance: this.machine.days_next_maintenance,
             media: [],
+            _method: 'put', // <-- PARA ACTUALIZAR CON IMAGENES DENTRO DEL FORMULARIO
         });
 
         return {
@@ -158,7 +161,7 @@ export default {
     methods: {
         // Método para enviar el formulario
         update() {
-            this.form.put(route("machines.update"), {
+            this.form.post(route("machines.update", this.machine.id), {
                 onSuccess: () => {
                     ElMessage({
                         type: 'success',

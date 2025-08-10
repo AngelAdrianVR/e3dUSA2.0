@@ -23,12 +23,12 @@ class Machine extends Model implements HasMedia, Auditable
         'height',
         'cost',
         'supplier',
-        'aquisition_date',
+        'adquisition_date',
         'days_next_maintenance',
     ];
 
     protected $casts = [
-        'aquisition_date' => 'date',
+        'adquisition_date' => 'date',
     ];
 
     // Método para verificar si necesita mantenimiento
