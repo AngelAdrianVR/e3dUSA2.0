@@ -6,9 +6,12 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
+// element-plus
 import ElementPlus from 'element-plus';
 import es from 'element-plus/dist/locale/es.js';
 import 'element-plus/dist/index.css';
+
+// apexcharts
 import VueApexCharts from 'vue3-apexcharts';
 
 const appName = import.meta.env.VITE_APP_NAME || 'E3D USA';

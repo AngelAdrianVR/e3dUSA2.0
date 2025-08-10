@@ -1,7 +1,7 @@
 <template>
     <!-- Contenedor principal con fondo degradado oscuro -->
     <div class="min-h-screen flex flex-col sm:justify-center items-center p-4 bg-gradient-to-br from-slate-800 via-gray-600 to-slate-300">
-        <div>
+        <div class="mb-10">
             <slot name="logo" />
         </div>
 

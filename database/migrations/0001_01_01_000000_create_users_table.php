@@ -20,6 +20,9 @@ return new class extends Migration
             $table->rememberToken();
             $table->foreignId('current_team_id')->nullable();
             $table->string('profile_photo_path', 2048)->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->json('active_alerts')->nullable(); // Alertas activas del usuario como (programmed invoices, pendent quotes, price change reminders, etc.)
+            $table->timestamp('disabled_at')->nullable();
             $table->timestamps();
         });
 

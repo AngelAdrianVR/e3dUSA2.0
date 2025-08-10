@@ -37,3 +37,237 @@
         @apply hover:shadow-sm hover:shadow-gray-400 hover:bg-gray-700 hover:text-white transition ease-in-out duration-300 hover:-translate-y-1;
     }
 } */
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/* Estilos para que la tabla de Element Plus se vea bien en modo oscuro */
+.dark .el-table, .dark .el-table__expanded-cell {
+    background-color: transparent !important;
+}
+.dark .el-table th, .dark .el-table tr, .dark .el-table td {
+    background-color: transparent !important;
+    color: #d1d5db; /* gray-300 */
+}
+.dark .el-table__row:hover > td {
+    background-color: #1f2937 !important; /* slate-800 */
+}
+.dark .el-switch__core {
+    background-color: #4b5563; /* gray-600 */
+    border-color: #4b5563;
+}
+
+.el-switch__label {
+  color: #7a7a7a; /* gris oscuro para modo claro */
+}
+
+.dark .el-switch__label {
+  color: #ddd; /* gris claro para modo oscuro */
+}
+
+/* paginacion */
+/* Estilos base para la paginación. 
+  Se aplican tanto en modo claro como oscuro.
+*/
+.el-pagination {
+  --el-pagination-border-radius: 8px; /* Esquinas más redondeadas */
+  --el-font-size-base: 14px;
+}
+
+/* Estilos para los botones de paginación (números y flechas) */
+.el-pagination.is-background .el-pager li,
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .btn-next {
+  border-radius: var(--el-pagination-border-radius);
+  transition: all 0.3s ease; /* Transición suave para todos los estados */
+}
+
+/* --- MODO CLARO --- */
+
+/* Estado por defecto de los botones */
+.el-pagination.is-background .el-pager li,
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .btn-next {
+  background-color: #f0f2f5; /* Un gris muy suave y limpio */
+  color: #4a5568; /* Texto gris oscuro para buen contraste */
+}
+
+/* Estado hover (cuando el cursor está encima) */
+.el-pagination.is-background .el-pager li:hover,
+.el-pagination.is-background .btn-prev:hover,
+.el-pagination.is-background .btn-next:hover {
+  background-color: #e2e8f0;
+  color: #2d3748; 
+}
+
+/* Estado activo (la página actual) - ¡El toque moderno! */
+.el-pagination.is-background .el-pager li.is-active {
+  color: #ffffff;
+  background: linear-gradient(45deg, #4f46e5, #7c3aed); /* Gradiente de índigo a morado */
+  box-shadow: 0 4px 12px -2px rgba(99, 102, 241, 0.4); /* Sombra sutil para darle profundidad */
+  transform: translateY(-2px); /* Pequeño efecto de elevación */
+}
+
+/* Botones deshabilitados */
+.el-pagination.is-background .el-pager li:disabled,
+.el-pagination.is-background .btn-prev:disabled,
+.el-pagination.is-background .btn-next:disabled {
+    background-color: #f7fafc;
+    color: #cbd5e0;
+}
+
+
+/* --- MODO OSCURO --- */
+.dark {
+    /* Estado por defecto en modo oscuro */
+    --el-pagination-bg-color-dark: #2d3748; /* Fondo gris oscuro */
+    --el-pagination-text-color-dark: #a0aec0; /* Texto gris claro */
+    --el-pagination-hover-bg-color-dark: #4a5568; /* Fondo en hover */
+
+    .el-pagination.is-background .el-pager li,
+    .el-pagination.is-background .btn-prev,
+    .el-pagination.is-background .btn-next {
+        background-color: var(--el-pagination-bg-color-dark);
+        color: var(--el-pagination-text-color-dark);
+        border: 1px solid #4a5568; /* Borde sutil para definir la forma */
+    }
+
+    /* Hover en modo oscuro */
+    .el-pagination.is-background .el-pager li:hover,
+    .el-pagination.is-background .btn-prev:hover,
+    .el-pagination.is-background .btn-next:hover {
+        background-color: var(--el-pagination-hover-bg-color-dark);
+        border-color: #718096;
+        color: #e2e8f0;
+    }
+
+    /* Activo en modo oscuro */
+    .el-pagination.is-background .el-pager li.is-active {
+      background: linear-gradient(45deg, #6366f1, #a78bfa); /* Un gradiente más brillante para destacar */
+      border-color: transparent;
+      box-shadow: 0 4px 15px -3px rgba(124, 58, 237, 0.5); /* Sombra más notoria */
+    }
+
+    /* Deshabilitado en modo oscuro */
+    .el-pagination.is-background .btn-prev:disabled,
+    .el-pagination.is-background .btn-next:disabled {
+        background-color: #1a202c;
+        color: #4a5568;
+        border-color: #2d3748;
+    }
+}
+
+/* Estilos para el componente de pestañas (el-tabs) */
+
+/* Color de la barra inferior de las pestañas */
+.el-tabs__active-bar {
+  background-color: var(--el-color-primary) !important;
+}
+
+/* Color del texto de la pestaña inactiva */
+.el-tabs__item {
+  color: var(--el-text-color-secondary) !important;
+}
+
+/* Color del texto de la pestaña activa */
+.el-tabs__item.is-active {
+  color: var(--el-color-primary) !important;
+}
+
+/* Color del texto de la pestaña al pasar el cursor */
+.el-tabs__item:hover {
+  color: var(--el-color-primary) !important;
+}
+
+/* Color de la línea inferior del contenedor de pestañas */
+.el-tabs__nav-wrap::after {
+  background-color: var(--el-border-color-light) !important;
+}
+
+/* --- Estilos para Dark Mode --- */
+.dark .el-tabs__nav-wrap::after {
+    background-color: var(--el-border-color-darker) !important;
+}
+
+/* --- Estilos base para Input, Textarea y Select --- */
+.el-input__wrapper,
+.el-textarea__inner {
+  @apply w-full rounded-md shadow-sm bg-gray-50 border border-gray-300 text-gray-800 transition-colors duration-300;
+  /* Eliminamos el padding del wrapper para evitar conflictos, se aplica al inner */
+  padding: 0 !important;
+  /* Anulamos el box-shadow de focus de Element Plus para usar el nuestro */
+  box-shadow: none !important;
+}
+
+/* Estilos para el elemento de texto interno */
+.el-input__inner,
+.el-textarea__inner {
+  @apply caret-blue-400 text-gray-800;
+  /* El padding se aplica aquí para un control preciso */
+  padding-top: 0.25rem;    /* py-1 */
+  padding-bottom: 0.25rem; /* py-1 */
+  padding-left: 0.75rem;   /* px-3 */
+  padding-right: 0.75rem;  /* px-3 */
+}
+
+/* Estilos para el placeholder */
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  @apply text-gray-400;
+}
+
+/* --- Estado de Focus --- */
+.el-input__wrapper:focus-within,
+.el-textarea__inner:focus {
+  @apply outline-none ring-2 border-blue-500 ring-blue-500/50;
+}
+
+/* --- Estado de Error --- */
+.el-form-item.is-error .el-input__wrapper,
+.el-form-item.is-error .el-textarea__inner {
+  @apply border-red-500;
+}
+
+.el-form-item.is-error .el-input__wrapper:focus-within,
+.el-form-item.is-error .el-textarea__inner:focus {
+  @apply ring-red-500/50 border-red-500;
+}
+
+/*
+ * ==========================================================================
+ * Dark Mode
+ * ==========================================================================
+ */
+
+.dark {
+  /* --- Estilos base (Dark) --- */
+  .el-input__wrapper,
+  .el-textarea__inner {
+    @apply bg-gray-700 border-gray-600;
+  }
+
+  .el-input__inner,
+  .el-textarea__inner {
+    @apply text-gray-100;
+  }
+
+  .el-input__inner::placeholder,
+  .el-textarea__inner::placeholder {
+    @apply text-gray-500;
+  }
+
+  /* --- Estado de Error (Dark) --- */
+  .el-form-item.is-error .el-input__wrapper,
+  .el-form-item.is-error .el-textarea__inner {
+    @apply border-red-600;
+  }
+
+  .el-form-item.is-error .el-input__wrapper:focus-within,
+  .el-form-item.is-error .el-textarea__inner:focus {
+    @apply ring-red-500/50 border-red-600;
+  }
+
+  /* --- Label del Form Item (Dark) --- */
+  .el-form-item__label {
+    @apply text-gray-100;
+  }
+}

@@ -4,13 +4,17 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Sanctum\HasApiTokens;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable
+class User extends Authenticatable implements Auditable
 {
     use HasApiTokens;
 
@@ -19,6 +23,9 @@ class User extends Authenticatable
     use HasProfilePhoto;
     use Notifiable;
     use TwoFactorAuthenticatable;
+    use AuditableTrait;
+    use HasRoles;
+    
 
     /**
      * The attributes that are mass assignable.
@@ -29,6 +36,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_active',
+        'active_alerts',
+        'disabled_at',
     ];
 
     /**
@@ -62,6 +72,14 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active_alerts' => 'array',
         ];
+    }
+
+    // relaciones --------------------------------
+
+    public function detail(): HasOne
+    {
+        return $this->hasOne(EmployeeDetail::class);
     }
 }
