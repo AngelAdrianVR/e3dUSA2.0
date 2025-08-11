@@ -322,7 +322,7 @@
       <template #footer>
         <div>
           <SecondaryButton
-            v-if="this.$page.props.auth.user.permissions.includes('Validar mantenimiento de maquinas') && !selectedMaintenance?.validated_at || true"
+            v-if="this.$page.props.auth.user.permissions.includes('Validar mantenimiento de maquinas') && !selectedMaintenance?.validated_at"
             @click="validateMaintenance" :loading="form.processing">
             Validar mantenimiento
           </SecondaryButton>
