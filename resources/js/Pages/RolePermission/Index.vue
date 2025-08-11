@@ -231,7 +231,7 @@ export default {
                     this.closePermissionModal();
                     ElMessage.success(`Permiso ${this.isEditingPermission ? 'actualizado' : 'creado'}.`);
                 },
-                preserveState: false,
+                preserveState: true,
             };
             if (this.isEditingPermission) {
                 this.permissionForm.put(route('permissions.update', this.permissionForm.id), options);
@@ -242,7 +242,7 @@ export default {
         deletePermission(permission) {
             this.$inertia.delete(route('permissions.destroy', permission.id), {
                 onSuccess: () => ElMessage.success('Permiso eliminado.'),
-                preserveState: false,
+                preserveState: true,
             });
         },
 
@@ -263,7 +263,7 @@ export default {
             this.form.permissions = this.assignedPermissions;
             this.form.put(route('roles-permissions.update', this.selectedRole.id), {
                 onSuccess: () => ElMessage.success('Permisos actualizados.'),
-                preserveState: false,
+                preserveState: true,
             });
         },
     }

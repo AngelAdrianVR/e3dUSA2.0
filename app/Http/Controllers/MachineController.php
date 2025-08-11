@@ -12,7 +12,7 @@ class MachineController extends Controller
     public function index(Request $request)
     {
         // Iniciamos la consulta con las relaciones necesarias
-        $query = Machine::latest();
+        $query = Machine::with('maintenances')->latest();
 
         // Aplicamos el filtro de búsqueda si existe
         $query->when($request->input('search'), function ($q, $search) {

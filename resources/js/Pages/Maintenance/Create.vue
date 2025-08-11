@@ -121,7 +121,8 @@
                 <TextInput 
                   v-model="form.cost" 
                   :error="form.errors.cost"
-                  label="Costo del mantenimiento*">
+                  label="Costo del mantenimiento*"
+                  :formatAsNumber="true">
                   <template #icon-left>
                     <i class="fa-solid fa-dollar-sign"></i>
                   </template>

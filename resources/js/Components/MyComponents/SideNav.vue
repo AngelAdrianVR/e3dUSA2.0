@@ -391,7 +391,7 @@ export default {
                          route().current('users.*')
                         || route().current('role-permissions.*')
                         || route().current('bonuses.*')
-                        // || route().current('holidays.*')
+                        || route().current('holidays.*')
                         || route().current('discounts.*'),
                     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                         return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
@@ -407,7 +407,8 @@ export default {
                         // },
                         // {
                         //     label: 'Solicitudes de tiempo adicional',
-                        //     route: 'admin-additional-times.index',
+                        //     route: 'dashboard',
+                        //     active: route().current('admin-additional-time.*'),
                         //     show: this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional'),
                         //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                         //         return notification.data.module === 'admin-additional-time';
@@ -442,12 +443,13 @@ export default {
                             active: route().current('discounts.*'),
                             show: this.$page.props.auth.user.permissions?.includes('Ver descuentos')
                         },
-                        // {
-                        //     label: 'Dias festivos',
-                        //     route: 'holidays.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
-                        //     notifications: false,
-                        // },
+                        {
+                            label: 'Dias festivos',
+                            route: 'holidays.index',
+                            active: route().current('holidays.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
+                            notifications: false,
+                        },
                     ],
                     dropdown: true,
                     show: 
@@ -455,7 +457,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver bonos') 
                         // this.$page.props.auth.user.permissions.includes('Ver nominas') 
                         // || this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') 
-                        // || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
+                        || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                 },
                 // {
                 //     label: 'Diseño',

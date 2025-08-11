@@ -25,6 +25,7 @@ class PermissionSeeder extends Seeder
             'Maquinaria' => ['Ver maquinas', 'Crear maquinas', 'Editar maquinas', 'Eliminar maquinas'],
             'Mantenimiento' => ['Ver mantenimientos', 'Crear mantenimientos', 'Editar mantenimientos', 'Eliminar mantenimientos', 'Validar mantenimiento de maquinas'],
             'Refacciones' => ['Ver refacciones', 'Crear refacciones', 'Editar refacciones', 'Eliminar refacciones'],
+            'Días festivos' => ['Ver dias festivos', 'Crear dias festivos', 'Editar dias festivos', 'Eliminar dias festivos'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

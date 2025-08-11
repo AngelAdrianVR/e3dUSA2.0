@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Casts\Attribute; // Importa la clase Attribute
+
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -31,19 +32,51 @@ class Machine extends Model implements HasMedia, Auditable
         'adquisition_date' => 'date',
     ];
 
-    // Método para verificar si necesita mantenimiento
-    public function needsMaintenance()
+    protected $appends = ['needs_maintenance'];
+
+    /**
+     * Determina si la máquina necesita mantenimiento.
+     *
+     * @return \Illuminate\Database\Eloquent\Casts\Attribute
+     */
+    protected function needsMaintenance(): Attribute
     {
-        if (!$this->maintenances->count()) {
-            // La máquina no tiene mantenimientos registrados, por lo que necesita mantenimiento.
-            return true;
-        }
+        return Attribute::make(
+            get: function () {
+                // Precaución: Asegúrate de que la relación 'maintenances' esté cargada
+                // para evitar el problema N+1.
+                if (!$this->relationLoaded('maintenances') || !$this->maintenances->count()) {
+                    return true;
+                }
 
-        $lastMaintenanceDate = $this->maintenances->max('created_at');
-        $daysUntilMaintenance = $lastMaintenanceDate->addDays($this->days_next_maintenance)->diffInDays(now());
+                $lastMaintenanceDate = $this->maintenances->max('created_at');
+                
+                // Si no hay fecha de último mantenimiento, necesita uno.
+                if (!$lastMaintenanceDate) {
+                    return true;
+                }
 
-        return $daysUntilMaintenance <= 0;
+                $nextMaintenanceDate = $lastMaintenanceDate->addDays($this->days_next_maintenance);
+
+                // Retorna true si la fecha de próximo mantenimiento es hoy o ya pasó.
+                return now()->startOfDay()->gte($nextMaintenanceDate->startOfDay());
+            }
+        );
     }
+
+    // // Método para verificar si necesita mantenimiento
+    // public function needsMaintenance()
+    // {
+    //     if (!$this->maintenances->count()) {
+    //         // La máquina no tiene mantenimientos registrados, por lo que necesita mantenimiento.
+    //         return true;
+    //     }
+
+    //     $lastMaintenanceDate = $this->maintenances->max('created_at');
+    //     $daysUntilMaintenance = $lastMaintenanceDate->addDays($this->days_next_maintenance)->diffInDays(now());
+
+    //     return $daysUntilMaintenance <= 0;
+    // }
 
     // relationships
     public function maintenances()

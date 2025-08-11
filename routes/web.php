@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ManualController;
@@ -71,6 +72,11 @@ Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])
 // ------- Recursos humanos(Discounts Routes)  ---------
 Route::resource('discounts', DiscountController::class)->middleware('auth');
 Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');
+
+
+// ------- Recursos humanos(Holidays Routes)  ---------
+Route::resource('holidays', HolidayController::class)->middleware('auth');
+Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete'])->name('holidays.massive-delete');
 
 
 // ------- Historial de acciones rutas  ---------
