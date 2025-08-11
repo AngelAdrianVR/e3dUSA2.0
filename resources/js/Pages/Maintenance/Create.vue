@@ -1,17 +1,15 @@
 <template>
   <AppLayout title="Registrar Mantenimiento">
     <!-- Encabezado con título y botón para volver -->
-    <template #header>
-      <div class="flex justify-between items-center">
-        <Back :href="route('machines.show', machine.id)" />
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
-          Registrar Mantenimiento
-        </h2>
-      </div>
-    </template>
+    <div class="flex justify-between items-center">
+      <Back :href="route('machines.show', machine.id)" />
+      <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+        Registrar Mantenimiento
+      </h2>
+    </div>
 
     <!-- Contenedor principal del formulario -->
-    <div class="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div class="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
       <div ref="formContainer" class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
         <!-- Formulario -->
         <form @submit.prevent="store">
@@ -87,20 +85,15 @@
             <!-- Costo y Responsable -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
-                <InputLabel for="cost" value="Costo del mantenimiento" />
-                <el-input
-                  id="cost"
-                  v-model="form.cost"
-                  :formatter="(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
-                  :parser="(value) => value.replace(/[^\d.]/g, '')"
-                  placeholder="0.00"
-                  class="mt-1"
-                >
-                  <template #prefix>
-                    <i class="fa-solid fa-dollar-sign"></i>
+                <TextInput 
+                  v-model="form.cost" 
+                  :error="form.errors.cost"
+                  :formatAsNumber="true" 
+                  label="Costo del mantenimiento*">
+                  <template #icon-left>
+                    $
                   </template>
-                </el-input>
-                <InputError :message="form.errors.cost" class="mt-2" />
+                </TextInput>
               </div>
               <div>
                 <TextInput
@@ -212,8 +205,8 @@ export default {
         },
         onError: () => {
           ElMessage({
-              type: 'warning',
-              message: 'Puedes tener campos sin llenar',
+              type: 'error',
+              message: 'Hubo un problema al registrar el mantenimiento. Revisa los campos',
           });
         }
       });

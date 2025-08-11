@@ -8,7 +8,7 @@
           <p class="text-sm text-gray-500 dark:text-gray-300 mt-1">Visualiza y gestiona la información de tus máquinas.</p>
         </div>
         <Link :href="route('machines.index')"
-          class="mt-4 sm:mt-0 flex-shrink-0 size-9 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+          class="mt-4 sm:mt-0 flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
           <i class="fa-solid fa-xmark"></i>
         </Link>
       </header>
@@ -119,7 +119,10 @@
                     <FileView v-for="file in machine.media?.filter(m => m.collection_name == 'files')" 
                       :key="file" :file="file" :deletable="false" />
                 </div>
-                <Empty v-else />
+                <div v-else>
+                  <Empty />
+                  <p class="text-center text-base">Registra <button @click="uploadFilesModal = true" class="hover:underline text-secondary dark:text-blue-300">aquí</button></p>
+                </div>
             </div>
 
             <!-- Tab 2: Mantenimiento -->
@@ -160,7 +163,7 @@
                                 </div>
                             </td>
                             <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ formatDate(maintenance.maintenance_date) }}</td>
-                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">${{ maintenance.cost }}</td>
+                            <td class="py-3 px-4 text-gray-600 dark:text-gray-300">${{ maintenance.cost}}</td>
                             <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ maintenance.responsible }}</td>
                             <td class="py-3 pl-4 text-right">
                                 <el-popconfirm title="¿Eliminar este registro?" @confirm.stop="deleteRow(maintenance.id, 'maintenance')">
@@ -174,7 +177,10 @@
                         </tr>
                     </tbody>
                 </table>
-                <Empty v-else />
+                <div v-else>
+                  <Empty />
+                  <p class="text-center text-base">Registra <button @click="$inertia.visit(route('maintenances.create', selectedMachineId))" class="hover:underline text-secondary dark:text-blue-300">aquí</button></p>
+                </div>
             </div>
 
             <!-- Tab 3: Refacciones -->
@@ -190,7 +196,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="spare in machine.spare_parts" :key="spare.id" @click="openSparePartModal(spare)"
+                        <tr v-for="(spare, index) in machine.spare_parts" :key="spare.id" @click="openSparePartModal(spare, index)"
                             class="border-b dark:border-slate-700/50 hover:bg-gray-50 dark:hover:bg-slate-700/50 cursor-pointer">
                             <td class="py-3 pr-4 font-medium">{{ spare.name }}</td>
                             <td class="py-3 px-4 text-gray-600 dark:text-gray-300">{{ spare.quantity }}</td>
@@ -208,7 +214,10 @@
                         </tr>
                     </tbody>
                 </table>
-                <Empty v-else />
+                <div v-else>
+                  <Empty />
+                  <p class="text-center text-base">Registra una <button @click="$inertia.visit(route('spare-parts.create', selectedMachineId))" class="hover:underline text-secondary dark:text-blue-300">aquí</button></p>
+                </div>
             </div>
           </div>
         </div>
@@ -328,10 +337,71 @@
       </template>
     </DialogModal>
 
+    <!-- Refacciones -->
+      <DialogModal :show="sparePartModal" @close="sparePartModal = false">
+        <template #title>
+          <h1 class="font-bold flex items-center justify-between mt-7">
+            <span>Registro de refacción</span>
+            <Link :href="route('spare-parts.edit', selectedSparePart)">
+              <button class="action-button">
+                <i class="fa-solid fa-pencil"></i>
+              </button>
+          </Link>
+          </h1>
+        </template>
+        <template #content>
+          <section class="mt-3">
+            <div class="grid grid-cols-3 gap-2">
+              <p class="text-[#373737] dark:text-gray-500">Máquina:</p>
+              <p class="col-span-2 dark:text-white">{{ machine.name }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Refacción:</p>
+              <p class="col-span-2 dark:text-white"> {{ selectedSparePart.name }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Adquirida el:</p>
+              <p class="col-span-2 dark:text-white"> {{ formatDate(selectedSparePart.created_at) }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Costo unitario $MXN:</p>
+              <p class="col-span-2 dark:text-white"> ${{ selectedSparePart.cost?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Cantidad:</p>
+              <p class="col-span-2 dark:text-white">{{ selectedSparePart.quantity }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Proveedor:</p>
+              <p class="col-span-2 dark:text-white">{{ selectedSparePart.supplier }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Ubicación:</p>
+              <p class="col-span-2 dark:text-white">{{ selectedSparePart.location }}</p>
+              <p class="text-[#373737] dark:text-gray-500">Descripción:</p>
+              <p class="col-span-2 dark:text-white">{{ selectedSparePart.description }}</p>
+              <p class="text-[#373737] dark:text-white col-span-full mt-2">Evidencia:</p>
+              <template v-if="selectedSparePart.media?.length">
+                <div 
+                  v-for="(media, index) in selectedSparePart.media" 
+                  :key="index"
+                  class="relative group rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                >
+                  <a :href="media.original_url" target="_blank" rel="noopener noreferrer">
+                    <img 
+                      :src="media.original_url" 
+                      alt="Imagen de mantenimiento"
+                      class="w-full h-48 object-cover"
+                    />
+                    <!-- Overlay con efecto hover -->
+                    <div 
+                      class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 flex items-center justify-center transition-all duration-300"
+                    >
+                      <span class="text-white text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                        Ver imagen
+                      </span>
+                    </div>
+                  </a>
+                </div>
+              </template>
+              <p v-else class="text-center dark:text-gray-300 italic"> No hay archivos de evidencia</p>
+            </div>
+          </section>
+        </template>
+      </DialogModal>
+
     <!-- //Modal para subir archivo -->
     <DialogModal :show="uploadFilesModal" @close="uploadFilesModal = false">
       <template #title>
-        <p class="text-center font-bold"> Subir archivos a {{ currentMachine?.name }}</p>
+        <p class="text-center font-bold"> Subir archivos a {{ machine.name }}</p>
       </template>
       <template #content>
         <div>
@@ -399,6 +469,12 @@ export default {
       maintenanceModal: false,
       maintenanceIndex: null,
       selectedMaintenance: null,
+
+      // refacciones
+      sparePartModal: false,
+      sparePartIndex: null,
+      selectedSparePart: null,
+
 
     };
   },
@@ -507,8 +583,10 @@ export default {
       this.maintenanceModal = true;
       this.maintenanceIndex = index + 1;
     },
-    openSparePartModal(spare) {
-      console.log('Abrir modal de refacción:', spare);
+    openSparePartModal(spare_part, index) {
+      this.selectedSparePart = spare_part;
+      this.sparePartModal = true;
+      this.sparePartIndex = index + 1;
     },
     // --- Acciones CRUD ---
     deleteMachine() {

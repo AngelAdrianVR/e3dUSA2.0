@@ -1,7 +1,6 @@
 <template>
   <AppLayout title="Editar Mantenimiento">
     <!-- Encabezado con título y botón para volver -->
-    <template #header>
       <div class="flex justify-between items-center">
         <!-- CORREGIDO: Se usa maintenance.machine.id en lugar de machine.id -->
         <Back :href="route('machines.show', maintenance.machine.id)" />
@@ -9,7 +8,6 @@
           Editar Mantenimiento
         </h2>
       </div>
-    </template>
 
     <!-- Contenedor principal del formulario -->
     <div class="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -234,15 +232,15 @@ export default {
         onError: (errors) => {
           console.error("Errores de validación:", errors);
           ElMessage({
-              type: 'warning',
-              message: 'Por favor, revisa los campos del formulario.',
+              type: 'error',
+              message: 'Hubo un porblema. Por favor, revisa los campos del formulario.',
           });
         }
       });
     }
 
     function deleteFile(fileId) {
-      machine.value.media = machine.value.media.filter(m => m.id !== fileId);
+      props.maintenance.media = props.maintenance.media.filter(m => m.id !== fileId);
     }
 
     // Se retornan las variables y funciones para que estén disponibles en el template.
