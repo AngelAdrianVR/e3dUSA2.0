@@ -33,9 +33,9 @@
                             </div>
                         </div>
                         
-                        <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
-                            <i class="fa-solid fa-ghost text-5xl mb-3"></i>
-                            <p>No hay registros para mostrar.</p>
+                        <div v-else>
+                            <Empty />
+                            <!-- <p class="text-center text-base dark:text-white">Registrar <button @click="$inertia.visit(route('manuals.create'))" class="hover:underline text-secondary dark:text-blue-300">aquí</button></p> -->
                         </div>
                     </div>
 
@@ -48,6 +48,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
+import Empty from '@/Components/MyComponents/Empty.vue';
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ManualPresentation from "@/Components/MyComponents/ManualPresentation.vue";
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
@@ -57,6 +58,7 @@ export default {
     components: {
         Link,
         AppLayout,
+        Empty,
         SearchInput,
         LoadingIsoLogo,
         SecondaryButton,

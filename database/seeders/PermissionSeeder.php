@@ -16,6 +16,7 @@ class PermissionSeeder extends Seeder
 
         // Definir permisos por módulo
         $permissions = [
+            'Super Admin' => ['Ver costos de productos'],
             'Usuarios' => ['Ver personal', 'Crear personal', 'Editar personal', 'Eliminar personal'],
             'Bonos' => ['Ver bonos', 'Crear bonos', 'Editar bonos', 'Eliminar bonos'],
             'Descuentos' => ['Ver descuentos', 'Crear descuentos', 'Editar descuentos', 'Eliminar descuentos'],
@@ -26,6 +27,12 @@ class PermissionSeeder extends Seeder
             'Mantenimiento' => ['Ver mantenimientos', 'Crear mantenimientos', 'Editar mantenimientos', 'Eliminar mantenimientos', 'Validar mantenimiento de maquinas'],
             'Refacciones' => ['Ver refacciones', 'Crear refacciones', 'Editar refacciones', 'Eliminar refacciones'],
             'Días festivos' => ['Ver dias festivos', 'Crear dias festivos', 'Editar dias festivos', 'Eliminar dias festivos'],
+            'Clientes' => ['Ver clientes', 'Crear clientes', 'Editar clientes', 'Eliminar clientes'],
+            'Catálogo de productos' => ['Ver catalogo de productos', 'Crear catalogo de productos', 'Editar catalogo de productos', 'Eliminar catalogo de productos'],
+            'Materia prima' => ['Ver materia prima', 'Crear materia prima', 'Editar materia prima', 'Eliminar materia prima'],
+            'Insumos' => ['Ver insumos', 'Crear insumos', 'Editar insumos', 'Eliminar insumos'],
+            'Productos obsoletos' => ['Ver obsoletos', 'Crear obsoletos', 'Editar obsoletos', 'Eliminar obsoletos'],
+            'Scrap' => ['Ver scrap', 'Crear scrap', 'Editar scrap', 'Eliminar scrap'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

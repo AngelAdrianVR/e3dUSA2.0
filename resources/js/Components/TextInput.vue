@@ -13,6 +13,11 @@ const props = defineProps({
         type: String,
         default: ''
     },
+    // Prop para deshabilitar el componente
+    disabled: {
+        type: Boolean,
+        default: false
+    },
     // El texto para el label. Si no se provee, no se muestra.
     label: {
         type: String,
@@ -188,6 +193,7 @@ const baseClasses = computed(() => [
     'focus:outline-none focus:ring-2',
     'text-gray-800 dark:text-gray-100',
     'caret-blue-400',
+    'disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed disabled:text-gray-500',
     slots['icon-left'] ? 'pl-9' : 'px-3',
     props.error
         ? 'border-red-500 dark:border-red-600 focus:border-red-500 focus:ring-red-500/50'
@@ -227,6 +233,7 @@ const stepperClasses = computed(() => [
                 :class="baseClasses"
                 :value="modelValue"
                 :placeholder="placeholder"
+                :disabled="disabled"
                 :maxlength="withMaxLength ? maxLength : undefined"
                 @input="handleInput"
                 rows="3"
@@ -234,7 +241,7 @@ const stepperClasses = computed(() => [
             
             <!-- MODIFICADO: Stepper numérico ahora con input editable y estado de error -->
             <div v-else-if="type === 'numeric-stepper'" :class="stepperClasses">
-                <button @click="decrement" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
+                <button @click="decrement" :disabled="disabled" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
                     -
                 </button>
                 <input
@@ -242,12 +249,13 @@ const stepperClasses = computed(() => [
                     type="text"
                     :value="modelValue"
                     :placeholder="placeholder"
+                    :disabled="disabled"
                     @input="handleInput"
                     @blur="handleStepperBlur"
                     inputmode="numeric"
                     class="w-full h-5 text-center bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-gray-800 dark:text-gray-100"
                 />
-                <button @click="increment" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
+                <button @click="increment" :disabled="disabled" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
                     +
                 </button>
             </div>
@@ -261,6 +269,7 @@ const stepperClasses = computed(() => [
                 :class="baseClasses"
                 :value="formattedValue"
                 :placeholder="placeholder"
+                :disabled="disabled"
                 :maxlength="withMaxLength ? maxLength : undefined"
                 @input="handleInput"
                 :inputmode="formatAsNumber ? 'numeric' : undefined"
