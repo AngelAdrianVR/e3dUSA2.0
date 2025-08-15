@@ -50,7 +50,8 @@ class ProductController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:products,code',
-            'cost' => 'nullable|numeric|min:1|max:99999',
+            'caracteristics' => 'nullable|string',
+            'cost' => 'nullable|numeric|max:99999',
             'brand_id' => 'required|exists:brands,id',
             'product_type_key' => 'required|string|in:C,MP,I',
             'product_family_id' => 'required|exists:product_families,id',
@@ -68,7 +69,7 @@ class ProductController extends Controller
         // 2. MAPEO DE CLAVES A VALORES COMPLETOS
         // Esto permite tener una DB más legible.
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
-        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico'];
+        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak'];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
@@ -127,6 +128,21 @@ class ProductController extends Controller
             $bonus = Product::find($id);
             $bonus?->delete();
         }
+    }
+
+    // Busca y retorna los porductos del tipo materia prima para componentes de producto de catalogo
+    // SE USA EN: create, edit de productos.
+    public function fetchRawMaterials(Request $request)
+    {
+        $query = $request->input('query');
+
+        $rawMaterials = Product::where('product_type', 'Materia prima') // O la clave que uses, ej. 'MP'
+                            ->where('name', 'LIKE', "%{$query}%")
+                            ->select('id', 'name') // Solo selecciona los datos necesarios
+                            ->limit(10) // Limita los resultados para no sobrecargar
+                            ->get();
+
+        return response()->json($rawMaterials);
     }
 
     public function getMatches(Request $request)

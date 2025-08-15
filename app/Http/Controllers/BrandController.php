@@ -12,11 +12,6 @@ class BrandController extends Controller
         //
     }
 
-    public function create()
-    {
-        //
-    }
-
     public function store(Request $request)
     {
         $request->validate([
@@ -26,16 +21,6 @@ class BrandController extends Controller
         Brand::create($request->all());
     }
 
-    public function show(Brand $brand)
-    {
-        //
-    }
-
-    public function edit(Brand $brand)
-    {
-        //
-    }
-
     public function update(Request $request, Brand $brand)
     {
         $request->validate([
@@ -43,10 +28,5 @@ class BrandController extends Controller
         ]);
 
         $brand->update($request->all());
-    }
-
-    public function destroy(Brand $brand)
-    {
-        //
     }
 }

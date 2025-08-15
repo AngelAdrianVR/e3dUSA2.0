@@ -7,11 +7,6 @@ use Illuminate\Http\Request;
 
 class SparePartController extends Controller
 {
-    public function index()
-    {
-        //
-    }
-
     
     public function create($selectedMachine)
     {
@@ -36,13 +31,6 @@ class SparePartController extends Controller
 
         return redirect()->route('machines.show', ['machine'=> $request->machine_id]);
     }
-
-    
-    public function show(SparePart $spare_part)
-    {
-        //
-    }
-
     
     public function edit(SparePart $spare_part)
     {
@@ -52,7 +40,6 @@ class SparePartController extends Controller
         return inertia('SparePart/Edit', compact('spare_part'));
     }
 
-    
     public function update(Request $request, SparePart $spare_part)
     {
         $request->validate([
@@ -95,7 +82,6 @@ class SparePartController extends Controller
         return redirect()->route('machines.show', ['machine'=> $request->machine_id]);
 
     }
-
     
     public function destroy(SparePart $spare_part)
     {

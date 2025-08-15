@@ -146,7 +146,7 @@ export default {
             selectedItems: [],
             // Mantenemos una propiedad separada para los datos de la tabla que pueden ser modificados por la búsqueda
             tableData: this.catalog_products.data,
-            SearchProps: ['Nombre', 'Material', 'Marca'], // indica por cuales propiedades del registro puedes buscar
+            SearchProps: ['Nombre', 'Material', 'Marca', 'Código'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     components: {

@@ -33,6 +33,7 @@ class PermissionSeeder extends Seeder
             'Insumos' => ['Ver insumos', 'Crear insumos', 'Editar insumos', 'Eliminar insumos'],
             'Productos obsoletos' => ['Ver obsoletos', 'Crear obsoletos', 'Editar obsoletos', 'Eliminar obsoletos'],
             'Scrap' => ['Ver scrap', 'Crear scrap', 'Editar scrap', 'Eliminar scrap'],
+            'Costo de producción' => ['Ver costos de produccion', 'Crear costos de produccion', 'Editar costos de produccion', 'Eliminar costos de produccion'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

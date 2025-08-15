@@ -63,6 +63,9 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <TextInput v-model="form.name" label="Nombre del producto*" :error="form.errors.name" placeholder="Ej. Llavero metálico Ford" />
                             <TextInput v-model="form.code" label="Código (se genera automáticamente)" :error="form.errors.code" :disabled="true" />
+                            <TextInput v-model="form.caracteristics" placeholder="Diferenciador de otros productos similares: color de letras, color de fondo, forma, tamaño, etc."
+                                label="Características (opcional)" :error="form.errors.caracteristics"
+                                class="col-span-full" :isTextarea="true" :withMaxLength="true" :maxLength="255" />
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -189,6 +192,7 @@ export default {
                 name: null,
                 code: null,
                 cost: null,
+                caracteristics: null,
                 brand_id: null,
                 product_family_id: null,
                 product_type_key: 'C', // 'C' para Catálogo por defecto
@@ -219,7 +223,7 @@ export default {
             ],
             materialOptions: [
                 { label: 'Metal', key: 'M' },
-                { label: 'Plástico', key: 'PLs' },
+                { label: 'Plástico', key: 'PLS' },
                 { label: 'Piel de lujo', key: 'PL' },
                 { label: 'Original', key: 'O' },
                 { label: 'Lujo', key: 'L' },

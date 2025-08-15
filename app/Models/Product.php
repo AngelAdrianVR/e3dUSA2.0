@@ -32,6 +32,7 @@ class Product extends Model implements HasMedia, Auditable
         'measure_unit',
         'min_quantity',
         'max_quantity',
+        'caracteristics',
         'is_purchasable',
         'product_family_id',
     ];
@@ -50,6 +51,24 @@ class Product extends Model implements HasMedia, Auditable
     {
         return $this->belongsToMany(CompanyBranch::class, 'branch_pricing')
                     ->withPivot('price')
+                    ->withTimestamps();
+    }
+
+    public function components(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_components', 'catalog_product_id', 'component_product_id')
+                    ->withPivot('quantity') // ¡Muy importante para acceder a la cantidad!
+                    ->withTimestamps();
+    }
+
+    /**
+     * Define la relación para obtener los productos en los que este producto es utilizado.
+     * (Este producto es el COMPONENTE).
+     */
+    public function assemblies(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_components', 'component_product_id', 'catalog_product_id')
+                    ->withPivot('quantity')
                     ->withTimestamps();
     }
 }

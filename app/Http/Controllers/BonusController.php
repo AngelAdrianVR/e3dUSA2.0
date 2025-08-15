@@ -14,11 +14,6 @@ class BonusController extends Controller
         return inertia('Bonus/Index', compact('bonuses'));
     }
 
-    public function create()
-    {
-        //
-    }
-
     public function store(Request $request)
     {
         $request->validate([
@@ -33,16 +28,6 @@ class BonusController extends Controller
         return to_route('bonuses.index');
     }
 
-    public function show(Bonus $bonus)
-    {
-        //
-    }
-
-    public function edit(Bonus $bonus)
-    {
-        //
-    }
-
     public function update(Request $request, Bonus $bonus)
     {
         $request->validate([
@@ -55,11 +40,6 @@ class BonusController extends Controller
         $bonus->update($request->all());
 
         return to_route('bonuses.index');
-    }
-
-    public function destroy(Bonus $bonus)
-    {
-        //
     }
 
     public function massiveDelete(Request $request)

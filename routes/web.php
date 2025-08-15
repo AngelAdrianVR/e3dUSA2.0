@@ -12,6 +12,7 @@ use App\Http\Controllers\ManualController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFamilyController;
+use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\UserController;
@@ -51,24 +52,30 @@ Route::middleware([
 // ------- Catalog Products Routes ---------
 Route::resource('catalog-products', ProductController::class)->middleware('auth');
 Route::post('catalog-products/massive-delete', [ProductController::class, 'massiveDelete'])->name('catalog-products.massive-delete');
+Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->name('catalog-products.get-matches');
+Route::get('catalog-products-search-raw-materials', [ProductController::class, 'fetchRawMaterials'])->middleware('auth')->name('catalog-products.fetch-raw-materials');
+Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
 // Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
 // Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
-Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
 // Route::get('catalog-products-fetch-shipping-rates/{catalog_product}', [ProductController::class, 'fetchShippingRates'])->name('catalog-products.fetch-shipping-rates');
 // Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
 // Route::post('catalog-products-get-by-ids', [ProductController::class, 'getByIds'])->name('catalog-products.get-by-ids');
 // Route::get('catalog-products/{catalog_product}/get-info', [ProductController::class, 'getInfo'])->name('catalog-products.get-info');
 // Route::get('export-catalog-products', [ProductController::class, 'exportExcel']);
-Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->name('catalog-products.get-matches');
 
 
 // ------- product families Routes ---------
 Route::resource('product-families', ProductFamilyController::class)->except('show')->middleware('auth');
 
 
+//------------------ production-cost routes ----------------
+Route::resource('production-costs', ProductionCostController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
+Route::post('production-costs/massive-delete', [ProductionCostController::class, 'massiveDelete'])->name('production-costs.massive-delete');
+
+
 // ------- brands Routes ---------
-Route::resource('brands', BrandController::class)->except('show')->middleware('auth');
+Route::resource('brands', BrandController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 
 
 // ------- CRM(Companybranches sucursales Routes)  ---------
@@ -100,17 +107,17 @@ Route::resource('users', UserController::class)->middleware('auth');
 
 
 // ------- Recursos humanos(Bonuses Routes)  ---------
-Route::resource('bonuses', BonusController::class)->middleware('auth');
+Route::resource('bonuses', BonusController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])->name('bonuses.massive-delete');
 
 
 // ------- Recursos humanos(Discounts Routes)  ---------
-Route::resource('discounts', DiscountController::class)->middleware('auth');
+Route::resource('discounts', DiscountController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');
 
 
 // ------- Recursos humanos(Holidays Routes)  ---------
-Route::resource('holidays', HolidayController::class)->middleware('auth');
+Route::resource('holidays', HolidayController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete'])->name('holidays.massive-delete');
 
 
@@ -144,13 +151,13 @@ Route::post('machines/upload-files/{machine}', [MachineController::class, 'uploa
 
 
 // ------- Maintenances routes  -------------
-Route::resource('maintenances', MaintenanceController::class)->except('create')->middleware('auth');
+Route::resource('maintenances', MaintenanceController::class)->except(['index', 'create', 'show'])->middleware('auth');
 Route::get('maintenances/create/{selectedMachine}', [MaintenanceController::class, 'create'])->name('maintenances.create')->middleware('auth');
 Route::put('maintenances/validate/{maintenance}', [MaintenanceController::class, 'validateWork'])->name('maintenances.validate')->middleware('auth');
 
 
 // ---------- spare parts routes  ---------------
-Route::resource('spare-parts', SparePartController::class)->except('create')->middleware('auth');
+Route::resource('spare-parts', SparePartController::class)->except(['index', 'create', 'show'])->middleware('auth');
 Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 'create'])->name('spare-parts.create')->middleware('auth');
 // Route::post('spare-parts/update-with-media/{spare_part}', [SparePartController::class, 'updateWithMedia'])->name('spare-parts.update-with-media')->middleware('auth');
 

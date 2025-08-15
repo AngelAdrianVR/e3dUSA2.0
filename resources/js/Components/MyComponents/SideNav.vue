@@ -532,7 +532,7 @@ export default {
                         // route().current('more-additional-times.*') || 
                         // route().current('meetings.*') ||
                         // route().current('samples.*') || 
-                        // route().current('production-costs.*') ||
+                        route().current('production-costs.*') ||
                         route().current('manuals.*') ||
                         route().current('audits.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
@@ -551,6 +551,7 @@ export default {
                         {
                             label: 'Máquinaria',
                             route: 'machines.index',
+                            active: route().current('machines.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
                             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                                 return notification.data.module === 'machine';
@@ -588,12 +589,13 @@ export default {
                         //         return notification.data.module === 'samples';
                         //     }),
                         // },
-                        // {
-                        //     label: 'Costos de producción',
-                        //     route: 'production-costs.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver costos de produccion'),
-                        //     notifications: false,
-                        // },
+                        {
+                            label: 'Costos de producción',
+                            route: 'production-costs.index',
+                            active: route().current('production-costs.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver costos de produccion'),
+                            notifications: false,
+                        },
                         {
                             label: 'Historial de acciones',
                             route: 'audits.index',
@@ -602,13 +604,13 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: true,
-                    // show: this.$page.props.auth.user.permissions.includes('Ver maquinas') ||
-                    //     this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal') ||
-                    //     this.$page.props.auth.user.permissions.includes('Reuniones personal') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver historial de acciones') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
+                    // show: true,
+                    show: this.$page.props.auth.user.permissions.includes('Ver maquinas') 
+                        // || this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal') 
+                        // || this.$page.props.auth.user.permissions.includes('Reuniones personal') 
+                        // || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios') 
+                        || this.$page.props.auth.user.permissions.includes('Ver historial de acciones') 
+                        || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
                 },
                 // {
                 //     label: 'Configuración',

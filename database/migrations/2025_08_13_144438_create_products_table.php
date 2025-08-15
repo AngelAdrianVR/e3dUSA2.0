@@ -26,6 +26,7 @@ return new class extends Migration
             $table->float('width')->unsigned()->nullable();
             $table->float('diameter')->unsigned()->nullable();
             $table->string('measure_unit');
+            $table->string('caracteristics')->nullable(); // caracteristicas del producto como color, tamaño, forma, tipo de lñetra, etc
             $table->float('cost')->unsigned()->default(0);
             $table->integer('min_quantity')->default(1);
             $table->integer('max_quantity')->nullable();
