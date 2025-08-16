@@ -1,11 +1,11 @@
 <template>
   <div>
-    <AppLayout title="Costos de producción - Editar">
+    <AppLayout title="Editar Proceso de producción">
       <template #header>
         <div class="flex justify-between">
           <Back />
           <div class="flex items-center space-x-2">
-            <h2 class="font-semibold text-xl leading-tight">Editar costo de producción "{{ production_cost.name }}"</h2>
+            <h2 class="font-semibold text-xl leading-tight">Editar proceso de producción "{{ production_cost.name }}"</h2>
           </div>
         </div>
       </template>

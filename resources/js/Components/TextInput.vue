@@ -23,6 +23,11 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    // El texto para el tooltip de ayuda. Si no se provee, no se muestra.
+    helpContent: {
+        type: String,
+        default: null,
+    },
     // El mensaje de error. Si existe, activa el estado de error.
     error: {
         type: String,
@@ -212,14 +217,33 @@ const stepperClasses = computed(() => [
 
 <template>
     <div class="w-full">
-        <label 
-            v-if="label" 
-            :for="computedId" 
-            class="block ml-2 mb-1 text-sm font-medium text-gray-500 dark:text-gray-200 transition-colors duration-300"
-            :class="{ 'text-red-600 dark:text-red-500': error }"
-        >
-            {{ label }}
-        </label>
+        <div class="flex items-center justify-between">
+            <label 
+                v-if="label" 
+                :for="computedId" 
+                class="block ml-2 mb-1 text-sm font-medium text-gray-500 dark:text-gray-200 transition-colors duration-300"
+                :class="{ 'text-red-600 dark:text-red-500': error }"
+            >
+                {{ label }}
+            </label>
+
+            <el-tooltip v-if="helpContent" placement="top">
+                <template #content>
+                    <p>{{ helpContent }}</p>
+                </template>
+                <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    class="size-5 text-gray-500 hover:text-blue-500 transition duration-300"
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor" 
+                    stroke-width="2"
+                >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.227 9a3 3 0 115.546 1.5c-.414.72-1.05 1.276-1.773 1.5v1m0 4h.01M12 20a8 8 0 100-16 8 8 0 000 16z" />
+                </svg>
+            </el-tooltip>
+
+        </div>
         
         <div class="relative">
             <div v-if="slots['icon-left']" class="absolute inset-y-0 left-0 pl-3 pr-2 my-2 border-r border-gray-300 dark:border-gray-400 flex items-center pointer-events-none text-gray-400 dark:text-gray-400">

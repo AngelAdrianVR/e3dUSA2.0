@@ -590,7 +590,7 @@ export default {
                         //     }),
                         // },
                         {
-                            label: 'Costos de producción',
+                            label: 'Procesos de producción',
                             route: 'production-costs.index',
                             active: route().current('production-costs.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver costos de produccion'),

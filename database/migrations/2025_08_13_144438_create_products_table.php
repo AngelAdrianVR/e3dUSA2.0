@@ -27,11 +27,11 @@ return new class extends Migration
             $table->float('diameter')->unsigned()->nullable();
             $table->string('measure_unit');
             $table->string('caracteristics')->nullable(); // caracteristicas del producto como color, tamaño, forma, tipo de lñetra, etc
-            $table->float('cost')->unsigned()->default(0);
+            $table->float('cost')->nullable()->unsigned()->default(0);
             $table->integer('min_quantity')->default(1);
             $table->integer('max_quantity')->nullable();
             $table->foreignId('brand_id')->constrained('brands'); 
-            $table->foreignId('product_family_id')->constrained('brands'); 
+            $table->foreignId('product_family_id')->constrained('product_families'); 
             $table->timestamps();
         });
     }

@@ -57,7 +57,7 @@ class Product extends Model implements HasMedia, Auditable
     public function components(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'product_components', 'catalog_product_id', 'component_product_id')
-                    ->withPivot('quantity') // ¡Muy importante para acceder a la cantidad!
+                    ->withPivot('quantity')
                     ->withTimestamps();
     }
 
@@ -70,5 +70,16 @@ class Product extends Model implements HasMedia, Auditable
         return $this->belongsToMany(Product::class, 'product_components', 'component_product_id', 'catalog_product_id')
                     ->withPivot('quantity')
                     ->withTimestamps();
+    }
+
+    /**
+     * Los procesos de producción asociados a este producto de catálogo.
+     */
+    public function productionCosts(): BelongsToMany
+    {
+    return $this->belongsToMany(ProductionCost::class, 'product_production_cost')
+                ->withPivot('order') // ¡Importante! Especifica los campos adicionales
+                ->withTimestamps()
+                ->orderBy('pivot_order', 'asc'); // Ordena los procesos según el campo 'order'
     }
 }

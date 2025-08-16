@@ -1,11 +1,11 @@
 <template>
   <div>
-    <AppLayout title="Costos de producción - Agregar">
+    <AppLayout title="Agregar Proceso de producción">
       <template #header>
         <div class="flex justify-between">
           <Back />
           <div class="flex items-center space-x-2">
-            <h2 class="font-semibold text-xl leading-tight">Agregar Costo de producción</h2>
+            <h2 class="font-semibold text-xl leading-tight">Agregar Proceso de producción</h2>
           </div>
         </div>
       </template>

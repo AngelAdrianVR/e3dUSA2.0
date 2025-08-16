@@ -53,8 +53,10 @@ Route::middleware([
 Route::resource('catalog-products', ProductController::class)->middleware('auth');
 Route::post('catalog-products/massive-delete', [ProductController::class, 'massiveDelete'])->name('catalog-products.massive-delete');
 Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->name('catalog-products.get-matches');
-Route::get('catalog-products-search-raw-materials', [ProductController::class, 'fetchRawMaterials'])->middleware('auth')->name('catalog-products.fetch-raw-materials');
+Route::get('catalog-products-search-raw-materials', [ProductController::class, 'searchRawMaterial'])->middleware('auth')->name('catalog-products.search-raw-material');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
+Route::get('products-get-media/{product}', [ProductController::class, 'getProductMedia'])->middleware('auth')->name('products.get-media');
+Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
 // Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
 // Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');

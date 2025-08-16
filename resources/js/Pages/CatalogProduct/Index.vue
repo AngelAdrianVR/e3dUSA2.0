@@ -77,7 +77,7 @@
                             <el-table-column prop="brand.name" label="Marca" />
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver costos de productos')" prop="cost" label="Costo" width="150">
                                 <template #default="scope">
-                                    <span>${{ scope.row.cost?.toFixed(2) }}</span>
+                                    <span>${{ scope.row.cost?.toFixed(2) ?? '0.00' }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column align="right">

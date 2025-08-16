@@ -1,8 +1,8 @@
 <template>
-    <AppLayout title="Costos de Producción">
+    <AppLayout title="Procesos de Producción">
         <!-- Encabezado de la página -->
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            Gestión de Costos de Producción
+            Gestión de Procesos de Producción
         </h2>
 
         <!-- Contenido principal -->
@@ -19,7 +19,7 @@
                         
                         <div class="flex items-center space-x-4">
                             <!-- Botón de eliminación masiva -->
-                            <el-popconfirm confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
+                            <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar costos de produccion')" confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
                                 title="¿Estás seguro de eliminar los costos seleccionados?" @confirm="deleteSelections">
                                 <template #reference>
                                     <el-button type="danger" plain :disabled="!selectedItems.length">
@@ -30,7 +30,7 @@
                         </div>
                     </div>
 
-                    <!-- Tabla de Costos de Producción -->
+                    <!-- Tabla de Procesos de Producción -->
                     <el-table
                         max-height="550"
                         :data="production_costs.data" 
@@ -40,7 +40,7 @@
                         @row-click="handleRowClick"
                         class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300"
                     >
-                        <el-table-column type="selection" width="45" />
+                        <el-table-column v-if="$page.props.auth.user.permissions.includes('Eliminar costos de produccion')" type="selection" width="45" />
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
                         <el-table-column prop="cost_type" label="Tipo de costo" width="150">
@@ -191,6 +191,8 @@ export default {
             this.showModal = true;
         },
         handleRowClick(row) {
+            if ( !this.$page.props.auth.user.permissions.includes('Editar costos de produccion') ) return;
+
             this.isEditing = true;
             this.form.id = row.id;
             this.form.name = row.name;
@@ -242,6 +244,10 @@ export default {
         formatCurrency(value) {
             if (value == null) return '0.00';
             return Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        },
+        // Maneja el cambio de página
+        handlePageChange(page) {
+            this.$inertia.get(route('production-costs.index', { page }));
         },
         formatTime(totalSeconds) {
             if (totalSeconds === null || totalSeconds === undefined) return 'N/A';
