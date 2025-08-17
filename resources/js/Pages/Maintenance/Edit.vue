@@ -63,6 +63,7 @@
                   label="Problemas detectados*"
                   :error="form.errors.problems"
                   :isTextarea="true"
+                  :withMaxLength="true"
               />
             </div>
 
@@ -73,6 +74,7 @@
                   label="Acciones realizadas*"
                   :error="form.errors.actions"
                   :isTextarea="true"
+                  :withMaxLength="true"
               />
             </div>
             

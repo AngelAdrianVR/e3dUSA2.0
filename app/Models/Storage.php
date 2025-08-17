@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Storage extends Model
@@ -15,5 +16,13 @@ class Storage extends Model
     public function storable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Define la relación: un almacén tiene muchos movimientos de stock.
+     */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
     }
 }

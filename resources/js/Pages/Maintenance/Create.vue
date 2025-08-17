@@ -63,6 +63,7 @@
                   label="Problemas detectados*"
                   :error="form.errors.problems"
                   :isTextarea="true"
+                  :withMaxLength="true"
                   placeholder="Ej. Banda transportadora atascada"
               />
             </div>
@@ -74,6 +75,7 @@
                   label="Acciones realizadas*"
                   :error="form.errors.actions"
                   :isTextarea="true"
+                  :withMaxLength="true"
                   placeholder="Ej. Sintonización de servo para la banda"
               />
             </div>

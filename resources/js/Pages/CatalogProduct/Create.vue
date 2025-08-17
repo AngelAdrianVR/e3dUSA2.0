@@ -297,7 +297,6 @@
                             </SecondaryButton>
                         </div>
                     </div>
-                    {{form}}
                 </form>
             </div>
         </div>
@@ -445,11 +444,12 @@ export default {
             productTypeOptions: [
                 { label: 'Catálogo', key: 'C' },
                 { label: 'Materia Prima', key: 'MP' },
-                { label: 'Insumo', key: 'I' },
+                // { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
                 { label: 'Metal', key: 'M' }, { label: 'Plástico', key: 'PLS' }, { label: 'Piel de lujo', key: 'PL' },
                 { label: 'Original', key: 'O' }, { label: 'Lujo', key: 'L' }, { label: 'Piel', key: 'P' }, { label: 'Zamak', key: 'ZK' },
+                { label: 'Solid Chrome', key: 'SCH' }, { label: 'Micrometal', key: 'MM' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',

@@ -127,7 +127,7 @@ const formattedValue = computed(() => {
 const handleInput = (event) => {
     let rawValue = event.target.value;
 
-    if (props.formatAsNumber) {
+    if (props.formatAsNumber || props.type === 'numeric-stepper') {
         // 1. Limpiamos el valor de todo lo que no sea un número o un punto.
         //    Esto elimina las comas de miles que agrega el formateo (ej. "1,234" -> "1234").
         let numericString = rawValue.replace(/[^0-9.]/g, '');
@@ -141,12 +141,7 @@ const handleInput = (event) => {
         }
         emit('update:modelValue', numericString);
 
-    } else if (props.type === 'numeric-stepper') {
-        // La lógica para el stepper se mantiene, solo acepta enteros.
-        let numericValue = rawValue.replace(/[^0-9]/g, '');
-        emit('update:modelValue', numericValue);
-    }
-    else {
+    } else {
         // Para cualquier otro tipo de input, se acepta el valor tal cual.
         emit('update:modelValue', rawValue);
     }
@@ -154,23 +149,25 @@ const handleInput = (event) => {
 
 // Funciones para el stepper numérico
 const increment = () => {
-    let currentValue = Number(props.modelValue);
+    let currentValue = parseFloat(props.modelValue);
     if (isNaN(currentValue)) currentValue = 0;
     const newValue = Math.min(props.max, currentValue + props.step);
-    emit('update:modelValue', newValue);
+    // Redondeamos para evitar problemas de precisión con decimales
+    emit('update:modelValue', parseFloat(newValue.toFixed(10)));
 };
 
 const decrement = () => {
-    let currentValue = Number(props.modelValue);
+    let currentValue = parseFloat(props.modelValue);
     if (isNaN(currentValue)) currentValue = 0;
     const newValue = Math.max(props.min, currentValue - props.step);
-    emit('update:modelValue', newValue);
+    // Redondeamos para evitar problemas de precisión con decimales
+    emit('update:modelValue', parseFloat(newValue.toFixed(10)));
 };
 
 // NUEVO: Valida y ajusta el valor del stepper cuando el usuario sale del campo.
 const handleStepperBlur = () => {
-    let value = Number(props.modelValue);
-    if (isNaN(value) || props.modelValue === '') {
+    let value = parseFloat(props.modelValue);
+    if (isNaN(value) || props.modelValue === '' || props.modelValue === null) {
         value = props.min; // Si está vacío o no es un número, lo establece al mínimo.
     }
     const clampedValue = Math.max(props.min, Math.min(props.max, value));
@@ -276,7 +273,7 @@ const stepperClasses = computed(() => [
                     :disabled="disabled"
                     @input="handleInput"
                     @blur="handleStepperBlur"
-                    inputmode="numeric"
+                    inputmode="decimal"
                     class="w-full h-5 text-center bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-gray-800 dark:text-gray-100"
                 />
                 <button @click="increment" :disabled="disabled" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
@@ -296,7 +293,7 @@ const stepperClasses = computed(() => [
                 :disabled="disabled"
                 :maxlength="withMaxLength ? maxLength : undefined"
                 @input="handleInput"
-                :inputmode="formatAsNumber ? 'numeric' : undefined"
+                :inputmode="formatAsNumber ? 'decimal' : undefined"
             >
         </div>
         

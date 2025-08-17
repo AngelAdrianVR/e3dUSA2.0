@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class ProductController extends Controller
 {
@@ -83,7 +85,8 @@ class ProductController extends Controller
 
         // 2. MAPEO DE CLAVES (sin cambios)
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
-        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak'];
+        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak',
+                    'SCH' => 'Solid Chrome', 'MM' => 'Micrometal'];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
@@ -172,8 +175,8 @@ class ProductController extends Controller
             'media', // Para la galería de imágenes
             'brand', // Para obtener el nombre de la marca
             'productFamily', // Para obtener el nombre de la familia
-            'storages', // Para existencias y ubicación
-            'components', // Materia prima que compone el producto
+            'storages.stockMovements', // Para existencias, ubicación y movimientos de stock
+            'components.media', // Materia prima que compone el producto
             'productionCosts', // Procesos de producción asociados
             'branchPricings.companyBranch' // Precios por sucursal y el nombre de la sucursal
         ]);
@@ -198,14 +201,118 @@ class ProductController extends Controller
         ]);
     }
 
-    public function edit(Product $product)
+    public function edit(Product $catalog_product)
     {
-        //
+        // Carga todas las relaciones necesarias para el formulario
+        $catalog_product->load('brand', 'productFamily', 'storages', 'components', 'productionCosts', 'media');
+
+        // Aquí deberías pasar los mismos datos que en tu método `create`
+        // para poblar los selectores (marcas, familias, etc.)
+        return inertia('CatalogProduct/Edit', [
+            'catalog_product' => $catalog_product,
+            'brands' => Brand::all(),
+            'product_families' => ProductFamily::all(),
+            'production_processes' => ProductionCost::all(),
+            'raw_materials' => Product::where('product_type', 'Materia prima')->get(),
+        ]);
     }
 
-    public function update(Request $request, Product $product)
+    public function update(Request $request, Product $catalog_product)
     {
-        //
+        // 1. REGLAS DE VALIDACIÓN
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+            // Ignora el producto actual al verificar si el código es único
+            'code' => ['required', 'string', Rule::unique('products')->ignore($catalog_product->id)],
+            'caracteristics' => 'nullable|string',
+            'cost' => 'nullable|numeric|max:99999',
+            'base_price' => 'nullable|numeric|min:0',
+            'brand_id' => 'required|exists:brands,id',
+            'product_type_key' => 'required|string|in:C,MP,I',
+            'product_family_id' => 'required|exists:product_families,id',
+            'material' => 'required|string',
+            'measure_unit' => 'nullable|string|max:100',
+            'min_quantity' => 'nullable|integer|min:0',
+            'max_quantity' => 'nullable|integer|min:0|gte:min_quantity',
+            'is_circular' => 'nullable|boolean',
+            'width' => 'required|numeric|min:0',
+            'large' => 'nullable|required_if:is_circular,false|numeric|min:0',
+            'height' => 'nullable|required_if:is_circular,false|numeric|min:0',
+            'diameter' => 'nullable|required_if:is_circular,true|numeric|min:0',
+            'media' => 'nullable|array|max:3',
+            'media.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'components' => 'nullable|array',
+            'components.*.product_id' => 'required_with:components|exists:catalog_products,id',
+            'components.*.quantity' => 'required_with:components|numeric|min:1',
+            'production_processes' => 'nullable|array',
+            'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
+            'location' => 'nullable|string|max:255',
+        ]);
+
+        // 2. MAPEO DE CLAVES
+        $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
+        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak', 'SCH' => 'Solid Chrome', 'MM' => 'Micrometal'];
+
+        $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
+        $validatedData['material'] = $materials[$validatedData['material']];
+
+        // 3. LÓGICA DE CÁLCULO DE COSTO
+        $totalProcessesCost = 0;
+        if ($request->filled('production_processes')) {
+            $processIds = array_column($request->input('production_processes'), 'process_id');
+            $processes = ProductionCost::whereIn('id', $processIds)->get();
+            $totalProcessesCost = $processes->sum('cost');
+        }
+        $initialCost = is_numeric($validatedData['cost']) ? $validatedData['cost'] : 0;
+        $validatedData['cost'] = $initialCost + $totalProcessesCost;
+
+        // 4. TRANSACCIÓN DE BASE DE DATOS
+        DB::beginTransaction();
+        try {
+            // Actualiza el producto principal
+            $catalog_product->update($validatedData);
+
+            // Actualiza el registro de inventario
+            $storage = $catalog_product->storages()->first();
+            if ($storage) {
+                $storage->update(['location' => $request->location]);
+            }
+
+            // 5. SINCRONIZAR RELACIONES (si es un producto de catálogo)
+            if ($validatedData['product_type_key'] === 'C') {
+                $componentsToSync = [];
+                if ($request->filled('components')) {
+                    foreach ($request->input('components') as $component) {
+                        $componentsToSync[$component['product_id']] = ['quantity' => $component['quantity']];
+                    }
+                }
+                $catalog_product->components()->sync($componentsToSync); // sync() elimina los que no están y agrega los nuevos
+
+                $processesToSync = [];
+                if ($request->filled('production_processes')) {
+                    foreach ($request->input('production_processes') as $index => $process) {
+                        $processesToSync[$process['process_id']] = ['order' => $index + 1];
+                    }
+                }
+                $catalog_product->productionCosts()->sync($processesToSync);
+            }
+
+            // 6. MANEJO DE IMÁGENES NUEVAS
+            if ($request->hasFile('media')) {
+                foreach ($request->file('media') as $file) {
+                    $catalog_product->addMedia($file)->toMediaCollection('images');
+                }
+            }
+
+            DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return Redirect::back()->withErrors(['message' => 'Ocurrió un error inesperado al actualizar el producto: ' . $e->getMessage()]);
+        }
+
+        // 7. REDIRECCIÓN CON MENSAJE DE ÉXITO
+        return to_route('catalog-products.show', $catalog_product->id);
     }
 
     public function destroy(Product $product)
@@ -285,5 +392,46 @@ class ProductController extends Controller
             ->get(['id', 'name', 'code', 'caracteristics']); // Selecciona solo los campos necesarios
 
         return response()->json($similarProducts);
+    }
+
+    public function handleStockMovement(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|numeric|min:0.01',
+            'type' => 'required|in:Entrada,Salida',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        // Asumimos que el producto tiene al menos un almacén, como en tu vista de Vue.
+        $storage = $product->storages()->first();
+        
+        if (!$storage) {
+            return back()->withErrors(['message' => 'El producto no tiene un almacén asociado.']);
+        }
+        
+        // Validar que haya stock suficiente para una salida
+        if ($validated['type'] === 'Salida' && $storage->quantity < $validated['quantity']) {
+            throw ValidationException::withMessages([
+                'quantity' => 'No hay existencias suficientes para realizar la salida. Stock actual: ' . $storage->quantity,
+            ]);
+        }
+            $quantityChange = $validated['quantity'];
+
+            if ($validated['type'] === 'Entrada') {
+                $storage->increment('quantity', $quantityChange);
+            } else {
+                // Para salidas, decrementamos
+                $storage->decrement('quantity', $quantityChange);
+                // El cambio se guarda como un número positivo, el 'type' indica la operación
+            }
+
+            // Registrar el movimiento en la nueva tabla
+            $storage->stockMovements()->create([
+                'product_id' => $product->id,
+                'quantity_change' => $quantityChange,
+                'type' => $validated['type'],
+                'notes' => $validated['notes'],
+            ]);
+        // return redirect()->back();
     }
 }
