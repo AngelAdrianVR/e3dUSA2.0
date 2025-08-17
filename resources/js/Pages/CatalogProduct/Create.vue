@@ -90,6 +90,8 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <TextInput v-model="form.min_quantity" label="Cantidad mínima" :error="form.errors.min_quantity" type="number" placeholder="Ej. 100" />
                              <TextInput v-model="form.max_quantity" label="Cantidad máxima" :error="form.errors.max_quantity" type="number" placeholder="Ej. 1000" />
+                             <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
+                             <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
                                 v-model="form.cost" 
                                 :error="form.errors.cost"
@@ -295,6 +297,7 @@
                             </SecondaryButton>
                         </div>
                     </div>
+                    {{form}}
                 </form>
             </div>
         </div>
@@ -410,6 +413,8 @@ export default {
                 large: null,
                 height: null,
                 diameter: null,
+                current_stock: null,
+                location: null,
                 media: [],
                 components: [], // Array para guardar los componentes del producto
                 production_processes: [], // Array para guardar los procesos del producto

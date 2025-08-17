@@ -52,7 +52,10 @@
                     <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-lg">
                         <div class="w-full h-80 bg-gray-100 dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                             <img v-if="product.media?.length" :src="product.media[currentImage]?.original_url" :alt="product.name" class="w-full h-full object-contain">
-                            <i v-else class="fa-regular fa-image text-gray-400 text-6xl"></i>
+                            <div class="flex flex-col items-center justify-end" v-else>
+                                <i class="fa-regular fa-image text-gray-400 text-6xl"></i>
+                                <p class="text-center italic text-gray-700 dark:text-gray-400 mt-2">Producto sin imagen</p>
+                            </div>
                         </div>
                         <div v-if="product.media?.length > 1" class="flex items-center justify-center space-x-2 mt-3">
                             <div v-for="(image, index) in product.media" :key="index" @click="currentImage = index"
@@ -69,7 +72,7 @@
                     <!-- Nombre y Código -->
                     <div>
                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ product.name }}</h1>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">{{ product.code }}</p>
+                        <p class="text-base text-gray-500 dark:text-gray-400 font-mono mt-1">Código: {{ product.code }}</p>
                     </div>
 
                     <!-- Tarjeta de Detalles Generales -->

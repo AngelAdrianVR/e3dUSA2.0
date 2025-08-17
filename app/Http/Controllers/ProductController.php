@@ -120,6 +120,12 @@ class ProductController extends Controller
             // Crea el producto principal con el costo ya actualizado
             $product = Product::create($validatedData);
 
+            // --- Crear registro de inventario inicial ---
+            $product->storages()->create([
+                'quantity' => $request->current_stock ?? 0,
+                'location' => $request->location // O puedes dejarlo null si tu lógica lo permite
+            ]);
+
             // 4. GUARDAR RELACIONES (si es un producto de catálogo)
             if ($validatedData['product_type_key'] === 'C') {
                 if ($request->filled('components')) {
@@ -166,7 +172,7 @@ class ProductController extends Controller
             'media', // Para la galería de imágenes
             'brand', // Para obtener el nombre de la marca
             'productFamily', // Para obtener el nombre de la familia
-            // 'storages', // Para existencias y ubicación
+            'storages', // Para existencias y ubicación
             'components', // Materia prima que compone el producto
             'productionCosts', // Procesos de producción asociados
             'branchPricings.companyBranch' // Precios por sucursal y el nombre de la sucursal

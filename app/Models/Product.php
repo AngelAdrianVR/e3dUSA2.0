@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -55,6 +56,11 @@ class Product extends Model implements HasMedia, Auditable
     public function branchPricings(): HasMany
     {
         return $this->hasMany(BranchPricing::class);
+    }
+
+    public function storages(): MorphMany
+    {
+        return $this->morphMany(Storage::class, 'storable');
     }
 
     public function companyBranches(): BelongsToMany

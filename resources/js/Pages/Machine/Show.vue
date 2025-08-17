@@ -25,14 +25,14 @@
         <div v-if="machine" class="flex items-center space-x-2">
           <el-tooltip v-if="canEdit" content="Editar Máquina" placement="top">
             <Link :href="route('machines.edit', selectedMachineId)">
-              <button class="action-button">
+              <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                 <i class="fa-solid fa-pencil"></i>
               </button>
             </Link>
           </el-tooltip>
           <Dropdown v-if="canDoMoreActions" align="right" width="48">
             <template #trigger>
-              <button class="action-button-primary">
+              <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                 Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
               </button>
             </template>
