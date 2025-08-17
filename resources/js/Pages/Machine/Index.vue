@@ -29,7 +29,7 @@
                             </template>
                         </el-popconfirm>
 
-                        <SearchInput @keyup.enter="searchItems" v-model="search" @cleanSearch="searchItems" />
+                        <SearchInput @keyup.enter="searchItems" v-model="search" @cleanSearch="searchItems" :searchProps="SearchProps" />
                     </div>
 
                     <!-- Tabla de Maquinas -->
@@ -132,6 +132,7 @@ export default {
             loading: false,
             search: this.filters.search || '',
             selectedItems: [],
+            SearchProps: ['Nombre', 'Proveedor', 'Numero de serie'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     components: {

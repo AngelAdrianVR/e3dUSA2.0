@@ -52,7 +52,7 @@
                             <LoadingIsoLogo />
                         </div>
                         <el-table 
-                            max-height="670" 
+                            max-height="610" 
                             :data="tableData"
                             style="width: 100%" 
                             stripe

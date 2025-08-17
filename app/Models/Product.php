@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -45,6 +45,16 @@ class Product extends Model implements HasMedia, Auditable
     public function brand(): BelongsTo
     {
         return $this->belongsTo(Brand::class);
+    }
+
+    public function productFamily(): BelongsTo
+    {
+        return $this->belongsTo(ProductFamily::class);
+    }
+
+    public function branchPricings(): HasMany
+    {
+        return $this->hasMany(BranchPricing::class);
     }
 
     public function companyBranches(): BelongsToMany

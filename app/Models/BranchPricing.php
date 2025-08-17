@@ -28,4 +28,5 @@ class BranchPricing extends Model implements Auditable
     {
         return $this->belongsTo(CompanyBranch::class);
     }
+    
 }

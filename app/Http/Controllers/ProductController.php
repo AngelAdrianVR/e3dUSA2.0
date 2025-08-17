@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Http\JsonResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ProductController extends Controller
 {
@@ -156,9 +158,38 @@ class ProductController extends Controller
         return to_route('catalog-products.index')->with('success', 'Producto creado con éxito.');
     }
 
-    public function show(Product $product)
+    public function show(Product $catalog_product): Response
     {
-        //
+        // Carga todas las relaciones necesarias para la vista de detalles.
+        // Usar load() es eficiente porque solo carga las relaciones para este producto específico.
+        $catalog_product->load([
+            'media', // Para la galería de imágenes
+            'brand', // Para obtener el nombre de la marca
+            'productFamily', // Para obtener el nombre de la familia
+            // 'storages', // Para existencias y ubicación
+            'components', // Materia prima que compone el producto
+            'productionCosts', // Procesos de producción asociados
+            'branchPricings.companyBranch' // Precios por sucursal y el nombre de la sucursal
+        ]);
+
+        // Obtiene una lista de todos los productos para el buscador/selector.
+        // Solo seleccionamos 'id' y 'name' para que la consulta sea ligera.
+        $all_products = Product::query()
+            ->select('id', 'name')
+            ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
+            ->orderBy('name')
+            ->get();
+
+        // Renderiza la vista de Inertia y le pasa los datos necesarios.
+        return Inertia::render('CatalogProduct/Show', [
+            // Pasamos el producto con todas sus relaciones ya cargadas.
+            // Lo envolvemos en 'data' para que coincida con la estructura que espera el prop.
+            'catalog_product' => [
+                'data' => $catalog_product
+            ],
+            // Pasamos la lista completa de productos para el selector.
+            'catalog_products' => $all_products,
+        ]);
     }
 
     public function edit(Product $product)
@@ -173,7 +204,7 @@ class ProductController extends Controller
 
     public function destroy(Product $product)
     {
-        //
+        $product->delete();
     }
 
     public function massiveDelete(Request $request)

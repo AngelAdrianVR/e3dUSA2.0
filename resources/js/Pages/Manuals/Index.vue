@@ -16,7 +16,7 @@
                             </SecondaryButton>
                         </Link>
                         
-                        <SearchInput @keyup.enter="searchManuals" @cleanSearch="searchManuals" v-model="inputSearch" />
+                        <SearchInput @keyup.enter="searchManuals" @cleanSearch="searchManuals" v-model="inputSearch" :searchProps="SearchProps" />
                     </div>
 
                     <div class="relative">
@@ -76,6 +76,7 @@ export default {
             allManuals: this.manuals.data,
             loading: false, // Para saber si se está cargando una nueva página
             observer: null, // Para el IntersectionObserver
+            SearchProps: ['Título', 'Tipo', 'Creador'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     watch: {

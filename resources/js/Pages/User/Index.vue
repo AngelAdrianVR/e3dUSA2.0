@@ -18,7 +18,7 @@
                             Nuevo Usuario
                         </SecondaryButton>
 
-                        <SearchInput @keyup.enter="searchUsers" v-model="search" @cleanSearch="searchUsers" />
+                        <SearchInput @keyup.enter="searchUsers" v-model="search" @cleanSearch="searchUsers" :searchProps="SearchProps" />
                     </div>
 
                         <!-- Tabla de Element Plus -->
@@ -166,6 +166,7 @@ export default {
             search: this.filters.search || '',
             showChangeStatusModal: false,
             selectedUser: null, // Usuario seleccionado para cambiar estatus
+            SearchProps: ['Nombre', 'ID', 'Estatus'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     components: {
