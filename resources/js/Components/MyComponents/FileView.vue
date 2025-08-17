@@ -44,6 +44,7 @@
 </template>
 
 <script>
+import { ElMessage } from 'element-plus';
 import axios from 'axios';
 
 export default {
@@ -121,7 +122,7 @@ export default {
                 window.open(fileUrl, '_blank');
             } else {
                 console.error('La URL del archivo no está definida.');
-                this.$notify({
+                ElMessage ({
                     title: "Error de servidor",
                     message: "No se pudo abrir el archivo. Probablemente no exista o esté dañado",
                     type: "error",
@@ -135,7 +136,7 @@ export default {
             try {
                 const response = await axios.delete(route('media.delete-file', this.file.id));
                 if (response.status === 200) {
-                    this.$notify({
+                    ElMessage ({
                         title: "Archivo eliminado",
                         message: "El archivo ha sido eliminado correctamente.",
                         type: "success",
@@ -144,7 +145,7 @@ export default {
                 }
             } catch (error) {
                 console.error("Error al eliminar el archivo:", error);
-                this.$notify({
+                ElMessage ({
                     title: "Error",
                     message: "No se pudo eliminar el archivo. Inténtalo de nuevo.",
                     type: "error",

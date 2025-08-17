@@ -14,11 +14,6 @@ class DiscountController extends Controller
         return inertia('Discount/Index', compact('discounts'));
     }
 
-    public function create()
-    {
-        //
-    }
-
     public function store(Request $request)
     {
         $request->validate([
@@ -32,16 +27,6 @@ class DiscountController extends Controller
         return to_route('discounts.index');
     }
 
-    public function show(Discount $discount)
-    {
-        //
-    }
-
-    public function edit(Discount $discount)
-    {
-        //
-    }
-
     public function update(Request $request, Discount $discount)
     {
         $request->validate([
@@ -53,11 +38,6 @@ class DiscountController extends Controller
         $discount->update($request->all());
 
         return to_route('discounts.index');
-    }
-
-    public function destroy(Discount $discount)
-    {
-        //
     }
 
     public function massiveDelete(Request $request)

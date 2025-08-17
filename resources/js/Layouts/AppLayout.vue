@@ -281,7 +281,7 @@ onMounted(() => {
                 </nav>
 
                 <!-- Page Content -->
-                <div class="overflow-auto h-[calc(100vh-4rem)] rounded-3xl lg:rounded-l-3xl z-50 bg-[#f2f2f2] dark:bg-zinc-700 p-3 md:p-5">
+                <div class="overflow-auto h-[calc(100vh-4rem)] rounded-3xl lg:rounded-l-3xl z-50 bg-[#f2f2f2] dark:bg-zinc-700 p-3 md:p-5 selection:bg-indigo-300 selection:text-white">
                     <slot />
                 </div>
             </section>

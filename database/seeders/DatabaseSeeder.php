@@ -20,5 +20,8 @@ class DatabaseSeeder extends Seeder
         
         // Llamar al seeder de permisos
         $this->call(PermissionSeeder::class);
+
+        // Llamar al seeder de famila de productos
+        $this->call(ProductFamilySeeder::class);
     }
 }

@@ -14,20 +14,22 @@ class Maintenance extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
-        'problems',
-        'actions',
         'cost',
-        'maintenance_type',
-        'responsible',
+        'actions',
+        'problems',
         'machine_id',
-        'maintenance_date',
-        'validated_by',
+        'responsible',
         'validated_at',
+        'validated_by',
+        'spare_parts_used', // ids de refacciones usadas en el mantenimiento
+        'maintenance_date',
+        'maintenance_type',
     ];
     
     protected $casts = [
         'maintenance_date' => 'date',
         'validated_at' => 'datetime',
+        'spare_parts_used' => 'array',
     ];
 
     // relationships

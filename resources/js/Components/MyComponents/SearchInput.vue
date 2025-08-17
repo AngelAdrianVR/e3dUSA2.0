@@ -3,6 +3,10 @@ export default {
     name: 'SearchInput',
     props: {
         modelValue: String, // Para v-model
+        searchProps: {
+            type: Array,
+            default: () => []
+        } // para retroalimentar al usuario para la busqueda de items en la tabla
     },
     emits: ['update:modelValue', 'cleanSearch'],
     data() {
@@ -76,6 +80,34 @@ export default {
                 placeholder="Buscar..."
                 class="w-full h-10 pl-10 pr-4 rounded-full border text-sm transition-opacity duration-500 ease-in-out bg-gray-100 dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+
+            <!-- Contenedor para el botón de ayuda y el tooltip (MODIFICADO PARA HOVER) -->
+            <div v-if="isActive && searchProps.length > 0" class="absolute top-0 right-0 h-full flex items-center group">
+                <!-- Tooltip de Ayuda (ahora se muestra con group-hover) -->
+                <transition
+                    enter-active-class="transition ease-out duration-100"
+                    enter-from-class="transform opacity-0 scale-95"
+                    enter-to-class="transform opacity-100 scale-100"
+                    leave-active-class="transition ease-in duration-75"
+                    leave-from-class="transform opacity-100 scale-100"
+                    leave-to-class="transform opacity-0 scale-95"
+                >
+                    <div 
+                        class="absolute top-12 -right-2 w-64 bg-white dark:bg-slate-900 rounded-lg shadow-xl border border-gray-200 dark:border-slate-700 p-3 z-20 invisible group-hover:visible"
+                    >
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2 font-semibold">Puedes buscar por:</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span 
+                                v-for="item in searchProps" 
+                                :key="item"
+                                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/70 dark:text-blue-200"
+                            >
+                                {{ item }}
+                            </span>
+                        </div>
+                    </div>
+                </transition>
+            </div>
             
             <div 
                 v-if="modelValue && !isFocused" 

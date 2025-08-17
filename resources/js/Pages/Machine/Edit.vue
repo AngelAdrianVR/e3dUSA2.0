@@ -35,23 +35,32 @@
                         </div>
 
                         <div>
-                            <TextInput label="Peso (Kg)" v-model="form.weight" type="number" step="0.01" :error="form.errors.weight" placeholder="Ej. 1500" />
+                            <TextInput label="Peso (Kg)" v-model="form.weight" type="numeric-stepper" :error="form.errors.weight" placeholder="Ej. 1500" />
                         </div>
 
                         <div>
-                            <TextInput label="Largo (cm)" v-model="form.large" type="number" step="0.01" :error="form.errors.large" placeholder="Ej. 220" />
+                            <TextInput label="Largo (cm)" v-model="form.large" type="numeric-stepper" :error="form.errors.large" placeholder="Ej. 220" />
                         </div>
 
                         <div>
-                            <TextInput label="Ancho (cm)" v-model="form.width" type="number" step="0.01" :error="form.errors.width" placeholder="Ej. 90" />
+                            <TextInput label="Ancho (cm)" v-model="form.width" type="numeric-stepper" :error="form.errors.width" placeholder="Ej. 90" />
                         </div>
 
                         <div>
-                            <TextInput label="Alto (cm)" v-model="form.height" type="number" step="0.01" :error="form.errors.height" placeholder="Ej. 180" />
+                            <TextInput label="Alto (cm)" v-model="form.height" type="numeric-stepper" :error="form.errors.height" placeholder="Ej. 180" />
                         </div>
                         
                         <div>
-                            <TextInput label="Costo de adquisición" v-model="form.cost" type="number" step="0.01" :error="form.errors.cost" placeholder="Ej. 250000" />
+                            <TextInput 
+                            v-model="form.cost" 
+                            :error="form.errors.cost"
+                            label="Costo de adquisición"
+                            placeholder="Ej. 250000"
+                            :formatAsNumber="true">
+                            <template #icon-left>
+                                <i class="fa-solid fa-dollar-sign"></i>
+                            </template>
+                            </TextInput>
                         </div>
 
                         <div>
@@ -68,7 +77,7 @@
                             <TextInput
                                 label="Mantenimiento cada (días)*"
                                 v-model="form.days_next_maintenance"
-                                type="number"
+                                type="numeric-stepper"
                                 :error="form.errors.days_next_maintenance"
                                 placeholder="Ej. 90"
                             />

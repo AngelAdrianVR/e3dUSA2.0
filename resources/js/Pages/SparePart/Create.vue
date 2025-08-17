@@ -1,192 +1,138 @@
 <template>
-  <div>
-    <AppLayout title="Refacciones - Crear">
-      <template #header>
-        <div class="flex justify-between">
-          <Back />
-          <div class="flex items-center space-x-2">
-            <h2 class="font-semibold text-xl leading-tight">
-              Registrar refacción
-            </h2>
-          </div>
-        </div>
-      </template>
+  <AppLayout title="Refacciones - Crear">
+    <div class="flex justify-between items-center">
+      <Back />
+      <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+        Registrar Refacción
+      </h2>
+    </div>
 
-      <!-- Form -->
-      <form @submit.prevent="store">
-        <div
-          class="md:w-1/2 md:mx-auto mx-3 my-5 bg-[#D9D9D9] dark:bg-[#202020] dark:text-white rounded-lg p-9 shadow-md space-y-4"
-        >
-        <div>
-            <IconInput
-              v-model="form.name"
-              inputPlaceholder="Nombre *"
-              inputType="text"
-            >
-              <el-tooltip content="Nombre de refacción" placement="top">
-                A
-              </el-tooltip>
-            </IconInput>
-            <InputError :message="form.errors.name" />
-          </div>
-        <div>
-            <IconInput
-              v-model="form.supplier"
-              inputPlaceholder="Proveedor"
-              inputType="text"
-            >
-              <el-tooltip content="Proveedor" placement="top">
-                 <i class="fa-solid fa-user"></i>
-              </el-tooltip>
-            </IconInput>
-            <InputError :message="form.errors.supplier" />
-          </div>
-          <div>
-            <IconInput
-              v-model="form.quantity"
-              inputPlaceholder="Cantidad *"
-              inputType="number"
-              inputStep="0.01"
-            >
-              <el-tooltip content="Cantidad de refacciones en stock" placement="top">
-                123
-              </el-tooltip>
-            </IconInput>
-            <InputError :message="form.errors.quantity" />
-          </div>
-          <div>
-            <IconInput
-              v-model="form.location"
-              inputPlaceholder="Ubicación *"
-              inputType="text"
-            >
-              <el-tooltip content="Ubicación" placement="top">
-                 <i class="fa-solid fa-map-pin"></i>
-              </el-tooltip>
-            </IconInput>
-            <InputError :message="form.errors.location" />
-          </div>
-          <div>
-            <IconInput
-              v-model="form.cost"
-              inputPlaceholder="Costo *"
-              inputType="number"
-              inputStep="0.01"
-            >
-              <el-tooltip content="Costo unitario" placement="top">
-                <i class="fa-solid fa-sack-dollar"></i>
-              </el-tooltip>
-            </IconInput>
-            <InputError :message="form.errors.cost" />
-          </div>
-            <div class="flex col-span-full">
-              <el-tooltip
-                content="Descripción de la refacción"
-                placement="top"
-              >
-                <span
-                  class="font-bold text-[16px] inline-flex items-center text-gray-600 border border-r-8 border-transparent rounded-l-md h-9 darkk:bg-gray-600 darkk:text-gray-400 darkk:border-gray-600"
-                >
-                  ...
-                </span>
-              </el-tooltip>
-              <textarea
-                v-model="form.description"
-                class="textarea"
-                autocomplete="off"
-                placeholder="Descripción"
-              ></textarea>
-              <InputError :message="form.errors.description" />
-            </div>
-
-          <div class="col-span-full">
-            <label class="text-[#747474]">Imágenes de Refacción</label>
-            <div class="flex items-center">
-              <span
-                class="font-bold text-[16px] inline-flex items-center text-gray-600 border border-r-8 border-transparent rounded-l-md h-9"
-              >
-                <el-tooltip content="Imágenes de evidencia " placement="top">
-                  <i class="fa-solid fa-file-invoice"></i>
-                </el-tooltip>
-              </span>
-              <input
-                @input="form.media = $event.target.files[0]"
-                class="input h-12 rounded-lg file:mr-4 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:cursor-pointer hover:file:bg-red-600"
-                aria-describedby="file_input_help"
-                id="file_input"
-                type="file"
+    <div class="max-w-3xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
+        <form @submit.prevent="store">
+          <div class="space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+              <TextInput
+                v-model="form.name"
+                label="Nombre*"
+                placeholder="Ej. Balero 6203"
+                :error="form.errors.name"
+              />
+              <TextInput
+                v-model="form.supplier"
+                label="Proveedor"
+                placeholder="Ej. SKF"
+                :error="form.errors.supplier"
               />
             </div>
-            <p
-              class="mt-1 text-xs text-right text-gray-500"
-              id="file_input_help"
-            >
-              SVG, PNG, JPG o GIF (MAX. 4 MB).
-            </p>
-          </div>
 
-          <div class="mx-3 text-right">
-            <PrimaryButton :disabled="form.processing">
-              <i v-if="form.processing" class="fa-sharp fa-solid fa-circle-notch fa-spin mr-2 text-white"></i>
-              Registrar refacción
-            </PrimaryButton>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <TextInput 
+                  v-model="form.quantity" 
+                  :error="form.errors.quantity"
+                  :formatAsNumber="true" 
+                  label="Cantidad en stock*" />
+              </div>
+              <div>
+                <TextInput 
+                  v-model="form.cost" 
+                  :error="form.errors.cost"
+                  :formatAsNumber="true" 
+                  label="Costo unitario*">
+                  <template #icon-left>
+                    $
+                  </template>
+                </TextInput>
+              </div>
+            </div>
+
+            <TextInput
+              v-model="form.location"
+              label="Ubicación*"
+              placeholder="Ej. Estante A, Nivel 3"
+              :error="form.errors.location"
+            />
+
+            <TextInput
+              v-model="form.description"
+              label="Descripción"
+              placeholder="Detalles adicionales de la refacción"
+              :isTextarea="true"
+              :error="form.errors.description"
+            />
+            
+            <div>
+              <InputLabel value="Imagen de la refacción" />
+              <FileUploader
+                @files-selected="form.media = $event"
+                acceptedFormat="image/*"
+                :multiple="true"
+                :maxFiles="3"
+                class="mt-1"
+              />
+              <p class="text-xs text-gray-500 mt-1">Puedes subir <strong class="text-secondary dark:text-blue-200">máximo 3 imágenes </strong> (JPG, PNG, GIF). Máx 4MB.</p>
+              <InputError :message="form.errors.media" class="mt-2" />
+            </div>
+
+            <div class="border-t border-gray-200 dark:border-slate-700 pt-6 flex justify-end">
+              <SecondaryButton :loading="form.processing">
+                Registrar Refacción
+              </SecondaryButton>
+            </div>
           </div>
-        </div>
-      </form>
-    </AppLayout>
-  </div>
+        </form>
+      </div>
+    </div>
+  </AppLayout>
 </template>
 
-<script>
+<script setup>
 import AppLayout from "@/Layouts/AppLayout.vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
+import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
-import IconInput from "@/Components/MyComponents/IconInput.vue";
+import InputLabel from "@/Components/InputLabel.vue";
+import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
-import { Link, useForm } from "@inertiajs/vue3";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import { useForm } from "@inertiajs/vue3";
+import { ElMessage } from 'element-plus';
 
-export default {
-  data() {
-    const form = useForm({
-      name: null,
-      supplier: null,
-      quantity: null,
-      cost: null,
-      location: null,
-      description: null,
-      machine_id: this.selectedMachine,
-      media: null,
-    });
+// Props
+const props = defineProps({
+  selectedMachine: Number,
+});
 
-    return {
-      form,
-    };
-  },
-  components: {
-    AppLayout,
-    PrimaryButton,
-    InputError,
-    IconInput,
-    Back,
-    Link
-  },
-  props: {
-    selectedMachine: Number,
-  },
-  methods: {
-    store() {
-      this.form.post(route("spare-parts.store"), {
-        onSuccess: () => {
-          this.$notify({
-            title: "Éxito",
-            message: "Refacción registrada",
-            type: "success",
-          });
+// Form state
+const form = useForm({
+  name: null,
+  supplier: null,
+  quantity: null,
+  cost: null,
+  location: null,
+  description: null,
+  machine_id: props.selectedMachine,
+  media: null,
+});
 
-          this.form.reset();
-        },
+// Methods
+const store = () => {
+  form.post(route("spare-parts.store"), {
+    onSuccess: () => {
+      ElMessage({
+        title: "Éxito",
+        message: "Refacción registrada",
+        type: "success",
       });
+      form.reset();
     },
-  },
+    onError: () => {
+      ElMessage({
+        title: "Error",
+        message: "Hubo un problema al registrar la refacción. Revisa los campos.",
+        type: "error",
+      });
+    }
+  });
 };
 </script>

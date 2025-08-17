@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('responsible'); // quien hizo el mantenimiento
             $table->date('maintenance_date')->nullable(); // fecha de mantenimiento 
             $table->string('validated_by')->nullable();
+            $table->json('spare_parts_used')->nullable(); // refacciones usadas para el mantenimiento
             $table->timestamp('validated_at')->nullable();
             $table->foreignId('machine_id')->constrained()->cascadeOnDelete();
             $table->timestamps();

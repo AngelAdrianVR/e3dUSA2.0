@@ -145,28 +145,36 @@ export default {
                     dropdown: false,
                     show: true
                 },
-                // {
-                //     label: 'Catálogo de productos',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>',
-                //     route: route('catalog-products.index'),
-                //     active: route().current('catalog-products.*'),
-                //     notifications: false,
-                //     options: [],
-                //     dropdown: false,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver catalogo de productos')
-                // },
-                // {
-                //     label: 'CRM',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" /></svg>',
-                //     active: route().current('crm.*') || route().current('quotes.*') || route().current('companies.*')
-                //         || route().current('sales.*') || route().current('oportunities.*') || route().current('oportunity-tasks.*')
-                //         || route().current('client-monitors.*') || route().current('meeting-monitors.*') || route().current('payment-monitors.*')
-                //         || route().current('sale-analitics.*') || route().current('sale-analitics.*')
-                //         || route().current('prospects.*') || route().current('prospects.*') || route().current('invoices.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return ['quote', 'sales', 'opportunities', 'companies', 'prospects'].includes(notification.data.module);
-                //     }),
-                //     options: [
+                {
+                    label: 'Catálogo de productos',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>',
+                    route: route('catalog-products.index'),
+                    active: route().current('catalog-products.*'),
+                    notifications: false,
+                    options: [],
+                    dropdown: false,
+                    show: this.$page.props.auth.user.permissions.includes('Ver catalogo de productos')
+                },
+                {
+                    label: 'CRM',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" /></svg>',
+                    active: 
+                        route().current('crm.*') 
+                        // || route().current('quotes.*') 
+                        || route().current('company-branches.*'),
+                        // || route().current('sales.*') 
+                        // || route().current('oportunities.*') 
+                        // || route().current('oportunity-tasks.*')
+                        // || route().current('client-monitors.*') 
+                        // || route().current('meeting-monitors.*') 
+                        // || route().current('payment-monitors.*')
+                        // || route().current('sale-analitics.*') 
+                        // || route().current('prospects.*') 
+                        // || route().current('invoices.*'),
+                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                    //     return ['quote', 'sales', 'opportunities', 'prospects'].includes(notification.data.module);
+                    // }),
+                    options: [
                 //         {
                 //             label: 'Inicio CRM',
                 //             route: 'sale-analitics.index',
@@ -181,14 +189,15 @@ export default {
                 //                 return notification.data.module === 'prospects';
                 //             }),
                 //         },
-                //         {
-                //             label: 'Clientes',
-                //             route: 'companies.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver clientes'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'companies';
-                //             }),
-                //         },
+                        {
+                            label: 'Clientes',
+                            route: 'company-branches.index',
+                            active: route().current('company-branches.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver clientes'),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'companies';
+                            // }),
+                        },
                 //         {
                 //             label: 'Oportunidades',
                 //             route: 'oportunities.index',
@@ -225,15 +234,16 @@ export default {
                 //             show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
                 //             notifications: false
                 //         },
-                //     ],
-                //     dropdown: true,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver cotizaciones') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver clientes') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver oportunidades') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver seguimiento integral') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver facturas') 
-                // },
+                    ],
+                    dropdown: true,
+                    show: 
+                     this.$page.props.auth.user.permissions.includes('Ver clientes') 
+                    // || this.$page.props.auth.user.permissions.includes('Ver cotizaciones') 
+                    // || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
+                    // || this.$page.props.auth.user.permissions.includes('Ver oportunidades') 
+                    // || this.$page.props.auth.user.permissions.includes('Ver seguimiento integral') 
+                    // || this.$page.props.auth.user.permissions.includes('Ver facturas') 
+                },
                 {
                     label: 'Compras',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg>',
@@ -391,7 +401,7 @@ export default {
                          route().current('users.*')
                         || route().current('role-permissions.*')
                         || route().current('bonuses.*')
-                        // || route().current('holidays.*')
+                        || route().current('holidays.*')
                         || route().current('discounts.*'),
                     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                         return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
@@ -407,7 +417,8 @@ export default {
                         // },
                         // {
                         //     label: 'Solicitudes de tiempo adicional',
-                        //     route: 'admin-additional-times.index',
+                        //     route: 'dashboard',
+                        //     active: route().current('admin-additional-time.*'),
                         //     show: this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional'),
                         //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                         //         return notification.data.module === 'admin-additional-time';
@@ -442,12 +453,13 @@ export default {
                             active: route().current('discounts.*'),
                             show: this.$page.props.auth.user.permissions?.includes('Ver descuentos')
                         },
-                        // {
-                        //     label: 'Dias festivos',
-                        //     route: 'holidays.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
-                        //     notifications: false,
-                        // },
+                        {
+                            label: 'Dias festivos',
+                            route: 'holidays.index',
+                            active: route().current('holidays.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver dias festivos'),
+                            notifications: false,
+                        },
                     ],
                     dropdown: true,
                     show: 
@@ -455,7 +467,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver bonos') 
                         // this.$page.props.auth.user.permissions.includes('Ver nominas') 
                         // || this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') 
-                        // || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
+                        || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                 },
                 // {
                 //     label: 'Diseño',
@@ -520,7 +532,7 @@ export default {
                         // route().current('more-additional-times.*') || 
                         // route().current('meetings.*') ||
                         // route().current('samples.*') || 
-                        // route().current('production-costs.*') ||
+                        route().current('production-costs.*') ||
                         route().current('manuals.*') ||
                         route().current('audits.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
@@ -539,6 +551,7 @@ export default {
                         {
                             label: 'Máquinaria',
                             route: 'machines.index',
+                            active: route().current('machines.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
                             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                                 return notification.data.module === 'machine';
@@ -576,12 +589,13 @@ export default {
                         //         return notification.data.module === 'samples';
                         //     }),
                         // },
-                        // {
-                        //     label: 'Costos de producción',
-                        //     route: 'production-costs.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver costos de produccion'),
-                        //     notifications: false,
-                        // },
+                        {
+                            label: 'Procesos de producción',
+                            route: 'production-costs.index',
+                            active: route().current('production-costs.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver costos de produccion'),
+                            notifications: false,
+                        },
                         {
                             label: 'Historial de acciones',
                             route: 'audits.index',
@@ -590,13 +604,13 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: true,
-                    // show: this.$page.props.auth.user.permissions.includes('Ver maquinas') ||
-                    //     this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal') ||
-                    //     this.$page.props.auth.user.permissions.includes('Reuniones personal') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver historial de acciones') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
+                    // show: true,
+                    show: this.$page.props.auth.user.permissions.includes('Ver maquinas') 
+                        // || this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal') 
+                        // || this.$page.props.auth.user.permissions.includes('Reuniones personal') 
+                        // || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios') 
+                        || this.$page.props.auth.user.permissions.includes('Ver historial de acciones') 
+                        || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
                 },
                 // {
                 //     label: 'Configuración',

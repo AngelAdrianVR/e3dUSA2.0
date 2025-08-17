@@ -7,59 +7,84 @@ use Illuminate\Http\Request;
 
 class SparePartController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    
+    public function create($selectedMachine)
     {
-        //
+        return inertia('SparePart/Create',compact('selectedMachine'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
+    
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'name' => 'required|string',
+            'supplier' => 'nullable|string',
+            'quantity' => 'required|numeric|min:1',
+            'cost' => 'required|numeric|min:0',
+            'location' => 'required',
+            'description' => 'nullable',
+            'machine_id' => 'required',
+        ]); 
+
+        $spare_part = SparePart::create($request->all());
+        $spare_part->addAllMediaFromRequest()->each(fn ($file) => $file->toMediaCollection());
+
+        return redirect()->route('machines.show', ['machine'=> $request->machine_id]);
+    }
+    
+    public function edit(SparePart $spare_part)
+    {
+        $spare_part ->load('media');
+
+        // return $spare_part;
+        return inertia('SparePart/Edit', compact('spare_part'));
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(SparePart $sparePart)
+    public function update(Request $request, SparePart $spare_part)
     {
-        //
+        $request->validate([
+            'name' => 'required|string',
+            'supplier' => 'nullable|string',
+            'quantity' => 'required|numeric|min:1',
+            'cost' => 'required|numeric|min:0',
+            'location' => 'required',
+            'description' => 'nullable',
+            'machine_id' => 'required',
+        ]); 
+
+        $spare_part->update($request->all());
+        
+        // update image
+        $spare_part->addAllMediaFromRequest()->each(fn ($file) => $file->toMediaCollection());
+        // $spare_part->addMediaFromRequest('media')->toMediaCollection();
+//         $spare_part->save();
+
+        return redirect()->route('machines.show', ['machine'=> $request->machine_id]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(SparePart $sparePart)
+    public function updateWithMedia(Request $request, SparePart $spare_part)
     {
-        //
-    }
+        $request->validate([
+            'name' => 'required|string',
+            'supplier' => 'nullable|string',
+            'quantity' => 'required|numeric|min:1',
+            'cost' => 'required|numeric|min:0',
+            'location' => 'required',
+            'description' => 'nullable',
+            'machine_id' => 'required',
+        ]); 
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, SparePart $sparePart)
-    {
-        //
-    }
+        $spare_part->update($request->all());
+          // update image
+        $spare_part->clearMediaCollection();
+        $spare_part->addAllMediaFromRequest()->each(fn ($file) => $file->toMediaCollection());
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(SparePart $sparePart)
+        return redirect()->route('machines.show', ['machine'=> $request->machine_id]);
+
+    }
+    
+    public function destroy(SparePart $spare_part)
     {
-        //
+        $spare_part->delete();
     }
 }

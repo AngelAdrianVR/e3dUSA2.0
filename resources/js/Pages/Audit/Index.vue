@@ -42,9 +42,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div v-else class="text-center py-10 text-gray-500 dark:text-gray-400">
-                            <i class="fa-solid fa-ghost text-4xl mb-3"></i>
-                            <p>No hay registros para esta categoría.</p>
+                        <div v-else>
+                            <Empty />
                         </div>
                     </div>
 
@@ -102,10 +101,12 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DialogModal from '@/Components/DialogModal.vue';
 import CancelButton from '@/Components/MyComponents/CancelButton.vue';
+import Empty from '@/Components/MyComponents/Empty.vue';
 
 export default {
     name: 'AuditIndex',
     components: {
+        Empty,
         AppLayout,
         DialogModal,
         CancelButton,

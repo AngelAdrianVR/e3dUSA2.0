@@ -13,7 +13,7 @@
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     
-                    <form :model="form" label-position="top" @submit.prevent="store" class="grid grid-cols-1 md:grid-cols-2 gap-x-5">
+                    <form :model="form" @submit.prevent="store" class="grid grid-cols-1 md:grid-cols-2 gap-x-5">
                         <div>
                             <TextInput
                                 label="Nombre*"
@@ -35,23 +35,32 @@
                         </div>
 
                         <div>
-                            <TextInput label="Peso (Kg)" v-model="form.weight" type="number" step="0.01" :error="form.errors.weight" placeholder="Ej. 1500" />
+                            <TextInput label="Peso (Kg)" v-model="form.weight" type="numeric-stepper" :error="form.errors.weight" placeholder="Ej. 1500" />
                         </div>
 
                         <div>
-                            <TextInput label="Largo (cm)" v-model="form.large" type="number" step="0.01" :error="form.errors.large" placeholder="Ej. 220" />
+                            <TextInput label="Largo (cm)" v-model="form.large" type="numeric-stepper" :error="form.errors.large" placeholder="Ej. 220" />
                         </div>
 
                         <div>
-                            <TextInput label="Ancho (cm)" v-model="form.width" type="number" step="0.01" :error="form.errors.width" placeholder="Ej. 90" />
+                            <TextInput label="Ancho (cm)" v-model="form.width" type="numeric-stepper" :error="form.errors.width" placeholder="Ej. 90" />
                         </div>
 
                         <div>
-                            <TextInput label="Alto (cm)" v-model="form.height" type="number" step="0.01" :error="form.errors.height" placeholder="Ej. 180" />
+                            <TextInput label="Alto (cm)" v-model="form.height" type="numeric-stepper" :error="form.errors.height" placeholder="Ej. 180" />
                         </div>
                         
                         <div>
-                            <TextInput label="Costo de adquisición" v-model="form.cost" type="number" step="0.01" :error="form.errors.cost" placeholder="Ej. 250000" />
+                            <TextInput 
+                            v-model="form.cost" 
+                            :error="form.errors.cost"
+                            label="Costo de adquisición"
+                            placeholder="Ej. 250000"
+                            :formatAsNumber="true">
+                            <template #icon-left>
+                                <i class="fa-solid fa-dollar-sign"></i>
+                            </template>
+                            </TextInput>
                         </div>
 
                         <div>
@@ -68,7 +77,7 @@
                             <TextInput
                                 label="Mantenimiento cada (días)*"
                                 v-model="form.days_next_maintenance"
-                                type="number"
+                                type="numeric-stepper"
                                 :error="form.errors.days_next_maintenance"
                                 placeholder="Ej. 90"
                             />
@@ -128,7 +137,7 @@ export default {
             cost: null,
             supplier: null,
             adquisition_date: new Date().toISOString().split('T')[0], // formato YYYY-MM-DD
-            days_next_maintenance: null,
+            days_next_maintenance: 30,
             media: null,
         });
 

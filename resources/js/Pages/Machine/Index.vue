@@ -29,7 +29,7 @@
                             </template>
                         </el-popconfirm>
 
-                        <SearchInput @keyup.enter="searchItems" v-model="search" @cleanSearch="searchItems" />
+                        <SearchInput @keyup.enter="searchItems" v-model="search" @cleanSearch="searchItems" :searchProps="SearchProps" />
                     </div>
 
                     <!-- Tabla de Maquinas -->
@@ -51,13 +51,21 @@
                             <el-table-column prop="name" label="Nombre" />
                             <el-table-column prop="serial_number" label="N° de serie" />
                             <el-table-column prop="supplier" label="Proveedor" />
-                            <el-table-column prop="days_next_maintenance" label="Mantenimiento cada" />
+                            <el-table-column prop="days_next_maintenance" label="Mantenimiento cada">
+                                <template #default="scope">
+                                    <span class="text-gray-600 dark:text-gray-400">{{ scope.row.days_next_maintenance }} días</span>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="adquisition_date" label="Fecha de adquisición">
                             <template #default="scope">
                                     <span class="text-gray-600 dark:text-gray-400">{{ formatDate(scope.row.adquisition_date) }}</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="needs_maintenance" label="Necesita mantenimiento preventivo" />
+                            <el-table-column prop="needs_maintenance" label="Necesita mantenimiento preventivo">
+                                <template #default="scope">
+                                    <span class="text-gray-600 dark:text-gray-400">{{ scope.row.needs_maintenance ? 'Sí' : 'No' }}</span>
+                                </template>
+                            </el-table-column>
                             <el-table-column align="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
@@ -124,6 +132,7 @@ export default {
             loading: false,
             search: this.filters.search || '',
             selectedItems: [],
+            SearchProps: ['Nombre', 'Proveedor', 'Numero de serie'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     components: {
