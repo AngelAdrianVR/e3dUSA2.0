@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChMessage;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -61,5 +62,12 @@ class UserController extends Controller
                 'disabled_at' => null,
             ]);
         }
+    }
+
+    public function getUnseenMessages()
+    {
+        $unseen_messages = ChMessage::where('to_id', auth()->id())->where('seen', 0)->get()->count();
+
+        return response()->json(['count' => $unseen_messages]);
     }
 }

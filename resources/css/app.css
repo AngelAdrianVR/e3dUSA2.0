@@ -234,3 +234,47 @@
   .el-select-dropdown__item.hover, .el-select-dropdown__item:hover { @apply bg-gray-700; }
   .el-select-dropdown__item.is-selected { @apply bg-gray-900 text-blue-400; }
 }
+
+/* ==========================================================================
+   Estilos para el Drawer de Element Plus en Modo Oscuro
+   ========================================================================== */
+
+/* Cuando el modo oscuro está activo, aplicamos estas variables de color
+  al componente el-drawer para que coincida con el tema.
+*/
+.dark .el-drawer {
+  /* Color de fondo principal del drawer */
+  --el-drawer-bg-color: #1f2937; /* Equivalente a bg-gray-800 de Tailwind */
+
+  /* Color del texto principal (títulos) */
+  --el-text-color-primary: #f9fafb; /* Equivalente a text-gray-50 */
+
+  /* Color del texto secundario (cuerpo del drawer) */
+  --el-text-color-regular: #d1d5db; /* Equivalente a text-gray-300 */
+  
+  /* Sombra más sutil para el modo oscuro */
+  --el-box-shadow-dark: 0px 0px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Estilo para la cabecera del drawer */
+.dark .el-drawer__header {
+  /* Color del borde inferior de la cabecera */
+  border-bottom: 1px solid #374151; /* Equivalente a border-gray-700 */
+  color: var(--el-text-color-primary);
+}
+
+/* Asegura que el título en la cabecera tenga el color correcto */
+.dark .el-drawer__title {
+  color: var(--el-text-color-primary);
+}
+
+/* Estilo para el botón de cerrar */
+.dark .el-drawer__close-btn {
+  color: #9ca3af; /* Equivalente a text-gray-400 */
+}
+
+/* Color del botón de cerrar al pasar el mouse por encima */
+.dark .el-drawer__close-btn:hover {
+  color: #ffffff; /* Blanco */
+}
+

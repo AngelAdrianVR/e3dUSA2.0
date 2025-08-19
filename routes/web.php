@@ -3,12 +3,14 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CompanyBranchController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ManualController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFamilyController;
@@ -48,15 +50,21 @@ Route::middleware([
     })->name('dashboard');
 });
 
+// Rutas de Notificaciones
+Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
+Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
-// ------- Catalog Products Routes ---------
+
+// ------- Products Routes ---------
 Route::resource('catalog-products', ProductController::class)->middleware('auth');
 Route::post('catalog-products/massive-delete', [ProductController::class, 'massiveDelete'])->name('catalog-products.massive-delete');
 Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->name('catalog-products.get-matches');
 Route::get('catalog-products-search-raw-materials', [ProductController::class, 'searchRawMaterial'])->middleware('auth')->name('catalog-products.search-raw-material');
-Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
 Route::get('products-get-media/{product}', [ProductController::class, 'getProductMedia'])->middleware('auth')->name('products.get-media');
 Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
+Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->name('products.stock-movement');
+Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
 // Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
 // Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
@@ -90,6 +98,7 @@ Route::resource('company-branches', CompanyBranchController::class)->middleware(
 
 // ------- Recursos humanos(users routes)  ---------
 Route::resource('users', UserController::class)->middleware('auth');
+Route::post('users-get-unseen-messages', [UserController::class, 'getUnseenMessages'])->middleware('auth')->name('users.get-unseen-messages');
 // Route::get('users-get-next-attendance', [UserController::class, 'getNextAttendance'])->middleware('auth')->name('users.get-next-attendance');
 // Route::get('users-get-pause-status', [UserController::class, 'getPauseStatus'])->middleware('auth')->name('users.get-pause-status');
 // Route::get('users-set-attendance', [UserController::class, 'setAttendance'])->middleware('auth')->name('users.set-attendance');
@@ -100,7 +109,6 @@ Route::resource('users', UserController::class)->middleware('auth');
 // Route::put('users-change-status/{user}', [UserController::class, 'changeStatus'])->middleware('auth')->name('users.change-status');
 // Route::put('users-update-pausas/{payroll_user}', [UserController::class, 'updatePausas'])->middleware('auth')->name('users.update-pausas');
 // Route::put('users-update-vacations/{user}', [UserController::class, 'updateVacations'])->middleware('auth')->name('users.update-vacations');
-// Route::post('users-get-unseen-messages', [UserController::class, 'getUnseenMessages'])->middleware('auth')->name('users.get-unseen-messages');
 // Route::post('users-get-notifications', [UserController::class, 'getNotifications'])->middleware('auth')->name('users.get-notifications');
 // Route::post('users-read-notifications', [UserController::class, 'readNotifications'])->middleware('auth')->name('users.read-notifications');
 // Route::post('users-delete-notifications', [UserController::class, 'deleteNotifications'])->middleware('auth')->name('users.delete-notifications');
@@ -162,6 +170,24 @@ Route::put('maintenances/validate/{maintenance}', [MaintenanceController::class,
 Route::resource('spare-parts', SparePartController::class)->except(['index', 'create', 'show'])->middleware('auth');
 Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 'create'])->name('spare-parts.create')->middleware('auth');
 // Route::post('spare-parts/update-with-media/{spare_part}', [SparePartController::class, 'updateWithMedia'])->name('spare-parts.update-with-media')->middleware('auth');
+
+
+// ---------- calendar (events/tasks) routes  ---------------
+Route::prefix('calendar')->name('calendar.')->group(function () {
+    // Vistas principales
+    Route::get('/', [CalendarController::class, 'index'])->name('index');
+    Route::get('/create', [CalendarController::class, 'create'])->name('create');
+    Route::post('/', [CalendarController::class, 'store'])->name('store');
+
+    // Acciones para Tareas
+    Route::patch('/tasks/{task}/complete', [CalendarController::class, 'updateTaskStatus'])->name('tasks.complete');
+
+    // Acciones para Eventos (invitaciones)
+    Route::patch('/events/{event}/invitation', [CalendarController::class, 'updateInvitationStatus'])->name('events.invitation');
+    
+    // Acción para eliminar cualquier entrada
+    Route::delete('/entries/{calendarEntry}', [CalendarController::class, 'destroy'])->name('entries.destroy');
+});
 
 
 // eliminacion de archivo desde componente FileView

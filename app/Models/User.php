@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -81,5 +83,23 @@ class User extends Authenticatable implements Auditable
     public function detail(): HasOne
     {
         return $this->hasOne(EmployeeDetail::class);
+    }
+
+    /**
+     * Los eventos a los que un usuario ha sido invitado.
+     */
+    public function attendedEvents(): BelongsToMany
+    {
+        return $this->belongsToMany(Event::class, 'event_participants')
+                    ->withPivot('status', 'comment')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Las entradas de calendario (eventos/tareas) que un usuario ha creado.
+     */
+    public function calendarEntries(): HasMany
+    {
+        return $this->hasMany(CalendarEntry::class);
     }
 }

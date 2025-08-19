@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, onMounted, nextTick, computed } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -9,12 +9,14 @@ import SideNav from "@/Components/MyComponents/SideNav.vue";
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue";
+import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
 
 defineProps({
     title: String,
     externalLoading: Boolean,
 });
 
+const page = usePage(); // OBTENER PROPS GLOBALES
 const showingNavigationDropdown = ref(false);
 const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
 const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
@@ -22,6 +24,9 @@ const isFocused = ref(false); // Variable para controlar el estado del input de 
 const searchInput = ref(null); // Referencia al input de búsqueda global
 const unseenMessages = ref(null); // Variable para contar los mensajes no leídos
 
+
+// <-- COMPUTED PARA LAS NOTIFICACIONES -->
+const userNotifications = computed(() => page.props.auth.user.notifications || []);
 
 const toggleDarkMode = () => {
     isDarkMode.value = !isDarkMode.value;
@@ -54,8 +59,21 @@ const logout = () => {
     router.post(route('logout'));
 };
 
+const getUnseenMessages = async () => {
+  try {
+    const response = await axios.post(route("users.get-unseen-messages"));
+
+    if (response.status === 200) {
+      unseenMessages.value = response.data.count;
+    }
+  } catch (error) {
+    console.log(error);
+  }
+};
+
 onMounted(() => {
-  document.documentElement.classList.toggle('dark', isDarkMode.value);
+    getUnseenMessages();
+    document.documentElement.classList.toggle('dark', isDarkMode.value);
 });
 
 </script>
@@ -83,13 +101,21 @@ onMounted(() => {
                                 </div>
 
                                  <!-- calendario -->
-                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
+                                <div
+                                    :class="[
+                                        'rounded-lg relative transition',
+                                        'hover:bg-gray-100 dark:hover:bg-slate-700',
+                                        route().current('calendar.*')
+                                            ? 'bg-blue-100 dark:bg-slate-800'
+                                            : ''
+                                    ]"
+                                >
                                     <el-tooltip content="Calendario">
-                                        <!-- <Link :href="route('calendars.index')"> -->
-                                        <button class="flex justify-center items-center size-14 p-3">
-                                            <img src="/images/calendar_3d.webp" alt="" class="w-full">
-                                        </button>
-                                        <!-- </Link> -->
+                                        <Link :href="route('calendar.index')">
+                                            <button class="flex justify-center items-center size-14 p-3">
+                                                <img src="/images/calendar_3d.webp" alt="" class="w-full">
+                                            </button>
+                                        </Link>
                                     </el-tooltip>
                                     <!-- <i v-if="$page.props.auth.user?.notifications?.some(notification => {
                                         return notification.data.module === 'calendar';
@@ -98,17 +124,20 @@ onMounted(() => {
 
                                 <!-- chat -->
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
-                                    <el-tooltip v-if="$page.props.auth.user?.permissions?.includes('Chatear') || true" content="Chat"
+                                    <el-tooltip v-if="$page.props.auth.user?.permissions?.includes('Chatear')" content="Chat"
                                         placement="bottom">
-                                        <a :href="'#'" target="_blank" class="size-14 flex justify-center items-center p-3">
+                                        <a :href="route('chatify')" target="_blank" class="size-14 flex justify-center items-center p-3">
                                             <img src="/images/chat_3d.webp" alt="" class="w-full">
                                         </a>
                                     </el-tooltip>
                                     <div v-if="unseenMessages > 0"
-                                        class="absolute bottom-6 right-4 bg-primary text-white w-4 h-4 flex items-center justify-center text-[10px] rounded-full">
+                                        class="absolute bottom-2 right-2 bg-secondary text-white w-4 h-4 flex items-center justify-center text-[10px] rounded-full">
                                         {{ unseenMessages }}
                                     </div>
                                 </div>
+
+                                <!-- Notificaciones -->
+                                <NotificationsDropdown :notifications="userNotifications" />
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
