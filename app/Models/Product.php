@@ -63,9 +63,9 @@ class Product extends Model implements HasMedia, Auditable
         return $this->morphMany(Storage::class, 'storable');
     }
 
-    public function companyBranches(): BelongsToMany
+    public function branches(): BelongsToMany
     {
-        return $this->belongsToMany(CompanyBranch::class, 'branch_pricing')
+        return $this->belongsToMany(branch::class, 'branch_pricing')
                     ->withPivot('price')
                     ->withTimestamps();
     }

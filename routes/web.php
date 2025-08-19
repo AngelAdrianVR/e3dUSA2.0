@@ -4,7 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CalendarController;
-use App\Http\Controllers\CompanyBranchController;
+use App\Http\Controllers\BranchController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MachineController;
@@ -88,12 +88,12 @@ Route::post('production-costs/massive-delete', [ProductionCostController::class,
 Route::resource('brands', BrandController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 
 
-// ------- CRM(Companybranches sucursales Routes)  ---------
-Route::resource('company-branches', CompanyBranchController::class)->middleware('auth');
-// Route::put('company-branches/clear-important-notes/{company_branch}', [CompanyBranchController::class, 'clearImportantNotes'])->name('company-branches.clear-important-notes')->middleware('auth');
-// Route::put('company-branches/store-important-notes/{company_branch}', [CompanyBranchController::class, 'storeImportantNotes'])->name('company-branches.store-important-notes')->middleware('auth');
-// Route::put('company-branches/update-product-price/{product_company}', [CompanyBranchController::class, 'updateProductPrice'])->name('company-branches.update-product-price')->middleware('auth');
-// Route::get('company-branches/fetch-design-info/{company_branch}', [CompanyBranchController::class, 'fetchDesignInfo'])->name('company-branches.fetch-design-info')->middleware('auth');
+// ------- CRM(branches sucursales Routes)  ---------
+Route::resource('branches', BranchController::class)->middleware('auth');
+// Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
+// Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
+// Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
+// Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
 
 
 // ------- Recursos humanos(users routes)  ---------

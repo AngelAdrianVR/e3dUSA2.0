@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class CompanyBranch extends Model implements Auditable
+class Branch extends Model implements Auditable
 {
     use AuditableTrait;
 

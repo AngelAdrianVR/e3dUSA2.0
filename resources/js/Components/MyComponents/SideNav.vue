@@ -161,7 +161,7 @@ export default {
                     active: 
                         route().current('crm.*') 
                         // || route().current('quotes.*') 
-                        || route().current('company-branches.*'),
+                        || route().current('branches.*'),
                         // || route().current('sales.*') 
                         // || route().current('oportunities.*') 
                         // || route().current('oportunity-tasks.*')
@@ -191,8 +191,8 @@ export default {
                 //         },
                         {
                             label: 'Clientes',
-                            route: 'company-branches.index',
-                            active: route().current('company-branches.*'),
+                            route: 'branches.index',
+                            active: route().current('branches.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver clientes'),
                             // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                             //     return notification.data.module === 'companies';

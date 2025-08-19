@@ -14,7 +14,7 @@ class BranchPricing extends Model implements Auditable
     
     protected $fillable = [
         'product_id',
-        'company_branch_id',
+        'branch_id',
         'price',
     ];
 
@@ -24,9 +24,9 @@ class BranchPricing extends Model implements Auditable
         return $this->belongsTo(Product::class);
     }
 
-    public function companyBranch() :BelongsTo
+    public function branch() :BelongsTo
     {
-        return $this->belongsTo(CompanyBranch::class);
+        return $this->belongsTo(Branch::class);
     }
     
 }

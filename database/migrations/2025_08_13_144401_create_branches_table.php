@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('company_branches', function (Blueprint $table) {
+        Schema::create('branches', function (Blueprint $table) {
             $table->id();
             $table->string('name');
             $table->string('password');
             $table->string('address');
             $table->string('post_code');
-            $table->foreignId('parent_branch_id')->nullable()->constrained('company_branches'); // indica a que sucursal matriz pertenece
+            $table->foreignId('parent_branch_id')->nullable()->constrained('branches'); // indica a que sucursal matriz pertenece
             $table->string('meet_way')->nullable();
             $table->string('sat_method')->nullable();
             $table->string('sat_type')->nullable();
@@ -37,6 +37,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('company_branches');
+        Schema::dropIfExists('branches');
     }
 };
