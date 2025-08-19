@@ -70,13 +70,17 @@ class ProductController extends Controller
             'min_quantity' => 'nullable|integer|min:0',
             'max_quantity' => 'nullable|integer|min:0|gte:min_quantity',
             'is_circular' => 'nullable|boolean',
-            'width' => 'required|numeric|min:0',
-            'large' => 'nullable|required_if:is_circular,false|numeric|min:0',
-            'height' => 'nullable|required_if:is_circular,false|numeric|min:0',
-            'diameter' => 'nullable|required_if:is_circular,true|numeric|min:0',
+            'width' => 'nullable|numeric|min:0',
+            'large' => 'nullable|numeric|min:0',
+            'height' => 'nullable|numeric|min:0',
+            'diameter' => 'nullable|numeric|min:0',
             'media' => 'nullable|array|max:3',
             'media.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'components' => 'nullable|array',
+            'components' => [
+                'nullable',
+                'array',
+                Rule::when(fn ($input) => $input->hasComponents === true, ['min:2']),
+            ],
             'components.*.product_id' => 'required_with:components|exists:products,id',
             'components.*.quantity' => 'required_with:components|numeric|min:1',
             'production_processes' => 'nullable|array',
@@ -232,17 +236,21 @@ class ProductController extends Controller
             'product_family_id' => 'required|exists:product_families,id',
             'material' => 'required|string',
             'measure_unit' => 'nullable|string|max:100',
-            'min_quantity' => 'nullable|integer|min:0',
-            'max_quantity' => 'nullable|integer|min:0|gte:min_quantity',
+            'min_quantity' => 'nullable|numeric|min:0',
+            'max_quantity' => 'nullable|numeric|min:0|gte:min_quantity',
             'is_circular' => 'nullable|boolean',
-            'width' => 'required|numeric|min:0',
-            'large' => 'nullable|required_if:is_circular,false|numeric|min:0',
-            'height' => 'nullable|required_if:is_circular,false|numeric|min:0',
-            'diameter' => 'nullable|required_if:is_circular,true|numeric|min:0',
+            'width' => 'nullable|numeric|min:0',
+            'large' => 'nullable|numeric|min:0',
+            'height' => 'nullable|numeric|min:0',
+            'diameter' => 'nullable|numeric|min:0',
             'media' => 'nullable|array|max:3',
             'media.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-            'components' => 'nullable|array',
-            'components.*.product_id' => 'required_with:components|exists:catalog_products,id',
+            'components' => [
+                'nullable',
+                'array',
+                Rule::when(fn ($input) => $input->hasComponent === true, ['min:2']),
+            ],
+            'components.*.product_id' => 'required_with:components|exists:products,id',
             'components.*.quantity' => 'required_with:components|numeric|min:1',
             'production_processes' => 'nullable|array',
             'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
@@ -367,7 +375,7 @@ class ProductController extends Controller
 
     public function getProductMedia(Product $product)
     {
-        $product->load('media');
+        $product->load(['media', 'storages']);
 
         return response()->json(compact('product'));
     }

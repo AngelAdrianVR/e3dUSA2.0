@@ -120,8 +120,8 @@
                         <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Costos y Precios</h2>
                             <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                                <div class="font-semibold text-gray-500 dark:text-gray-400">Costo de Producción</div>
-                                <div class="font-bold text-green-600 dark:text-green-400">{{ formatCurrency(product.cost) }}</div>
+                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-semibold text-gray-500 dark:text-gray-400">Costo de Producción</div>
+                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-bold text-green-600 dark:text-green-400">{{ formatCurrency(product.cost) }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Precio Base (Cliente)</div>
                                 <div>{{ formatCurrency(product.base_price) }}</div>
                             </div>
@@ -206,8 +206,8 @@
                         </div>
                         
                         <!-- Tarjeta de movimientos de stock -->
-                        <div v-if="product.storages[0]?.stock_movements?.length" class="bg-white dark:bg-slate-900/70 p-5 rounded-xl shadow-lg">
-                            <h2 class="font-bold text-lg mb-2 pb-2 text-gray-800 dark:text-gray-200">
+                        <div v-if="product.storages[0]?.stock_movements?.length" class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
+                            <h2 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200 border-b dark:border-slate-700 pb-2">
                                 Historial de Movimientos
                             </h2>
                             <div class="space-y-1 max-h-56 overflow-y-auto pr-2">
@@ -371,10 +371,13 @@ export default {
         },
         // Propiedad computada para formatear las dimensiones de manera legible
         formattedDimensions() {
+            const safe = (val) => val ?? "-";
+
             if (this.product.is_circular) {
-                return `Ø ${this.product.diameter} mm (Diámetro) x ${this.product.width} mm (Grosor)`;
+                return `Ø ${safe(this.product.diameter)} mm (Diámetro) x ${safe(this.product.width)} mm (Grosor)`;
             }
-            return `${this.product.large} mm (L) x ${this.product.height} mm (A) x ${this.product.width} mm (G)`;
+
+            return `${safe(this.product.large)} mm (L) x ${safe(this.product.height)} mm (A) x ${safe(this.product.width)} mm (G)`;
         }
     },
     methods: {

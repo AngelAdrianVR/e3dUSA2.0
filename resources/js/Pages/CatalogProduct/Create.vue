@@ -121,12 +121,12 @@
                             </label>
                             
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 animate-fade-in">
-                                <TextInput v-model="form.width" label="Ancho/Grosor (mm)*" :error="form.errors.width" type="number" placeholder="Ej. 5.5" />
+                                <TextInput v-model="form.width" label="Ancho/Grosor (mm)" :error="form.errors.width" type="number" placeholder="Ej. 5.5" />
                                 
-                                <TextInput v-if="!form.is_circular" v-model="form.large" label="Largo (mm)*" :error="form.errors.large" type="number" placeholder="Ej. 50" />
-                                <TextInput v-if="!form.is_circular" v-model="form.height" label="Alto (mm)*" :error="form.errors.height" type="number" placeholder="Ej. 25" />
+                                <TextInput v-if="!form.is_circular" v-model="form.large" label="Largo (mm)" :error="form.errors.large" type="number" placeholder="Ej. 50" />
+                                <TextInput v-if="!form.is_circular" v-model="form.height" label="Alto (mm)" :error="form.errors.height" type="number" placeholder="Ej. 25" />
                                 
-                                <TextInput v-if="form.is_circular" v-model="form.diameter" label="Diámetro (mm)*" :error="form.errors.diameter" type="number" placeholder="Ej. 30" />
+                                <TextInput v-if="form.is_circular" v-model="form.diameter" label="Diámetro (mm)" :error="form.errors.diameter" type="number" placeholder="Ej. 30" />
                             </div>
                         </div>
 
@@ -136,7 +136,7 @@
                         <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="hasComponents" name="is_circular" />
+                                    <Checkbox v-model:checked="form.hasComponents" name="is_circular" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
@@ -144,7 +144,7 @@
                                 </h3>
                             </div>
 
-                            <section v-if="hasComponents">
+                            <section v-if="form.hasComponents">
                                 <!-- Buscador de Componentes -->
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div>
@@ -162,23 +162,37 @@
                                     </div>
                                     <TextInput v-model="currentComponent.quantity" label="Cantidad necesaria*" type="number" placeholder="Ej. 1" />
                                     <LoadingIsoLogo v-if="loadingComponentMedia" />
-                                    <figure 
-                                        v-else-if="currentComponent.media" 
-                                        class="relative flex items-center justify-center size-40 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
-                                        <img v-if="currentComponent.media?.length"
-                                            :src="currentComponent.media[0]?.original_url" 
-                                            alt="" 
-                                            class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
-                                        >
-                                        <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                            </svg>
-                                        <p>Sin imagen</p>
+
+                                    <!-- Tarjeta de materia prima seleccionada -->
+                                    <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentComponent.media">
+                                        <figure 
+                                            v-if="currentComponent.media" 
+                                            class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                            <img v-if="currentComponent.media?.length"
+                                                :src="currentComponent.media[0]?.original_url" 
+                                                alt="" 
+                                                class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                                            >
+                                            <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                </svg>
+                                            <p>Sin imagen</p>
+                                            </div>
+                                            <!-- Overlay degradado sutil -->
+                                            <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
+                                        </figure>
+
+                                        <!-- informacion de almacén -->
+                                        <div>
+                                            <p class="text-gray-500 dark:text-gray-300">
+                                                Stock: <strong>{{ currentComponent.storages[0]?.quantity }}</strong> unidades
+                                            </p>
+                                            <p class="text-gray-500 dark:text-gray-300">
+                                                Ubicación: <strong>{{ currentComponent.storages[0]?.location ?? 'No asignado' }}</strong>
+                                            </p>
                                         </div>
-                                        <!-- Overlay degradado sutil -->
-                                        <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
-                                    </figure>
+                                    </div>
 
                                 </div>
 
@@ -193,7 +207,6 @@
 
                                 <!-- Lista de Componentes Agregados -->
                                 <div v-if="form.components.length" class="mt-4">
-                                    <InputError :message="form.errors.components" class="col-span-full mb-2" />
                                     <ul class="rounded-lg bg-gray-100 dark:bg-slate-900 p-3 space-y-2">
                                         <li v-for="(component, index) in form.components" :key="index" class="flex justify-between items-center p-2 rounded-md transition-colors"
                                             :class="{ 'bg-blue-100 dark:bg-blue-900': editComponentIndex === index }">
@@ -215,6 +228,7 @@
                                         </li>
                                     </ul>
                                 </div>
+                                <InputError :message="form.errors.components" class="col-span-full mb-2" />
                             </section>
 
                         </div>
@@ -271,6 +285,9 @@
                                                 </div>
                                             </div>
                                             <div class="flex items-center space-x-2">
+                                                <button @click="editProcessIndex = null" v-if="editProcessIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+                                                    <i class="fa-solid fa-xmark"></i>
+                                                </button>
                                                 <button @click="editProcess(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                                                     <i class="fa-solid fa-pencil"></i>
                                                 </button>
@@ -408,6 +425,7 @@ export default {
                 min_quantity: 1,
                 max_quantity: null,
                 is_circular: false,
+                base_price: null,
                 width: null,
                 large: null,
                 height: null,
@@ -417,12 +435,12 @@ export default {
                 media: [],
                 components: [], // Array para guardar los componentes del producto
                 production_processes: [], // Array para guardar los procesos del producto
+                hasComponents: false,
             }),
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
 
             // --- Estado para la gestión de componentes ---
-            hasComponents: false,
             currentComponent: { product_id: null, quantity: 1 },
             loadingComponentMedia: false,
             editComponentIndex: null,
@@ -558,6 +576,7 @@ export default {
 
                 if ( response.status === 200 ) {
                     this.currentComponent.media = response.data.product.media;
+                    this.currentComponent.storages = response.data.product.storages;
                 }
             } catch (error) {
                 console.log(error);

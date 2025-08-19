@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\CompanyBranchController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
@@ -163,6 +164,24 @@ Route::put('maintenances/validate/{maintenance}', [MaintenanceController::class,
 Route::resource('spare-parts', SparePartController::class)->except(['index', 'create', 'show'])->middleware('auth');
 Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 'create'])->name('spare-parts.create')->middleware('auth');
 // Route::post('spare-parts/update-with-media/{spare_part}', [SparePartController::class, 'updateWithMedia'])->name('spare-parts.update-with-media')->middleware('auth');
+
+
+// ---------- calendar (events/tasks) routes  ---------------
+Route::prefix('calendar')->name('calendar.')->group(function () {
+    // Vistas principales
+    Route::get('/', [CalendarController::class, 'index'])->name('index');
+    Route::get('/create', [CalendarController::class, 'create'])->name('create');
+    Route::post('/', [CalendarController::class, 'store'])->name('store');
+
+    // Acciones para Tareas
+    Route::patch('/tasks/{task}/complete', [CalendarController::class, 'updateTaskStatus'])->name('tasks.complete');
+
+    // Acciones para Eventos (invitaciones)
+    Route::patch('/events/{event}/invitation', [CalendarController::class, 'updateInvitationStatus'])->name('events.invitation');
+    
+    // Acción para eliminar cualquier entrada
+    Route::delete('/entries/{calendarEntry}', [CalendarController::class, 'destroy'])->name('entries.destroy');
+});
 
 
 // eliminacion de archivo desde componente FileView

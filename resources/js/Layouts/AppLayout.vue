@@ -83,13 +83,21 @@ onMounted(() => {
                                 </div>
 
                                  <!-- calendario -->
-                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
+                                <div
+                                    :class="[
+                                        'rounded-lg relative transition',
+                                        'hover:bg-gray-100 dark:hover:bg-slate-700',
+                                        route().current('calendar.*')
+                                            ? 'bg-blue-100 dark:bg-slate-800'
+                                            : ''
+                                    ]"
+                                >
                                     <el-tooltip content="Calendario">
-                                        <!-- <Link :href="route('calendars.index')"> -->
-                                        <button class="flex justify-center items-center size-14 p-3">
-                                            <img src="/images/calendar_3d.webp" alt="" class="w-full">
-                                        </button>
-                                        <!-- </Link> -->
+                                        <Link :href="route('calendar.index')">
+                                            <button class="flex justify-center items-center size-14 p-3">
+                                                <img src="/images/calendar_3d.webp" alt="" class="w-full">
+                                            </button>
+                                        </Link>
                                     </el-tooltip>
                                     <!-- <i v-if="$page.props.auth.user?.notifications?.some(notification => {
                                         return notification.data.module === 'calendar';
