@@ -6,6 +6,27 @@
         <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Calendario de Actividades</h1>
       </header>
 
+      <!-- SECCIÓN DE INVITACIONES PENDIENTES -->
+      <div v-if="pendingInvitations.length > 0" class="my-6 p-4 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-lg">
+        <h3 class="font-bold text-lg text-blue-800 dark:text-blue-300 mb-3">Invitaciones Pendientes</h3>
+        <ul class="space-y-3">
+          <li v-for="invitation in pendingInvitations" :key="invitation.id" class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 bg-white dark:bg-slate-900 rounded-md shadow-sm">
+            <div>
+              <p class="font-semibold text-gray-800 dark:text-gray-200">{{ invitation.calendar_entry.title }}</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Fecha: {{ formatDateTime(invitation.calendar_entry.start_datetime)}}</p>
+            </div>
+            <div class="flex items-center gap-2 mt-3 sm:mt-0">
+              <SecondaryButton @click="respondToInvitation(invitation.id, 'Aceptado')">
+                <i class="fa-solid fa-circle-check mr-2"></i> Aceptar
+              </SecondaryButton>
+              <PrimaryButton @click="respondToInvitation(invitation.id, 'Rechazado')">
+                <i class="fa-solid fa-circle-xmark mr-2"></i> Rechazar
+              </PrimaryButton>
+            </div>
+          </li>
+        </ul>
+      </div>
+
       <div class="flex flex-col sm:flex-row items-center justify-between mt-4">
         <div class="flex items-center space-x-4">
           <button @click="changeMonth(-1)" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
@@ -73,11 +94,31 @@
                 </div>
 
                 <!-- Evento -->
-                <div v-if="isEvent(selectedEntry)" class="space-y-5">
+                <div v-if="isEvent(selectedEntry)" class="space-y-2">
                     <div class="flex items-center text-gray-800 dark:text-gray-200">
                         <i class="fa-solid fa-location-dot mr-2 text-blue-500"></i>
                         <span class="font-medium">Ubicación:</span>
                         <span class="ml-2">{{ selectedEntry.entryable.location || 'No especificada' }}</span>
+                    </div>
+                    
+                    <div class="flex items-center text-gray-800 dark:text-gray-200">
+                        <i class="fa-solid fa-link mr-2 text-blue-500"></i>
+                        <span class="font-medium">URL de conferencia:</span>
+                        <span class="ml-2">{{ selectedEntry.entryable.conference_link || 'No aplica' }}</span>
+                    </div>
+
+                    <!-- Fecha y hora de inicio -->
+                    <div class="flex items-center text-gray-800 dark:text-gray-200">
+                        <i class="fa-solid fa-clock mr-2 text-blue-500"></i>
+                        <span class="font-medium">Inicia:</span>
+                        <span class="ml-2">{{ formatDateTime(selectedEntry.start_datetime) || 'No especificada' }}</span>
+                    </div>
+
+                    <!-- Fecha y hora de finalización -->
+                    <div class="flex items-center text-gray-800 dark:text-gray-200">
+                        <i class="fa-solid fa-clock mr-2 text-blue-500"></i>
+                        <span class="font-medium">Termina:</span>
+                        <span class="ml-2">{{ formatDateTime(selectedEntry.end_datetime) || 'No especificada' }}</span>
                     </div>
 
                     <div>
@@ -113,16 +154,6 @@
                     >
                     <i class="fa-solid fa-check mr-2"></i> Marcar como completada
                 </SecondaryButton>
-
-                <!-- Acciones Eventos -->
-                <template v-if="isEvent(selectedEntry) && isCurrentUserPending(selectedEntry)">
-                <SecondaryButton @click="respondToInvitation(selectedEntry.entryable.id, 'Aceptado')">
-                    <i class="fa-solid fa-circle-check mr-2"></i> Aceptar
-                </SecondaryButton>
-                <PrimaryButton @click="respondToInvitation(selectedEntry.entryable.id, 'Rechazado')">
-                    <i class="fa-solid fa-circle-xmark mr-2"></i> Rechazar
-                </PrimaryButton>
-                </template>
             </div>
 
             <button 
@@ -143,7 +174,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import { Link, router } from "@inertiajs/vue3";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 
@@ -152,6 +183,7 @@ export default {
   props: {
     calendarEntries: Array,
     authUserId: Number,
+    pendingInvitations: Array,
   },
   data() {
     return {
@@ -190,6 +222,11 @@ export default {
     }
   },
   methods: {
+    format,
+    formatDateTime(dateTimeString) {
+          if (!dateTimeString) return '';
+          return format(parseISO(dateTimeString), 'dd MMM yy, hh:mm a', { locale: es });
+      },
     changeMonth(offset) { this.currentDate = addMonths(this.currentDate, offset); },
     createEntry(date) { router.get(route('calendar.create', { date })); },
     openDetailDrawer(entry) {

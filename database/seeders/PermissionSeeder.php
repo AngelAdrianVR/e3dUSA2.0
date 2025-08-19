@@ -17,6 +17,7 @@ class PermissionSeeder extends Seeder
         // Definir permisos por módulo
         $permissions = [
             'Super Admin' => ['Ver costos de productos'],
+            'Generales' => ['Chatear'],
             'Usuarios' => ['Ver personal', 'Crear personal', 'Editar personal', 'Eliminar personal'],
             'Bonos' => ['Ver bonos', 'Crear bonos', 'Editar bonos', 'Eliminar bonos'],
             'Descuentos' => ['Ver descuentos', 'Crear descuentos', 'Editar descuentos', 'Eliminar descuentos'],

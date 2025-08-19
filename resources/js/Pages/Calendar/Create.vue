@@ -6,7 +6,7 @@
       <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Agendar Recordatorio</h1>
 
       <!-- Contenedor principal del formulario -->
-      <div class="max-w-2xl mx-auto mt-8">
+      <div class="max-w-3xl mx-auto mt-8">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-8">
           <form @submit.prevent="store">
             <div ref="formContainer" class="space-y-4">
