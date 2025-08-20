@@ -120,21 +120,21 @@
                         <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Costos y Precios</h2>
                             <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-semibold text-gray-500 dark:text-gray-400">Costo de Producción</div>
+                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-semibold text-gray-500 dark:text-gray-400">Costo de Producción y Componentes</div>
                                 <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-bold text-green-600 dark:text-green-400">{{ formatCurrency(product.cost) }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Precio Base (Cliente)</div>
                                 <div>{{ formatCurrency(product.base_price) }}</div>
                             </div>
                             <!-- Precios por Sucursal -->
-                            <div v-if="product.branch_pricings?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
+                            <!-- <div v-if="product.branch_pricings?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
                                 <h3 class="font-semibold text-sm mb-2">Precios Especiales por Sucursal</h3>
                                 <ul class="space-y-1 text-sm">
                                     <li v-for="pricing in product.branch_pricings" :key="pricing.id" class="flex justify-between items-center">
-                                        <span class="text-gray-600 dark:text-gray-300">{{ pricing.company_branch?.name }}</span>
+                                        <span class="text-gray-600 dark:text-gray-300">{{ pricing.branch?.name }}</span>
                                         <span class="font-semibold">{{ formatCurrency(pricing.price) }}</span>
                                     </li>
                                 </ul>
-                            </div>
+                            </div> -->
                         </div>
 
                         <!-- Tarjeta de Componentes -->

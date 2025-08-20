@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\CompanyBranch;
+use App\Models\Contact;
 use Illuminate\Http\Request;
 
-class CompanyBranchController extends Controller
+class ContactController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -34,7 +34,7 @@ class CompanyBranchController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(CompanyBranch $companyBranch)
+    public function show(Contact $contact)
     {
         //
     }
@@ -42,7 +42,7 @@ class CompanyBranchController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(CompanyBranch $companyBranch)
+    public function edit(Contact $contact)
     {
         //
     }
@@ -50,7 +50,7 @@ class CompanyBranchController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, CompanyBranch $companyBranch)
+    public function update(Request $request, Contact $contact)
     {
         //
     }
@@ -58,7 +58,7 @@ class CompanyBranchController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(CompanyBranch $companyBranch)
+    public function destroy(Contact $contact)
     {
         //
     }

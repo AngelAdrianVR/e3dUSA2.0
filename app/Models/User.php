@@ -102,4 +102,28 @@ class User extends Authenticatable implements Auditable
     {
         return $this->hasMany(CalendarEntry::class);
     }
+
+    /**
+     * Obtiene las sucursales que este usuario gestiona.
+     */
+    public function managedBranches()
+    {
+        return $this->hasMany(Branch::class, 'account_manager_id');
+    }
+
+     /**
+     * Obtiene todas las cotizaciones creadas por este usuario.
+     */
+    public function quotes(): HasMany
+    {
+        return $this->hasMany(Quote::class, 'user_id');
+    }
+
+    /**
+     * Obtiene todas las cotizaciones autorizadas por este usuario.
+     */
+    public function authorizedQuotes(): HasMany
+    {
+        return $this->hasMany(Quote::class, 'authorized_by_user_id');
+    }
 }

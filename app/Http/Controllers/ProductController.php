@@ -61,7 +61,12 @@ class ProductController extends Controller
             'code' => 'required|string|unique:products,code',
             'caracteristics' => 'nullable|string',
             'cost' => 'nullable|numeric|max:99999',
-            'base_price' => 'nullable|numeric|min:0',
+            'base_price' => [
+                'nullable',
+                'required_if:product_type_key,C',
+                'numeric',
+                'min:0',
+            ],
             'brand_id' => 'required|exists:brands,id',
             'product_type_key' => 'required|string|in:C,MP,I',
             'product_family_id' => 'required|exists:product_families,id',
@@ -182,7 +187,6 @@ class ProductController extends Controller
             'storages.stockMovements', // Para existencias, ubicación y movimientos de stock
             'components.media', // Materia prima que compone el producto
             'productionCosts', // Procesos de producción asociados
-            'branchPricings.companyBranch' // Precios por sucursal y el nombre de la sucursal
         ]);
 
         // Obtiene una lista de todos los productos para el buscador/selector.
@@ -230,7 +234,12 @@ class ProductController extends Controller
             'code' => ['required', 'string', Rule::unique('products')->ignore($catalog_product->id)],
             'caracteristics' => 'nullable|string',
             'cost' => 'nullable|numeric|max:99999',
-            'base_price' => 'nullable|numeric|min:0',
+            'base_price' => [
+                'nullable',
+                'required_if:product_type_key,C',
+                'numeric',
+                'min:0',
+            ],
             'brand_id' => 'required|exists:brands,id',
             'product_type_key' => 'required|string|in:C,MP,I',
             'product_family_id' => 'required|exists:product_families,id',

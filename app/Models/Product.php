@@ -53,21 +53,14 @@ class Product extends Model implements HasMedia, Auditable
         return $this->belongsTo(ProductFamily::class);
     }
 
-    public function branchPricings(): HasMany
-    {
-        return $this->hasMany(BranchPricing::class);
-    }
-
     public function storages(): MorphMany
     {
         return $this->morphMany(Storage::class, 'storable');
     }
 
-    public function companyBranches(): BelongsToMany
+    public function branches(): BelongsToMany
     {
-        return $this->belongsToMany(CompanyBranch::class, 'branch_pricing')
-                    ->withPivot('price')
-                    ->withTimestamps();
+        return $this->belongsToMany(branch::class);
     }
 
     public function components(): BelongsToMany
@@ -97,5 +90,21 @@ class Product extends Model implements HasMedia, Auditable
                 ->withPivot('order') // ¡Importante! Especifica los campos adicionales
                 ->withTimestamps()
                 ->orderBy('pivot_order', 'asc'); // Ordena los procesos según el campo 'order'
+    }
+
+    /**
+     * Obtiene el historial de precios de este producto en todas las sucursales.
+     */
+    public function priceHistory()
+    {
+        return $this->hasMany(BranchPriceHistory::class);
+    }
+
+    /**
+     * Obtiene las sucursales para las que este producto es sugerido.
+     */
+    public function suggestedForBranches()
+    {
+        return $this->belongsToMany(Branch::class, 'branch_suggested_products');
     }
 }
