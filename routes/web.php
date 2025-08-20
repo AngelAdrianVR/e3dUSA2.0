@@ -98,6 +98,10 @@ Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'
 // Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
 
 
+// ------- CRM(cotizaciones Routes)  ---------
+Route::resource('branches', BranchController::class)->middleware('auth');
+
+
 // ------- Recursos humanos(users routes)  ---------
 Route::resource('users', UserController::class)->middleware('auth');
 Route::post('users-get-unseen-messages', [UserController::class, 'getUnseenMessages'])->middleware('auth')->name('users.get-unseen-messages');

@@ -31,7 +31,7 @@
                         <DropdownLink :href="route('branches.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nuevo Cliente
                         </DropdownLink>
-                        <div class="border-t border-gray-200 dark:border-slate-700" />
+                        <div class="border-t border-gray-200 dark:border-gray-600" />
                         <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar
                         </DropdownLink>
@@ -39,7 +39,7 @@
                 </Dropdown>
 
                 <Link :href="route('branches.index')"
-                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
                     <i class="fa-solid fa-xmark"></i>
                 </Link>
             </div>
@@ -50,8 +50,8 @@
             <!-- COLUMNA IZQUIERDA: INFORMACIÓN CLAVE Y CONTACTOS -->
             <div class="lg:col-span-1 space-y-6">
                 <!-- Card de Información Clave -->
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-6">
-                    <h3 class="text-lg font-semibold border-b dark:border-slate-700 pb-3 mb-4">Información Clave</h3>
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Información Clave</h3>
                     <ul class="space-y-3 text-sm">
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
@@ -73,9 +73,8 @@
                 </div>
 
                 <!-- Card de Contactos -->
-                <!-- Card de Contactos -->
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-6">
-                    <h3 class="text-lg font-semibold border-b dark:border-slate-700 pb-3 mb-4">Contactos</h3>
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Contactos</h3>
                     <div v-if="branch.contacts.length" class="space-y-4">
                         <div v-for="contact in branch.contacts" :key="contact.id">
                             <p class="font-semibold">{{ contact.name }}</p>
@@ -111,7 +110,7 @@
                                 </div>
                             </template>
                             <div v-if="branch.products.length" class="space-y-4 mt-2 max-h-[60vh] overflow-y-auto pr-2">
-                                <div v-for="product in branch.products" :key="product.id" class="bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 transition-all hover:shadow-md">
+                                <div v-for="product in branch.products" :key="product.id" class="bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4 transition-all hover:shadow-md">
                                     <div class="flex items-start space-x-4">
                                         <!-- Imagen del Producto -->
                                         <figure class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border dark:border-slate-600">
@@ -149,7 +148,7 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody>
-                                                            <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-slate-700">
+                                                            <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
                                                                 <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }}</td>
                                                                 <td class="px-4 py-2">{{ formatDate(history.valid_from) }}</td>
                                                                 <td class="px-4 py-2">{{ history.valid_to ? formatDate(history.valid_to) : 'Indefinido' }}</td>
@@ -160,7 +159,7 @@
                                             </el-collapse-item>
                                         </el-collapse>
                                     </div>
-                                     <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-slate-700 pt-2">
+                                     <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-600 pt-2">
                                         No hay precios especiales registrados para este producto.
                                     </p>
                                 </div>

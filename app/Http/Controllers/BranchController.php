@@ -129,7 +129,7 @@ class BranchController extends Controller
                 }
             }
         });
-
+        
         return to_route('branches.index');
     }
 
@@ -311,7 +311,7 @@ class BranchController extends Controller
             }
         });
 
-        return to_route('branches.index');
+        return to_route('branches.show', $branch->id);
     }
 
     public function destroy(Branch $branch)
@@ -341,9 +341,30 @@ class BranchController extends Controller
 
     public function massiveDelete(Request $request)
     {
-        foreach ($request->ids as $id) {
-            $bonus = Branch::find($id);
-            $bonus?->delete();
+        // 1. Validar que los IDs enviados son un array y que no está vacío.
+        $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:branches,id', // Opcional: valida que cada id exista en la tabla.
+        ]);
+
+        $idsToDelete = $request->input('ids');
+
+        try {
+            DB::transaction(function () use ($idsToDelete) {
+                
+                // 2. Desvincular todas las sucursales hijas que apunten a CUALQUIERA
+                //    de las sucursales que vamos a eliminar.
+                //    Esto se hace en una sola consulta.
+                Branch::whereIn('parent_branch_id', $idsToDelete)
+                    ->update(['parent_branch_id' => null]);
+
+                // 3. Eliminar todas las sucursales seleccionadas.
+                //    Esto también se hace en una sola consulta.
+                Branch::whereIn('id', $idsToDelete)->delete();
+            });
+        } catch (\Exception $e) {
+            // En caso de un error inesperado, retornamos un error 500.
+            return response()->json(['message' => 'Ocurrió un error al eliminar los clientes.'], 500);
         }
     }
 
