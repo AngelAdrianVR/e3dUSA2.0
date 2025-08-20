@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('product_type'); // si es producto de catalogo, materia prima, consumible, etc.
             $table->string('code')->unique(); // codigo de producto antes "part_number"
-            $table->float('base_price')->unsigned()->default(0); // precio base o precio de lista homologado
+            $table->float('base_price')->nullable()->unsigned()->default(0); // precio base o precio de lista homologado
             $table->boolean('is_sellable')->default(true); // indica si es un producto que se vende
             $table->boolean('is_purchasable')->default(true); // indica si es un producto que se compra
             $table->timestamp('archived_at')->nullable(); // fecha ar archivacion a obsoletos

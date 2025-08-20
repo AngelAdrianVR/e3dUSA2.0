@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
@@ -34,9 +34,24 @@ class Branch extends Model implements Auditable
     ];
 
     // relaciones
+    /**
+     * Define la relación Muchos a Muchos con Product.
+     * Esto nos permite obtener la lista de productos autorizados para este cliente.
+     */
     public function products(): BelongsToMany
     {
+        // El nombre de la tabla pivote 'branch_product' sigue la convención de Laravel,
+        // por lo que no es necesario especificarla.
         return $this->belongsToMany(Product::class);
+    }
+
+    /**
+     * Define la relación Uno a Muchos con el historial de precios.
+     * Esto nos facilita el acceso a los precios especiales del cliente.
+     */
+    public function priceHistory(): HasMany
+    {
+        return $this->hasMany(BranchPriceHistory::class);
     }
 
     /**
@@ -66,14 +81,6 @@ class Branch extends Model implements Auditable
     public function accountManager()
     {
         return $this->belongsTo(User::class, 'account_manager_id');
-    }
-
-    /**
-     * Obtiene todo el historial de precios especiales para esta sucursal.
-     */
-    public function priceHistory()
-    {
-        return $this->hasMany(BranchPriceHistory::class);
     }
     
     /**

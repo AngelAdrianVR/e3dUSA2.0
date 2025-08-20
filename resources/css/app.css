@@ -278,3 +278,46 @@
   color: #ffffff; /* Blanco */
 }
 
+
+/* --- ESTILOS MODERNOS PARA EL-COLLAPSE EN DARK MODE --- */
+.dark .el-collapse {
+    border-top: none;
+    border-bottom: none;
+}
+
+.dark .el-collapse-item {
+    background-color: #1e293b; /* slate-800 */
+    border: 1px solid #334155; /* slate-700 */
+    border-radius: 0.5rem; /* rounded-lg */
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.dark .el-collapse-item:hover {
+    border-color: #475569; /* slate-600 */
+}
+
+.dark .el-collapse-item__header {
+    background-color: transparent;
+    border-bottom: none;
+    border-radius: 0.5rem;
+    padding: 0 1rem;
+    color: #cbd5e1; /* slate-300 */
+}
+
+.dark .el-collapse-item__header.is-active {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.dark .el-collapse-item__wrap {
+    background-color: transparent;
+    border-bottom: none;
+    border-bottom-left-radius: 0.5rem;
+    border-bottom-right-radius: 0.5rem;
+}
+
+.dark .el-collapse-item__content {
+    padding: 0.5rem 1rem 1rem 1rem;
+    color: #94a3b8; /* slate-400 */
+}

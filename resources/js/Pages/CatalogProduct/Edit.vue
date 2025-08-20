@@ -95,6 +95,7 @@
                              <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
                              <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
+                                v-if="form.product_type_key !== 'C'"
                                 v-model="form.cost" 
                                 :error="form.errors.cost"
                                 label="Cuánto le cuesta a E3D"
@@ -104,11 +105,11 @@
                                 </template>
                              </TextInput>
                              <TextInput 
-                             v-if="form.product_type_key === 'C'"
+                                v-if="form.product_type_key === 'C'"
                                 v-model="form.base_price" 
                                 :error="form.errors.base_price"
                                 :helpContent="'Si no hay precio especial para el cliente se toma el precio base'"
-                                label="Precio base para cliente"
+                                label="Precio base para cliente*"
                                 :formatAsNumber="true">
                                 <template #icon-left>
                                     <i class="fa-solid fa-dollar-sign"></i>
@@ -473,8 +474,35 @@ export default {
         //     this.form.diameter = !isCircular ? null : this.form.diameter;
         // }
     },
+    computed: {
+        /**
+         * Calcula el costo total de todos los componentes en la lista.
+         * Se actualiza automáticamente si se agrega, elimina o modifica un componente.
+         */
+        totalComponentsCost() {
+            return this.form.components.reduce((total, component) => {
+                const quantity = parseFloat(component.quantity) || 0;
+                const cost = parseFloat(component.cost) || 0;
+                return total + (quantity * cost);
+            }, 0);
+        },
+
+        /**
+         * Calcula el costo final del producto sumando el costo base
+         * y el costo total de los componentes.
+         */
+        finalProductCost() {
+            const baseCost = parseFloat(this.form.cost) || 0;
+            // Usamos 'this.totalComponentsCost' para acceder a la otra propiedad computada
+            return baseCost + this.totalComponentsCost;
+        }
+    },
     methods: {
         update() {
+            // suma al costo los componentes
+            if ( this.form.product_type_key === 'C' ) {
+                this.form.cost = this.totalComponentsCost;
+            }
             // El método post de Inertia se encarga de enviar el _method: 'PUT'
             this.form.post(route("catalog-products.update", this.catalog_product.id), {
                 onSuccess: () => {
@@ -532,6 +560,7 @@ export default {
                 if ( response.status === 200 ) {
                     this.currentComponent.media = response.data.product.media;
                     this.currentComponent.storages = response.data.product.storages;
+                    this.currentComponent.cost = response.data.product.cost;
                 }
             } catch (error) {
                 console.log(error);
