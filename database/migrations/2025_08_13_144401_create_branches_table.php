@@ -13,21 +13,29 @@ return new class extends Migration
     {
         Schema::create('branches', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('password');
-            $table->string('address');
-            $table->string('post_code');
-            $table->foreignId('parent_branch_id')->nullable()->constrained('branches'); // indica a que sucursal matriz pertenece
-            $table->string('meet_way')->nullable();
-            $table->string('sat_method')->nullable();
-            $table->string('sat_type')->nullable();
-            $table->text('important_notes')->nullable();
-            $table->unsignedTinyInteger('days_to_reactive')->default(0);
-            $table->boolean('is_main')->default(false); // indica si la sucursal es la matriz
 
-            // --- CAMPOS NUEVOS PARA PROSPECTOS/ClIENTE ---
-            $table->enum('status', ['prospecto', 'cliente'])->default('cliente');
-            $table->timestamp('converted_to_client_at')->nullable()->comment('Fecha y hora de conversión a cliente');
+            // Datos de la empresa/sucursal
+            $table->string('name');
+            $table->string('password'); //Para poder ingresar al portal de clientes
+            $table->string('rfc', 20)->nullable();
+            $table->string('address')->nullable();
+            $table->string('post_code')->nullable();
+
+            // Clasificación y Jerarquía
+            $table->enum('status', ['Prospecto', 'Cliente'])->default('Prospecto');
+            $table->foreignId('parent_branch_id')->nullable()->constrained('branches'); // indica a que sucursal matriz pertenece
+
+            // Datos de Contacto y Seguimiento
+            $table->foreignId('account_manager_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->unsignedSmallInteger('days_to_reactive')->default(60);
+            $table->date('last_purchase_date')->nullable();
+            $table->text('important_notes')->nullable();
+            
+             // Configuración fiscal (SAT)
+            $table->string('sat_method', 50)->nullable();
+            $table->string('sat_type', 50)->nullable();
+            $table->string('meet_way')->nullable(); // forma en que conoció a e3dUSA
+
             $table->timestamps();
         });
     }

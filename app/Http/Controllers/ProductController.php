@@ -182,7 +182,6 @@ class ProductController extends Controller
             'storages.stockMovements', // Para existencias, ubicación y movimientos de stock
             'components.media', // Materia prima que compone el producto
             'productionCosts', // Procesos de producción asociados
-            'branchPricings.branch' // Precios por sucursal y el nombre de la sucursal
         ]);
 
         // Obtiene una lista de todos los productos para el buscador/selector.

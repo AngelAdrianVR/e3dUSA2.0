@@ -126,7 +126,7 @@
                                 <div>{{ formatCurrency(product.base_price) }}</div>
                             </div>
                             <!-- Precios por Sucursal -->
-                            <div v-if="product.branch_pricings?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
+                            <!-- <div v-if="product.branch_pricings?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
                                 <h3 class="font-semibold text-sm mb-2">Precios Especiales por Sucursal</h3>
                                 <ul class="space-y-1 text-sm">
                                     <li v-for="pricing in product.branch_pricings" :key="pricing.id" class="flex justify-between items-center">
@@ -134,7 +134,7 @@
                                         <span class="font-semibold">{{ formatCurrency(pricing.price) }}</span>
                                     </li>
                                 </ul>
-                            </div>
+                            </div> -->
                         </div>
 
                         <!-- Tarjeta de Componentes -->

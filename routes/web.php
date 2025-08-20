@@ -90,6 +90,8 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 
 // ------- CRM(branches sucursales Routes)  ---------
 Route::resource('branches', BranchController::class)->middleware('auth');
+Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->name('branches.get-matches');
+Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->name('branches.massive-delete');
 // Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
