@@ -121,7 +121,7 @@
                                         </figure>
                                         <!-- Información del Producto -->
                                         <div class="flex-grow">
-                                            <h4 class="font-bold text-lg text-gray-800 dark:text-gray-100">{{ product.name }}</h4>
+                                            <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400">{{ product.name }}</h4>
                                             <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ product.code }}</p>
                                             <div class="text-sm mt-2 space-y-1">
                                                 <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio Base:</strong> ${{ product.base_price?.toFixed(2) }}</p>
@@ -134,7 +134,7 @@
                                         <el-collapse>
                                             <el-collapse-item>
                                                 <template #title>
-                                                    <span class="font-semibold text-sm text-primary">
+                                                    <span class="font-semibold text-sm text-blue-500">
                                                         <i class="fa-solid fa-clock-rotate-left mr-2"></i> Ver Historial de Precios Especiales ({{ product.price_history.length }})
                                                     </span>
                                                 </template>

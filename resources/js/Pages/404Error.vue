@@ -39,16 +39,9 @@ defineProps({
         <div class="road"></div>
 
         <!-- Coche SVG -->
-        <!-- <div class="car">
-            <svg class="w-48 md:w-64" viewBox="0 0 408 158" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M399 98C399 88.6112 391.389 81 382 81H340L333 51H104L86 98H26C16.6112 98 9 105.611 9 115V129C9 138.389 16.6112 146 26 146H43C50.1797 146 56 151.82 56 159H99C99 151.82 104.82 146 112 146H308C315.18 146 321 151.82 321 159H364C364 151.82 369.82 146 377 146H382C391.389 146 399 138.389 399 129V98Z" fill="#EF4444"/>
-                <path d="M333 51L340 81H382C386.418 81 390 77.4183 390 73V51H333Z" fill="#DC2626"/>
-                <path d="M104 51L118 81H333L327 51H104Z" fill="#F87171"/>
-                <path d="M104 51L86 98H26C21.5817 98 18 94.4183 18 90V51H104Z" fill="#DC2626"/>
-                <circle cx="77.5" cy="127.5" r="21.5" fill="#1E293B" stroke="#475569" stroke-width="8"/>
-                <circle cx="342.5" cy="127.5" r="21.5" fill="#1E293B" stroke="#475569" stroke-width="8"/>
-            </svg>
-        </div> -->
+        <div class="car">
+            <img class="w-3/4" src="@/../../public/images/teslaX_cartoon.png" alt="">
+        </div>
     </div>
 </template>
 

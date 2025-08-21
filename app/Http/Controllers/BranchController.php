@@ -31,7 +31,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Create', [
             'users' => User::select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(), // productos para relacionar a clientes
+            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
         ]);
     }
 
@@ -191,7 +191,7 @@ class BranchController extends Controller
             'formattedProducts' => $formattedProducts,
             'users' => User::where('is_active', true)->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->select('id', 'name')->get(), // Excluir la actual de las matrices
-            'catalog_products' => Product::select('id', 'name')->get(),
+            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
         ]);
     }
 
@@ -390,5 +390,17 @@ class BranchController extends Controller
             ->get();
 
         return response()->json(['items' => $branches], 200);
+    }
+
+    public function fetchBranchProducts(Branch $branch)
+    {
+        $branch->load([
+            'products.media',
+            'products.priceHistory' => function ($query) {
+                $query->orderBy('valid_from', 'desc'); // más reciente primero
+            }
+        ]);
+
+        return response()->json($branch->products);
     }
 }

@@ -397,9 +397,6 @@ class ProductController extends Controller
      */
     public function findSimilar(Request $request): JsonResponse
     {
-        // $request->validate([
-        //     'base_code' => 'required|string',
-        // ]);
         $baseCode = $request->input('base_code');
 
         // Busca productos donde el campo 'code' comience con el código base proporcionado
@@ -409,6 +406,25 @@ class ProductController extends Controller
             ->get(['id', 'name', 'code', 'caracteristics']); // Selecciona solo los campos necesarios
 
         return response()->json($similarProducts);
+    }
+
+    /**
+     * Recupera todos los productos del tipo especificado en la peticion de la vista.
+     *
+     * *Lo utilizo en el create de cotizaciones para actualizar la lista si reiniciar el formulario
+     * 
+     */
+    public function fetchProducts(Request $request)
+    {   
+        // Obtiene el parámetro product_type que viene del frontend
+        $productType = $request->params['product_type'];
+        
+        // Filtra los productos según el tipo
+        $products = Product::where('product_type', $productType)
+            ->get(['id', 'name', 'code']);
+
+        // Retorna en JSON
+        return response()->json($products);
     }
 
     public function handleStockMovement(Request $request, Product $product)
