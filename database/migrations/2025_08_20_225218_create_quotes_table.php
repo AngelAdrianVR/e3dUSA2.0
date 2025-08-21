@@ -28,7 +28,7 @@ return new class extends Migration
             $table->boolean('is_freight_cost_stroked')->default(false); // costo de envío condonado (tacha la cantidad)
 
             // Detalles y Notas
-            $table->unsignedInteger('first_production_days');
+            $table->string('first_production_days');
             $table->text('notes')->nullable();
 
             // Aceptación / Rechazo

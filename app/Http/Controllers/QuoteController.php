@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Notifications\ApprovalQuoteNotification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -102,7 +103,36 @@ class QuoteController extends Controller
 
     public function show(Quote $quote)
     {
-        //
+        // Obtener todas las cotizaciones ordenadas por ID
+        $quotes = Quote::orderBy('id')->get();
+
+        // Encontrar la posición de la cotización actual en la lista
+        $currentIndex = $quotes->search(function ($q) use ($quote) {
+            return $q->id == $quote->id;
+        });
+
+        // Obtener el ID de la siguiente cotización, manejando el caso en el que estamos en la última cotización
+        $nextQuote = $quotes->get(($currentIndex + 1) % $quotes->count());
+
+        // Obtener el ID de la cotización anterior, manejando el caso en el que estamos en la primera cotización
+        $prevQuote = $quotes->get(($currentIndex - 1 + $quotes->count()) % $quotes->count());
+
+        // Preparar los recursos de la cotización actual
+        $quote = Quote::with(['branch', 'user', 'products.media', 'authorizedBy'])->findOrFail($quote->id);
+
+ // // Cargar las relaciones necesarias para evitar problemas N+1
+        // $quote->load([
+        //     'branch', // Cliente (sucursal)
+        //     'user',   // Usuario que creó la cotización
+        //     'products' // Los productos pivote y la información del producto real
+        // ]);
+        // return $quote;
+        // Retornar la vista de Inertia con los datos de la cotización
+        return Inertia::render('Quote/Show', [
+            'quote' => $quote,
+            'next_quote' => $nextQuote->id,
+            'prev_quote' => $prevQuote->id,
+        ]);
     }
 
     public function edit(Quote $quote)
@@ -118,5 +148,25 @@ class QuoteController extends Controller
     public function destroy(Quote $quote)
     {
         //
+    }
+
+    public function authorizeQuote(Quote $quote)
+    {
+        $quote->update([
+            'authorized_by_user_id' => auth()->id(),
+        ]);
+
+        // notificar a creador de la orden si quien autoriza no es el mismo usuario
+        if (auth()->id() != $quote->user->id) {
+            $quote_folio = 'COT-' . str_pad($quote->id, 4, "0", STR_PAD_LEFT);
+            $quote->user->notify(new ApprovalQuoteNotification(
+                'Cotización',
+                $quote_folio,
+                'quote',
+                route('quotes.show', $quote->id)
+            ));
+        }
+
+        return response()->json(['message' => 'Cotizacion autorizadda', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
     }
 }

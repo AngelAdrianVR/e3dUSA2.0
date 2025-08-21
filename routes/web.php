@@ -52,20 +52,21 @@ Route::middleware([
 });
 
 // Rutas de Notificaciones
-Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
-Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
-Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
+Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
+Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
+Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->middleware('auth')->name('notifications.destroy');
 
 
 // ------- Products Routes ---------
 Route::resource('catalog-products', ProductController::class)->middleware('auth');
-Route::post('catalog-products/massive-delete', [ProductController::class, 'massiveDelete'])->name('catalog-products.massive-delete');
-Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->name('catalog-products.get-matches');
+Route::post('catalog-products/massive-delete', [ProductController::class, 'massiveDelete'])->middleware('auth')->name('catalog-products.massive-delete');
+Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->middleware('auth')->name('catalog-products.get-matches');
 Route::get('catalog-products-search-raw-materials', [ProductController::class, 'searchRawMaterial'])->middleware('auth')->name('catalog-products.search-raw-material');
 Route::get('products-get-media/{product}', [ProductController::class, 'getProductMedia'])->middleware('auth')->name('products.get-media');
 Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
-Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->name('products.stock-movement');
-Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->name('catalog-products.QR-search-catalog-product');
+Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->middleware('auth')->name('products.stock-movement');
+Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
+Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 // Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
 // Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
@@ -82,7 +83,7 @@ Route::resource('product-families', ProductFamilyController::class)->except('sho
 
 //------------------ production-cost routes ----------------
 Route::resource('production-costs', ProductionCostController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
-Route::post('production-costs/massive-delete', [ProductionCostController::class, 'massiveDelete'])->name('production-costs.massive-delete');
+Route::post('production-costs/massive-delete', [ProductionCostController::class, 'massiveDelete'])->middleware('auth')->name('production-costs.massive-delete');
 
 
 // ------- brands Routes ---------
@@ -91,9 +92,9 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 
 // ------- CRM(branches sucursales Routes)  ---------
 Route::resource('branches', BranchController::class)->middleware('auth');
-Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->name('branches.get-matches');
-Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->name('branches.massive-delete');
-Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->name('branches.fetch-products');
+Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
+Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->middleware('auth')->name('branches.massive-delete');
+Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 // Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
@@ -102,6 +103,8 @@ Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchB
 
 // ------- CRM(cotizaciones Routes)  ---------
 Route::resource('quotes', QuoteController::class)->middleware('auth');
+Route::put('quotes/authorize/{quote}', [QuoteController::class, 'authorizeQuote'])->middleware('auth')->name('quotes.authorize');
+
 
 
 // ------- Recursos humanos(users routes)  ---------
@@ -126,21 +129,21 @@ Route::post('users-get-unseen-messages', [UserController::class, 'getUnseenMessa
 
 // ------- Recursos humanos(Bonuses Routes)  ---------
 Route::resource('bonuses', BonusController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
-Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])->name('bonuses.massive-delete');
+Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])->middleware('auth')->name('bonuses.massive-delete');
 
 
 // ------- Recursos humanos(Discounts Routes)  ---------
 Route::resource('discounts', DiscountController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
-Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->name('discounts.massive-delete');
+Route::post('discounts/massive-delete', [DiscountController::class, 'massiveDelete'])->middleware('auth')->name('discounts.massive-delete');
 
 
 // ------- Recursos humanos(Holidays Routes)  ---------
 Route::resource('holidays', HolidayController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
-Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete'])->name('holidays.massive-delete');
+Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete'])->middleware('auth')->name('holidays.massive-delete');
 
 
 // ------- Historial de acciones rutas  ---------
-Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->name('audits.index');
+Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->middleware('auth')->name('audits.index');
 
 
 // ------- Roles rutas  ---------
@@ -163,8 +166,8 @@ Route::post('manuals/update-with-media/{manual}', [ManualController::class, 'upd
 
 // ------- Machines Routes  ---------
 Route::resource('machines', MachineController::class)->middleware('auth');
-Route::post('machines/massive-delete', [MachineController::class, 'massiveDelete'])->name('machines.massive-delete');
-Route::post('machines/upload-files/{machine}', [MachineController::class, 'uploadFiles'])->name('machines.upload-files');
+Route::post('machines/massive-delete', [MachineController::class, 'massiveDelete'])->middleware('auth')->name('machines.massive-delete');
+Route::post('machines/upload-files/{machine}', [MachineController::class, 'uploadFiles'])->middleware('auth')->name('machines.upload-files');
 // Route::post('machines/QR-search-machine', [MachineController::class, 'QRSearchMachine'])->name('machines.QR-search-machine');
 
 
@@ -183,18 +186,18 @@ Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 
 // ---------- calendar (events/tasks) routes  ---------------
 Route::prefix('calendar')->name('calendar.')->group(function () {
     // Vistas principales
-    Route::get('/', [CalendarController::class, 'index'])->name('index');
-    Route::get('/create', [CalendarController::class, 'create'])->name('create');
-    Route::post('/', [CalendarController::class, 'store'])->name('store');
+    Route::get('/', [CalendarController::class, 'index'])->middleware('auth')->name('index');
+    Route::get('/create', [CalendarController::class, 'create'])->middleware('auth')->name('create');
+    Route::post('/', [CalendarController::class, 'store'])->middleware('auth')->name('store');
 
     // Acciones para Tareas
-    Route::patch('/tasks/{task}/complete', [CalendarController::class, 'updateTaskStatus'])->name('tasks.complete');
+    Route::patch('/tasks/{task}/complete', [CalendarController::class, 'updateTaskStatus'])->middleware('auth')->name('tasks.complete');
 
     // Acciones para Eventos (invitaciones)
-    Route::patch('/events/{event}/invitation', [CalendarController::class, 'updateInvitationStatus'])->name('events.invitation');
+    Route::patch('/events/{event}/invitation', [CalendarController::class, 'updateInvitationStatus'])->middleware('auth')->name('events.invitation');
     
     // Acción para eliminar cualquier entrada
-    Route::delete('/entries/{calendarEntry}', [CalendarController::class, 'destroy'])->name('entries.destroy');
+    Route::delete('/entries/{calendarEntry}', [CalendarController::class, 'destroy'])->middleware('auth')->name('entries.destroy');
 });
 
 

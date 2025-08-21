@@ -91,7 +91,7 @@
                             </el-table-column>
                             <el-table-column label="Total" width="150">
                                 <template #default="scope">
-                                    <span class="font-semibold">{{ scope.row.total.toFixed(2) }} {{ scope.row.currency }}</span>
+                                    <span class="font-semibold">{{ scope.row.total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ scope.row.currency }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column label="OV" width="100">

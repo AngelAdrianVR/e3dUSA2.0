@@ -15,30 +15,46 @@
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
-                    <!-- Botón para ver productos del cliente -->
-                    <div v-if="form.branch_id" class="absolute top-4 right-8">
-                        <SecondaryButton @click="showClientProductsDrawer = true">
-                            <i class="fa-solid fa-box-open mr-2"></i>
-                            Ver productos del cliente
-                        </SecondaryButton>
-                    </div>
-
                     <form @submit.prevent="store">
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
-                        <el-divider content-position="left">
-                            <span>Información General</span>
-                        </el-divider>
+                        <div class="flex justify-between items-center">
+                            <el-divider content-position="left" class="flex-grow">
+                                <span>Información General</span>
+                            </el-divider>
+                             <!-- Botón para ver productos del cliente -->
+                            <div v-if="form.branch_id" class="ml-4">
+                                <SecondaryButton type="button" @click="showClientProductsDrawer = true">
+                                    <i class="fa-solid fa-box-open mr-2"></i>
+                                    Ver productos
+                                </SecondaryButton>
+                            </div>
+                        </div>
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
+                            <div class="col-span-full mb-5">
+                                <el-radio-group v-model="form.is_spanish_template" size="small">
+                                    <el-radio-button :label="true">Plantilla en Español</el-radio-button>
+                                    <el-radio-button :label="false">Plantilla en Inglés</el-radio-button>
+                                </el-radio-group>
+                            </div>
                             <div>
-                                 <InputLabel value="Cliente*" />
+                                <InputLabel value="Cliente*" />
                                 <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full">
                                     <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
                                 </el-select>
                                 <InputError :message="form.errors.branch_id" />
                             </div>
                             <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Ej. Juan Pérez" />
-                            <TextInput label="Departamento / Puesto*" v-model="form.department" :error="form.errors.department" placeholder="Ej. Gerente de Compras" />
+                            <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Ej. Gerente de Compras" />
+                            <div>
+                                <InputLabel value="Dias para primera producción*" />
+                                <el-select v-model="form.first_production_days" placeholder="Selecciona">
+                                    <el-option
+                                        v-for="item in form.is_spanish_template ? firstProductionDaysList : firstProductionDaysListEnglish"
+                                        :key="item" :label="item" :value="item" />
+                                </el-select>
+                                <InputError :message="form.errors.first_production_days" />
+                            </div>
                             <div>
                                 <InputLabel value="Moneda general*" />
                                 <el-select v-model="form.currency" placeholder="Selecciona la moneda" class="!w-full">
@@ -47,8 +63,8 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" />
                             </div>
-                            <div class="col-span-1 md:col-span-2">
-                                <TextInput label="Notas generales (opcional)"  :isTextarea="true" :withMaxLength="true" :maxLength="255" v-model="form.notes" type="textarea" :error="form.errors.notes" />
+                            <div class="col-span-1 md:col-span-full">
+                                <TextInput :label="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'"  :isTextarea="true" :withMaxLength="true" :maxLength="500" v-model="form.notes" type="textarea" :error="form.errors.notes" />
                             </div>
                         </div>
 
@@ -58,11 +74,21 @@
                         </el-divider>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-                             <TextInput label="Costo de Herramental*" v-model="form.tooling_cost" type="number" :error="form.errors.tooling_cost">
+                             <TextInput label="Costo de Herramental*" 
+                                v-model="form.tooling_cost" type="number" 
+                                :formatAsNumber="true" 
+                                :error="form.errors.tooling_cost" 
+                                :placeholder="'Ej. 500.00'" :helpContent="'Si no tiene costo, escribe 0 (Cero)'">
                                 <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                              </TextInput>
                              <div class="flex items-center space-x-2 mt-8">
-                                <el-checkbox v-model="form.is_tooling_cost_stroked" label="Tachar costo" size="large" />
+                                <label class="flex items-center">
+                                    <Checkbox v-model:checked="form.is_tooling_cost_stroked" class="bg-transparent border-gray-500" />
+                                    <span class="ml-2 text-gray-400">Tachar:</span>
+                                </label>
+                                <span class="text-gray-500" :class="{ 'line-through': form.is_tooling_cost_stroked }">
+                                    ${{ formatNumber(form.tooling_cost) }} {{ form.currency }}
+                                </span>
                              </div>
                              <div></div> <!-- Espaciador -->
                              <div>
@@ -74,12 +100,24 @@
                                 </el-select>
                                 <InputError :message="form.errors.freight_option" />
                             </div>
-                            <TextInput label="Costo de Flete*" v-model="form.freight_cost" type="number" :error="form.errors.freight_cost">
+                            <TextInput label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
+                                :formatAsNumber="true" type="number" :placeholder="'Ej. 500.00'" :error="form.errors.freight_cost">
                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
                             <div class="flex items-center space-x-2 mt-8">
-                                <el-checkbox v-model="form.is_freight_cost_stroked" label="Tachar flete" size="large" />
+                                <label class="flex items-center">
+                                    <Checkbox v-model:checked="form.is_freight_cost_stroked" class="bg-transparent border-gray-500" />
+                                    <span class="ml-2 text-gray-400">Tachar:</span>
+                                </label>
+                                <span class="text-gray-500" :class="{ 'line-through': form.is_freight_cost_stroked }">
+                                    ${{ formatNumber(form.freight_cost) }} {{ form.currency }}
+                                </span>
                             </div>
+
+                            <label class="flex items-center col-span-full">
+                                <Checkbox v-model:checked="form.show_breakdown" class="bg-transparent border-gray-500" />
+                                <span class="ml-2 text-gray-400">Mostrar total sumando productos, flete y herramental</span>
+                            </label>
                         </div>
 
                         <!-- SECCIÓN 3: PRODUCTOS -->
@@ -87,31 +125,40 @@
                             <span>Productos a Cotizar</span>
                         </el-divider>
 
-                        <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
-                            <div class="flex items-center space-x-2 mb-3">
-                                 <InputLabel value="Producto*" />
+                        <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
+                            <div class="flex justify-between items-center space-x-2 mb-3">
                                 <el-tooltip content="Refrescar lista de productos" placement="top">
-                                    <button @click="fetchCatalogProducts" type="button" class="text-primary hover:opacity-75 transition-opacity duration-200">
+                                    <button @click="fetchCatalogProducts" type="button" class="text-primary">
                                         <i class="fa-solid fa-arrows-rotate"></i>
                                     </button>
                                 </el-tooltip>
-                                <a :href="route('catalog-products.create')" target="_blank" class="text-primary hover:opacity-75 transition-opacity duration-200 text-xs ml-2">(+ Nuevo producto)</a>
+                                <a :href="route('catalog-products.create')" target="_blank" class="text-primary hover:underline text-sm ml-2">+ Agregar nuevo producto</a>
                             </div>
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
-                                <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="lg:col-span-2">
-                                    <el-option v-for="product in localCatalogProducts" :key="product.id" :label="`${product.name} (${product.part_number})`" :value="product.id" />
-                                </el-select>
+                            <div class="grid grid-cols-1 lg:grid-cols-4 gap-3 items-start">
+                                <div class="lg:col-span-2">
+                                    <InputLabel value="Producto" />
+                                    <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
+                                        <!-- MODIFICADO: Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
+                                        <el-option v-for="product in localCatalogProducts" 
+                                            :key="product.id" 
+                                            :label="`${product.name} (${product.code})`" 
+                                            :value="product.id"
+                                            :disabled="form.products.some(p => p.id === product.id) && product.id !== this.form.products[editIndex]?.id" />
+                                    </el-select>
+                                </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" />
+                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
+                                        <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                </TextInput>
 
                                 <!-- Estado de carga -->
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
-                                <!-- Tarjeta de materia prima seleccionada -->
-                                <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id">
+                                <!-- Tarjeta de producto seleccionado -->
+                                <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id">
                                     <figure 
                                         v-if="currentProduct.media" 
-                                        class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                        class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
                                         <img v-if="currentProduct.media?.length"
                                             :src="currentProduct.media[0]?.original_url" 
                                             alt="" 
@@ -127,46 +174,75 @@
 
                                     <!-- informacion de almacén -->
                                     <div>
+                                        <!-- NUEVO: Etiqueta de producto de cliente -->
+                                        <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
+                                            Producto de cliente
+                                        </span>
                                         <p class="text-gray-500 dark:text-gray-300">
-                                            Stock: <strong>{{ currentProduct.storages[0]?.quantity }}</strong> unidades
+                                            Stock: <strong>{{ currentProduct.storages[0]?.quantity ?? 0 }}</strong> unidades
                                         </p>
                                         <p class="text-gray-500 dark:text-gray-300">
                                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                                         </p>
                                         <p class="text-gray-500 dark:text-gray-300">
-                                            precio base: <strong>{{ currentProduct.base_price ?? '0.00' }}</strong>
+                                            Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                                        </p>
+                                        <!-- NUEVO: Precio actual del cliente -->
+                                        <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                                            Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                                         </p>
                                     </div>
                                 </div>
                                 
-                                <div class="lg:col-span-5">
-                                     <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" rows="1" />
+                                <div class="lg:col-span-full">
+                                     <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" :withMaxLength="true" :maxLength="500" />
                                 </div>
-                                <div class="pt-2">
+                                <div class="pt-2 col-span-full">
                                     <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price">
-                                        {{ editIndex !== null ? 'Actualizar' : 'Agregar' }}
+                                        {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
                                     </SecondaryButton>
+                                    <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
+                                        Cancelar edición
+                                    </button>
                                 </div>
                             </div>
                         </div>
                         <InputError :message="form.errors.products" class="mt-2" />
 
-                        <!-- Lista de productos agregados -->
-                        <div v-if="form.products.length" class="mt-4 border dark:border-gray-600 rounded-lg p-3">
-                            <h3 class="font-bold mb-2">Lista de productos</h3>
-                            <div v-for="(product, index) in form.products" :key="index" class="flex items-center justify-between p-2 rounded-md" :class="index % 2 === 0 ? 'bg-gray-50 dark:bg-slate-800' : ''">
-                                <div>
-                                    <p class="font-semibold">{{ getProductName(product.id) }}</p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                                        Cantidad: {{ product.quantity }} | Precio U: ${{ product.unit_price }} | Subtotal: ${{ (product.quantity * product.unit_price).toFixed(2) }}
-                                    </p>
-                                    <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <el-button @click="editProduct(index)" type="primary" circle><i class="fa-solid fa-pen"></i></el-button>
-                                    <el-button @click="deleteProduct(index)" type="danger" circle><i class="fa-solid fa-trash"></i></el-button>
-                                </div>
-                            </div>
+                        <!-- Lista de productos agregados con nuevo estilo -->
+                        <div v-if="form.products.length" class="mt-5">
+                            <h3 class="font-bold mb-2 text-gray-800 dark:text-gray-200">Lista de productos agregados</h3>
+                            <ul class="rounded-lg bg-gray-100 dark:bg-slate-800 p-3 space-y-2">
+                                <li v-for="(product, index) in form.products" :key="index" class="flex justify-between items-center p-3 rounded-md transition-colors"
+                                    :class="{ 'bg-blue-100 dark:bg-blue-900/50': editIndex === index }">
+                                    <div class="flex items-center space-x-4">
+                                        <span class="text-sm text-gray-800 dark:text-gray-200">
+                                            <p class="font-bold text-primary">{{ getProductName(product.id) }}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
+                                            </p>
+                                            <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <el-tooltip content="Cancelar edición" placement="top">
+                                            <button @click="resetCurrentProduct" v-if="editIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </el-tooltip>
+                                        <el-tooltip content="Editar" placement="top">
+                                            <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
+                                                <i class="fa-solid fa-pencil"></i>
+                                            </button>
+                                        </el-tooltip>
+                                        <el-tooltip content="Eliminar" placement="top">
+                                            <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
+                                                <i class="fa-solid fa-trash"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
+                                </li>
+                            </ul>
                         </div>
 
                         <!-- Botón de envío -->
@@ -261,6 +337,8 @@
                                 </ul>
                             </el-collapse-item>
                         </el-collapse>
+
+                        <p class="text-sm text-gray-600 dark:text-gray-500 italic mt-3" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
                     </div>
                 </div>
             </div>
@@ -276,6 +354,7 @@ import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import InputError from "@/Components/InputError.vue";
 import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
+import Checkbox from "@/Components/Checkbox.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -292,25 +371,31 @@ export default {
                 receiver: '',
                 department: '',
                 currency: 'MXN',
-                tooling_cost: 0,
+                tooling_cost: null,
                 is_tooling_cost_stroked: false,
-                freight_cost: 0,
+                freight_cost: null,
                 is_freight_cost_stroked: false,
                 freight_option: 'Por cuenta del cliente',
-                first_production_days: '3 a 4 días',
+                first_production_days: null,
                 notes: '',
                 is_spanish_template: true,
                 show_breakdown: true,
                 has_early_payment_discount: false,
-                early_payment_discount_amount: 0,
+                early_payment_discount_amount: null,
                 products: [],
             }),
+            // MODIFICADO: Se agregan más propiedades para manejar el estado del producto actual
             currentProduct: {
                 id: null,
-                quantity: null,
+                quantity: 1,
                 unit_price: null,
                 notes: '',
                 customization_details: null,
+                isClientProduct: false,
+                current_price: null,
+                media: null,
+                storages: [],
+                base_price: null,
             },
             editIndex: null,
             localCatalogProducts: this.catalogProducts,
@@ -318,11 +403,46 @@ export default {
             clientProducts: [],
             loadingClientProducts: false,
             loadingProductData: false,
-            drawerSize: "30%" // valor inicial
+            drawerSize: "35%", // valor inicial
+            firstProductionDaysList: [
+                'Inmediata',
+                '1 a 2 días',
+                '2 a 3 días',
+                '3 a 4 días',
+                '4 a 5 días',
+                '5 a 6 días',
+                '1 a 2 semanas',
+                '3 a 4 semanas',
+                '5 a 6 semanas',
+                '7 a 8 semanas',
+                '9 a 10 semanas',
+                '11 a 12 semanas',
+                '13 a 14 semanas',
+                '15 a 16 semanas',
+                '17 a 18 semanas',
+            ],
+            firstProductionDaysListEnglish: [
+                'Immediate',
+                '1 to 2 days',
+                '2 to 3 days',
+                '3 to 4 days',
+                '4 to 5 days',
+                '5 to 6 days',
+                '1 to 2 weeks',
+                '3 to 4 weeks',
+                '5 to 6 weeks',
+                '7 to 8 weeks',
+                '9 to 10 weeks',
+                '11 to 12 weeks',
+                '13 to 14 weeks',
+                '15 to 16 weeks',
+                '17 to 18 weeks',
+            ],
         };
     },
     components: {
         Back,
+        Checkbox,
         TextInput,
         AppLayout,
         InputError,
@@ -358,14 +478,29 @@ export default {
             this.resetCurrentProduct();
         },
         editProduct(index) {
-            this.currentProduct = { ...this.form.products[index] };
+            // Clonado profundo para evitar reactividad no deseada al editar
+            this.currentProduct = JSON.parse(JSON.stringify(this.form.products[index]));
             this.editIndex = index;
+            // Hacer scroll a la sección de productos para una mejor UX
+            this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
         },
         deleteProduct(index) {
             this.form.products.splice(index, 1);
+            ElMessage.info('Producto eliminado de la lista');
         },
         resetCurrentProduct() {
-            this.currentProduct = { id: null, quantity: null, unit_price: null, notes: '', customization_details: null };
+            this.currentProduct = { 
+                id: null, 
+                quantity: 1, 
+                unit_price: null, 
+                notes: '', 
+                customization_details: null,
+                isClientProduct: false,
+                current_price: null,
+                media: null,
+                storages: [],
+                base_price: null,
+            };
             this.editIndex = null;
         },
         getProductName(productId) {
@@ -376,6 +511,13 @@ export default {
             if (!dateString) return '';
             const date = new Date(dateString);
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
+        },
+        formatNumber(value) {
+            if (value === null || value === undefined) return '0.00';
+            // Asegurarse de que el valor es un número antes de formatear
+            const num = Number(value);
+            if (isNaN(num)) return '0.00';
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
         },
 
         // ------ Metodos para el drawer ( productos del cliente ) -------
@@ -413,32 +555,52 @@ export default {
             } else if (width < 1024) {
                 this.drawerSize = "60%"; // tablet
             } else {
-                this.drawerSize = "30%"; // desktop
+                this.drawerSize = "35%"; // desktop
             }
         },
 
         // ------- Metodos asíncronos -----------
         async getProductData() {
+            if (!this.currentProduct.id) return;
             // 1. Inicia el estado de carga
             this.loadingProductData = true;
             try {
                 const response = await axios.get(route('products.get-media', this.currentProduct.id));
 
                 if ( response.status === 200 ) {
-                    this.currentProduct.media = response.data.product.media;
-                    this.currentProduct.storages = response.data.product.storages;
-                    this.currentProduct.base_price = response.data.product.base_price;
+                    const productData = response.data.product;
+                    this.currentProduct.media = productData.media;
+                    this.currentProduct.storages = productData.storages;
+                    this.currentProduct.base_price = productData.base_price;
+                    this.currentProduct.unit_price = productData.base_price;
+
+                    // --- NUEVA LÓGICA ---
+                    // Revisa si es un producto registrado por el cliente para obtener su precio especial
+                    const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+                    if (clientProduct) {
+                        this.currentProduct.isClientProduct = true;
+                        // Obtiene el precio actual del historial o usa el precio base como fallback
+                        this.currentProduct.current_price = clientProduct.price_history?.[0]?.price || clientProduct.base_price;
+                        // Asigna el precio del cliente como precio unitario por defecto
+                        this.currentProduct.unit_price = this.currentProduct.current_price;
+                    } else {
+                        this.currentProduct.isClientProduct = false;
+                        this.currentProduct.current_price = null;
+                    }
                 }
             } catch (error) {
                 console.log(error);
-                ElMessage.error('No se pudo cargar la imagen del componente')
+                ElMessage.error('No se pudo cargar la información del producto')
             } finally {
                 this.loadingProductData = false;
             }
         },
+        // Actualiza los productos de catálogo
         async fetchCatalogProducts() {
             try {
-                const response = await axios.get(route('api.catalog-products.index')); // Asumiendo que tienes una ruta API
+                const response = await axios.post(route('products.fetch-products'), {
+                    params: { product_type: 'Catálogo' }
+                });
                 this.localCatalogProducts = response.data;
                 ElMessage.success('Lista de productos actualizada');
             } catch (error) {

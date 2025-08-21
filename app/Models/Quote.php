@@ -81,7 +81,6 @@ class Quote extends Model implements Auditable
                 'quantity',
                 'unit_price',
                 'notes',
-
                 'customization_details',
                 'customer_approval_status'
             ])
@@ -140,7 +139,7 @@ class Quote extends Model implements Auditable
             $total += $this->tooling_cost;
         }
 
-        if ($this->freight_option !== 'Por cuenta del cliente' && !$this->is_freight_cost_stroked) {
+        if ($this->freight_option && !$this->is_freight_cost_stroked) {
             $total += $this->freight_cost;
         }
 
