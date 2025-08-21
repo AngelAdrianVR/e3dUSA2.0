@@ -79,7 +79,7 @@
                                     </el-select>
                                 </div>
                                 <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
-                                    :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                                    :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="numeric-stepper" :step="0.01" placeholder="Dejar vacío para usar precio base" />
                             </div>
 
                             <div v-if="loadingProductMedia" class="flex items-center justify-center h-32">

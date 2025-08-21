@@ -132,7 +132,7 @@
                         </div>
 
                         <!-- ================================================================== -->
-                        <!-- ================== SECCIÓN DE COMPONENTES (MODIFICADA) ============= -->
+                        <!-- ================== SECCIÓN DE COMPONENTES ============= -->
                         <!-- ================================================================== -->
                         <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">

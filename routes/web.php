@@ -15,6 +15,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionCostController;
+use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\UserController;
@@ -92,6 +93,7 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 Route::resource('branches', BranchController::class)->middleware('auth');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->name('branches.massive-delete');
+Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->name('branches.fetch-products');
 // Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
@@ -99,7 +101,7 @@ Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'
 
 
 // ------- CRM(cotizaciones Routes)  ---------
-Route::resource('branches', BranchController::class)->middleware('auth');
+Route::resource('quotes', QuoteController::class)->middleware('auth');
 
 
 // ------- Recursos humanos(users routes)  ---------

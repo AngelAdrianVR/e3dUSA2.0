@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
@@ -62,6 +63,9 @@ class Quote extends Model implements Auditable
         'early_paid_at' => 'datetime',
     ];
 
+    // Accesor para obtener el total de la cotizacion. ()
+    protected $appends = ['total'];
+
     // ------------------ RELACIONES ------------------
 
     /**
@@ -111,44 +115,39 @@ class Quote extends Model implements Auditable
     /**
      * Relación con la venta generada a partir de la cotización.
      */
-    // public function sale(): BelongsTo
-    // {
-    //     return $this->belongsTo(Sale::class);
-    // }
+    public function sale(): BelongsTo
+    {
+        return $this->belongsTo(Sale::class);
+    }
     
     // ------------------ ACCESORS & MUTATORS ------------------
 
     /**
      * Calcula el costo total de la cotización dinámicamente.
      * Suma solo los productos aprobados por el cliente.
-     *
+     * ! Agregar iva si se requiere el total con iva o cualquier otra modificación
      * @return float
      */
     public function getTotalAttribute(): float
     {
-        // Suma el subtotal de todos los productos aprobados
         $subtotal = $this->products()
             ->wherePivot('customer_approval_status', 'Aprobado')
-            ->sum(\DB::raw('quote_products.quantity * quote_products.unit_price'));
+            ->sum(DB::raw('quote_products.quantity * quote_products.unit_price'));
 
         $total = $subtotal;
 
-        // Añade el costo de herramental si no está condonado
-        if (!$this->is_tooling_cost_waived) {
+        if (!$this->is_tooling_cost_stroked) {
             $total += $this->tooling_cost;
         }
 
-        // Añade el costo de flete si la empresa lo absorbe o va prorrateado
-        // (En ambos casos, es un costo que se considera en el total)
-        if ($this->freight_option === 'La empresa absorbe el costo de flete' || $this->freight_option === 'Cargo de flete prorrateado en productos') {
+        if ($this->freight_option !== 'Por cuenta del cliente' && !$this->is_freight_cost_stroked) {
             $total += $this->freight_cost;
         }
 
-        // Resta el descuento por pago anticipado si aplica
         if ($this->has_early_payment_discount) {
             $total -= $this->early_payment_discount_amount;
         }
 
-        return max(0, $total); // Asegura que el total no sea negativo
+        return max(0, $total);
     }
 }
