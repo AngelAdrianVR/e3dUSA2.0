@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Log;
 
 class QuoteController extends Controller
 {
@@ -18,7 +19,7 @@ class QuoteController extends Controller
         // Se obtienen las cotizaciones paginadas.
         // Usamos 'with' para cargar las relaciones y evitar el problema N+1.
         // Esto hace que la consulta sea mucho más eficiente.
-        $quotes = Quote::with(['branch', 'user', 'sale'])
+        $quotes = Quote::with(['branch', 'user', 'sale', 'authorizedBy'])
             ->latest() // Ordena por los más recientes primero
             ->paginate(20); // O el número que prefieras por página
 
@@ -150,10 +151,19 @@ class QuoteController extends Controller
         //
     }
 
+    public function massiveDelete(Request $request)
+    {
+        foreach ($request->ids as $id) {
+            $bonus = Quote::find($id);
+            $bonus?->delete();
+        }
+    }
+
     public function authorizeQuote(Quote $quote)
     {
         $quote->update([
             'authorized_by_user_id' => auth()->id(),
+            'authorized_at' => now(),
         ]);
 
         // notificar a creador de la orden si quien autoriza no es el mismo usuario
@@ -167,6 +177,163 @@ class QuoteController extends Controller
             ));
         }
 
-        return response()->json(['message' => 'Cotizacion autorizadda', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
+        return response()->json(['message' => 'Cotizacion autorizada', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
+    }
+
+    /**
+     * Clona una cotización existente para crear una nueva.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function clone(Quote $quote)
+    {
+        // // Validar que el ID de la cotización a clonar esté presente
+        // $request->validate([
+        //     'quote_id' => 'required|exists:quotes,id',
+        // ]);
+
+        try {
+            // 1. Encontrar la cotización original con sus productos
+            $originalQuote = Quote::with('products')->findOrFail($quote->id);
+
+            // 2. Replicar el modelo de la cotización
+            // El método replicate() crea una nueva instancia sin guardarla en la BD
+            // y sin los atributos de fecha (created_at, updated_at) y el ID.
+            $newQuote = $originalQuote->replicate();
+
+            // 3. Restablecer y actualizar los campos para la nueva cotización
+            $newQuote->status = 'Esperando respuesta'; // O el estado inicial que prefieras
+            $newQuote->sale_id = null;
+            $newQuote->authorized_at = null;
+            $newQuote->authorized_by_user_id = null;
+            $newQuote->customer_responded_at = null;
+            $newQuote->rejection_reason = null;
+            $newQuote->created_by_customer = false; // La nueva cotización es creada por un usuario del sistema
+            $newQuote->user_id = auth()->id(); // Asignar el usuario actual como creador
+
+            // 4. Guardar la nueva cotización para obtener un ID
+            $newQuote->save();
+
+            // 5. Sincronizar los productos de la cotización original a la nueva
+            // Se itera sobre cada producto de la cotización original para adjuntarlo a la nueva
+            // con sus respectivos datos pivote (cantidad, precio, etc.).
+            foreach ($originalQuote->products as $product) {
+                $newQuote->products()->attach($product->id, [
+                    'quantity' => $product->pivot->quantity,
+                    'unit_price' => $product->pivot->unit_price,
+                    'notes' => $product->pivot->notes,
+                    'customization_details' => $product->pivot->customization_details,
+                    'customer_approval_status' => $product->pivot->customer_approval_status,
+                ]);
+            }
+
+            // Cargar las relaciones necesarias para la respuesta
+            $newQuote->load('user', 'branch');
+
+            // 6. Devolver una respuesta exitosa con la nueva cotización
+            return response()->json([
+                'message' => 'Cotización clonada exitosamente',
+                'newItem' => $newQuote,
+            ]);
+
+        } catch (\Exception $e) {
+            // Registrar el error para depuración
+            Log::error('Error al clonar la cotización: ' . $e->getMessage());
+
+            // Devolver una respuesta de error
+            return response()->json([
+                'message' => 'Ocurrió un error al clonar la cotización. Por favor, inténtalo de nuevo.',
+            ], 500);
+        }
+    }
+
+    public function getMatches(Request $request)
+    {
+        $query = $request->input('query');
+
+        // Realiza la búsqueda
+        $quotes = Quote::with(['branch', 'user', 'sale'])
+            ->latest()
+            ->where(function ($q) use ($query) {
+                $q->where('id', 'like', "%{$query}%")
+                // Busca dentro de la relación de la matriz (parent)
+                ->orWhereHas('user', function ($parentQuery) use ($query) {
+                    $parentQuery->where('name', 'like', "%{$query}%");
+                })
+                // Correcto uso de whereHas para buscar en la relación
+                ->orWhereHas('branch', function ($userquery) use ($query) {
+                    $userquery->where('name', 'like', "%{$query}%");
+                });
+            })
+            ->get();
+
+        return response()->json(['items' => $quotes], 200);
+    }
+
+    public function markEarlyPayment(Quote $quote) 
+    {
+        $quote->update([
+            'early_paid_at' => now(),
+        ]);
+
+        return response()->json(['quote' => $quote]);
+    }
+
+    public function changeStatus(Quote $quote, Request $request)
+    {
+        $status = $request->input('new_status');
+        $data = ['status' => $status];
+        $rejection_reason = $request->input('rejection_reason');
+
+        // Si es rechazada, guardar el motivo
+        if ($status === 'Rechazada') {
+            $data['rejection_reason'] = $rejection_reason;
+            $data['customer_responded_at'] = now();
+        }
+
+        // Si es aceptada, guardar también quién la autorizó
+        if ($status === 'Aceptada') {
+            $data['customer_responded_at'] = now();
+        }
+
+        $quote->update($data);
+
+        // -------------- lógica de cotizaciones pendientes --------------
+        // Verificar si el usuario aún tiene cotizaciones pendientes entre 3 y 5 días atrás
+
+        // $from = now()->subDays(5)->startOfDay();
+        // $to = now()->subDays(3)->endOfDay();
+
+        // $hasPendingQuotes = Quote::where('user_id', $quote->user_id)
+        //     ->where('status', 'Esperando respuesta')
+        //     ->whereBetween('created_at', [$from, $to])
+        //     ->exists();
+
+        // // Actualizar la propiedad pendent_quotes_alert del usuario
+        // $quote->user->update([
+        //     'pendent_quotes_alert' => $hasPendingQuotes
+        // ]);
+
+        return response()->json([
+            'message' => 'Estatus de la cotización actualizado correctamente.',
+            'quote' => $quote
+        ]);
+    }
+
+    // Recupera las cotizaciones pendientes de seguimiento (de 3 a 5 días de creadas)
+    public function pendingAlert()
+    {
+        $userId = auth()->id();
+
+        $from = now()->subDays(5)->startOfDay(); // hace 5 días
+        $to = now()->subDays(3)->endOfDay();     // hace 3 días
+
+        $quotes = Quote::where('user_id', $userId)
+            ->where('status', 'Esperando respuesta')
+            ->whereBetween('created_at', [$from, $to])
+            ->get(['id', 'status', 'created_at']);
+
+        return response()->json($quotes);
     }
 }

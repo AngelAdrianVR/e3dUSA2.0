@@ -1,5 +1,6 @@
 <template>
     <AppLayout title="Cotizaciones">
+        <!-- Encabezado -->
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
             Cotizaciones
         </h2>
@@ -8,9 +9,9 @@
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <!-- Barra de acciones superior -->
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
                         <Link v-if="$page.props.auth.user.permissions.includes('Crear cotizaciones')"
-                            :href="route('quotes.create')">
+                                :href="route('quotes.create')">
                             <SecondaryButton>
                                 <i class="fa-solid fa-plus mr-2"></i>
                                 Nueva Cotización
@@ -27,7 +28,8 @@
                                     </el-button>
                                 </template>
                             </el-popconfirm>
-                            <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" placeholder="Buscar cotización..." />
+                            <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch"
+                                :searchProps="SearchProps" />
                         </div>
                     </div>
 
@@ -35,70 +37,102 @@
                     <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs mb-4 dark:text-white">
                         <p class="flex items-center"><i class="fa-solid fa-circle text-green-500 mr-2"></i>Cliente</p>
                         <p class="flex items-center"><i class="fa-solid fa-circle text-blue-500 mr-2"></i>Prospecto</p>
-                        <p class="flex items-center"><i class="fa-solid fa-square text-orange-400 mr-2"></i>Creada por cliente (sin revisar)</p>
-                        <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por cliente (revisada)</p>
+                        <p class="flex items-center"><i class="fa-solid fa-square text-orange-400 mr-2"></i>Creada por
+                            cliente (sin revisar)</p>
+                        <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
+                            cliente (revisada)</p>
                     </div>
 
                     <!-- Tabla de Cotizaciones -->
                     <div class="relative">
-                        <div v-if="loading" class="absolute inset-0 bg-white/75 dark:bg-slate-900/75 flex items-center justify-center z-20 rounded-lg">
+                        <div v-if="loading"
+                            class="absolute inset-0 bg-white/75 dark:bg-slate-900/75 flex items-center justify-center z-20 rounded-lg">
                             <LoadingIsoLogo />
                         </div>
-                        
-                        <el-table 
-                            max-height="550" 
-                            :data="tableData"
-                            style="width: 100%" 
-                            stripe
-                            @selection-change="handleSelectionChange" 
-                            @row-click="handleRowClick"
-                            :row-class-name="tableRowClassName"
-                            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
+
+                        <el-table max-height="550" :data="tableData" style="width: 100%" stripe
+                            @selection-change="handleSelectionChange" @row-click="handleRowClick"
+                            :row-class-name="tableRowClassName" class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="35" />
-                            <el-table-column prop="id" label="Folio" width="120">
+                            <el-table-column prop="id" label="Folio" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-1">
+                                        <!-- Tooltip de estatus -->
                                         <el-tooltip placement="top">
                                             <template #content>
                                                 <p v-html="getStatusTooltip(scope.row)"></p>
                                             </template>
-                                            <span v-html="getStatusIcon(scope.row.status)" class="text-lg"></span>
+                                            <span v-html="getStatusIcon(scope.row.status)" class="text-sm mr-2"></span>
                                         </el-tooltip>
-                                        <span>{{ 'COT-' + String(scope.row.id).padStart(4, '0') }}</span>
+                                        <!-- Tooltip de descuento -->
+                                        <el-tooltip v-if="scope.row.has_early_payment_discount" placement="top">
+                                            <template #content>
+                                                <div v-if="scope.row.early_paid_at">
+                                                    <p>Descuento por pago anticipado aplicado.</p>
+                                                    <span>Pagado el: <strong>{{ formatDate(scope.row.early_paid_at)
+                                                    }}</strong></span>
+                                                </div>
+                                                <p v-else>
+                                                    Contiene descuento por pago anticipado. <br>
+                                                    Aún no pagado
+                                                </p>
+                                            </template>
+                                            <i class="fa-solid fa-fire text-sm mr-2"
+                                                :class="scope.row.early_paid_at ? 'text-green-500' : 'text-red-500'"></i>
+                                        </el-tooltip>
+                                        <span class="text-sm">{{ 'COT-' + String(scope.row.id).padStart(4, '0') }}</span>
                                     </div>
                                 </template>
                             </el-table-column>
                             <el-table-column prop="branch.name" label="Cliente" width="220">
-                                 <template #default="scope">
+                                <template #default="scope">
                                     <div class="flex items-center">
-                                        <i class="fa-solid fa-circle text-[8px] mr-2" :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
+                                        <i class="fa-solid fa-circle text-[8px] mr-2"
+                                            :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
                                         <span>{{ scope.row.branch.name }}</span>
                                     </div>
                                 </template>
                             </el-table-column>
-                             <el-table-column prop="user.name" label="Creado por" width="180">
-                                 <template #default="scope">
-                                    <div v-if="scope.row.created_by_customer" class="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
+                            <el-table-column prop="user.name" label="Creado por" width="180">
+                                <template #default="scope">
+                                    <div v-if="scope.row.created_by_customer"
+                                        class="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
                                         <i class="fa-solid fa-user-tie"></i>
                                         <span>Portal de Clientes</span>
-                                        <el-tooltip v-if="scope.row.user" content="Revisado por vendedor" placement="top">
+                                        <el-tooltip v-if="scope.row.user" content="Revisado por vendedor"
+                                            placement="top">
                                             <i class="fa-solid fa-check-double text-green-500"></i>
                                         </el-tooltip>
                                     </div>
-                                    <span v-else>{{ scope.row.user.name }}</span>
+                                    <span v-else>{{ scope.row.user?.name }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column label="Total" width="150">
                                 <template #default="scope">
-                                    <span class="font-semibold">{{ scope.row.total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ scope.row.currency }}</span>
+                                    <span class="font-semibold">{{ scope.row.total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,
+                                        ",") }} {{ scope.row.currency }}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Autorizado" width="120" align="center">
+                                <template #default="scope">
+                                    <el-tooltip v-if="scope.row.authorized_at" placement="top">
+                                        <template #content>
+                                            Autorizado por: {{ scope.row.authorized_by?.name }} <br>
+                                            Fecha: {{ formatDate(scope.row.authorized_at) }}
+                                        </template>
+                                        <i class="fa-solid fa-check-double text-green-500 text-lg"></i>
+                                    </el-tooltip>
+                                    <p v-else>No autorizada</p>
                                 </template>
                             </el-table-column>
                             <el-table-column label="OV" width="100">
                                 <template #default="scope">
-                                     <a v-if="scope.row.sale_id" @click.stop :href="route('sales.show', scope.row.sale_id)" target="_blank" class="text-blue-500 hover:underline">
+                                    <a v-if="scope.row.sale_id" @click.stop
+                                        :href="route('sales.show', scope.row.sale_id)" target="_blank"
+                                        class="text-blue-500 hover:underline">
                                         OV-{{ String(scope.row.sale_id).padStart(4, '0') }}
-                                     </a>
+                                    </a>
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
@@ -112,15 +146,69 @@
                             <el-table-column align="right" width="80">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
-                                        <button @click.stop class="el-dropdown-link justify-center items-center size-8 rounded-full text-secondary hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out">
+                                        <button @click.stop
+                                            class="el-dropdown-link justify-center items-center size-8 rounded-full text-secondary hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out">
                                             <i class="fa-solid fa-ellipsis-vertical"></i>
                                         </button>
                                         <template #dropdown>
                                             <el-dropdown-menu>
-                                                <el-dropdown-item :command="'show-' + scope.row.id"><i class="fa-solid fa-eye mr-2"></i>Ver</el-dropdown-item>
-                                                <el-dropdown-item :command="'edit-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Editar cotizaciones')"><i class="fa-solid fa-pen-to-square mr-2"></i>Editar</el-dropdown-item>
-                                                <el-dropdown-item :command="'clone-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Crear cotizaciones')"><i class="fa-solid fa-clone mr-2"></i>Clonar</el-dropdown-item>
-                                                <el-dropdown-item v-if="scope.row.status === 'Aceptada' && !scope.row.sale_id" :command="'make_so-' + scope.row.id"><i class="fa-solid fa-file-invoice-dollar mr-2"></i>Convertir a OV</el-dropdown-item>
+                                                <el-dropdown-item :command="`show-${scope.row.id}`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                                    </svg>
+                                                    Ver
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Editar cotizaciones')"
+                                                    :command="`edit-${scope.row.id}`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                    </svg>
+                                                    Editar
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Autorizar cotizaciones') && !scope.row.authorized_at"
+                                                    :disabled="!scope.row.user?.name"
+                                                    :command="`authorize-${scope.row.id}`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                    </svg>
+                                                    Autorizar
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="scope.row.status === 'Esperando respuesta' && scope.row.authorized_at"
+                                                    :command="`changeStatus-${scope.row.id}-Aceptada`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                    </svg>
+                                                    Aceptada por cliente
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="scope.row.status === 'Esperando respuesta' && scope.row.authorized_at"
+                                                    :command="`changeStatus-${scope.row.id}-Rechazada`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                                    </svg>
+                                                    Rechazada por cliente
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') && scope.row.status === 'Aceptada' && !scope.row.sale_id"
+                                                    :command="`make_so-${scope.row.id}`"
+                                                    :disabled="!scope.row.authorized_at">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" />
+                                                    </svg>
+                                                    Convertir a OV
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear cotizaciones')"
+                                                    :command="`clone-${scope.row.id}`">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                                                    </svg>
+                                                    Clonar
+                                                </el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
                                     </el-dropdown>
@@ -131,13 +219,26 @@
 
                     <!-- Paginación -->
                     <div v-if="quotes.total > 0 && !search" class="flex justify-center mt-6">
-                        <el-pagination v-model:current-page="quotes.current_page"
-                            :page-size="quotes.per_page" :total="quotes.total"
-                            layout="prev, pager, next" background @current-change="handlePageChange" />
+                        <el-pagination v-model:current-page="quotes.current_page" :page-size="quotes.per_page"
+                            :total="quotes.total" layout="prev, pager, next" background
+                            @current-change="handlePageChange" />
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Modal para motivo de rechazo -->
+        <el-dialog v-model="rejectionModalVisible" title="Motivo de Rechazo" width="30%">
+            <el-input v-model="rejectionReason" type="textarea" :rows="3"
+                placeholder="Por favor, introduce el motivo del rechazo." />
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="rejectionModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitRejection">Confirmar</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -146,7 +247,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -160,6 +261,10 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.quotes.data,
+            SearchProps: ['ID', 'Cliente', 'Creador'], // indica por cuales propiedades del registro puedes buscar
+            rejectionModalVisible: false,
+            rejectionReason: '',
+            selectedQuoteIdForRejection: null,
             statusMap: {
                 'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500"></i>', text: 'Aceptada por el cliente' },
                 'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500"></i>', text: 'Rechazada por el cliente' },
@@ -179,6 +284,7 @@ export default {
     },
     methods: {
         formatDate(dateString) {
+            if (!dateString) return 'N/A';
             return format(new Date(dateString), "d MMM, yyyy 'a las' h:mm a", { locale: es });
         },
         getStatusIcon(status) {
@@ -194,6 +300,22 @@ export default {
             }
             return baseText;
         },
+        async authorize(quote_id) {
+            try {
+                const response = await axios.put(route('quotes.authorize', quote_id));
+                if (response.status === 200) {
+                    const index = this.tableData.findIndex(item => item.id == quote_id);
+                    if (index !== -1) {
+                        this.tableData[index].authorized_at = response.data.item.authorized_at;
+                        this.tableData[index].authorized_by = response.data.item.authorized_by?.name;
+                    }
+                    ElMessage.success(response.data.message);
+                }
+            } catch (err) {
+                ElMessage.error('Ocurrió un error al autorizar');
+                console.error(err);
+            }
+        },
         tableRowClassName({ row }) {
             if (row.created_by_customer) {
                 return row.user ? 'created-by-customer-revised' : 'created-by-customer-pending';
@@ -208,14 +330,11 @@ export default {
                     this.$inertia.get(this.route('quotes.index'), {}, {
                         preserveState: true,
                         replace: true,
-                        onFinish: () => { this.loading = false; },
                     });
                     return;
                 }
                 const response = await axios.post(route('quotes.get-matches', { query: this.search }));
-                if (response.status === 200) {
-                    this.tableData = response.data.items;
-                }
+                this.tableData = response.data.items;
             } catch (error) {
                 console.error(error);
                 ElMessage.error('No se pudo realizar la búsqueda');
@@ -230,19 +349,51 @@ export default {
             this.$inertia.get(route('quotes.show', row.id));
         },
         handleCommand(command) {
-            const [action, id] = command.split('-');
-            if (action === 'make_so') {
-                // Aquí podrías abrir un modal de confirmación si quieres
-                console.log('Convertir a OV: ', id);
-            } else {
-                this.$inertia.get(route(`quotes.${action}`, id));
+            const [action, id, newStatus] = command.split('-');
+
+            const actions = {
+                'show': () => this.$inertia.get(route('quotes.show', id)),
+                'edit': () => this.$inertia.get(route('quotes.edit', id)),
+                'clone': () => this.clone(id),
+                'make_so': () => console.log('Convertir a OV:', id), // Implementar lógica de conversión
+                'authorize': () => this.authorize(id),
+                'changeStatus': () => {
+                    if (newStatus === 'Rechazada') {
+                        this.selectedQuoteIdForRejection = id;
+                        this.rejectionModalVisible = true;
+                    } else {
+                        this.changeStatus(id, newStatus);
+                    }
+                }
+            };
+
+            actions[action]?.();
+        },
+        async clone(quote_id) {
+            this.loading = true; // Muestra el indicador de carga
+            try {
+                const response = await axios.get(route('quotes.clone', quote_id));
+
+                if (response.status === 200) {
+                    // Agrega la nueva cotización al inicio de la tabla
+                    this.tableData.unshift(response.data.newItem);
+                    
+                    // Muestra un mensaje de éxito
+                    ElMessage.success(response.data.message);
+                }
+            } catch (err) {
+                // Muestra un mensaje de error si algo sale mal
+                ElMessage.error('Ocurrió un error al clonar la cotización.');
+                console.error(err);
+            } finally {
+                this.loading = false; // Oculta el indicador de carga
             }
         },
         deleteSelections() {
             const ids = this.selectedItems.map(item => item.id);
             this.$inertia.post(route('quotes.massive-delete'), { ids }, {
                 onSuccess: () => ElMessage.success('Cotizaciones eliminadas'),
-                onError: () => ElMessage.error('Ocurrió un error'),
+                onError: () => ElMessage.error('Ocurrió un error al eliminar'),
             });
         },
         handlePageChange(page) {
@@ -251,6 +402,40 @@ export default {
                 replace: true,
             });
         },
+        submitRejection() {
+            if (!this.rejectionReason) {
+                ElMessage.warning('El motivo de rechazo es obligatorio.');
+                return;
+            }
+            this.changeStatus(this.selectedQuoteIdForRejection, 'Rechazada', this.rejectionReason);
+            this.rejectionModalVisible = false;
+            this.rejectionReason = '';
+            this.selectedQuoteIdForRejection = null;
+        },
+        async changeStatus(quoteId, newStatus, rejectionReason = null) {
+            this.loading = true;
+            try {
+                const response = await axios.post(route('quotes.change-status', quoteId), {
+                    new_status: newStatus,
+                    rejection_reason: rejectionReason
+                });
+                if (response.status === 200) {
+                    const index = this.tableData.findIndex(item => item.id == quoteId);
+                    if (index !== -1) {
+                        const updatedQuote = response.data.quote;
+                        this.tableData[index].status = updatedQuote.status;
+                        this.tableData[index].customer_responded_at = updatedQuote.customer_responded_at;
+                        this.tableData[index].rejection_reason = updatedQuote.rejection_reason;
+                    }
+                    ElMessage.success(response.data.message);
+                }
+            } catch (err) {
+                ElMessage.error('Error al cambiar el estatus.');
+                console.error(err);
+            } finally {
+                this.loading = false;
+            }
+        }
     },
     watch: {
         'quotes.data': {
@@ -269,14 +454,19 @@ export default {
 <style>
 /* Estilos para filas creadas por clientes */
 .el-table .created-by-customer-pending td {
-    background-color: #fff3e0 !important; /* Naranja claro */
+    background-color: #fff3e0 !important;
+    /* Naranja claro */
 }
+
 .dark .el-table .created-by-customer-pending td {
     background-color: #6c3802 !important;
 }
+
 .el-table .created-by-customer-revised td {
-    background-color: #e8f5e9 !important; /* Verde claro */
+    background-color: #e8f5e9 !important;
+    /* Verde claro */
 }
+
 .dark .el-table .created-by-customer-revised td {
     background-color: #1c4b27 !important;
 }
@@ -287,6 +477,7 @@ export default {
     background-color: #1f2937 !important;
     color: #d1d5db !important;
 }
+
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
