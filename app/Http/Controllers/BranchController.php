@@ -394,13 +394,16 @@ class BranchController extends Controller
 
     public function fetchBranchProducts(Branch $branch)
     {
-        $branch->load([
-            'products.media',
-            'products.priceHistory' => function ($query) {
-                $query->orderBy('valid_from', 'desc'); // más reciente primero
-            }
-        ]);
+        $products = $branch->products()
+            ->with([
+                'media',
+                'priceHistory' => function ($query) use ($branch) {
+                    $query->where('branch_id', $branch->id)
+                        ->orderBy('valid_from', 'desc');
+                }
+            ])
+            ->get();
 
-        return response()->json($branch->products);
+        return response()->json($products);
     }
 }

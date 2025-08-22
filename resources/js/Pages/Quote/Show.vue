@@ -46,21 +46,34 @@
                         <p class="text-lg font-bold text-gray-900">{{ quote.branch?.name }}</p>
                         <p class="text-gray-700">{{ quote.receiver }} - {{ quote.department }}</p>
                     </div>
-                    <div class="text-right w-1/3" v-if="$page.props.auth.user?.permissions?.includes('Autorizar cotizaciones')">
-                         <!-- Lógica de Autorización mejorada -->
-                        <div v-if="quote.authorized_by_user_id && showAdditionalElements" >
-                            <div class="inline-flex items-center bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-lg">
-                                <i class="fa-solid fa-check-circle mr-2"></i>
-                                Autorizado
-                            </div>
-                             <p class="text-xs text-gray-500 mt-1">{{ quote.is_spanish_template ? 'Por' : 'By' }}: {{ quote.authorized_by?.name }}</p>
+                    <div class="text-right relative" v-if="$page.props.auth.user?.permissions?.includes('Autorizar cotizaciones')">
+                    <!-- Lógica de Autorización -->
+                    <div v-if="quote.authorized_by_user_id && showAdditionalElements">
+                        <div class="inline-flex items-center bg-green-100 text-green-700 font-semibold px-4 py-2 rounded-lg">
+                            <i class="fa-solid fa-check-circle mr-2"></i>
+                            Autorizado
                         </div>
-                        <button v-else @click="authorize" v-show="showAdditionalElements"
-                            class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow">
+                        <p class="text-xs text-gray-500 mt-1">
+                            {{ quote.is_spanish_template ? 'Por' : 'By' }}: {{ quote.authorized_by?.name }}
+                        </p>
+                    </div>
+
+                    <div class="relative inline-block" v-else>
+                        <button @click="authorize" v-show="showAdditionalElements" :disabled="!quote.user"
+                            class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors shadow disabled:bg-gray-400 disabled:cursor-not-allowed">
                             <i class="fa-solid fa-shield-halved mr-2"></i>
                             Autorizar Cotización
                         </button>
+
+                        <!-- Tooltip -->
+                        <div v-if="!quote.user" 
+                            class="absolute left-1/2 -translate-x-1/2 mt-2 w-max bg-gray-700 text-white text-xs rounded-md px-3 py-1 shadow-lg">
+                            Para autorizar cotización es necesario editarla y guardarla.
+                            clic <span @click="$inertia.visit(route('quotes.edit', quote.id))" class="hover:underline text-blue-200 cursor-pointer"> aqui </span>
+                        </div>
                     </div>
+                </div>
+
                 </section>
 
                 <!-- Mensaje introductorio -->
@@ -201,7 +214,8 @@
                         {{ quote.is_spanish_template ? 'Sin más por el momento y en espera de su preferencia, quedo a sus órdenes para cualquier duda o comentario.' : 'Without further ado and awaiting your preference, I remain at your service for any questions or comments.' }}
                     </p>
                     <div class="mt-4">
-                        <p>{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user.name }}</span> ({{ quote.user.email }})</p>
+                        <p v-if="quote.user">{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user?.name }}</span> ({{ quote.user?.email }})</p>
+                        <p v-else class="bg-orange-200 px-2 py-1">{{ quote.is_spanish_template ? 'Creado por cliente desde portal de clientes' : 'Created by customer' }}</p>
                     </div>
                 </section>
 

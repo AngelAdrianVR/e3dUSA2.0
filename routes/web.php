@@ -104,6 +104,7 @@ Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchB
 // ------- CRM(cotizaciones Routes)  ---------
 Route::resource('quotes', QuoteController::class)->middleware('auth');
 Route::put('quotes/authorize/{quote}', [QuoteController::class, 'authorizeQuote'])->middleware('auth')->name('quotes.authorize');
+Route::post('quotes-get-matches', [QuoteController::class, 'getMatches'])->middleware('auth')->name('quotes.get-matches');
 
 
 

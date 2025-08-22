@@ -27,7 +27,7 @@
                                     </el-button>
                                 </template>
                             </el-popconfirm>
-                            <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" placeholder="Buscar cotización..." />
+                            <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" :searchProps="SearchProps" />
                         </div>
                     </div>
 
@@ -56,7 +56,7 @@
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="35" />
-                            <el-table-column prop="id" label="Folio" width="120">
+                            <el-table-column prop="id" label="Folio" width="130">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-1">
                                         <el-tooltip placement="top">
@@ -86,7 +86,7 @@
                                             <i class="fa-solid fa-check-double text-green-500"></i>
                                         </el-tooltip>
                                     </div>
-                                    <span v-else>{{ scope.row.user.name }}</span>
+                                    <span v-else>{{ scope.row.user?.name }}</span>
                                 </template>
                             </el-table-column>
                             <el-table-column label="Total" width="150">
@@ -117,9 +117,61 @@
                                         </button>
                                         <template #dropdown>
                                             <el-dropdown-menu>
-                                                <el-dropdown-item :command="'show-' + scope.row.id"><i class="fa-solid fa-eye mr-2"></i>Ver</el-dropdown-item>
-                                                <el-dropdown-item :command="'edit-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Editar cotizaciones')"><i class="fa-solid fa-pen-to-square mr-2"></i>Editar</el-dropdown-item>
-                                                <el-dropdown-item :command="'clone-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Crear cotizaciones')"><i class="fa-solid fa-clone mr-2"></i>Clonar</el-dropdown-item>
+                                                <el-dropdown-item :command="'show-' + scope.row.id">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                                    </svg>
+                                                    Ver
+                                                </el-dropdown-item>
+                                                <el-dropdown-item :command="'edit-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Editar cotizaciones')">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                    </svg>
+                                                    Editar
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Autorizar cotizaciones') && !scope.row.authorized_at"
+                                                    :disabled="!scope.row.user?.name" :command="'authorize-' + scope.row.id">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                        stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="m4.5 12.75 6 6 9-13.5" />
+                                                    </svg>
+                                                    Autorizar
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="scope.row.status !== 'Rechazada' && scope.row.status !== 'Aceptada' && scope.row.authorized_at"
+                                                    :disabled="!scope.row.user?.name" :command="'changeStatus-' + scope.row.id + '-Aceptada'">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                                                    </svg>
+                                                    Marcar como aceptada
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="scope.row.status !== 'Rechazada' && scope.row.status !== 'Aceptada' && scope.row.authorized_at"
+                                                    :disabled="!scope.row.user?.name" :command="'changeStatus-' + scope.row.id + '-Rechazada'">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                                    </svg>
+                                                    Marcar como rechazada
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') && scope.row.status === 'Aceptada' && !scope.row.sale_id"
+                                                    :command="'make_so-' + scope.row.id" :disabled="!scope.row.authorized_at">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                        stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+                                                    </svg>
+                                                    Convertir a OV
+                                                </el-dropdown-item>
+                                                <el-dropdown-item :command="'clone-' + scope.row.id" v-if="$page.props.auth.user.permissions.includes('Crear cotizaciones')">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                                                    </svg>
+                                                    Clonar
+                                                </el-dropdown-item>
                                                 <el-dropdown-item v-if="scope.row.status === 'Aceptada' && !scope.row.sale_id" :command="'make_so-' + scope.row.id"><i class="fa-solid fa-file-invoice-dollar mr-2"></i>Convertir a OV</el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
@@ -160,10 +212,11 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.quotes.data,
+            SearchProps: ['ID', 'Cliente', 'Creador'], // indica por cuales propiedades del registro puedes buscar
             statusMap: {
-                'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500"></i>', text: 'Aceptada por el cliente' },
-                'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500"></i>', text: 'Rechazada por el cliente' },
-                'Esperando respuesta': { icon: '<i class="fa-solid fa-hourglass-half text-amber-500"></i>', text: 'Esperando respuesta del cliente' },
+                'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500 text-sm mr-2"></i>', text: 'Aceptada por el cliente' },
+                'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500 text-sm mr-2"></i>', text: 'Rechazada por el cliente' },
+                'Esperando respuesta': { icon: '<i class="fa-solid fa-hourglass-half text-amber-500 text-sm mr-2"></i>', text: 'Esperando respuesta del cliente' },
             }
         };
     },
@@ -193,6 +246,35 @@ export default {
                 baseText += `<br>Motivo: <b>${row.rejection_reason}</b>`;
             }
             return baseText;
+        },
+        async authorize(quote_id) {
+            try {
+                const response = await axios.put(route('quotes.authorize', quote_id));
+
+                if (response.status === 200) {
+                    const index = this.quotes.data.findIndex(item => item.id == quote_id);
+                    this.quotes.data[index].authorized_at = response.data.item.authorized_at;
+                    this.quotes.data[index].authorized_user_name = response.data.item.authorized_by?.name;
+                    ElMessage({
+                        title: 'Éxito',
+                        message: response.data.message,
+                        type: 'success'
+                    });
+                } else {
+                    ElMessage({
+                        title: 'Algo salió mal',
+                        message: response.data.message,
+                        type: 'error'
+                    });
+                }
+            } catch (err) {
+                ElMessage({
+                    title: 'Algo salió mal',
+                    message: err.message,
+                    type: 'error'
+                });
+                console.log(err);
+            }
         },
         tableRowClassName({ row }) {
             if (row.created_by_customer) {
@@ -234,9 +316,20 @@ export default {
             if (action === 'make_so') {
                 // Aquí podrías abrir un modal de confirmación si quieres
                 console.log('Convertir a OV: ', id);
+            } else if (action == 'authorize') {
+                this.authorize(id);
+            } else if ( action == 'changeStatus' ) {
+                if (newStatus === 'Rechazada') {
+                    this.selectedQuoteId = rowId;
+                    this.showRejectedModal = true;
+                    return;
+                }
+                this.changeStatus(rowId, newStatus);
             } else {
                 this.$inertia.get(route(`quotes.${action}`, id));
             }
+             
+            
         },
         deleteSelections() {
             const ids = this.selectedItems.map(item => item.id);
@@ -251,6 +344,42 @@ export default {
                 replace: true,
             });
         },
+        async changeStatus(quoteId, newStatus, rejectedRazon = null) {
+        try {
+            const response = await axios.post(route('quotes.change-status', quoteId), {
+                new_status: newStatus,
+                rejected_razon: rejectedRazon
+            });
+
+            if (response.status == 200) {
+                const index = this.quotes.data.findIndex(item => item.id == quoteId);
+                this.quotes.data[index].status = response.data.quote.status;
+                this.quotes.data[index].responded_at = response.data.quote.responded_at;
+                this.quotes.data[index].rejected_razon = response.data.quote.rejected_razon;
+                this.$notify({
+                    title: 'Éxito',
+                    message: response.data.message,
+                    type: 'success'
+                });
+            } else {
+                this.$notify({
+                    title: 'Algo salió mal',
+                    message: response.data.message,
+                    type: 'error'
+                });
+            }
+        } catch (err) {
+            this.$notify({
+                title: 'Algo salió mal',
+                message: err.message,
+                type: 'error'
+            });
+            console.log(err);
+        } finally {
+            this.showRejectedModal = false;
+            this.rejectedRazon = null;
+        }
+    }
     },
     watch: {
         'quotes.data': {

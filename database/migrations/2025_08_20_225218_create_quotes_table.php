@@ -49,7 +49,7 @@ return new class extends Migration
 
             // Relaciones
             $table->foreignId('branch_id')->nullable()->constrained()->onDelete('set null');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // usuario que creó la cotización
+            $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade'); // usuario que creó la cotización (nullable porque puede que se creé desde portal de clientes)
             $table->foreignId('sale_id')->nullable()->constrained()->onDelete('set null');
             
             $table->timestamps();

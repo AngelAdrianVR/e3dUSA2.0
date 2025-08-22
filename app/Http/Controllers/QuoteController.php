@@ -154,6 +154,7 @@ class QuoteController extends Controller
     {
         $quote->update([
             'authorized_by_user_id' => auth()->id(),
+            'authorized_at' => now(),
         ]);
 
         // notificar a creador de la orden si quien autoriza no es el mismo usuario
@@ -167,6 +168,29 @@ class QuoteController extends Controller
             ));
         }
 
-        return response()->json(['message' => 'Cotizacion autorizadda', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
+        return response()->json(['message' => 'Cotizacion autorizada', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
+    }
+
+    public function getMatches(Request $request)
+    {
+        $query = $request->input('query');
+
+        // Realiza la búsqueda
+        $quotes = Quote::with(['branch', 'user', 'sale'])
+            ->latest()
+            ->where(function ($q) use ($query) {
+                $q->where('id', 'like', "%{$query}%")
+                // Busca dentro de la relación de la matriz (parent)
+                ->orWhereHas('user', function ($parentQuery) use ($query) {
+                    $parentQuery->where('name', 'like', "%{$query}%");
+                })
+                // Correcto uso de whereHas para buscar en la relación
+                ->orWhereHas('branch', function ($userquery) use ($query) {
+                    $userquery->where('name', 'like', "%{$query}%");
+                });
+            })
+            ->get();
+
+        return response()->json(['items' => $quotes], 200);
     }
 }
