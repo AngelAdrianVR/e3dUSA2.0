@@ -321,3 +321,73 @@
     padding: 0.5rem 1rem 1rem 1rem;
     color: #94a3b8; /* slate-400 */
 }
+
+/* ----------------------------------------- */
+/* --- Estilos Modernos para el-dialog (Dark Mode) --- */
+/* ----------------------------------------- */
+
+/* Contenedor principal del diálogo */
+.dark .el-dialog {
+    background-color: #1e293b; /* slate-800 */
+    border-radius: 0.75rem; /* Bordes más redondeados */
+    border: 1px solid #334155; /* slate-700 - Borde sutil */
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.5); /* Sombra más pronunciada */
+}
+
+/* Encabezado del diálogo */
+.dark .el-dialog__header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #334155; /* slate-700 */
+    margin-right: 0; /* Resetea el margen para que el borde ocupe todo el ancho */
+}
+
+/* Título del diálogo */
+.dark .el-dialog__title {
+    color: #f1f5f9; /* slate-100 */
+    font-weight: 600;
+}
+
+/* Botón de cerrar (X) */
+.dark .el-dialog__headerbtn .el-dialog__close {
+    color: #94a3b8; /* slate-400 */
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.dark .el-dialog__headerbtn:hover .el-dialog__close {
+    color: #ffffff; /* Blanco al pasar el cursor */
+    transform: rotate(90deg); /* Efecto de rotación sutil */
+}
+
+/* Cuerpo del diálogo */
+.dark .el-dialog__body {
+    padding: 1.5rem;
+    color: #cbd5e1; /* slate-300 */
+}
+
+/* Pie de página del diálogo */
+.dark .el-dialog__footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #334155; /* slate-700 */
+    background-color: #1e293b; /* slate-800 */
+    border-bottom-left-radius: 0.75rem;
+    border-bottom-right-radius: 0.75rem;
+}
+
+/* Estilos para los inputs y textareas dentro del diálogo */
+.dark .el-dialog .el-input__wrapper,
+.dark .el-dialog .el-textarea__inner {
+    background-color: #334155; /* slate-700 */
+    box-shadow: none;
+    border: 1px solid #475569; /* slate-600 */
+    color: #f1f5f9; /* slate-100 */
+}
+
+.dark .el-dialog .el-input__wrapper.is-focus,
+.dark .el-dialog .el-textarea__inner:focus {
+    border-color: #38bdf8; /* sky-400 - Color de enfoque */
+}
+
+.dark .el-dialog .el-input__inner::placeholder,
+.dark .el-dialog .el-textarea__inner::placeholder {
+    color: #94a3b8; /* slate-400 */
+}

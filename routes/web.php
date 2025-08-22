@@ -93,7 +93,7 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 // ------- CRM(branches sucursales Routes)  ---------
 Route::resource('branches', BranchController::class)->middleware('auth');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
-Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->middleware('auth')->name('branches.massive-delete');
+Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 // Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
@@ -105,7 +105,9 @@ Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchB
 Route::resource('quotes', QuoteController::class)->middleware('auth');
 Route::put('quotes/authorize/{quote}', [QuoteController::class, 'authorizeQuote'])->middleware('auth')->name('quotes.authorize');
 Route::post('quotes-get-matches', [QuoteController::class, 'getMatches'])->middleware('auth')->name('quotes.get-matches');
-
+Route::post('quotes-change-status/{quote}', [QuoteController::class, 'changeStatus'])->middleware('auth')->name('quotes.change-status');
+Route::get('quotes-clone/{quote}', [QuoteController::class, 'clone'])->middleware('auth')->name('quotes.clone');
+Route::post('quotes/massive-delete', [QuoteController::class, 'massiveDelete'])->middleware('auth')->name('quotes.massive-delete');
 
 
 // ------- Recursos humanos(users routes)  ---------
@@ -144,7 +146,7 @@ Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete
 
 
 // ------- Historial de acciones rutas  ---------
-Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->middleware('auth')->name('audits.index');
+Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->name('audits.index');
 
 
 // ------- Roles rutas  ---------
