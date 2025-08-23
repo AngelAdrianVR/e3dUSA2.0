@@ -15,7 +15,7 @@ class BranchPriceHistory extends Model implements Auditable
     protected $table = 'branch_price_history';
 
     protected $fillable = [
-        'branch_id', 'product_id', 'price', 'valid_from', 'valid_to',
+        'branch_id', 'product_id', 'price', 'valid_from', 'valid_to', 'currency' // Moneda MXN, USD
     ];
 
     /**

@@ -336,4 +336,13 @@ class QuoteController extends Controller
 
         return response()->json($quotes);
     }
+
+    // Recupera todas las cotizaciones de una sucursal
+    // Uso el metodo en el show de clientes para la pestaña de cotizaciones.
+    public function fetchBranchQuotes(Branch $branch)
+    {
+        $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)->get();
+
+        return response()->json($quotes);
+    }
 }

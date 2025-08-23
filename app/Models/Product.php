@@ -26,6 +26,7 @@ class Product extends Model implements HasMedia, Auditable
         'material',
         'diameter',
         'brand_id',
+        'currency', // Moneda MXN, USD
         'base_price',
         'is_sellable',
         'archived_at',
@@ -36,6 +37,7 @@ class Product extends Model implements HasMedia, Auditable
         'caracteristics',
         'is_purchasable',
         'product_family_id',
+        'base_price_updated_at', // fecha de la ultima actualización de precio base (para revision automatica de cada año)
     ];
 
     protected $casts = [

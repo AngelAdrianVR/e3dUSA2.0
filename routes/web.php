@@ -5,6 +5,7 @@ use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchPriceHistoryController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MachineController;
@@ -63,10 +64,12 @@ Route::post('catalog-products/massive-delete', [ProductController::class, 'massi
 Route::post('catalog-products-get-matches', [ProductController::class, 'getMatches'])->middleware('auth')->name('catalog-products.get-matches');
 Route::get('catalog-products-search-raw-materials', [ProductController::class, 'searchRawMaterial'])->middleware('auth')->name('catalog-products.search-raw-material');
 Route::get('products-get-media/{product}', [ProductController::class, 'getProductMedia'])->middleware('auth')->name('products.get-media');
+Route::get('products-mark-as-obsolet/{product}', [ProductController::class, 'markAsObsolet'])->middleware('auth')->name('catalog-products.obsolet');
 Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
 Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->middleware('auth')->name('products.stock-movement');
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
+Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
 // Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
 // Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
@@ -95,11 +98,14 @@ Route::resource('branches', BranchController::class)->middleware('auth');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
-// Route::put('branches/clear-important-notes/{branch}', [BranchController::class, 'clearImportantNotes'])->name('branches.clear-important-notes')->middleware('auth');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
 // Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
 
+
+// ------- CRM(historial de precios de productos de cliente Routes)  ---------
+Route::post('/branches/{branch}/products/{product}/price', [BranchPriceHistoryController::class, 'store'])->middleware('auth')->name('branches.products.price.store');
+Route::patch('/branch-price-history/{priceHistory}/close', [BranchPriceHistoryController::class, 'close'])->middleware('auth')->name('branch-price-history.close');
 
 // ------- CRM(cotizaciones Routes)  ---------
 Route::resource('quotes', QuoteController::class)->middleware('auth');
@@ -108,6 +114,7 @@ Route::post('quotes-get-matches', [QuoteController::class, 'getMatches'])->middl
 Route::post('quotes-change-status/{quote}', [QuoteController::class, 'changeStatus'])->middleware('auth')->name('quotes.change-status');
 Route::get('quotes-clone/{quote}', [QuoteController::class, 'clone'])->middleware('auth')->name('quotes.clone');
 Route::post('quotes/massive-delete', [QuoteController::class, 'massiveDelete'])->middleware('auth')->name('quotes.massive-delete');
+Route::get('quotes-fetch-branch-quotes/{branch}', [QuoteController::class, 'fetchBranchQuotes'])->middleware('auth')->name('quotes.branch-quotes');
 
 
 // ------- Recursos humanos(users routes)  ---------

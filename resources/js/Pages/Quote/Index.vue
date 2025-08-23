@@ -462,14 +462,15 @@ export default {
     background-color: #6c3802 !important;
 }
 
-.el-table .created-by-customer-revised td {
+/* .el-table .created-by-customer-revised td {
     background-color: #e8f5e9 !important;
-    /* Verde claro */
+    
 }
+
 
 .dark .el-table .created-by-customer-revised td {
     background-color: #1c4b27 !important;
-}
+} */
 
 /* Estilos para paginación en modo oscuro */
 .dark .el-pagination button,

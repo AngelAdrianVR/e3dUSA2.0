@@ -59,6 +59,11 @@ class ProductController extends Controller
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:products,code',
+            'currency' => [
+                'nullable',
+                'required_if:product_type_key,C',
+                'string',
+            ],
             'caracteristics' => 'nullable|string',
             'cost' => 'nullable|numeric|max:99999',
             'base_price' => [
@@ -130,7 +135,12 @@ class ProductController extends Controller
         DB::beginTransaction();
         try {
             // Crea el producto principal con el costo ya actualizado
-            $product = Product::create($validatedData);
+            $product = Product::create(
+                $validatedData 
+                + [
+                    'base_price_updated_at' => now()
+                ]
+            );
 
             // --- Crear registro de inventario inicial ---
             $product->storages()->create([
@@ -187,6 +197,7 @@ class ProductController extends Controller
             'storages.stockMovements', // Para existencias, ubicación y movimientos de stock
             'components.media', // Materia prima que compone el producto
             'productionCosts', // Procesos de producción asociados
+            'priceHistory.branch', // historial de precios
         ]);
 
         // Obtiene una lista de todos los productos para el buscador/selector.
@@ -201,9 +212,7 @@ class ProductController extends Controller
         return Inertia::render('CatalogProduct/Show', [
             // Pasamos el producto con todas sus relaciones ya cargadas.
             // Lo envolvemos en 'data' para que coincida con la estructura que espera el prop.
-            'catalog_product' => [
-                'data' => $catalog_product
-            ],
+            'product' => $catalog_product,
             // Pasamos la lista completa de productos para el selector.
             'catalog_products' => $all_products,
         ]);
@@ -234,6 +243,11 @@ class ProductController extends Controller
             'code' => ['required', 'string', Rule::unique('products')->ignore($catalog_product->id)],
             'caracteristics' => 'nullable|string',
             'cost' => 'nullable|numeric|max:99999',
+            'currency' => [
+                'nullable',
+                'required_if:product_type_key,C',
+                'string',
+            ],
             'base_price' => [
                 'nullable',
                 'required_if:product_type_key,C',
@@ -467,4 +481,40 @@ class ProductController extends Controller
             ]);
         // return redirect()->back();
     }
+
+    // Marca como obsoleto el producto agregando fecha a archived_at
+    public function markAsObsolet(Product $product)
+    {
+        if ( $product->archived_at ) {
+            $product->update([
+                'archived_at' => null
+            ]);
+        } else {
+            $product->update([
+                'archived_at' => now()
+            ]);
+        }
+
+        return response()->json($product->archived_at);
+    }
+
+    // Actualiza el precio base desde el show de producto de catalogo
+    // modificarlo si se requiere actualizar otra variable por ahora solo tiene base:price
+    public function simpleUpdate(Request $request, Product $product)
+    {
+        $request->validate([
+            'base_price' => 'required|numeric|min:0',
+        ]);
+
+        $product->update([
+            'base_price' => $request->base_price,
+            'base_price_updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'base_price' => $product->base_price,
+            'base_price_updated_at' => $product->base_price_updated_at,
+        ]);
+    }
+
 }
