@@ -17,6 +17,7 @@ return new class extends Migration
             // Asegúrate de tener una tabla 'products'
             $table->foreignId('branch_id')->constrained()->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->string('currency')->default('MXN'); // moneda MXN, USD
             $table->decimal('price', 10, 2);
 
             // Control de vigencia del precio

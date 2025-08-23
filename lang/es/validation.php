@@ -236,5 +236,13 @@ return [
         'complements.*.payment_method' => 'metodo de pago de complemento',
         'invoice_quantity' => 'cantidad de facturas',
         'total_amount_sale' => 'monto total de OV',
+        'product_family_id' => 'familia de producto',
+        'brand_id' => 'marca',
+        'code' => 'código',
+        'base_price' => 'precio base',
+        'components' => 'componentes',
+        'contacts.*.name' => 'nombre de contacto',
+        'contacts.*.phone' => 'teléfono de contacto',
+        'contacts.*.email' => 'correo de contacto',
     ],
 ];

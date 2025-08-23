@@ -41,6 +41,23 @@
                             <DropdownLink :href="route('catalog-products.create')" v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')">
                                 <i class="fa-solid fa-plus w-4 mr-2"></i> Nuevo producto
                             </DropdownLink>
+                            <DropdownLink :as="'button'" v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos') && !product.archived_at" @click="ObsoletProduct">
+                                <div class="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125 2.25 2.25m0 0 2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                    </svg>
+                                    Producto obsoleto
+                                </div>
+                            </DropdownLink>
+                            <DropdownLink :as="'button'" v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos') 
+                                && product.archived_at" @click="ObsoletProduct">
+                                <div class="flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                    </svg>
+                                    Reestablecer
+                                </div>
+                            </DropdownLink>
                             <div class="border-t border-gray-200 dark:border-slate-700" />
                             <DropdownLink @click="showConfirmModal = true" as="button" v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                                 <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar
@@ -81,7 +98,9 @@
                 <section>
                     <!-- Nombre y Código -->
                     <div>
-                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ product.name }}</h1>
+                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ product.name }}
+                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
+                        </h1>
                         <p class="text-base text-gray-500 dark:text-gray-400 font-mono mt-1">Código: {{ product.code }}</p>
                     </div>
 
@@ -119,22 +138,85 @@
                         <!-- Tarjeta de Costos y Precios -->
                         <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Costos y Precios</h2>
+
                             <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-semibold text-gray-500 dark:text-gray-400">Costo de Producción y Componentes</div>
-                                <div v-if="this.$page.props.auth.user.permissions.includes('Ver costos de produccion')" class="font-bold text-green-600 dark:text-green-400">{{ formatCurrency(product.cost) }}</div>
-                                <div class="font-semibold text-gray-500 dark:text-gray-400">Precio Base (Cliente)</div>
-                                <div>{{ formatCurrency(product.base_price) }}</div>
+                            <div 
+                                v-if="$page.props.auth.user.permissions.includes('Ver costos de produccion')" 
+                                class="font-semibold text-gray-500 dark:text-gray-400"
+                            >
+                                Costo de Producción y Componentes
                             </div>
-                            <!-- Precios por Sucursal -->
-                            <!-- <div v-if="product.branch_pricings?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
-                                <h3 class="font-semibold text-sm mb-2">Precios Especiales por Sucursal</h3>
-                                <ul class="space-y-1 text-sm">
-                                    <li v-for="pricing in product.branch_pricings" :key="pricing.id" class="flex justify-between items-center">
-                                        <span class="text-gray-600 dark:text-gray-300">{{ pricing.branch?.name }}</span>
-                                        <span class="font-semibold">{{ formatCurrency(pricing.price) }}</span>
-                                    </li>
-                                </ul>
-                            </div> -->
+                            <div 
+                                v-if="$page.props.auth.user.permissions.includes('Ver costos de produccion')" 
+                                class="font-bold text-green-600 dark:text-green-400"
+                            >
+                                {{ formatCurrency(product.cost) }}
+                            </div>
+
+                            <div class="font-semibold text-gray-500 dark:text-gray-400">Precio Base del producto</div>
+                                <div class="flex items-center gap-3">
+                                    <div>
+                                        <span>{{ formatCurrency(product.base_price) }} {{ product.currency }}</span>
+                                        <p class="font-bold text-xs">Actualizado: <span class="font-thin">{{ formatDate(product.base_price_updated_at) }}</span></p>
+                                    </div>
+                                    <button 
+                                        class="flex items-center gap-2 rounded-full px-4 py-2 font-medium 
+                                            bg-white text-gray-700 shadow-md border border-gray-200 
+                                            hover:bg-gray-100 hover:shadow-lg transition-all duration-300 
+                                            dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 
+                                            dark:hover:bg-gray-700 dark:hover:shadow-lg"
+                                        @click="openEditPriceDialog"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" 
+                                            class="w-4 h-4" 
+                                            fill="none" 
+                                            viewBox="0 0 24 24" 
+                                            stroke="currentColor" 
+                                            stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" 
+                                                d="M16.862 4.487l1.651-1.651a1.875 1.875 0 112.652 2.652L10.582 16.071a4.5 4.5 0 01-1.897 1.13l-3.314.943a.75.75 0 01-.926-.926l.943-3.314a4.5 4.5 0 011.13-1.897l10.344-10.344z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Precios por Cliente -->
+                            <div v-if="product.price_history?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
+                                <h3 class="font-semibold text-sm mb-2">Precios Especiales por Cliente</h3>
+                                <el-collapse accordion>
+                                    <el-collapse-item 
+                                        v-for="(pricings, client) in groupedPrices" 
+                                        :key="client" 
+                                        :title="client"
+                                        >
+                                        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
+                                                <tr>
+                                                    <th scope="col" class="px-4 py-2">Precio Especial</th>
+                                                    <th scope="col" class="px-4 py-2">Vigente Desde</th>
+                                                    <th scope="col" class="px-4 py-2">Vigente Hasta</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr v-for="pricing in pricings" 
+                                                    :key="pricing.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
+                                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }}</td>
+                                                    <td class="px-4 py-2">{{ formatDate(pricing.valid_from) }}</td>
+                                                    <td class="px-4 py-2 flex items-center justify-between">
+                                                        <span>{{ pricing.valid_to ? formatDate(pricing.valid_to) : 'Indefinido' }}</span>
+                                                        <!-- BOTÓN PARA FINALIZAR PRECIO ACTIVO -->
+                                                        <el-tooltip v-if="!pricing.valid_to" content="Finalizar vigencia de este precio" placement="top">
+                                                            <button @click="confirmCloseSpecialPrice(pricing.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
+                                                                <i class="fa-solid fa-calendar-xmark text-sm"></i>
+                                                            </button>
+                                                        </el-tooltip>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </el-collapse-item>
+                                </el-collapse>
+                            </div>
                         </div>
 
                         <!-- Tarjeta de Componentes -->
@@ -229,7 +311,7 @@
                                                     {{ movement.type === 'Entrada' ? 'Entrada de Stock' : 'Salida de Stock' }}
                                                 </p>
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                                    {{ formatDate(movement.created_at) }} </p>
+                                                    {{ formatDateTime(movement.created_at) }} </p>
                                             </div>
                                         </div>
 
@@ -310,6 +392,54 @@
                 </div>
             </div>
         </Modal>
+
+        <!-- Confirmación para Finalizar Precio -->
+        <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
+            <template #title>
+                Finalizar Precio Especial
+            </template>
+            <template #content>
+                ¿Estás seguro de que deseas finalizar la vigencia de este precio especial? El producto volverá a su precio base para este cliente.
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showClosePriceConfirmModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="closeSpecialPrice" class="!bg-red-600 hover:!bg-red-700">Sí, finalizar</PrimaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
+
+        <!-- Dialogo para editar precio -->
+        <el-dialog 
+        title="Editar Precio Base" 
+        v-model="editDialogVisible" 
+        width="400px"
+        >
+        <el-form @submit.prevent>
+            <el-form-item label="Nuevo precio">
+            <el-input-number 
+                v-model="newBasePrice" 
+                :min="0" 
+                :step="0.01" 
+                :precision="2"
+                controls-position="right" 
+                class="w-full"
+            />
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <div class="flex justify-end gap-2">
+            <el-button @click="editDialogVisible = false">Cancelar</el-button>
+            <el-button 
+                type="success" 
+                @click="updateBasePrice"
+                :loading="loadingUpdate"
+            >
+                Guardar
+            </el-button>
+            </div>
+        </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -346,14 +476,23 @@ export default {
         ConfirmationModal,
     },
     props: {
-        catalog_product: Object,
+        product: Object,
         catalog_products: Array, // Es mejor que sea un Array para el select
     },
     data() {
         return {
-            selectedCatalogProduct: this.catalog_product.data.id,
+            selectedCatalogProduct: this.product.id,
             showConfirmModal: false,
             currentImage: 0,
+
+            // Para finalizar precio especial
+            showClosePriceConfirmModal: false,
+            priceHistoryToClose: null,
+
+            // Para editar precio base
+            editDialogVisible: false,
+            newBasePrice: null,
+            loadingUpdate: false,
 
             // movimientos de stock
             showStockModal: false,
@@ -365,11 +504,24 @@ export default {
         };
     },
     computed: {
-        // Propiedad computada para acceder al producto más fácilmente
-        product() {
-            return this.catalog_product.data;
+        groupedPrices() {
+            if (!this.product.price_history) return {};
+
+            // ordenar del más nuevo al más viejo
+            const sorted = [...this.product.price_history].sort((a, b) => {
+                return new Date(b.created_at) - new Date(a.created_at);
+            });
+
+            // agrupar por cliente
+            return sorted.reduce((groups, pricing) => {
+                const clientName = pricing.branch?.name || "Sin cliente";
+                if (!groups[clientName]) {
+                groups[clientName] = [];
+                }
+                groups[clientName].push(pricing);
+                return groups;
+            }, {});
         },
-        // Propiedad computada para formatear las dimensiones de manera legible
         formattedDimensions() {
             const safe = (val) => val ?? "-";
 
@@ -382,13 +534,23 @@ export default {
     },
     methods: {
         // formatea la fecha
-        formatDate(timestamp) {
+        formatDateTime(timestamp) {
             if (!timestamp) return '';
             const date = new Date(timestamp);
             // Opciones para un formato más localizado y amigable
             const options = {
                 year: 'numeric', month: 'short', day: 'numeric',
                 hour: 'numeric', minute: '2-digit', hour12: true
+            };
+            return date.toLocaleDateString('es-MX', options);
+        },
+        // formatea la fecha sin la hora
+        formatDate(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            // Opciones para un formato más localizado y amigable
+            const options = {
+                year: 'numeric', month: 'short', day: 'numeric',
             };
             return date.toLocaleDateString('es-MX', options);
         },
@@ -399,6 +561,34 @@ export default {
                 style: 'currency',
                 currency: 'MXN',
             });
+        },
+
+        openEditPriceDialog() {
+            this.newBasePrice = this.product.base_price; // precargar precio actual
+            this.editDialogVisible = true;
+        },
+
+        async updateBasePrice() {
+            try {
+                this.loadingUpdate = true;
+
+                // llamada al backend (ajusta la ruta a tu endpoint)
+                const response = await axios.put(
+                route("products.simple-update", this.product.id), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
+                { base_price: this.newBasePrice }
+                );
+
+                // actualizar localmente sin recargar la página
+                this.product.base_price = response.data.base_price;
+
+                ElMessage.success("Precio actualizado correctamente");
+                this.editDialogVisible = false;
+            } catch (error) {
+                console.error(error);
+                ElMessage.error("Ocurrió un error al actualizar el precio");
+            } finally {
+                this.loadingUpdate = false;
+            }
         },
         openStockModal(type) {
             this.stockMovementForm.reset();
@@ -419,6 +609,51 @@ export default {
                 }
             });
         },
+
+        // --- MÉTODOS PARA FINALIZAR PRECIO ---
+        confirmCloseSpecialPrice(historyId) {
+            this.priceHistoryToClose = historyId;
+            this.showClosePriceConfirmModal = true;
+        },
+
+        async closeSpecialPrice() {
+            if (!this.priceHistoryToClose) return;
+            try {
+                // Usamos PATCH para indicar una actualización parcial del recurso
+                const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
+                if (response.status === 200) {
+                    ElMessage.success('El precio especial ha sido finalizado.');
+                    this.$inertia.reload({ preserveScroll: true });
+                }
+            } catch (error) {
+                console.error("Error al finalizar el precio:", error);
+                ElMessage.error(error.response?.data?.message || 'No se pudo finalizar el precio.');
+            } finally {
+                this.showClosePriceConfirmModal = false;
+                this.priceHistoryToClose = null;
+            }
+        },
+
+        // Método para mandar a obsoletos al producto
+        async ObsoletProduct() {
+            try {
+                const response = await axios.get(route('catalog-products.obsolet', this.product.id));
+                if (response.status === 200) {
+                    console.log(response.data);
+
+                    if ( response.data?.length ) {
+                        this.product.archived_at = response.data;
+                        ElMessage.success(response.data.message || 'Producto marcado como obsoleto.');
+                    } else {
+                        this.product.archived_at = null;
+                        ElMessage.success(response.data.message || 'Producto reestablecido al catálogo de productos.');
+                    }
+                }
+            } catch (err) {
+                ElMessage.error('Ocurrió un error. Refresca la página e inténtalo de nuevo');
+                console.error(err);
+            }
+        },
         // Método para eliminar el producto
         async deleteItem() {
             try {
@@ -437,7 +672,7 @@ export default {
     },
     watch: {
         // Observador para resetear la imagen actual si el producto cambia
-        'catalog_product.data.id'(newId) {
+        'product.id'(newId) {
             this.selectedCatalogProduct = newId;
             this.currentImage = 0;
         }

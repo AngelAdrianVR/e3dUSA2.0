@@ -115,6 +115,15 @@
                                     <i class="fa-solid fa-dollar-sign"></i>
                                 </template>
                             </TextInput>
+                            <div v-if="form.product_type_key === 'C'">
+                                <InputLabel value="Moneda*" />
+                                <el-select v-model="form.currency" clearable placeholder="Selecciona la moneda"
+                                    no-data-text="No hay información"
+                                    no-match-text="No se encontraron coincidencias">
+                                    <el-option v-for="item in currencies" :key="item" :label="item" :value="item" />
+                                </el-select>
+                                <InputError :message="form.errors.currency" class="mt-1" />
+                            </div>
                         </div>
 
                         <div class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
@@ -411,6 +420,7 @@ export default {
                 code: this.catalog_product.code,
                 caracteristics: this.catalog_product.caracteristics,
                 cost: this.catalog_product.cost,
+                currency: this.catalog_product.currency,
                 base_price: this.catalog_product.base_price,
                 brand_id: this.catalog_product.brand_id,
                 product_type_key: typeMap[this.catalog_product.product_type],
@@ -448,6 +458,9 @@ export default {
             // --- Modales ---
             showCreateFamilyModal: false,
             showCreateBrandModal: false,
+
+            // --- opciones para selects ---
+            currencies: ['MXN', 'USD'],
             productTypeOptions: [
                 { label: 'Catálogo', key: 'C' },
                 { label: 'Materia Prima', key: 'MP' },
