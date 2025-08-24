@@ -126,4 +126,33 @@ class User extends Authenticatable implements Auditable
     {
         return $this->hasMany(Quote::class, 'authorized_by_user_id');
     }
+
+
+    // ------ metodos ---------
+    /**
+     * Agrega o actualiza una alerta activa para el usuario.
+     *
+     * @param string $key La clave única de la alerta (ej. 'pending_quotations')
+     * @param array $alertData Los datos de la alerta
+     */
+    public function addActiveAlert(string $key, array $alertData): void
+    {
+        $alerts = $this->active_alerts ?? [];
+        $alerts[$key] = $alertData;
+        $this->update(['active_alerts' => $alerts]);
+    }
+
+    /**
+     * Elimina una alerta activa del usuario.
+     *
+     * @param string $key La clave única de la alerta a eliminar
+     */
+    public function removeActiveAlert(string $key): void
+    {
+        $alerts = $this->active_alerts ?? [];
+        if (isset($alerts[$key])) {
+            unset($alerts[$key]);
+            $this->update(['active_alerts' => $alerts]);
+        }
+    }
 }

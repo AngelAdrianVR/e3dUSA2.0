@@ -124,6 +124,10 @@
             </template>
             <template #content>
                 <div class="h-96">
+                    <h2 class="text-lg font-bold text-center text-amber-500">¡ATENCION!</h2>
+                    <p class="my-4 font-bold dark:text-white">Si el usuario es vendedor y tiene clientes asignados ese cliente perderá la relación con el usuario y 
+                        tendrás que asignar a otro vendedor.
+                    </p>
                     <InputLabel value="Fecha de baja*" />
                     <el-date-picker v-model="statusForm.disabled_at" type="date" class="!w-full" :teleported="false"
                         placeholder="Selecciona una fecha" format="DD MMM, YYYY" value-format="YYYY-MM-DD" />

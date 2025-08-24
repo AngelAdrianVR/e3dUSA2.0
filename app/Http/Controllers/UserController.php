@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\ChMessage;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -52,16 +53,25 @@ class UserController extends Controller
     public function changeStatus(Request $request, User $user)
     {
         if ($user->is_active) {
+            // Antes de desactivar, busca todos los clientes (branches) asignados
+            // a este usuario y elimina la asignación (pone el ID en null).
+            Branch::where('account_manager_id', $user->id)->update(['account_manager_id' => null]);
+
+            // Ahora, procede a desactivar al usuario
             $user->update([
                 'is_active' => false,
                 'disabled_at' => $request->disabled_at,
             ]);
         } else {
+            // Lógica para reactivar al usuario (sin cambios aquí)
             $user->update([
                 'is_active' => true,
                 'disabled_at' => null,
             ]);
         }
+
+        // Puedes agregar un return con un mensaje de éxito si lo deseas
+        // return back()->with('success', 'Estado del usuario actualizado correctamente.');
     }
 
     public function getUnseenMessages()

@@ -29,7 +29,7 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
         ]);

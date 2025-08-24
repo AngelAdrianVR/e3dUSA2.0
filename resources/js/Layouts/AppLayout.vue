@@ -10,28 +10,32 @@ import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue";
 import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
+// 1. IMPORTAR EL COMPONENTE DE ALERTA
+import DraggableAlert from "@/Components/MyComponents/DraggableAlert.vue";
 
 defineProps({
     title: String,
     externalLoading: Boolean,
 });
 
-const page = usePage(); // OBTENER PROPS GLOBALES
+const page = usePage();
 const showingNavigationDropdown = ref(false);
-const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
-const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');// Obtener el estado del modo nocturno desde el localStorage
-const isFocused = ref(false); // Variable para controlar el estado del input de búsqueda
-const searchInput = ref(null); // Referencia al input de búsqueda global
-const unseenMessages = ref(null); // Variable para contar los mensajes no leídos
-
+const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');
+const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');
+const isFocused = ref(false);
+const searchInput = ref(null);
+const unseenMessages = ref(null);
 
 // <-- COMPUTED PARA LAS NOTIFICACIONES -->
 const userNotifications = computed(() => page.props.auth.user.notifications || []);
 
+// 2. COMPUTED PARA LAS ALERTAS ACTIVAS (¡ESTA ES LA FORMA CORRECTA!)
+const activeAlerts = computed(() => page.props.auth.user?.active_alerts || {});
+
 const toggleDarkMode = () => {
     isDarkMode.value = !isDarkMode.value;
     darkModeSwitch.value = isDarkMode.value;
-    localStorage.setItem('darkMode', isDarkMode.value); // Guardar el estado en localStorage+
+    localStorage.setItem('darkMode', isDarkMode.value);
     document.documentElement.classList.toggle('dark', isDarkMode.value);
 };
 
@@ -45,9 +49,7 @@ const switchToTeam = (team) => {
 
 const openSearch = async () => {
   isFocused.value = true;
-  // Espera a que Vue actualice el DOM para que el input sea visible
   await nextTick(); 
-  // Ahora enfoca el input
   searchInput.value.focus();
 };
 
@@ -81,6 +83,12 @@ onMounted(() => {
 <template>
     <div>
         <Head :title="title" />
+
+        <!-- 3. RENDERIZAR LAS ALERTAS USANDO EL COMPONENTE -->
+        <!-- Se mostrará un componente por cada alerta activa que tenga el usuario -->
+        <template v-for="(alert, key) in activeAlerts" :key="key">
+            <DraggableAlert v-if="alert" :alert-data="alert" />
+        </template>
 
         <Banner />
 
@@ -117,9 +125,6 @@ onMounted(() => {
                                             </button>
                                         </Link>
                                     </el-tooltip>
-                                    <!-- <i v-if="$page.props.auth.user?.notifications?.some(notification => {
-                                        return notification.data.module === 'calendar';
-                                    })" class="fa-solid fa-circle fa-flip text-primary text-sm absolute -top-2 -right-0"></i> -->
                                 </div>
 
                                 <!-- chat -->
@@ -141,12 +146,10 @@ onMounted(() => {
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
-                                    <!-- Contenedor del input y el ícono interno -->
                                     <div 
                                         class="relative transition-all duration-500 ease-in-out"
                                         :class="isFocused ? 'w-64' : 'w-10'"
                                     >
-                                        <!-- El input de búsqueda -->
                                         <input
                                             ref="searchInput"
                                             type="text"
@@ -162,7 +165,6 @@ onMounted(() => {
                                             "
                                             :class="{ 'opacity-100': isFocused, 'opacity-0': !isFocused }"
                                         />
-                                        <!-- Ícono de lupa dentro del input (siempre visible) -->
                                         <div class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -170,8 +172,6 @@ onMounted(() => {
                                         </div>
                                     </div>
 
-                                    <!-- Botón de la lupa que activa el buscador -->
-                                    <!-- Se oculta cuando el buscador está abierto -->
                                     <button
                                         v-if="!isFocused"
                                         @click="openSearch"
