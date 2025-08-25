@@ -39,8 +39,8 @@
                         <p class="flex items-center"><i class="fa-solid fa-circle text-blue-500 mr-2"></i>Prospecto</p>
                         <p class="flex items-center"><i class="fa-solid fa-square text-orange-400 mr-2"></i>Creada por
                             cliente (sin revisar)</p>
-                        <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
-                            cliente (revisada)</p>
+                        <!-- <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
+                            cliente (revisada)</p> -->
                     </div>
 
                     <!-- Tabla de Cotizaciones -->
@@ -248,7 +248,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Link } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import axios from 'axios';
@@ -419,15 +419,17 @@ export default {
                     new_status: newStatus,
                     rejection_reason: rejectionReason
                 });
+
                 if (response.status === 200) {
-                    const index = this.tableData.findIndex(item => item.id == quoteId);
-                    if (index !== -1) {
-                        const updatedQuote = response.data.quote;
-                        this.tableData[index].status = updatedQuote.status;
-                        this.tableData[index].customer_responded_at = updatedQuote.customer_responded_at;
-                        this.tableData[index].rejection_reason = updatedQuote.rejection_reason;
-                    }
+                    // Mensaje de éxito
                     ElMessage.success(response.data.message);
+
+                    // ¡Aquí está la magia!
+                    // Refresca los props de la página actual desde el servidor.
+                    router.reload({ 
+                        preserveScroll: true, // Mantiene la posición del scroll
+                        preserveState: true   // Mantiene el estado local del componente (opcional pero recomendado)
+                    });
                 }
             } catch (err) {
                 ElMessage.error('Error al cambiar el estatus.');

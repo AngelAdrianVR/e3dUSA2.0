@@ -44,6 +44,7 @@ class HandleInertiaRequests extends Middleware
                 'permissions' => $request->user()->getAllPermissions()->pluck('name'),
                 'profile_photo_url' => $request->user()->profile_photo_url,
                 'notifications' => $request->user()->notifications()->latest()->take(30)->get(),
+                'active_alerts' => $request->user()->active_alerts ?? [],
             ] : null,
         ],
     ]);

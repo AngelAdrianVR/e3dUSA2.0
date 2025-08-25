@@ -74,8 +74,14 @@
                              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
+                                    <!-- ===== SELECT CON PRODUCTOS FILTRADOS Y DESHABILITADOS ===== -->
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                        <el-option v-for="item in catalog_products" :key="item.id" :label="item.name" :value="item.id" />
+                                        <el-option v-for="item in availableProducts" 
+                                            :key="item.id" 
+                                            :label="item.name" 
+                                            :value="item.id"
+                                            :disabled="isProductInForm(item.id)"
+                                        />
                                     </el-select>
                                 </div>
                                 <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
@@ -124,6 +130,10 @@
                                         <span class="text-gray-600 dark:text-gray-400">
                                             Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
                                         </span>
+                                        <!-- ===== NUEVO BOTÓN DE EDITAR ===== -->
+                                        <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
+                                            <i class="fa-solid fa-pencil"></i>
+                                        </button>
                                         <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
@@ -197,6 +207,13 @@ export default {
         branches: Array,
         catalog_products: Array,
     },
+    computed: {
+        // Filtra el catálogo para mostrar solo productos que no están ya asignados permanentemente
+        availableProducts() {
+            const assignedProductIds = this.formattedProducts.map(p => p.product_id);
+            return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
+        }
+    },
     methods: {
         update() {
             this.form.put(route("branches.update", this.branch), {
@@ -244,8 +261,8 @@ export default {
             }
             
             // Evitar agregar productos duplicados
-            if (this.form.products.some(p => p.product_id === this.currentProduct.product_id)) {
-                ElMessage.warning('Este producto ya ha sido agregado.');
+            if (this.isProductInForm(this.currentProduct.product_id)) {
+                ElMessage.warning('Este producto ya ha sido agregado a la lista.');
                 return;
             }
 
@@ -254,6 +271,21 @@ export default {
         },
         removeProduct(index) {
             this.form.products.splice(index, 1);
+        },
+        // ===== NUEVO MÉTODO PARA EDITAR PRODUCTO DE LA LISTA =====
+        editProduct(index) {
+            // 1. Copia el producto a editar al formulario principal
+            const productToEdit = this.form.products[index];
+            this.currentProduct = { ...productToEdit };
+
+            // 2. Carga sus detalles (media, etc.)
+            this.getProductMedia();
+
+            // 3. Remueve el producto de la lista para evitar duplicados
+            this.removeProduct(index);
+
+            // Opcional: Scroll hacia el formulario de producto
+            // this.$refs.productFormContainer.scrollIntoView({ behavior: 'smooth' });
         },
         resetCurrentProduct() {
             this.currentProduct = {
@@ -268,6 +300,10 @@ export default {
         getProductName(productId) {
             const product = this.catalog_products.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
+        },
+        // Revisa si un producto ya está en la lista temporal `form.products`
+        isProductInForm(productId) {
+            return this.form.products.some(p => p.product_id === productId);
         }
     }
 };

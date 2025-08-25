@@ -25,7 +25,7 @@ class Branch extends Model implements Auditable
         'important_notes',
         'parent_branch_id',
         'days_to_reactive',
-        'account_manager_id',
+        'account_manager_id', // vendedor asignado (usuario)
         'last_purchase_date',
     ];
 

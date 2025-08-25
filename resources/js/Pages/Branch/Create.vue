@@ -74,12 +74,18 @@
                              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
+                                    <!-- ===== SELECT MODIFICADO ===== -->
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                        <el-option v-for="item in catalog_products" :key="item.id" :label="item.name" :value="item.id" />
+                                        <el-option v-for="item in catalog_products" 
+                                            :key="item.id" 
+                                            :label="item.name" 
+                                            :value="item.id"
+                                            :disabled="isProductInForm(item.id)"
+                                        />
                                     </el-select>
                                 </div>
                                 <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
-                                    :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="numeric-stepper" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                                    :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
                             </div>
 
                             <div v-if="loadingProductMedia" class="flex items-center justify-center h-32">
@@ -124,6 +130,10 @@
                                         <span class="text-gray-600 dark:text-gray-400">
                                             Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
                                         </span>
+                                        <!-- ===== NUEVOS BOTONES ===== -->
+                                        <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
+                                            <i class="fa-solid fa-pencil"></i>
+                                        </button>
                                         <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                             <i class="fa-solid fa-trash"></i>
                                         </button>
@@ -222,7 +232,6 @@ export default {
             
             this.loadingProductMedia = true;
             try {
-                // Asegúrate de tener una ruta 'products.get-details' o similar que devuelva los detalles del producto.
                 const response = await axios.get(route('products.get-media', this.currentProduct.product_id));
 
                 if (response.status === 200) {
@@ -245,11 +254,22 @@ export default {
                 ElMessage.warning('Debes seleccionar un producto.');
                 return;
             }
+             if (this.isProductInForm(this.currentProduct.product_id)) {
+                ElMessage.warning('Este producto ya ha sido agregado a la lista.');
+                return;
+            }
             this.form.products.push({ ...this.currentProduct });
             this.resetCurrentProduct();
         },
         removeProduct(index) {
             this.form.products.splice(index, 1);
+        },
+        // ===== NUEVO MÉTODO PARA EDITAR =====
+        editProduct(index) {
+            const productToEdit = this.form.products[index];
+            this.currentProduct = { ...productToEdit };
+            this.getProductMedia();
+            this.removeProduct(index);
         },
         resetCurrentProduct() {
             this.currentProduct = {
@@ -264,6 +284,10 @@ export default {
         getProductName(productId) {
             const product = this.catalog_products.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
+        },
+        // ===== NUEVO MÉTODO PARA DESHABILITAR =====
+        isProductInForm(productId) {
+            return this.form.products.some(p => p.product_id === productId);
         }
     }
 };

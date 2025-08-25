@@ -113,10 +113,18 @@
                             v-model="form.cost" required class="w-full" placeholder="$0.00" />
                     </div>
 
-                    <!-- Campo Tiempo Estimado -->
-                    <div>
-                         <TextInput type="number" label="Tiempo estimado (segundos)" :error="form.errors.estimated_time_seconds"
-                            v-model="form.estimated_time_seconds" class="w-full" placeholder="Ej. 60" />
+                    <!-- NUEVO Campo Tiempo Estimado -->
+                    <div class="col-span-2">
+                        <InputLabel value="Tiempo estimado" />
+                        <div class="flex items-start space-x-2">
+                            <TextInput type="number" :error="form.errors.estimated_time_seconds"
+                                v-model="time_value" class="w-2/3" placeholder="Ej. 15" />
+                            <el-select v-model="time_unit" class="w-1/3" :teleported="false">
+                                <el-option label="Segundos" value="seconds" />
+                                <el-option label="Minutos" value="minutes" />
+                            </el-select>
+                        </div>
+                         <InputError :message="form.errors.estimated_time_seconds" />
                     </div>
 
                     <!-- Switch de Estatus -->
@@ -173,6 +181,10 @@ export default {
                 estimated_time_seconds: null,
                 is_active: true,
             }),
+            // --- NUEVOS ESTADOS LOCALES ---
+            time_value: null, // valor numérico del tiempo
+            time_unit: 'seconds', // unidad de tiempo
+            // -----------------------------
             showModal: false,
             isEditing: false,
             selectedItems: [],
@@ -188,6 +200,10 @@ export default {
             this.isEditing = false;
             this.form.reset();
             this.form.is_active = true;
+            // --- Limpiar estados de tiempo ---
+            this.time_value = null;
+            this.time_unit = 'seconds';
+            // ---------------------------------
             this.showModal = true;
         },
         handleRowClick(row) {
@@ -201,13 +217,39 @@ export default {
             this.form.cost = row.cost;
             this.form.estimated_time_seconds = row.estimated_time_seconds;
             this.form.is_active = !! row.is_active;
+
+            // --- LÓGICA PARA MOSTRAR TIEMPO AL EDITAR ---
+            const totalSeconds = row.estimated_time_seconds;
+            if (totalSeconds && totalSeconds % 60 === 0 && totalSeconds >= 60) {
+                // Si es un múltiplo de 60, mostrar en minutos
+                this.time_value = totalSeconds / 60;
+                this.time_unit = 'minutes';
+            } else {
+                // De lo contrario, mostrar en segundos
+                this.time_value = totalSeconds;
+                this.time_unit = 'seconds';
+            }
+            // -------------------------------------------
+
             this.showModal = true;
         },
         closeModal() {
             this.showModal = false;
             this.form.reset();
+            // --- Limpiar estados de tiempo al cerrar ---
+            this.time_value = null;
+            this.time_unit = 'seconds';
+            // -----------------------------------------
         },
         submit() {
+            // --- LÓGICA DE CONVERSIÓN ANTES DE ENVIAR ---
+            if (this.time_unit === 'minutes') {
+                this.form.estimated_time_seconds = this.time_value * 60;
+            } else {
+                this.form.estimated_time_seconds = this.time_value;
+            }
+            // -------------------------------------------
+
             if (this.isEditing) {
                 this.update();
             } else {
@@ -245,7 +287,6 @@ export default {
             if (value == null) return '0.00';
             return Number(value).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         },
-        // Maneja el cambio de página
         handlePageChange(page) {
             this.$inertia.get(route('production-costs.index', { page }));
         },

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -153,10 +155,54 @@ class QuoteController extends Controller
 
     public function massiveDelete(Request $request)
     {
+        $affectedUserIds = [];
+
+        // 1. Primero, recopilamos los IDs de los usuarios afectados antes de borrar
         foreach ($request->ids as $id) {
-            $bonus = Quote::find($id);
-            $bonus?->delete();
+            $quote = Quote::find($id);
+            if ($quote) {
+                // Guardamos el ID del creador para revisarlo después
+                $affectedUserIds[] = $quote->user_id;
+                $quote->delete();
+            }
         }
+
+        // 2. Eliminamos duplicados para no revisar al mismo usuario varias veces
+        $uniqueUserIds = array_unique($affectedUserIds);
+
+        // 3. Ahora, revisamos las alertas para cada usuario afectado
+        $threeDaysAgo = Carbon::now()->subDays(3);
+
+        foreach ($uniqueUserIds as $userId) {
+            $user = User::find($userId);
+            if (!$user) {
+                continue; // Si el usuario no existe, saltamos al siguiente
+            }
+
+            // Volvemos a buscar si este usuario AÚN tiene cotizaciones pendientes antiguas
+            $remainingPendingQuotes = Quote::where('user_id', $user->id)
+                ->where('status', 'Esperando respuesta')
+                ->where('created_at', '<=', $threeDaysAgo)
+                ->get();
+
+            // Decidimos si actualizar o eliminar la alerta
+            if ($remainingPendingQuotes->isNotEmpty()) {
+                // Si todavía tiene, ACTUALIZAMOS la alerta con los IDs correctos
+                $alertContent = [
+                    'type' => 'pending_quotations',
+                    'title' => 'Cotizaciones Pendientes',
+                    'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
+                    'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
+                ];
+                $user->addActiveAlert('pending_quotations', $alertContent);
+            } else {
+                // Si ya no tiene, ELIMINAMOS la alerta de su perfil
+                $user->removeActiveAlert('pending_quotations');
+            }
+        }
+        
+        // Puedes retornar una respuesta si lo necesitas, por ejemplo, para notificar al frontend
+        // return response()->json(['message' => 'Cotizaciones eliminadas y alertas actualizadas.']);
     }
 
     public function authorizeQuote(Quote $quote)
@@ -299,21 +345,34 @@ class QuoteController extends Controller
 
         $quote->update($data);
 
-        // -------------- lógica de cotizaciones pendientes --------------
-        // Verificar si el usuario aún tiene cotizaciones pendientes entre 3 y 5 días atrás
+        // -------------- LÓGICA DE ACTUALIZACIÓN DE ALERTAS EN TIEMPO REAL --------------
 
-        // $from = now()->subDays(5)->startOfDay();
-        // $to = now()->subDays(3)->endOfDay();
+        // 1. Obtener el usuario que creó la cotización
+        $user = $quote->user;
 
-        // $hasPendingQuotes = Quote::where('user_id', $quote->user_id)
-        //     ->where('status', 'Esperando respuesta')
-        //     ->whereBetween('created_at', [$from, $to])
-        //     ->exists();
+        // 2. Volver a buscar si este usuario AÚN tiene cotizaciones pendientes antiguas
+        $threeDaysAgo = Carbon::now()->subDays(3);
+        $remainingPendingQuotes = Quote::where('user_id', $user->id)
+            ->where('status', 'Esperando respuesta')
+            ->where('created_at', '<=', $threeDaysAgo)
+            ->get();
 
-        // // Actualizar la propiedad pendent_quotes_alert del usuario
-        // $quote->user->update([
-        //     'pendent_quotes_alert' => $hasPendingQuotes
-        // ]);
+        // 3. Decidir si actualizar o eliminar la alerta
+        if ($remainingPendingQuotes->isNotEmpty()) {
+            // Si todavía tiene, ACTUALIZAMOS la alerta con los IDs correctos
+            $alertContent = [
+                'type' => 'pending_quotations',
+                'title' => 'Cotizaciones Pendientes',
+                'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
+                'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
+            ];
+            $user->addActiveAlert('pending_quotations', $alertContent);
+        } else {
+            // Si ya no tiene, ELIMINAMOS la alerta de su perfil
+            $user->removeActiveAlert('pending_quotations');
+        }
+        // -------------- FIN DE LA LÓGICA DE ALERTAS --------------
+
 
         return response()->json([
             'message' => 'Estatus de la cotización actualizado correctamente.',
@@ -321,27 +380,13 @@ class QuoteController extends Controller
         ]);
     }
 
-    // Recupera las cotizaciones pendientes de seguimiento (de 3 a 5 días de creadas)
-    public function pendingAlert()
-    {
-        $userId = auth()->id();
-
-        $from = now()->subDays(5)->startOfDay(); // hace 5 días
-        $to = now()->subDays(3)->endOfDay();     // hace 3 días
-
-        $quotes = Quote::where('user_id', $userId)
-            ->where('status', 'Esperando respuesta')
-            ->whereBetween('created_at', [$from, $to])
-            ->get(['id', 'status', 'created_at']);
-
-        return response()->json($quotes);
-    }
-
     // Recupera todas las cotizaciones de una sucursal
     // Uso el metodo en el show de clientes para la pestaña de cotizaciones.
     public function fetchBranchQuotes(Branch $branch)
     {
-        $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)->get();
+        $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)
+            ->get(['id', 'user_id', 'authorized_at', 'sale_id', 'status', 'created_at', 'branch_id', 'currency', 'has_early_payment_discount', 
+            'early_paid_at', 'customer_responded_at']);
 
         return response()->json($quotes);
     }

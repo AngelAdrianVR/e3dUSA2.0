@@ -261,7 +261,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { ElMessage } from 'element-plus';
-import { Head } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -356,10 +356,12 @@ export default {
                 const response = await axios.put(route('quotes.authorize', this.quote.id));
 
                 if (response.status === 200) {
-                    window.location.reload(); // salida facil.
-                    // this.quote.authorized_by_user_id = response.data.authorized_by.id;
-                    // this.quote.authorized_by_user = response.data.authorized_by;
-
+                    // Refresca los props de la página actual desde el servidor.
+                    router.reload({ 
+                        preserveScroll: true, // Mantiene la posición del scroll
+                        preserveState: true   // Mantiene el estado local del componente (opcional pero recomendado)
+                    });
+                    
                     ElMessage({
                         title: 'Éxito',
                         message: response.data.message,
