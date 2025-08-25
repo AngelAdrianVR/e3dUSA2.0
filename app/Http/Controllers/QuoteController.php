@@ -384,7 +384,9 @@ class QuoteController extends Controller
     // Uso el metodo en el show de clientes para la pestaña de cotizaciones.
     public function fetchBranchQuotes(Branch $branch)
     {
-        $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)->get();
+        $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)
+            ->get(['id', 'user_id', 'authorized_at', 'sale_id', 'status', 'created_at', 'branch_id', 'currency', 'has_early_payment_discount', 
+            'early_paid_at', 'customer_responded_at']);
 
         return response()->json($quotes);
     }

@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BranchController extends Controller
 {
@@ -151,6 +152,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
+            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get()
         ]);
     }
 
@@ -207,7 +209,7 @@ class BranchController extends Controller
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
             'contacts' => 'present|array',
-            'contacts.*.id' => 'nullable|exists:contacts,id', // ID para identificar contactos existentes
+            'contacts.*.id' => 'nullable|exists:contacts,id',
             'contacts.*.name' => 'required|string|max:255',
             'contacts.*.charge' => 'nullable|string|max:255',
             'contacts.*.phone' => 'required|string|max:10',
@@ -218,96 +220,82 @@ class BranchController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar los datos de la sucursal (Branch)
-            $branch->update([
-                'name' => $validated['name'],
-                'rfc' => $validated['rfc'],
-                'address' => $validated['address'],
-                'post_code' => $validated['post_code'],
-                'status' => $validated['status'],
-                'parent_branch_id' => $validated['parent_branch_id'],
-                'account_manager_id' => $validated['account_manager_id'],
-                'meet_way' => $validated['meet_way'],
-            ]);
+            // 1. Actualizar datos de la sucursal
+            $branch->update(collect($validated)->except(['contacts', 'products'])->all());
 
-            // 2. Sincronizar los contactos
+            // 2. Sincronizar contactos
             $existingContactIds = [];
             foreach ($validated['contacts'] as $index => $contactData) {
-                $contact = null;
-                // Si el contacto tiene ID, se actualiza. Si no, se crea.
-                if (!empty($contactData['id'])) {
-                    $contact = $branch->contacts()->find($contactData['id']);
-                    if ($contact) {
-                        $contact->update([
-                            'name' => $contactData['name'],
-                            'charge' => $contactData['charge'],
-                            'is_primary' => $index === 0,
-                        ]);
-                    }
-                } else {
-                    $contact = $branch->contacts()->create([
+                $contact = $branch->contacts()->updateOrCreate(
+                    ['id' => $contactData['id'] ?? null],
+                    [
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'is_primary' => $index === 0,
-                    ]);
-                }
-                
-                // Actualizar o crear detalles
-                $contact->details()->updateOrCreate(
-                    ['type' => 'Teléfono'],
-                    ['value' => $contactData['phone'], 'is_primary' => true]
+                    ]
                 );
-
-                $contact->details()->updateOrCreate(
-                    ['type' => 'Correo'],
-                    ['value' => $contactData['email'], 'is_primary' => true]
-                );
-                
+                $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
+                $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
                 $existingContactIds[] = $contact->id;
             }
-            // Eliminar contactos que ya no están en el formulario
             $branch->contacts()->whereNotIn('id', $existingContactIds)->delete();
 
-
-            // 3. Sincronizar productos y precios
+            // 3. Sincronización de productos y precios (LÓGICA CORREGIDA)
             $now = now();
-            $productIdsToSync = [];
-            
-            // Invalidar todos los precios especiales actuales para este cliente
-            DB::table('branch_price_history')
-                ->where('branch_id', $branch->id)
-                ->whereNull('valid_to')
-                ->update(['valid_to' => $now]);
+            $productIdsInForm = [];
+            $newPriceHistory = [];
 
             if (!empty($validated['products'])) {
-                $newPriceHistory = [];
                 foreach ($validated['products'] as $productData) {
-                    $productIdsToSync[] = $productData['product_id'];
+                    $productId = $productData['product_id'];
+                    $newPrice = $productData['price'];
+                    $productIdsInForm[] = $productId;
 
-                    // Añadir nuevo registro de precio si se ha especificado
-                    if (isset($productData['price']) && !is_null($productData['price'])) {
-                        $newPriceHistory[] = [
-                            'branch_id' => $branch->id,
-                            'product_id' => $productData['product_id'],
-                            'price' => $productData['price'],
-                            'valid_from' => $now,
-                            'valid_to' => null,
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ];
+                    // Buscar el precio especial activo actual para este producto y cliente
+                    $currentActivePrice = DB::table('branch_price_history')
+                        ->where('branch_id', $branch->id)
+                        ->where('product_id', $productId)
+                        ->whereNull('valid_to')
+                        ->first();
+
+                    // Si se proporciona un nuevo precio especial
+                    if (isset($newPrice) && !is_null($newPrice)) {
+                        // Si no hay un precio activo O el precio nuevo es diferente al actual
+                        if (!$currentActivePrice || (float)$currentActivePrice->price !== (float)$newPrice) {
+                            // Invalida el precio anterior si existía
+                            if ($currentActivePrice) {
+                                DB::table('branch_price_history')
+                                    ->where('id', $currentActivePrice->id)
+                                    ->update(['valid_to' => $now]);
+                            }
+                            // Prepara el nuevo precio para inserción
+                            $newPriceHistory[] = [
+                                'branch_id' => $branch->id,
+                                'product_id' => $productId,
+                                'price' => $newPrice,
+                                'valid_from' => $now,
+                                'valid_to' => null,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ];
+                        }
+                    } else { // Si NO se proporciona un precio especial (se quitó)
+                        // Y existía un precio activo, lo invalidamos
+                        if ($currentActivePrice) {
+                            DB::table('branch_price_history')
+                                ->where('id', $currentActivePrice->id)
+                                ->update(['valid_to' => $now]);
+                        }
                     }
                 }
-                
-                // Sincronizar la tabla pivote
-                $branch->products()->sync($productIdsToSync);
+            }
+            
+            // Sincroniza la relación branch_product. Esto añade/elimina las relaciones necesarias.
+            $branch->products()->sync($productIdsInForm);
 
-                // Insertar los nuevos precios
-                if (!empty($newPriceHistory)) {
-                    DB::table('branch_price_history')->insert($newPriceHistory);
-                }
-            } else {
-                // Si no hay productos, desvincular todos
-                $branch->products()->sync([]);
+            // Inserta en lote solo los precios que realmente cambiaron o son nuevos.
+            if (!empty($newPriceHistory)) {
+                DB::table('branch_price_history')->insert($newPriceHistory);
             }
         });
 
@@ -337,6 +325,32 @@ class BranchController extends Controller
         
         // Si no usas los retornos con mensajes, puedes simplemente redirigir.
         return to_route('branches.index');
+    }
+
+    public function removeProduct(Branch $branch, Product $product)
+    {
+        try {
+            DB::transaction(function () use ($branch, $product) {
+                // 1. Eliminar el historial de precios para esta relación específica
+                DB::table('branch_price_history')
+                    ->where('branch_id', $branch->id)
+                    ->where('product_id', $product->id)
+                    ->delete();
+
+                // 2. Eliminar la relación en la tabla pivote (branch_product)
+                $branch->products()->detach($product->id);
+            });
+
+            // Retornar una respuesta JSON exitosa. Inertia la recibirá.
+            return response()->json(['message' => 'Producto removido exitosamente.']);
+
+        } catch (\Exception $e) {
+            // Registrar el error para facilitar la depuración
+            Log::error('Error al remover producto de cliente: ' . $e->getMessage());
+            
+            // Retornar una respuesta de error
+            return response()->json(['message' => 'Ocurrió un error en el servidor al intentar remover el producto.'], 500);
+        }
     }
 
     public function massiveDelete(Request $request)
@@ -390,6 +404,60 @@ class BranchController extends Controller
             ->get();
 
         return response()->json(['items' => $branches], 200);
+    }
+
+    /*
+      * Asigna productos al cliente. Lo uso en el show de clientes.
+    */ 
+    public function addProducts(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'products' => 'required|array',
+            'products.*.product_id' => 'required|exists:products,id',
+            'products.*.price' => 'nullable|numeric|min:0',
+        ]);
+
+        DB::transaction(function () use ($validated, $branch) {
+            $now = now();
+            $priceHistoryData = [];
+            $productIdsToSync = [];
+
+            foreach ($validated['products'] as $productData) {
+                $productIdsToSync[] = $productData['product_id'];
+
+                if (isset($productData['price']) && !is_null($productData['price'])) {
+                    // Opcional: Invalidar precios anteriores para este producto y cliente
+                    DB::table('branch_price_history')
+                        ->where('branch_id', $branch->id)
+                        ->where('product_id', $productData['product_id'])
+                        ->whereNull('valid_to')
+                        ->update(['valid_to' => $now]);
+
+                    // Agregar el nuevo precio especial
+                    $priceHistoryData[] = [
+                        'branch_id' => $branch->id,
+                        'product_id' => $productData['product_id'],
+                        'price' => $productData['price'],
+                        'valid_from' => $now,
+                        'valid_to' => null, // El nuevo precio es el vigente
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            // Usamos syncWithoutDetaching para añadir los nuevos productos
+            // sin eliminar los que ya estaban asignados.
+            $branch->products()->syncWithoutDetaching($productIdsToSync);
+
+            if (!empty($priceHistoryData)) {
+                DB::table('branch_price_history')->insert($priceHistoryData);
+            }
+        });
+
+        // No es necesario retornar a una ruta, Inertia se encargará de recargar los props.
+        // Simplemente puedes retornar un redirect o un JSON.
+        return back()->with('success', 'Productos agregados correctamente.');
     }
 
     public function fetchBranchProducts(Branch $branch)

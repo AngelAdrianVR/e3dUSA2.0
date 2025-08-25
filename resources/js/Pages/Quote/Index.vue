@@ -39,8 +39,8 @@
                         <p class="flex items-center"><i class="fa-solid fa-circle text-blue-500 mr-2"></i>Prospecto</p>
                         <p class="flex items-center"><i class="fa-solid fa-square text-orange-400 mr-2"></i>Creada por
                             cliente (sin revisar)</p>
-                        <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
-                            cliente (revisada)</p>
+                        <!-- <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
+                            cliente (revisada)</p> -->
                     </div>
 
                     <!-- Tabla de Cotizaciones -->
