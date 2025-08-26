@@ -59,6 +59,23 @@
                             <TextInput label="Cargo" v-model="contact.charge" type="text" :error="form.errors[`contacts.${index}.charge`]" />
                             <TextInput label="Teléfono*" v-model="contact.phone" type="text" :error="form.errors[`contacts.${index}.phone`]" />
                             <TextInput label="Email*" v-model="contact.email" type="email" :error="form.errors[`contacts.${index}.email`]" />
+
+                            <div class="md:col-span-2 grid grid-cols-2 gap-x-5">
+                                <div>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Mes de Cumpleaños</label>
+                                    <el-select v-model="contact.birth_month" placeholder="Mes" class="!w-full" clearable>
+                                        <el-option v-for="month in months" :key="month.value" :label="month.label" :value="month.value" />
+                                    </el-select>
+                                    <InputError :message="form.errors[`contacts.${index}.birth_month`]" />
+                                </div>
+                                <div>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Día de Cumpleaños</label>
+                                    <el-select v-model="contact.birth_day" placeholder="Día" class="!w-full" clearable :disabled="!contact.birth_month">
+                                        <el-option v-for="day in daysInMonth(contact.birth_month)" :key="day" :label="day" :value="day" />
+                                    </el-select>
+                                    <InputError :message="form.errors[`contacts.${index}.birth_day`]" />
+                                </div>
+                            </div>
                             
                             <button @click="removeContact(index)" type="button" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition-colors">
                                 <i class="fa-solid fa-trash-can"></i>
@@ -74,7 +91,6 @@
                              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
-                                    <!-- ===== SELECT MODIFICADO ===== -->
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
                                         <el-option v-for="item in catalog_products" 
                                             :key="item.id" 
@@ -191,6 +207,14 @@ export default {
                 location: null
             },
             loadingProductMedia: false,
+             months: [
+                { label: 'Enero', value: 1 }, { label: 'Febrero', value: 2 },
+                { label: 'Marzo', value: 3 }, { label: 'Abril', value: 4 },
+                { label: 'Mayo', value: 5 }, { label: 'Junio', value: 6 },
+                { label: 'Julio', value: 7 }, { label: 'Agosto', value: 8 },
+                { label: 'Septiembre', value: 9 }, { label: 'Octubre', value: 10 },
+                { label: 'Noviembre', value: 11 }, { label: 'Diciembre', value: 12 },
+            ],
         };
     },
     components: {
@@ -222,10 +246,22 @@ export default {
             });
         },
         addContact() {
-            this.form.contacts.push({ name: null, charge: null, phone: null, email: null });
+            this.form.contacts.push({
+                name: null,
+                charge: null,
+                phone: null,
+                email: null,
+                birth_month: null,
+                birth_day: null,
+            });
         },
         removeContact(index) {
             this.form.contacts.splice(index, 1);
+        },
+        daysInMonth(month) {
+            if (!month) return 31;
+            // Usamos el año 2000 que es bisiesto para que febrero tenga 29 días
+            return new Date(2000, month, 0).getDate();
         },
         async getProductMedia() {
             if (!this.currentProduct.product_id) return;

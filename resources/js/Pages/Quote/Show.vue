@@ -84,25 +84,30 @@
                     }}
                 </p>
 
-                <!-- Descuento por pago anticipado -->
-                <section v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')">
-                     <figure v-if="quote.early_payment_discount && !quote.early_paid_at" class="mb-6 relative text-center">
-                        <img draggable="false" class="w-[370px] h-12 inline-block" src="@/../../public/images/earlyPaymentButton.webp" alt="Descuento por pago anticipado">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                             <p class="text-[#005660] text-xs text-center ml-10">
-                                PAGA ESTA COTIZACIÓN POR ADELANTADO <br> Y RECIBE UN <span class="font-bold">{{ quote.discount }}% DE DESCUENTO</span> EXCLUSIVO
-                            </p>
+                <!-- INICIO: SECCIÓN DE PROMOCIÓN DE DESCUENTO    -->
+                <section v-if="quote.has_early_payment_discount" class="mb-6">
+                    <div class="flex items-start space-x-2">
+                        <!-- Banner de promoción -->
+                        <div v-show="showPromotion" class="flex-grow bg-gradient-to-r from-sky-600 to-cyan-500 text-white p-4 rounded-lg shadow-lg flex items-center space-x-4 transition-all duration-300">
+                            <i class="fa-solid fa-tags text-3xl opacity-80"></i>
+                            <div>
+                                <h3 class="font-bold text-lg">{{ quote.is_spanish_template ? '¡Promoción Exclusiva!' : 'Exclusive Promotion!' }}</h3>
+                                <p class="text-sm">
+                                    {{ quote.is_spanish_template ? 'Paga por adelantado y recibe un' : 'Pay in advance and receive an exclusive' }}
+                                    <span class="font-extrabold text-amber-300">{{ quote.early_payment_discount_amount }}% {{ quote.is_spanish_template ? 'de descuento' : 'discount' }}</span>.
+                                </p>
+                            </div>
                         </div>
-                    </figure>
-                    <div v-else-if="quote.early_payment_discount && showAdditionalElements" class="my-4 flex items-center gap-3 p-3 rounded-lg bg-green-100 border border-green-200 text-green-800 shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p class="text-sm font-semibold">
-                            ¡Descuento por pago anticipado del {{ quote.discount }}% aplicado correctamente!
-                        </p>
+                        <!-- Botón para ocultar/mostrar -->
+                        <button @click="showPromotion = !showPromotion" 
+                                class="flex-shrink-0 bg-gray-200 text-gray-600 size-9 rounded-full hover:bg-gray-300 transition-colors print:hidden"
+                                :title="showPromotion ? (quote.is_spanish_template ? 'Ocultar promoción' : 'Hide promotion') : (quote.is_spanish_template ? 'Mostrar promoción' : 'Show promotion')">
+                            <i class="fa-solid" :class="showPromotion ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </button>
                     </div>
                 </section>
+                <!-- FIN: SECCIÓN DE PROMOCIÓN DE DESCUENTO     -->
+
 
                 <!-- Tarjetas de Productos -->
                 <section>
@@ -187,7 +192,7 @@
                     <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm">
                          <div class="flex justify-between p-2 rounded-md bg-gray-100">
                             <span class="font-semibold text-gray-600">{{ quote.is_spanish_template ? 'Subtotal (Aprobados)' : 'Subtotal (Approved)' }}:</span>
-                            <span class="font-bold text-gray-800">{{ formatNumber(approvedSubtotal) }} {{ quote.currency }}</span>
+                            <span class="font-bold text-gray-800">{{ formatNumber(quote.total_data.subtotal) }} {{ quote.currency }}</span>
                         </div>
                         <div v-if="!quote.is_freight_cost_stroked" class="flex justify-between p-2">
                             <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Flete' : 'Freight Cost' }}:</span>
@@ -197,9 +202,15 @@
                             <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Herramental' : 'Tooling Cost' }}:</span>
                             <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }} {{ quote.currency }}</span>
                         </div>
+                        <div v-if="quote.has_early_payment_discount" class="flex justify-between p-2 text-green-600 border-t border-dashed">
+                            <span class="font-semibold">
+                                {{ quote.is_spanish_template ? 'Descuento' : 'Discount' }} ({{ quote.early_payment_discount_amount }}%):
+                            </span>
+                            <span class="font-bold">- {{ formatNumber(quote.total_data.discount_amount) }} {{ quote.currency }}</span>
+                        </div>
                         <div class="flex justify-between p-3 rounded-md bg-gray-800 text-white">
                             <span class="text-base font-bold">{{ quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes' }}:</span>
-                            <span class="text-base font-bold">{{ formatNumber(total) }} {{ quote.currency }}</span>
+                            <span class="text-base font-bold">{{ formatNumber(quote.total_data.total_after_discount) }} {{ quote.currency }}</span>
                         </div>
                     </div>
                 </section>
@@ -280,6 +291,7 @@ export default {
         return {
             showAdditionalElements: true,
             labelChanged: false,
+            showPromotion: true,
         }
     },
     components: {
@@ -295,24 +307,6 @@ export default {
     computed: {
         tabTitle() {
             return `${this.quote.is_spanish_template ? 'Cotización' : 'Quote'} ${this.quote.id} - ${this.quote.branch.name}`;
-        },
-        approvedSubtotal() {
-            return this.quote.products.reduce((acc, item) => {
-                if (item.pivot.customer_approval_status === 'Aprobado') {
-                    return acc + (item.pivot.quantity * item.pivot.unit_price);
-                }
-                return acc;
-            }, 0);
-        },
-        total() {
-            let currentTotal = this.approvedSubtotal;
-            if (!this.quote.is_tooling_cost_stroked) {
-                currentTotal += parseFloat(this.quote.tooling_cost);
-            }
-            if (!this.quote.is_freight_cost_stroked) {
-                currentTotal += parseFloat(this.quote.freight_cost);
-            }
-            return currentTotal;
         },
     },
     methods: {
@@ -368,8 +362,8 @@ export default {
                 if (response.status === 200) {
                     // Refresca los props de la página actual desde el servidor.
                     router.reload({ 
-                        preserveScroll: true, // Mantiene la posición del scroll
-                        preserveState: true   // Mantiene el estado local del componente (opcional pero recomendado)
+                        preserveScroll: true,
+                        preserveState: true 
                     });
                     
                     ElMessage({

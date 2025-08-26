@@ -65,22 +65,6 @@
                                             </template>
                                             <span v-html="getStatusIcon(scope.row.status)" class="text-sm mr-2"></span>
                                         </el-tooltip>
-                                        <!-- Tooltip de descuento -->
-                                        <el-tooltip v-if="scope.row.has_early_payment_discount" placement="top">
-                                            <template #content>
-                                                <div v-if="scope.row.early_paid_at">
-                                                    <p>Descuento por pago anticipado aplicado.</p>
-                                                    <span>Pagado el: <strong>{{ formatDate(scope.row.early_paid_at)
-                                                    }}</strong></span>
-                                                </div>
-                                                <p v-else>
-                                                    Contiene descuento por pago anticipado. <br>
-                                                    Aún no pagado
-                                                </p>
-                                            </template>
-                                            <i class="fa-solid fa-fire text-sm mr-2"
-                                                :class="scope.row.early_paid_at ? 'text-green-500' : 'text-red-500'"></i>
-                                        </el-tooltip>
                                         <span class="text-sm">{{ 'COT-' + String(scope.row.id).padStart(4, '0') }}</span>
                                     </div>
                                 </template>
@@ -88,9 +72,17 @@
                             <el-table-column prop="branch.name" label="Cliente" width="150">
                                 <template #default="scope">
                                     <div class="flex items-center">
-                                        <i class="fa-solid fa-circle text-[8px] mr-2"
-                                            :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
-                                        <span>{{ scope.row.branch.name }}</span>
+                                        <el-tooltip :content="scope.row.receiver" placement="top">
+                                            <template #content>
+                                                <p class="text-blue-300">Receptor: <span class="text-white">{{ scope.row.receiver }}</span></p>
+                                                <p class="text-blue-300">Depto: <span class="text-white">{{ scope.row.department }}</span></p>
+                                            </template>
+                                            <div class="flex items-center">
+                                                <i class="fa-solid fa-circle text-[8px] mr-2"
+                                                    :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
+                                                <span>{{ scope.row.branch.name }}</span>
+                                            </div>
+                                        </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -116,15 +108,16 @@
                                     <el-tooltip placement="top">
                                         <template #content>
                                             <div class="text-xs">
-                                                <p>Venta: <strong>${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
-                                                <p>Costo: <strong>${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
-                                                <p>Utilidad: <strong>${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                                <p class="text-white font-bold mb-2">No se toma en cuenta herramental ni flete</p>
+                                                <p class="text-blue-300">Venta: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
+                                                <p class="text-amber-400">Costo: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
+                                                <p class="text-green-400">Utilidad: <strong class="text-white">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
                                             </div>
                                         </template>
                                         <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">
                                             <i class="fa-solid fa-flag"></i>
                                             <div class="flex">
-                                                <i v-for="n in getProfitabilityStars(scope.row.utility_data.percentage)" :key="`filled-${n}`" class="fa-solid fa-star text-xs text-yellow-300"></i>
+                                                <i v-for="n in getProfitabilityStars(scope.row.utility_data.percentage)" :key="`filled-${n}`" class="fa-solid fa-star text-xs text-yellow-500"></i>
                                                 <i v-for="n in (3 - getProfitabilityStars(scope.row.utility_data.percentage))" :key="`unfilled-${n}`" class="fa-regular fa-star text-xs"></i>
                                             </div>
                                                 <span class="font-semibold text-xs">{{ scope.row.utility_data.percentage.toFixed(1) }}%</span>
@@ -138,8 +131,11 @@
                                         class="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
                                         <i class="fa-solid fa-user-tie"></i>
                                         <span>Portal de Clientes</span>
-                                        <el-tooltip v-if="scope.row.user" content="Revisado por vendedor"
-                                            placement="top">
+                                        <el-tooltip v-if="scope.row.user" content="Revisado por vendedor" placement="top">
+                                            <template #content>
+                                                <p class="font-bold">Revisado por vendedor</p>
+                                                <p class="text-blue-300">Vendedor: <span class="text-white">{{ scope.row.user?.name }}</span></p>
+                                            </template>
                                             <i class="fa-solid fa-check-double text-green-500"></i>
                                         </el-tooltip>
                                     </div>
@@ -148,7 +144,38 @@
                             </el-table-column>
                             <el-table-column label="Total" width="150">
                                 <template #default="scope">
-                                    <span class="font-semibold">{{ scope.row.total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,
+                                    <!-- Tooltip de descuento -->
+                                    <el-tooltip v-if="scope.row.has_early_payment_discount" placement="top">
+                                        <template #content>
+                                            <div v-if="scope.row.early_paid_at">
+                                                <p>Descuento por pago anticipado aplicado.</p>
+                                                <span class="text-green-500">
+                                                    Descuento: 
+                                                    <span class="text-white">{{ scope.row.total_data.discount_percentage }}% 
+                                                        -> ${{ scope.row.total_data.discount_amount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}
+                                                    </span> <br>
+                                                    <span class="text-green-500">Total sin descuento: <span class="text-white">${{ scope.row.total_data.total_before_discount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}</span></span> <br>
+                                                    <span class="text-green-500">Total con descuento: <span class="text-white">${{ scope.row.total_data.total_after_discount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}</span></span>
+                                                </span> <br>
+                                                <span class="text-blue-300">Pagado el: <strong class="text-white">{{ formatDate(scope.row.early_paid_at)
+                                                }}</strong></span>
+                                            </div>
+                                            <p class="text-white font-bold" v-else>
+                                                Descuento por pago anticipado aún no pagado <br>
+                                                <span class="text-amber-500">
+                                                    Descuento: 
+                                                    <span class="text-white">{{ scope.row.total_data.discount_percentage }}% 
+                                                        -> ${{ scope.row.total_data.discount_amount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}
+                                                    </span> <br>
+                                                    <span class="text-amber-500">Total sin descuento: <span class="text-white">${{ scope.row.total_data.total_before_discount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}</span></span> <br>
+                                                    <span class="text-amber-500">Total con descuento: <span class="text-white">${{ scope.row.total_data.total_after_discount?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",") }}</span></span>
+                                                </span>
+                                            </p>
+                                        </template>
+                                        <i class="fa-solid fa-fire text-sm mr-2"
+                                            :class="scope.row.early_paid_at ? 'text-green-500' : 'text-red-500'"></i>
+                                    </el-tooltip>
+                                    <span class="font-semibold">{{ scope.row.total_data.total_after_discount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,
                                         ",") }} {{ scope.row.currency }}</span>
                                 </template>
                             </el-table-column>
@@ -322,9 +349,9 @@ export default {
     },
     methods: {
         getProfitabilityClass(margin) {
-            if (margin < 10) return 'text-red-500';
-            if (margin >= 10 && margin < 30) return 'text-amber-500';
-            return 'text-green-500';
+            if (margin < 10) return 'text-red-600';
+            if (margin >= 10 && margin < 30) return 'text-amber-600';
+            return 'text-green-600';
         },
         getProfitabilityStars(margin) {
             if (margin < 10) return 1;

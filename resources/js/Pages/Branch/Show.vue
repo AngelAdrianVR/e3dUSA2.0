@@ -86,6 +86,15 @@
                             <div class="text-sm mt-1 space-y-1">
                                 <p><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
                                 <p><i class="fa-solid fa-phone mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Teléfono') }}</p>
+                                <!-- ============================================= -->
+                                <!-- INICIO: LÍNEA PARA MOSTRAR CUMPLEAÑOS         -->
+                                <!-- ============================================= -->
+                                <p v-if="contact.birthdate">
+                                    <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
+                                </p>
+                                <!-- =========================================== -->
+                                <!-- FIN: LÍNEA PARA MOSTRAR CUMPLEAÑOS          -->
+                                <!-- =========================================== -->
                             </div>
                         </div>
                     </div>
@@ -397,15 +406,19 @@ export default {
             const product = this.catalog_products.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
-        // --- NUEVO MÉTODO PARA DESHABILITAR OPCIONES ---
         isProductInForm(productId) {
             return this.form.products.some(p => p.product_id === productId);
         },
-        // --- FIN DE MÉTODOS COPIADOS ---
-
         getPrimaryDetail(contact, type) {
             const detail = contact.details.find(d => d.type === type);
             return detail ? detail.value : 'No disponible';
+        },
+        formatBirthday(dateString) {
+            if (!dateString) return '';
+            // Creamos una fecha a partir del string, asegurando que se interprete correctamente
+            const date = new Date(dateString + 'T00:00:00'); 
+            // Usamos 'd MMMM' para obtener "día de Mes" (ej. "24 de Agosto")
+            return format(date, "d 'de' MMMM", { locale: es });
         },
         formatDate(dateString) {
             if (!dateString) return '';
