@@ -18,6 +18,7 @@ use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
@@ -70,8 +71,6 @@ Route::post('products/{product}/stock-movement', [ProductController::class, 'han
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
-// Route::post('catalog-products/clone', [ProductController::class, 'clone'])->name('catalog-products.clone');
-// Route::post('catalog-products/update-with-media/{catalog_product}', [ProductController::class, 'updateWithMedia'])->name('catalog-products.update-with-media');
 // Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
 // Route::get('catalog-products-fetch-shipping-rates/{catalog_product}', [ProductController::class, 'fetchShippingRates'])->name('catalog-products.fetch-shipping-rates');
 // Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
@@ -109,6 +108,7 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 Route::post('/branches/{branch}/products/{product}/price', [BranchPriceHistoryController::class, 'store'])->middleware('auth')->name('branches.products.price.store');
 Route::patch('/branch-price-history/{priceHistory}/close', [BranchPriceHistoryController::class, 'close'])->middleware('auth')->name('branch-price-history.close');
 
+
 // ------- CRM(cotizaciones Routes)  ---------
 Route::resource('quotes', QuoteController::class)->middleware('auth');
 Route::put('quotes/authorize/{quote}', [QuoteController::class, 'authorizeQuote'])->middleware('auth')->name('quotes.authorize');
@@ -117,6 +117,10 @@ Route::post('quotes-change-status/{quote}', [QuoteController::class, 'changeStat
 Route::get('quotes-clone/{quote}', [QuoteController::class, 'clone'])->middleware('auth')->name('quotes.clone');
 Route::post('quotes/massive-delete', [QuoteController::class, 'massiveDelete'])->middleware('auth')->name('quotes.massive-delete');
 Route::get('quotes-fetch-branch-quotes/{branch}', [QuoteController::class, 'fetchBranchQuotes'])->middleware('auth')->name('quotes.branch-quotes');
+
+
+// ------- CRM(Ordenes de venta Routes)  ---------
+Route::resource('sales', SaleController::class)->middleware('auth');
 
 
 // ------- Recursos humanos(users routes)  ---------
