@@ -244,5 +244,7 @@ return [
         'contacts.*.name' => 'nombre de contacto',
         'contacts.*.phone' => 'teléfono de contacto',
         'contacts.*.email' => 'correo de contacto',
+        'early_payment_discount_amount' => 'porcentaje de descuento',
+        'freight_option' => 'opción de flete',
     ],
 ];

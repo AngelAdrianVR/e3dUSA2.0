@@ -95,7 +95,7 @@
                              <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
                              <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
-                                v-if="form.product_type_key !== 'C'"
+                                v-if="!form.hasComponents"
                                 v-model="form.cost" 
                                 :error="form.errors.cost"
                                 label="Cuánto le cuesta a E3D"
@@ -148,7 +148,7 @@
                         <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="form.hasComponents" name="is_circular" />
+                                    <Checkbox @change="form.hasComponents ? form.cost = 0 : ''" v-model:checked="form.hasComponents" name="is_circular" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
@@ -499,21 +499,11 @@ export default {
                 return total + (quantity * cost);
             }, 0);
         },
-
-        /**
-         * Calcula el costo final del producto sumando el costo base
-         * y el costo total de los componentes.
-         */
-        finalProductCost() {
-            const baseCost = parseFloat(this.form.cost) || 0;
-            // Usamos 'this.totalComponentsCost' para acceder a la otra propiedad computada
-            return baseCost + this.totalComponentsCost;
-        }
     },
     methods: {
         update() {
             // suma al costo los componentes
-            if ( this.form.product_type_key === 'C' ) {
+            if ( this.form.product_type_key === 'C' && this.form.hasComponents ) {
                 this.form.cost = this.totalComponentsCost;
             }
             // El método post de Inertia se encarga de enviar el _method: 'PUT'

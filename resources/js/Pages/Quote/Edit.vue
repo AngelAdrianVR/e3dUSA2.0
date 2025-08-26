@@ -1,11 +1,11 @@
 <template>
-    <AppLayout title="Crear Cotización">
+    <AppLayout title="Editar Cotización">
         <!-- Encabezado -->
         <div class="px-4 sm:px-0 flex justify-between items-center">
             <div class="flex items-center space-x-2">
                 <Back :href="route('quotes.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    Crear nueva cotización
+                    Editar cotización <span class="text-primary">{{ quote.folio }}</span>
                 </h2>
             </div>
         </div>
@@ -15,7 +15,7 @@
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
-                    <form @submit.prevent="store">
+                    <form @submit.prevent="update">
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                         <div class="flex justify-between items-center">
                             <el-divider content-position="left" class="flex-grow">
@@ -140,7 +140,6 @@
                                 <div class="lg:col-span-2">
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <!-- MODIFICADO: Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
                                         <el-option v-for="product in localCatalogProducts" 
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
@@ -153,10 +152,8 @@
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
-                                <!-- Estado de carga -->
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
-                                <!-- Tarjeta de producto seleccionado -->
                                 <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id">
                                     <figure 
                                         v-if="currentProduct.media" 
@@ -174,9 +171,7 @@
                                         </div>
                                     </figure>
 
-                                    <!-- informacion de almacén -->
                                     <div>
-                                        <!-- Etiqueta de producto de cliente -->
                                         <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
                                             Producto de cliente
                                         </span>
@@ -189,7 +184,6 @@
                                         <p class="text-gray-500 dark:text-gray-300">
                                             Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
                                         </p>
-                                        <!-- Precio actual del cliente -->
                                         <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
                                             Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                                         </p>
@@ -210,13 +204,9 @@
                                     <span class="ml-2 text-gray-400">Agregar personalización al producto</span>
                                 </label>
                                 
-                                <!-- ================================================== -->
-                                <!-- INICIO: NUEVA SECCIÓN DE PERSONALIZACIÓN DINÁMICA -->
-                                <!-- ================================================== -->
                                 <div v-if="form.has_customization" class="lg:col-span-full mt-3 p-4 border border-dashed dark:border-slate-700 rounded-lg">
                                     <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-300">Detalles de Personalización</h4>
                                     
-                                    <!-- Inputs para agregar nuevo detalle -->
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
                                         <div>
                                             <InputLabel value="Tipo*" />
@@ -234,7 +224,6 @@
                                         </SecondaryButton>
                                     </div>
 
-                                    <!-- Lista de detalles agregados al producto actual -->
                                     <div v-if="currentProduct.customization_details.length" class="mt-4">
                                         <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Detalles agregados:</p>
                                         <div class="flex flex-wrap gap-2">
@@ -254,9 +243,6 @@
                                         </div>
                                     </div>
                                 </div>
-                                <!-- ================================================ -->
-                                <!-- FIN: NUEVA SECCIÓN DE PERSONALIZACIÓN DINÁMICA -->
-                                <!-- ================================================ -->
 
                                 <div class="pt-2 col-span-full">
                                     <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price">
@@ -270,7 +256,6 @@
                         </div>
                         <InputError :message="form.errors.products" class="mt-2" />
 
-                        <!-- Lista de productos agregados con nuevo estilo -->
                         <div v-if="form.products.length" class="mt-5">
                             <h3 class="font-bold mb-2 text-gray-800 dark:text-gray-200">Lista de productos agregados</h3>
                             <ul class="rounded-lg bg-gray-100 dark:bg-slate-800 p-3 space-y-2">
@@ -284,7 +269,6 @@
                                             </p>
                                             <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
                                             
-                                            <!-- INICIO: Mostrar detalles de personalización en la lista -->
                                             <div v-if="product.customization_details && product.customization_details.length" class="mt-2">
                                                 <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Personalización:</p>
                                                 <ul class="list-disc list-inside pl-1">
@@ -293,8 +277,6 @@
                                                     </li>
                                                 </ul>
                                             </div>
-                                            <!-- FIN: Mostrar detalles de personalización en la lista -->
-
                                         </span>
                                     </div>
                                     <div class="flex items-center space-x-3">
@@ -303,11 +285,11 @@
                                                 <i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </el-tooltip>
-                                        <el-tooltip content="Editar" placement="top">
+                                        <!-- <el-tooltip content="Editar" placement="top">
                                             <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                                                 <i class="fa-solid fa-pencil"></i>
                                             </button>
-                                        </el-tooltip>
+                                        </el-tooltip> -->
                                         <el-tooltip content="Eliminar" placement="top">
                                             <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                                 <i class="fa-solid fa-trash"></i>
@@ -318,7 +300,6 @@
                             </ul>
                         </div>
 
-                        <!-- Sección de promociones y descuentos -->
                         <el-divider v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')" content-position="left" class="col-span-full">Promociones</el-divider>
                         <div class="grid grid-cols-2 gap-3" v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')">
                             <label class="flex items-center col-span-full">
@@ -347,10 +328,9 @@
 
                         </div>
 
-                        <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing">
-                                Crear Cotización
+                                Guardar cambios
                             </SecondaryButton>
                         </div>
                     </form>
@@ -560,23 +540,23 @@ export default {
     data() {
         return {
             form: useForm({
-                branch_id: null,
-                receiver: '',
-                department: '',
-                currency: 'MXN',
-                tooling_cost: null,
-                is_tooling_cost_stroked: false,
-                freight_cost: null,
-                is_freight_cost_stroked: false,
-                freight_option: 'Por cuenta del cliente',
-                first_production_days: null,
-                notes: '',
-                is_spanish_template: true,
-                show_breakdown: true,
-                has_early_payment_discount: false,
-                early_payment_discount_amount: null,
-                has_customization: false,
-                products: [],
+                branch_id: this.quote.branch_id,
+                receiver: this.quote.receiver,
+                department: this.quote.department,
+                currency: this.quote.currency,
+                tooling_cost: this.quote.tooling_cost,
+                is_tooling_cost_stroked: this.quote.is_tooling_cost_stroked,
+                freight_cost: this.quote.freight_cost,
+                is_freight_cost_stroked: this.quote.is_freight_cost_stroked,
+                freight_option: this.quote.freight_option,
+                first_production_days: this.quote.first_production_days,
+                notes: this.quote.notes,
+                is_spanish_template: this.quote.is_spanish_template,
+                show_breakdown: this.quote.show_breakdown,
+                has_early_payment_discount: this.quote.has_early_payment_discount,
+                early_payment_discount_amount: this.quote.early_payment_discount_amount || null,
+                has_customization: false, // Se determina dinámicamente
+                products: [], // Se llena en mounted
             }),
 
             // --- para cerrar precio especial ---
@@ -679,8 +659,9 @@ export default {
         ConfirmationModal,
     },
     props: {
+        quote: Object,
         catalogProducts: Array,
-        branches: Array,
+        branches: Array
     },
     computed: {
         isPriceInvalid() {
@@ -690,10 +671,10 @@ export default {
         }
     },
     methods: {
-        store() {
-            this.form.post(route("quotes.store"), {
+        update() {
+            this.form.put(route("quotes.update", this.quote), {
                 onSuccess: () => {
-                    ElMessage.success('Cotización creada correctamente');
+                    ElMessage.success('Cotización actualizada correctamente');
                 },
                 onError: () => {
                     this.$refs.formContainer.scrollIntoView({ behavior: 'smooth' });
@@ -969,6 +950,28 @@ export default {
         }
     },
     mounted() {
+        // Mapear los productos de la cotización al formato que espera el formulario
+        this.form.products = this.quote.products.map(product => ({
+            id: product.id,
+            quantity: product.pivot.quantity,
+            unit_price: product.pivot.unit_price,
+            notes: product.pivot.notes,
+            show_image: product.pivot.show_image,
+            // Asegurarse de que customization_details sea un array
+            customization_details: product.pivot.customization_details ? JSON.parse(JSON.stringify(product.pivot.customization_details)) : [],
+            // Puedes agregar más campos si es necesario, aunque no se guarden en el pivote
+            name: product.name, 
+            code: product.code,
+        }));
+
+        // Determinar si algún producto tiene personalización para activar el checkbox principal
+        this.form.has_customization = this.form.products.some(p => p.customization_details && p.customization_details.length > 0);
+
+        // Cargar productos del cliente inicial
+        if (this.form.branch_id) {
+            this.fetchClientProducts(this.form.branch_id);
+        }
+        
         this.updateDrawerSize();
         window.addEventListener("resize", this.updateDrawerSize);
     },

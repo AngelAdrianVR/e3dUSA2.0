@@ -32,6 +32,7 @@ class QuoteProduct extends Pivot
         'unit_price',
         'notes',
         'customization_details',
+        'show_image', // muestra o no la imagen del producto en la cotización.
         'customer_approval_status', // 'Pendiente', 'Aprobado', 'Rechazado'
     ];
 

@@ -19,12 +19,13 @@ class QuoteController extends Controller
     public function index()
     {
         // Se obtienen las cotizaciones paginadas.
-        // Usamos 'with' para cargar las relaciones y evitar el problema N+1.
-        // Esto hace que la consulta sea mucho más eficiente.
-        $quotes = Quote::with(['branch', 'user', 'sale', 'authorizedBy'])
+        $quotes = Quote::with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'products:id,name,cost'])
             ->latest() // Ordena por los más recientes primero
+            ->select(['id', 'status', 'receiver', 'department', 'currency', 'rejection_reason', 'customer_responded_at', 'authorized_by_user_id', 'authorized_at',
+            'created_by_customer', 'has_early_payment_discount', 'early_payment_discount_amount', 'early_paid_at', 'branch_id', 'user_id', 'sale_id', 'created_at'])
             ->paginate(20); // O el número que prefieras por página
 
+            // return $quotes;
         // Retornamos la vista de Inertia, pasando los datos de las cotizaciones.
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
@@ -54,13 +55,26 @@ class QuoteController extends Controller
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
             'tooling_cost' => 'required|numeric|min:0',
-            'freight_cost' => 'required|numeric|min:0',
+            'freight_cost' => 'required_unless:freight_option,El cliente manda la guia|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
+            'has_early_payment_discount' => 'nullable|boolean',
+            'early_payment_discount_amount' => [
+                'exclude_unless:has_early_payment_discount,true',
+                'required',
+                'numeric',
+                'min:1',
+                'max:100'
+            ],
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
+            'products.*.notes' => 'nullable|string',
+            'products.*.customization_details' => 'nullable|array',
+            'products.*.customization_details.*.type' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.key' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
         // Usamos una transacción para asegurar la integridad de los datos.
@@ -92,7 +106,9 @@ class QuoteController extends Controller
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
                     'notes' => $product['notes'],
-                    'customization_details' => $product['customization_details'],
+                    'show_image' => $product['show_image'],
+                    // --- MODIFICADO: Codificar a JSON antes de guardar ---
+                    'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado', // Por defecto se aprueban al crear
                 ];
             }
@@ -123,13 +139,6 @@ class QuoteController extends Controller
         // Preparar los recursos de la cotización actual
         $quote = Quote::with(['branch', 'user', 'products.media', 'authorizedBy'])->findOrFail($quote->id);
 
- // // Cargar las relaciones necesarias para evitar problemas N+1
-        // $quote->load([
-        //     'branch', // Cliente (sucursal)
-        //     'user',   // Usuario que creó la cotización
-        //     'products' // Los productos pivote y la información del producto real
-        // ]);
-        // return $quote;
         // Retornar la vista de Inertia con los datos de la cotización
         return Inertia::render('Quote/Show', [
             'quote' => $quote,
@@ -140,12 +149,93 @@ class QuoteController extends Controller
 
     public function edit(Quote $quote)
     {
-        //
+        // Obtenemos solo los productos de tipo 'Catálogo' para el selector principal.
+        $catalogProducts = Product::where('product_type', 'Catálogo')->select('id', 'name', 'code')->get();
+        
+        // Obtenemos todas las sucursales (clientes).
+        $branches = Branch::select('id', 'name', 'status')->get();
+
+        return Inertia::render('Quote/Edit', [
+            'catalogProducts' => $catalogProducts,
+            'branches' => $branches,
+            'quote' => $quote,
+        ]);
     }
 
     public function update(Request $request, Quote $quote)
     {
-        //
+        // Validación de los datos principales de la cotización.
+        $request->validate([
+            'branch_id' => 'required|exists:branches,id',
+            'receiver' => 'required|string|max:255',
+            'department' => 'required|string|max:255',
+            'currency' => 'required|string|max:3',
+            'tooling_cost' => 'required|numeric|min:0',
+            'freight_cost' => 'required_unless:freight_option,El cliente manda la guia|nullable|numeric|min:0',
+            'freight_option' => 'required|string',
+            'first_production_days' => 'required|string',
+            'has_early_payment_discount' => 'nullable|boolean',
+            'early_payment_discount_amount' => [
+                'exclude_unless:has_early_payment_discount,true',
+                'required',
+                'numeric',
+                'min:1',
+                'max:100'
+            ],
+            'products' => 'required|array|min:1',
+            'products.*.id' => 'required|exists:products,id',
+            'products.*.quantity' => 'required|numeric|min:0.01',
+            'products.*.unit_price' => 'required|numeric|min:0',
+            'products.*.notes' => 'nullable|string',
+            'products.*.customization_details' => 'nullable|array',
+            'products.*.customization_details.*.type' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.key' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
+        ]);
+
+        // Usamos una transacción para asegurar la integridad de los datos.
+        DB::transaction(function () use ($request, $quote) {
+            // Actualizar la cotización con los datos validados.
+            $quote->update([
+                'branch_id' => $request->branch_id,
+                'receiver' => $request->receiver,
+                'department' => $request->department,
+                'currency' => $request->currency,
+                'tooling_cost' => $request->tooling_cost,
+                'is_tooling_cost_stroked' => $request->is_tooling_cost_stroked,
+                'freight_cost' => $request->freight_cost,
+                'is_freight_cost_stroked' => $request->is_freight_cost_stroked,
+                'freight_option' => $request->freight_option,
+                'first_production_days' => $request->first_production_days,
+                'notes' => $request->notes,
+                'is_spanish_template' => $request->is_spanish_template,
+                'show_breakdown' => $request->show_breakdown,
+                'has_early_payment_discount' => $request->has_early_payment_discount,
+                'early_payment_discount_amount' => $request->early_payment_discount_amount ?? 0,
+                'user_id' => $quote->user_id ?? auth()->id(),// agrega al usuario si no lo tiene debido a que fue creado desde el portal de clientes
+            ]);
+
+            // Preparar los datos de los productos para la tabla pivote.
+            $productsData = [];
+            foreach ($request->products as $product) {
+                $productsData[$product['id']] = [
+                    'quantity' => $product['quantity'],
+                    'unit_price' => $product['unit_price'],
+                    'notes' => $product['notes'],
+                    'show_image' => $product['show_image'],
+                    'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
+                    // El estado de aprobación se mantiene o se define según tu lógica de negocio al editar.
+                    // Aquí lo dejamos como estaba si ya existía, o 'Aprobado' si es nuevo.
+                    'customer_approval_status' => $quote->products()->find($product['id'])?->pivot->customer_approval_status ?? 'Aprobado',
+                ];
+            }
+
+            // Sincronizar los productos a la cotización con sus datos pivote.
+            // sync() se encarga de agregar, actualizar o eliminar las relaciones necesarias.
+            $quote->products()->sync($productsData);
+        });
+
+        return Redirect::route('quotes.index')->with('success', 'Cotización actualizada exitosamente.');
     }
 
     public function destroy(Quote $quote)

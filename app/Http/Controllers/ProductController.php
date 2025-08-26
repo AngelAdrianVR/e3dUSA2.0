@@ -23,7 +23,7 @@ class ProductController extends Controller
             ->where('product_type', 'Catalogo')
             ->with('brand:id,name')
             ->latest()
-            ->select(['id', 'code', 'name', 'cost', 'material','brand_id'])
+            ->select(['id', 'code', 'name', 'cost', 'material','brand_id', 'archived_at'])
             ->paginate(30);
 
         return inertia('CatalogProduct/Index', compact('catalog_products'));
@@ -55,7 +55,7 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        // 1. REGLAS DE VALIDACIÓN (sin cambios)
+        // 1. REGLAS DE VALIDACIÓN 
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:products,code',
@@ -97,7 +97,7 @@ class ProductController extends Controller
             'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
         ]);
 
-        // 2. MAPEO DE CLAVES (sin cambios)
+        // 2. MAPEO DE CLAVES 
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
         $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak',
                     'SCH' => 'Solid Chrome', 'MM' => 'Micrometal'];
@@ -105,31 +105,23 @@ class ProductController extends Controller
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
 
-        // ==================================================================
         // ================== INICIO: LÓGICA DE CÁLCULO DE COSTO ============
-        // ==================================================================
-        $totalProcessesCost = 0;
+        // Se recalcula el costo únicamente si se envían procesos de producción.
         if ($request->filled('production_processes')) {
-            // Obtenemos todos los IDs de los procesos que vienen en el request
+            // Se obtiene el costo inicial del formulario (materia prima), si no existe se toma como 0.
+            $initialCost = $validatedData['cost'] ?? 0;
+
+            // Se obtienen los IDs de los procesos del request.
             $processIds = array_column($request->input('production_processes'), 'process_id');
 
-            // Consultamos la base de datos UNA SOLA VEZ para obtener los costos reales de esos procesos.
-            // Esto es más seguro y eficiente que confiar en los datos del frontend.
+            // Se consultan los costos reales de la base de datos para mayor seguridad.
             $processes = ProductionCost::whereIn('id', $processIds)->get();
-
-            // Sumamos el costo de cada proceso encontrado
             $totalProcessesCost = $processes->sum('cost');
+
+            // El costo final es la suma del costo de materia prima más el de los procesos.
+            $validatedData['cost'] = $initialCost + $totalProcessesCost;
         }
-
-        // Nos aseguramos de que el costo inicial sea un número (0 si es nulo)
-        $initialCost = is_numeric($validatedData['cost']) ? $validatedData['cost'] : 0;
-
-        // Sumamos el costo de los procesos al costo inicial del producto
-        $validatedData['cost'] = $initialCost + $totalProcessesCost;
-        // ================================================================
         // ================== FIN: LÓGICA DE CÁLCULO DE COSTO ===============
-        // ================================================================
-
 
         // 3. TRANSACCIÓN DE BASE DE DATOS
         DB::beginTransaction();
@@ -167,7 +159,7 @@ class ProductController extends Controller
                 }
             }
 
-            // 5. MANEJO DE IMÁGENES (sin cambios)
+            // 5. MANEJO DE IMÁGENES 
             if ($request->hasFile('media')) {
                 foreach ($request->file('media') as $file) {
                     $product->addMedia($file)->toMediaCollection('images');
@@ -288,20 +280,34 @@ class ProductController extends Controller
         $validatedData['material'] = $materials[$validatedData['material']];
 
         // 3. LÓGICA DE CÁLCULO DE COSTO
-        $totalProcessesCost = 0;
+        // Se recalcula el costo únicamente si se envían procesos de producción.
         if ($request->filled('production_processes')) {
+            // Se obtiene el costo inicial del formulario (materia prima), si no existe se toma como 0.
+            $initialCost = $validatedData['cost'] ?? 0;
+
+            // Se obtienen los IDs de los procesos del request.
             $processIds = array_column($request->input('production_processes'), 'process_id');
+
+            // Se consultan los costos reales de la base de datos para mayor seguridad.
             $processes = ProductionCost::whereIn('id', $processIds)->get();
             $totalProcessesCost = $processes->sum('cost');
+
+            // El costo final es la suma del costo de materia prima más el de los procesos.
+            $validatedData['cost'] = $initialCost + $totalProcessesCost;
         }
-        $initialCost = is_numeric($validatedData['cost']) ? $validatedData['cost'] : 0;
-        $validatedData['cost'] = $initialCost + $totalProcessesCost;
+
+        // revisa si el precio base se modificó para actualizar la fecha de modificación
+        if ( $catalog_product->base_price != $request->base_price ) {
+             $validatedData['base_price_updated_at'] = now();
+        }
 
         // 4. TRANSACCIÓN DE BASE DE DATOS
         DB::beginTransaction();
         try {
+
             // Actualiza el producto principal
             $catalog_product->update($validatedData);
+
 
             // Actualiza el registro de inventario
             $storage = $catalog_product->storages()->first();
@@ -381,7 +387,7 @@ class ProductController extends Controller
         // Realiza la búsqueda
         $catalog_products = Product::with('media')
             ->latest()
-            ->select(['id', 'brand_id', 'code', 'name', 'cost', 'material']) // Es buena idea incluir el brand_id
+            ->select(['id', 'brand_id', 'code', 'name', 'cost', 'material', 'archived_at']) // Es buena idea incluir el brand_id
             ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                 ->orWhere('code', 'like', "%{$query}%")

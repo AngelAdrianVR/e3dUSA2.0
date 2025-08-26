@@ -64,7 +64,10 @@ class Quote extends Model implements Auditable
     ];
 
     // Accesor para obtener el total de la cotizacion. ()
-    protected $appends = ['total'];
+    protected $appends = ['total_data', 'utility_data'];
+
+    // Define la tasa de IVA (16%)
+    const VAT_RATE = 0.16;
 
     // ------------------ RELACIONES ------------------
 
@@ -82,7 +85,8 @@ class Quote extends Model implements Auditable
                 'unit_price',
                 'notes',
                 'customization_details',
-                'customer_approval_status'
+                'customer_approval_status',
+                'show_image'
             ])
             ->withTimestamps();
     }
@@ -124,29 +128,85 @@ class Quote extends Model implements Auditable
     /**
      * Calcula el costo total de la cotización dinámicamente.
      * Suma solo los productos aprobados por el cliente.
-     * ! Agregar iva si se requiere el total con iva o cualquier otra modificación
      * @return float
      */
-    public function getTotalAttribute(): float
+    public function getTotalDataAttribute(): array
     {
+        // 1. Calcula el subtotal base de los productos aprobados.
         $subtotal = $this->products()
             ->wherePivot('customer_approval_status', 'Aprobado')
             ->sum(DB::raw('quote_products.quantity * quote_products.unit_price'));
 
-        $total = $subtotal;
-
+        // 2. Suma costos adicionales (herramental y flete).
+        $totalBeforeDiscount = $subtotal;
         if (!$this->is_tooling_cost_stroked) {
-            $total += $this->tooling_cost;
+            $totalBeforeDiscount += $this->tooling_cost;
         }
-
         if ($this->freight_option && !$this->is_freight_cost_stroked) {
-            $total += $this->freight_cost;
+            $totalBeforeDiscount += $this->freight_cost;
         }
 
-        if ($this->has_early_payment_discount) {
-            $total -= $this->early_payment_discount_amount;
+        // 3. Calcula el descuento si aplica.
+        $discountAmount = 0;
+        $totalAfterDiscount = $totalBeforeDiscount;
+
+        if ($this->has_early_payment_discount && $this->early_payment_discount_amount > 0) {
+            // El descuento se calcula sobre el total antes de impuestos.
+            $discountAmount = ($totalBeforeDiscount * $this->early_payment_discount_amount) / 100;
+            $totalAfterDiscount = $totalBeforeDiscount - $discountAmount;
         }
 
-        return max(0, $total);
+        // 4. Calcula el IVA sobre el total ya con descuento.
+        $vatAmount = $totalAfterDiscount * self::VAT_RATE;
+        $totalWithVat = $totalAfterDiscount + $vatAmount;
+
+        // 5. Devuelve todos los valores en un array.
+        return [
+            'subtotal' => (float) $subtotal,
+            'total_before_discount' => (float) $totalBeforeDiscount,
+            'discount_percentage' => $this->has_early_payment_discount ? (float) $this->early_payment_discount_amount : 0,
+            'discount_amount' => (float) $discountAmount,
+            'total_after_discount' => (float) $totalAfterDiscount, // Este es el total sin IVA
+            'vat_amount' => (float) $vatAmount,
+            'total_with_vat' => (float) $totalWithVat, // Este es el total con IVA
+        ];
+    }
+
+    /**
+     * --- Calcula la venta, costo, utilidad y porcentaje ---
+     * Devuelve un array con todos los datos necesarios para el frontend.
+     *
+     * @return array
+     */
+    public function getUtilityDataAttribute(): array
+    {
+        $total_sale = 0;
+        $total_cost = 0;
+
+        // Itera sobre los productos para calcular venta y costo base.
+        // Es importante que la relación 'products' venga precargada (eager loaded).
+        foreach ($this->products as $product) {
+            $quantity = $product->pivot->quantity;
+            $total_sale += $quantity * $product->pivot->unit_price;
+            $total_cost += $quantity * $product->cost;
+        }
+
+        $final_sale = $total_sale;
+        // Si hay descuento, se recalcula la venta final.
+        if ($this->has_early_payment_discount && $this->early_payment_discount_amount > 0) {
+            $discountAmount = ($total_sale * $this->early_payment_discount_amount) / 100;
+            $final_sale = $total_sale - $discountAmount;
+        }
+
+        // La utilidad se calcula sobre la venta final (con descuento).
+        $profit = $final_sale - $total_cost;
+        $percentage = $final_sale > 0 ? ($profit / $final_sale) * 100 : 0;
+
+        return [
+            'total_sale' => (float) $final_sale,
+            'total_cost' => (float) $total_cost,
+            'profit' => (float) $profit,
+            'percentage' => (float) $percentage,
+        ];
     }
 }

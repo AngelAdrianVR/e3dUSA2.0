@@ -84,25 +84,30 @@
                     }}
                 </p>
 
-                <!-- Descuento por pago anticipado -->
-                <section v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')">
-                     <figure v-if="quote.early_payment_discount && !quote.early_paid_at" class="mb-6 relative text-center">
-                        <img draggable="false" class="w-[370px] h-12 inline-block" src="@/../../public/images/earlyPaymentButton.webp" alt="Descuento por pago anticipado">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                             <p class="text-[#005660] text-xs text-center ml-10">
-                                PAGA ESTA COTIZACIÓN POR ADELANTADO <br> Y RECIBE UN <span class="font-bold">{{ quote.discount }}% DE DESCUENTO</span> EXCLUSIVO
-                            </p>
+                <!-- INICIO: SECCIÓN DE PROMOCIÓN DE DESCUENTO    -->
+                <section v-if="quote.has_early_payment_discount" class="mb-6">
+                    <div class="flex items-start space-x-2">
+                        <!-- Banner de promoción -->
+                        <div v-show="showPromotion" class="flex-grow bg-gradient-to-r from-sky-600 to-cyan-500 text-white p-4 rounded-lg shadow-lg flex items-center space-x-4 transition-all duration-300">
+                            <i class="fa-solid fa-tags text-3xl opacity-80"></i>
+                            <div>
+                                <h3 class="font-bold text-lg">{{ quote.is_spanish_template ? '¡Promoción Exclusiva!' : 'Exclusive Promotion!' }}</h3>
+                                <p class="text-sm">
+                                    {{ quote.is_spanish_template ? 'Paga por adelantado y recibe un' : 'Pay in advance and receive an exclusive' }}
+                                    <span class="font-extrabold text-amber-300">{{ quote.early_payment_discount_amount }}% {{ quote.is_spanish_template ? 'de descuento' : 'discount' }}</span>.
+                                </p>
+                            </div>
                         </div>
-                    </figure>
-                    <div v-else-if="quote.early_payment_discount && showAdditionalElements" class="my-4 flex items-center gap-3 p-3 rounded-lg bg-green-100 border border-green-200 text-green-800 shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p class="text-sm font-semibold">
-                            ¡Descuento por pago anticipado del {{ quote.discount }}% aplicado correctamente!
-                        </p>
+                        <!-- Botón para ocultar/mostrar -->
+                        <button @click="showPromotion = !showPromotion" 
+                                class="flex-shrink-0 bg-gray-200 text-gray-600 size-9 rounded-full hover:bg-gray-300 transition-colors print:hidden"
+                                :title="showPromotion ? (quote.is_spanish_template ? 'Ocultar promoción' : 'Hide promotion') : (quote.is_spanish_template ? 'Mostrar promoción' : 'Show promotion')">
+                            <i class="fa-solid" :class="showPromotion ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </button>
                     </div>
                 </section>
+                <!-- FIN: SECCIÓN DE PROMOCIÓN DE DESCUENTO     -->
+
 
                 <!-- Tarjetas de Productos -->
                 <section>
@@ -110,23 +115,33 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div v-for="(item, productIndex) in quote.products" :key="item.id"
                              class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-md flex flex-col">
-                            
                             <!-- Imagen y Selector -->
                             <div class="bg-gray-200 p-2 relative group">
-                                <img class="rounded-md w-full h-44 object-contain mx-auto"
-                                     :src="item.media[item.activeImageIndex || 0]?.original_url"
-                                     :alt="item.name">
+                                <img v-if="item.pivot.show_image" 
+                                    draggable="false"
+                                    class="rounded-md w-full h-44 object-contain mx-auto"
+                                    :src="item.media[item.activeImageIndex || 0]?.original_url"
+                                    :alt="item.name">
+
+                                <!-- Contenedor alternativo si no hay imagen -->
+                                <div v-else class="flex items-center justify-center w-full h-44 rounded-md bg-gradient-to-br from-gray-300 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold italic">
+                                    {{ quote.is_spanish_template ? 'Producto sin imagen' : 'No image available' }}
+                                </div>
+
                                 <!-- Aprobado Badge -->
                                 <span v-if="item.pivot.customer_approval_status === 'Aprobado'"
-                                      class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                                      {{ quote.is_spanish_template ? 'ACEPTADO' : 'APPROVED' }}
+                                    class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                                    {{ quote.is_spanish_template ? 'ACEPTADO' : 'APPROVED' }}
                                 </span>
+
                                 <!-- Botones de Navegación de Imagen -->
-                                <div v-if="item.media?.length > 1" v-show="showAdditionalElements">
-                                    <button @click="prevImage(productIndex)" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div v-if="item.media?.length > 1 && item.pivot.show_image" v-show="showAdditionalElements">
+                                    <button @click="prevImage(productIndex)" 
+                                            class="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                         <i class="fa-solid fa-chevron-left"></i>
                                     </button>
-                                     <button @click="nextImage(productIndex)" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button @click="nextImage(productIndex)" 
+                                            class="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                         <i class="fa-solid fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -177,7 +192,7 @@
                     <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm">
                          <div class="flex justify-between p-2 rounded-md bg-gray-100">
                             <span class="font-semibold text-gray-600">{{ quote.is_spanish_template ? 'Subtotal (Aprobados)' : 'Subtotal (Approved)' }}:</span>
-                            <span class="font-bold text-gray-800">{{ formatNumber(approvedSubtotal) }} {{ quote.currency }}</span>
+                            <span class="font-bold text-gray-800">{{ formatNumber(quote.total_data.subtotal) }} {{ quote.currency }}</span>
                         </div>
                         <div v-if="!quote.is_freight_cost_stroked" class="flex justify-between p-2">
                             <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Flete' : 'Freight Cost' }}:</span>
@@ -187,9 +202,15 @@
                             <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Herramental' : 'Tooling Cost' }}:</span>
                             <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }} {{ quote.currency }}</span>
                         </div>
+                        <div v-if="quote.has_early_payment_discount" class="flex justify-between p-2 text-green-600 border-t border-dashed">
+                            <span class="font-semibold">
+                                {{ quote.is_spanish_template ? 'Descuento' : 'Discount' }} ({{ quote.early_payment_discount_amount }}%):
+                            </span>
+                            <span class="font-bold">- {{ formatNumber(quote.total_data.discount_amount) }} {{ quote.currency }}</span>
+                        </div>
                         <div class="flex justify-between p-3 rounded-md bg-gray-800 text-white">
                             <span class="text-base font-bold">{{ quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes' }}:</span>
-                            <span class="text-base font-bold">{{ formatNumber(total) }} {{ quote.currency }}</span>
+                            <span class="text-base font-bold">{{ formatNumber(quote.total_data.total_after_discount) }} {{ quote.currency }}</span>
                         </div>
                     </div>
                 </section>
@@ -214,7 +235,7 @@
                         {{ quote.is_spanish_template ? 'Sin más por el momento y en espera de su preferencia, quedo a sus órdenes para cualquier duda o comentario.' : 'Without further ado and awaiting your preference, I remain at your service for any questions or comments.' }}
                     </p>
                     <div class="mt-4">
-                        <p v-if="quote.user">{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user?.name }}</span> ({{ quote.user?.email }})</p>
+                        <p v-if="quote.user">{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user?.name }}</span> ({{ quote.user?.email }}), ({{ quote.user?.phone }})</p>
                         <p v-else class="bg-orange-200 px-2 py-1">{{ quote.is_spanish_template ? 'Creado por cliente desde portal de clientes' : 'Created by customer' }}</p>
                     </div>
                 </section>
@@ -270,6 +291,7 @@ export default {
         return {
             showAdditionalElements: true,
             labelChanged: false,
+            showPromotion: true,
         }
     },
     components: {
@@ -285,24 +307,6 @@ export default {
     computed: {
         tabTitle() {
             return `${this.quote.is_spanish_template ? 'Cotización' : 'Quote'} ${this.quote.id} - ${this.quote.branch.name}`;
-        },
-        approvedSubtotal() {
-            return this.quote.products.reduce((acc, item) => {
-                if (item.pivot.customer_approval_status === 'Aprobado') {
-                    return acc + (item.pivot.quantity * item.pivot.unit_price);
-                }
-                return acc;
-            }, 0);
-        },
-        total() {
-            let currentTotal = this.approvedSubtotal;
-            if (!this.quote.is_tooling_cost_stroked) {
-                currentTotal += parseFloat(this.quote.tooling_cost);
-            }
-            if (!this.quote.is_freight_cost_stroked) {
-                currentTotal += parseFloat(this.quote.freight_cost);
-            }
-            return currentTotal;
         },
     },
     methods: {
@@ -358,8 +362,8 @@ export default {
                 if (response.status === 200) {
                     // Refresca los props de la página actual desde el servidor.
                     router.reload({ 
-                        preserveScroll: true, // Mantiene la posición del scroll
-                        preserveState: true   // Mantiene el estado local del componente (opcional pero recomendado)
+                        preserveScroll: true,
+                        preserveState: true 
                     });
                     
                     ElMessage({

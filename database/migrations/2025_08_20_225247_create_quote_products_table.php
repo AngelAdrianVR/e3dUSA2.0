@@ -19,6 +19,7 @@ return new class extends Migration
             $table->float('quantity')->unsigned();
             $table->decimal('unit_price', 12, 2);
             $table->text('notes')->nullable();
+            $table->boolean('show_image')->default(true);
             $table->json('customization_details')->nullable(); // Se guardan los detalles de personalizacion como info de grabado de medallon, etc.
             
             $table->string('customer_approval_status')->default('Pendiente'); // Pendiente, Aprovado, Rechazado
