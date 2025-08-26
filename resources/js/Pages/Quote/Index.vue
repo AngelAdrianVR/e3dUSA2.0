@@ -6,7 +6,7 @@
         </h2>
 
         <div class="py-7">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <!-- Barra de acciones superior -->
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
@@ -85,13 +85,51 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.name" label="Cliente" width="220">
+                            <el-table-column prop="branch.name" label="Cliente" width="150">
                                 <template #default="scope">
                                     <div class="flex items-center">
                                         <i class="fa-solid fa-circle text-[8px] mr-2"
                                             :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
                                         <span>{{ scope.row.branch.name }}</span>
                                     </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="branch.products" label="Productos" width="130">
+                                <template #default="scope">
+                                    <el-tooltip v-if="scope.row.products?.length" placement="top">
+                                        <template #content>
+                                            <ul class="list-disc list-inside text-xs">
+                                                <li v-for="product in scope.row.products" :key="product.id">
+                                                    ({{ product.pivot.quantity }}) {{ product.name }}
+                                                </li>
+                                            </ul>
+                                        </template>
+                                        <span class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                                            {{ scope.row.products.length }} producto(s)
+                                        </span>
+                                    </el-tooltip>
+                                    <span v-else class="text-xs text-gray-400">N/A</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column v-if="$page.props.auth.user.permissions.includes('Utilidad cotizaciones')" label="Utilidad" width="90">
+                                <template #default="scope">
+                                    <el-tooltip placement="top">
+                                        <template #content>
+                                            <div class="text-xs">
+                                                <p>Venta: <strong>${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
+                                                <p>Costo: <strong>${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
+                                                <p>Utilidad: <strong>${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                            </div>
+                                        </template>
+                                        <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">
+                                            <i class="fa-solid fa-flag"></i>
+                                            <div class="flex">
+                                                <i v-for="n in getProfitabilityStars(scope.row.utility_data.percentage)" :key="`filled-${n}`" class="fa-solid fa-star text-xs text-yellow-300"></i>
+                                                <i v-for="n in (3 - getProfitabilityStars(scope.row.utility_data.percentage))" :key="`unfilled-${n}`" class="fa-regular fa-star text-xs"></i>
+                                            </div>
+                                                <span class="font-semibold text-xs">{{ scope.row.utility_data.percentage.toFixed(1) }}%</span>
+                                        </div>
+                                    </el-tooltip>
                                 </template>
                             </el-table-column>
                             <el-table-column prop="user.name" label="Creado por" width="180">
@@ -136,7 +174,7 @@
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="created_at" label="Fecha de creación">
+                            <el-table-column prop="created_at" label="Fecha de creación" width="150">
                                 <template #default="scope">
                                     {{ formatDate(scope.row.created_at) }}
                                 </template>
@@ -283,6 +321,21 @@ export default {
         quotes: Object,
     },
     methods: {
+        getProfitabilityClass(margin) {
+            if (margin < 10) return 'text-red-500';
+            if (margin >= 10 && margin < 30) return 'text-amber-500';
+            return 'text-green-500';
+        },
+        getProfitabilityStars(margin) {
+            if (margin < 10) return 1;
+            if (margin >= 10 && margin < 30) return 2;
+            return 3;
+        },
+        formatNumber(value) {
+            if (value === null || value === undefined) return '0.00';
+            const num = Number(value);
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+        },
         formatDate(dateString) {
             if (!dateString) return 'N/A';
             return format(new Date(dateString), "d MMM, yyyy 'a las' h:mm a", { locale: es });

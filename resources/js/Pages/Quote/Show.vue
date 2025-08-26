@@ -110,23 +110,33 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div v-for="(item, productIndex) in quote.products" :key="item.id"
                              class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-md flex flex-col">
-                            
                             <!-- Imagen y Selector -->
                             <div class="bg-gray-200 p-2 relative group">
-                                <img class="rounded-md w-full h-44 object-contain mx-auto"
-                                     :src="item.media[item.activeImageIndex || 0]?.original_url"
-                                     :alt="item.name">
+                                <img v-if="item.pivot.show_image" 
+                                    draggable="false"
+                                    class="rounded-md w-full h-44 object-contain mx-auto"
+                                    :src="item.media[item.activeImageIndex || 0]?.original_url"
+                                    :alt="item.name">
+
+                                <!-- Contenedor alternativo si no hay imagen -->
+                                <div v-else class="flex items-center justify-center w-full h-44 rounded-md bg-gradient-to-br from-gray-300 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold italic">
+                                    {{ quote.is_spanish_template ? 'Producto sin imagen' : 'No image available' }}
+                                </div>
+
                                 <!-- Aprobado Badge -->
                                 <span v-if="item.pivot.customer_approval_status === 'Aprobado'"
-                                      class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
-                                      {{ quote.is_spanish_template ? 'ACEPTADO' : 'APPROVED' }}
+                                    class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                                    {{ quote.is_spanish_template ? 'ACEPTADO' : 'APPROVED' }}
                                 </span>
+
                                 <!-- Botones de Navegación de Imagen -->
-                                <div v-if="item.media?.length > 1" v-show="showAdditionalElements">
-                                    <button @click="prevImage(productIndex)" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div v-if="item.media?.length > 1 && item.pivot.show_image" v-show="showAdditionalElements">
+                                    <button @click="prevImage(productIndex)" 
+                                            class="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                         <i class="fa-solid fa-chevron-left"></i>
                                     </button>
-                                     <button @click="nextImage(productIndex)" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button @click="nextImage(productIndex)" 
+                                            class="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                                         <i class="fa-solid fa-chevron-right"></i>
                                     </button>
                                 </div>
@@ -214,7 +224,7 @@
                         {{ quote.is_spanish_template ? 'Sin más por el momento y en espera de su preferencia, quedo a sus órdenes para cualquier duda o comentario.' : 'Without further ado and awaiting your preference, I remain at your service for any questions or comments.' }}
                     </p>
                     <div class="mt-4">
-                        <p v-if="quote.user">{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user?.name }}</span> ({{ quote.user?.email }})</p>
+                        <p v-if="quote.user">{{ quote.is_spanish_template ? 'Creado por' : 'Created by' }}: <span class="font-semibold">{{ quote.user?.name }}</span> ({{ quote.user?.email }}), ({{ quote.user?.phone }})</p>
                         <p v-else class="bg-orange-200 px-2 py-1">{{ quote.is_spanish_template ? 'Creado por cliente desde portal de clientes' : 'Created by customer' }}</p>
                     </div>
                 </section>

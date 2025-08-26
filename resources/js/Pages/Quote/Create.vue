@@ -91,20 +91,22 @@
                                 </span>
                              </div>
                              <div></div> <!-- Espaciador -->
-                             <div>
+                            <div>
                                  <InputLabel value="Opción de flete*" />
                                 <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
                                     <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                     <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
                                     <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
+                                    <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
                                 </el-select>
                                 <InputError :message="form.errors.freight_option" />
                             </div>
-                            <TextInput label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
+                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" 
+                                label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
                                 :formatAsNumber="true" type="number" :placeholder="'Ej. 500.00'" :error="form.errors.freight_cost">
                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
-                            <div class="flex items-center space-x-2 mt-8">
+                            <div v-if="form.freight_option !== 'El cliente manda la guia'" class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
                                     <Checkbox v-model:checked="form.is_freight_cost_stroked" class="bg-transparent border-gray-500" />
                                     <span class="ml-2 text-gray-400">Tachar:</span>
@@ -193,10 +195,69 @@
                                         </p>
                                     </div>
                                 </div>
-                                
+                                <div v-if="currentProduct.id" class="col-span-full flex space-x-2 items-center">
+                                    <InputLabel value="¿Mostrar imagen en cotización?" />
+                                    <el-switch v-model="currentProduct.show_image" inline-prompt size="large"
+                                        style="--el-switch-on-color: #0355B5; --el-switch-off-color: #CCCCCC" active-text="Si"
+                                        inactive-text="No" />
+                                </div>
                                 <div class="lg:col-span-full">
                                      <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" :withMaxLength="true" :maxLength="500" />
                                 </div>
+
+                                <label class="flex items-center col-span-full">
+                                    <Checkbox v-model:checked="form.has_customization" class="bg-transparent border-gray-500" />
+                                    <span class="ml-2 text-gray-400">Agregar personalización al producto</span>
+                                </label>
+                                
+                                <!-- ================================================== -->
+                                <!-- INICIO: NUEVA SECCIÓN DE PERSONALIZACIÓN DINÁMICA -->
+                                <!-- ================================================== -->
+                                <div v-if="form.has_customization" class="lg:col-span-full mt-3 p-4 border border-dashed dark:border-slate-700 rounded-lg">
+                                    <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-300">Detalles de Personalización</h4>
+                                    
+                                    <!-- Inputs para agregar nuevo detalle -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                                        <div>
+                                            <InputLabel value="Tipo*" />
+                                            <el-select v-model="newCustomization.type" placeholder="Selecciona" class="!w-full">
+                                                <el-option v-for="item in customizationTypes" :key="item" :label="item" :value="item" />
+                                            </el-select>
+                                        </div>
+                                        <TextInput label="Concepto*" v-model="newCustomization.key" placeholder="Ej. Teléfono" />
+                                        <TextInput label="Valor" v-model="newCustomization.value" placeholder="Ej. 3312158856" />
+                                    </div>
+                                    <div class="flex justify-end mt-2">
+                                        <SecondaryButton @click="addCustomizationDetail" type="button" :disabled="!newCustomization.type || !newCustomization.key">
+                                            <i class="fa-solid fa-plus mr-2"></i>
+                                            Agregar Detalle
+                                        </SecondaryButton>
+                                    </div>
+
+                                    <!-- Lista de detalles agregados al producto actual -->
+                                    <div v-if="currentProduct.customization_details.length" class="mt-4">
+                                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Detalles agregados:</p>
+                                        <div class="flex flex-wrap gap-2">
+                                            <el-tag
+                                                v-for="(detail, index) in currentProduct.customization_details"
+                                                :key="index"
+                                                closable
+                                                @close="removeCustomizationDetail(index)"
+                                                type="info"
+                                                size="large"
+                                                class="!h-auto"
+                                            >
+                                                <span class="whitespace-normal">
+                                                    <strong>{{ detail.type }}</strong> | {{ detail.key }}: {{ detail.value }}
+                                                </span>
+                                            </el-tag>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- ================================================ -->
+                                <!-- FIN: NUEVA SECCIÓN DE PERSONALIZACIÓN DINÁMICA -->
+                                <!-- ================================================ -->
+
                                 <div class="pt-2 col-span-full">
                                     <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price">
                                         {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
@@ -222,6 +283,18 @@
                                                 Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
                                             </p>
                                             <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
+                                            
+                                            <!-- INICIO: Mostrar detalles de personalización en la lista -->
+                                            <div v-if="product.customization_details && product.customization_details.length" class="mt-2">
+                                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Personalización:</p>
+                                                <ul class="list-disc list-inside pl-1">
+                                                    <li v-for="(detail, i) in product.customization_details" :key="i" class="text-xs text-gray-500 dark:text-gray-400">
+                                                        {{ detail.type }} - {{ detail.key }}: {{ detail.value }}
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <!-- FIN: Mostrar detalles de personalización en la lista -->
+
                                         </span>
                                     </div>
                                     <div class="flex items-center space-x-3">
@@ -243,6 +316,35 @@
                                     </div>
                                 </li>
                             </ul>
+                        </div>
+
+                        <!-- Sección de promociones y descuentos -->
+                        <el-divider v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')" content-position="left" class="col-span-full">Promociones</el-divider>
+                        <div class="grid grid-cols-2 gap-3" v-if="$page.props.auth.user.permissions.includes('Descuentos cotizaciones')">
+                            <label class="flex items-center col-span-full">
+                                <Checkbox v-model:checked="form.has_early_payment_discount" class="bg-transparent border-gray-500" />
+                                <span class="ml-2 text-gray-400">Descuento pago por adelantado</span>
+                                <el-tooltip placement="top">
+                                    <template #content>
+                                        <p>
+                                            Al activar esta opción, el cliente verá <br>
+                                            el beneficio de descuento por pago <br>
+                                            por adelantado en el portal.
+                                        </p>
+                                    </template>
+                                    <div
+                                        class="rounded-full border border-primary size-3 flex items-center justify-center ml-2">
+                                        <i class="fa-solid fa-info text-primary text-[7px]"></i>
+                                    </div>
+                                </el-tooltip>
+                            </label>
+                            
+                            <div v-if="form.has_early_payment_discount">
+                                <TextInput label="Porcentaje de descuento*" :error="form.errors.early_payment_discount_amount" v-model="form.early_payment_discount_amount" type="number">
+                                        <template #icon-left>%</template>
+                                </TextInput>
+                            </div>
+
                         </div>
 
                         <!-- Botón de envío -->
@@ -473,6 +575,7 @@ export default {
                 show_breakdown: true,
                 has_early_payment_discount: false,
                 early_payment_discount_amount: null,
+                has_customization: false,
                 products: [],
             }),
 
@@ -497,13 +600,28 @@ export default {
                 quantity: 1,
                 unit_price: null,
                 notes: '',
-                customization_details: null,
+                customization_details: [], // <--- MODIFICADO: Ahora es un array
                 isClientProduct: false,
                 current_price: null,
+                show_image: true,
                 media: null,
                 storages: [],
                 base_price: null,
             },
+            // --- NUEVO: Estado para el formulario de personalización ---
+            newCustomization: {
+                type: null,
+                key: '',
+                value: ''
+            },
+            customizationTypes: [
+                'Grabado de medallón',
+                'Estampado',
+                'Bordado',
+                'Impresión digital',
+                'Otro'
+            ],
+            // --- FIN NUEVO ---
             editIndex: null,
             localCatalogProducts: this.catalogProducts,
             showClientProductsDrawer: false,
@@ -611,15 +729,31 @@ export default {
                 quantity: 1, 
                 unit_price: null, 
                 notes: '', 
-                customization_details: null,
+                customization_details: [], // <--- MODIFICADO
                 isClientProduct: false,
                 current_price: null,
                 media: null,
                 storages: [],
                 base_price: null,
+                show_image: true,
             };
             this.editIndex = null;
         },
+        // --- INICIO: Nuevos métodos para personalización ---
+        addCustomizationDetail() {
+            if (!this.newCustomization.type || !this.newCustomization.key || !this.newCustomization.value) {
+                ElMessage.warning('Completa todos los campos de personalización.');
+                return;
+            }
+            this.currentProduct.customization_details.push({ ...this.newCustomization });
+            // Resetear el formulario de personalización
+            this.newCustomization = { type: null, key: '', value: '' };
+        },
+        removeCustomizationDetail(index) {
+            this.currentProduct.customization_details.splice(index, 1);
+            ElMessage.info('Detalle de personalización eliminado.');
+        },
+        // --- FIN: Nuevos métodos para personalización ---
         getProductName(productId) {
             const product = this.localCatalogProducts.find(p => p.id === productId);
             return product ? product.name : 'Producto no encontrado';

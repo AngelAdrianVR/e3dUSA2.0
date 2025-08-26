@@ -35,7 +35,7 @@ class PermissionSeeder extends Seeder
             'Productos obsoletos' => ['Ver obsoletos', 'Crear obsoletos', 'Editar obsoletos', 'Eliminar obsoletos'],
             'Scrap' => ['Ver scrap', 'Crear scrap', 'Editar scrap', 'Eliminar scrap'],
             'Costo de producción' => ['Ver costos de produccion', 'Crear costos de produccion', 'Editar costos de produccion', 'Eliminar costos de produccion'],
-            'Cotizaciones' => ['Ver cotizaciones', 'Crear cotizaciones', 'Editar cotizaciones', 'Eliminar cotizaciones', 'Autorizar cotizaciones', 'Descuentos cotizaciones'],
+            'Cotizaciones' => ['Ver cotizaciones', 'Crear cotizaciones', 'Editar cotizaciones', 'Eliminar cotizaciones', 'Autorizar cotizaciones', 'Descuentos cotizaciones', 'Utilidad cotizaciones'],
             'Ordenes de venta' => ['Ver ordenes de venta', 'Crear ordenes de venta', 'Editar ordenes de venta', 'Eliminar ordenes de venta'],
         ];
 

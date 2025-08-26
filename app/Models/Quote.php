@@ -64,7 +64,7 @@ class Quote extends Model implements Auditable
     ];
 
     // Accesor para obtener el total de la cotizacion. ()
-    protected $appends = ['total'];
+    protected $appends = ['total', 'utility_data'];
 
     // ------------------ RELACIONES ------------------
 
@@ -82,7 +82,8 @@ class Quote extends Model implements Auditable
                 'unit_price',
                 'notes',
                 'customization_details',
-                'customer_approval_status'
+                'customer_approval_status',
+                'show_image'
             ])
             ->withTimestamps();
     }
@@ -148,5 +149,35 @@ class Quote extends Model implements Auditable
         }
 
         return max(0, $total);
+    }
+
+    /**
+     * --- Calcula la venta, costo, utilidad y porcentaje ---
+     * Devuelve un array con todos los datos necesarios para el frontend.
+     *
+     * @return array
+     */
+    public function getUtilityDataAttribute(): array
+    {
+        $total_sale = 0;
+        $total_cost = 0;
+
+        // Itera sobre los productos de la cotización para calcular totales.
+        // Es importante que la relación 'products' venga precargada (eager loaded).
+        foreach ($this->products as $product) {
+            $quantity = $product->pivot->quantity;
+            $total_sale += $quantity * $product->pivot->unit_price;
+            $total_cost += $quantity * $product->cost; // 'cost' viene del modelo Product
+        }
+
+        $profit = $total_sale - $total_cost;
+        $percentage = $total_sale > 0 ? ($profit / $total_sale) * 100 : 0;
+
+        return [
+            'total_sale' => $total_sale,
+            'total_cost' => $total_cost,
+            'profit' => $profit,
+            'percentage' => $percentage,
+        ];
     }
 }

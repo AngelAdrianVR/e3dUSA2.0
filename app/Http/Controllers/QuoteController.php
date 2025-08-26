@@ -19,12 +19,11 @@ class QuoteController extends Controller
     public function index()
     {
         // Se obtienen las cotizaciones paginadas.
-        // Usamos 'with' para cargar las relaciones y evitar el problema N+1.
-        // Esto hace que la consulta sea mucho más eficiente.
-        $quotes = Quote::with(['branch', 'user', 'sale', 'authorizedBy'])
+        $quotes = Quote::with(['branch', 'user', 'sale', 'authorizedBy', 'products'])
             ->latest() // Ordena por los más recientes primero
             ->paginate(20); // O el número que prefieras por página
 
+            // return $quotes;
         // Retornamos la vista de Inertia, pasando los datos de las cotizaciones.
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
@@ -54,13 +53,26 @@ class QuoteController extends Controller
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
             'tooling_cost' => 'required|numeric|min:0',
-            'freight_cost' => 'required|numeric|min:0',
+            'freight_cost' => 'required_unless:freight_option,El cliente manda la guia|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
+            'has_early_payment_discount' => 'nullable|boolean',
+            'early_payment_discount_amount' => [
+                'nullable',
+                'required_if:has_early_payment_discount,true',
+                'numeric',
+                'min:1',
+                'max:100'
+            ],
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
+            'products.*.notes' => 'nullable|string',
+            'products.*.customization_details' => 'nullable|array',
+            'products.*.customization_details.*.type' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.key' => 'required_with:products.*.customization_details|string',
+            'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
         // Usamos una transacción para asegurar la integridad de los datos.
@@ -92,7 +104,8 @@ class QuoteController extends Controller
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
                     'notes' => $product['notes'],
-                    'customization_details' => $product['customization_details'],
+                    // --- MODIFICADO: Codificar a JSON antes de guardar ---
+                    'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado', // Por defecto se aprueban al crear
                 ];
             }
@@ -123,13 +136,6 @@ class QuoteController extends Controller
         // Preparar los recursos de la cotización actual
         $quote = Quote::with(['branch', 'user', 'products.media', 'authorizedBy'])->findOrFail($quote->id);
 
- // // Cargar las relaciones necesarias para evitar problemas N+1
-        // $quote->load([
-        //     'branch', // Cliente (sucursal)
-        //     'user',   // Usuario que creó la cotización
-        //     'products' // Los productos pivote y la información del producto real
-        // ]);
-        // return $quote;
         // Retornar la vista de Inertia con los datos de la cotización
         return Inertia::render('Quote/Show', [
             'quote' => $quote,
