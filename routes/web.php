@@ -117,6 +117,7 @@ Route::post('quotes-change-status/{quote}', [QuoteController::class, 'changeStat
 Route::get('quotes-clone/{quote}', [QuoteController::class, 'clone'])->middleware('auth')->name('quotes.clone');
 Route::post('quotes/massive-delete', [QuoteController::class, 'massiveDelete'])->middleware('auth')->name('quotes.massive-delete');
 Route::get('quotes-fetch-branch-quotes/{branch}', [QuoteController::class, 'fetchBranchQuotes'])->middleware('auth')->name('quotes.branch-quotes');
+Route::get('quotes/{quote}/details-for-sale', [QuoteController::class, 'getDetailsForSale'])->middleware(['auth'])->name('quotes.details-for-sale');
 
 
 // ------- CRM(Ordenes de venta Routes)  ---------

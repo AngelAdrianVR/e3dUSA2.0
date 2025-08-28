@@ -35,7 +35,7 @@
                     COT-{{ String(quote.id).padStart(3, '0') }}
                 </td>
                 <td class="px-5 py-4">{{ quote.user?.name ?? 'Sin usuario asignado' }}</td>
-                <td class="px-5 py-4">${{ quote.total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ quote.currency }}</td>
+                <td class="px-5 py-4">${{ quote.total_data.total_after_discount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ quote.currency }}</td>
                 <td class="px-5 py-4 text-center">
                     <i v-if="quote.authorized_at" class="fa-solid fa-check-double text-green-500" title="Autorizado"></i>
                     <p v-else>No autorizado</p>
