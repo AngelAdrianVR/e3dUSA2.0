@@ -20,7 +20,6 @@ class Sale extends Model
         'status',
         'oce_name',
         'order_via',
-        'promise_date',
         'notes',
         'is_high_priority',
         'total_amount',
@@ -34,7 +33,6 @@ class Sale extends Model
 
     protected $casts = [
         'authorized_at' => 'datetime',
-        'promise_date' => 'date',
     ];
 
     // --- RELACIONES ---

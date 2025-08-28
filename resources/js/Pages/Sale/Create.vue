@@ -39,13 +39,13 @@
                             <div v-if="form.type === 'venta'">
                                 <InputLabel value="Cotización relacionada (Opcional)" />
                                 <el-select v-model="form.quote_id" filterable clearable placeholder="Selecciona una cotización" class="!w-full">
-                                    <el-option v-for="quote in quotes" :key="quote.id" :label="`C-${quote.id} - ${quote.branch?.name}`" :value="quote.id" />
+                                    <el-option v-for="quote in quotes" :key="quote.id" :label="`COT-${quote.id} - ${quote.branch?.name}`" :value="quote.id" />
                                 </el-select>
                             </div>
 
                             <div>
                                 <InputLabel value="Cliente*" />
-                                <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
+                                <el-select v-model="form.branch_id" :disabled="form.quote_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
                                     <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
                                 </el-select>
                                 <InputError :message="form.errors.branch_id" />
@@ -54,7 +54,7 @@
                              <div>
                                 <InputLabel value="Contacto*" />
                                 <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero">
-                                    <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.email})`" :value="contact.id" />
+                                    <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
                                 </el-select>
                                 <InputError :message="form.errors.contact_id" />
                             </div>
@@ -73,6 +73,15 @@
                             <span>Logística y Detalles de la Orden</span>
                         </el-divider>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
+                            <div>
+                                <InputLabel value="Opciones de envío*" />
+                                <el-select v-model="form.shipping_option"
+                                    placeholder="Selecciona">
+                                    <el-option v-for="item in shippingOptions" :key="item" :label="item"
+                                        :value="item" />
+                                </el-select>
+                                <InputError :message="form.errors.shipping_option" />
+                            </div>
                             <TextInput label="Fecha promesa" :error="form.errors.promise_date" v-model="form.promise_date" type="date" />
                             <TextInput label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
                              <div>
@@ -81,6 +90,12 @@
                                     <el-option v-for="item in orderVias" :key="item" :label="item" :value="item" />
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
+                            </div>
+
+                            <!-- Archivos de OCE -->
+                            <div class="col-span-full my-2">
+                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
+                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
                             </div>
                             
                             <div>
@@ -92,14 +107,21 @@
                                     <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
                                 </el-select>
                             </div>
-                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" label="Costo de Flete*" v-model="form.freight_cost" type="number" :formatAsNumber="true">
+                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" label="Costo de Flete*" :error="form.errors.freight_option" v-model="form.freight_cost" type="number" :formatAsNumber="true">
                                 <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :isTextarea="true" />
+                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" />
                             </div>
+                            
+                            <!-- Otros Archivos -->
+                            <div class="col-span-full my-2">
+                                <InputLabel value="Otros archivos (máx. 3 archivos)" />
+                                <FileUploader @files-selected="form.anotherFiles = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
+                            </div>
+
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_high_priority" class="bg-transparent border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Prioridad Alta</span>
@@ -108,9 +130,9 @@
 
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
-                            <PrimaryButton :loading="form.processing" :disabled="!form.products.length">
+                            <SecondaryButton :loading="form.processing" :disabled="!form.products.length">
                                 Crear Órden de Venta
-                            </PrimaryButton>
+                            </SecondaryButton>
                         </div>
                     </form>
                 </div>
@@ -138,6 +160,7 @@ import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import Back from "@/Components/MyComponents/Back.vue";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -152,6 +175,7 @@ export default {
         AppLayout,
         InputError,
         InputLabel,
+        FileUploader,
         PrimaryButton,
         SecondaryButton,
         SaleProductManager,
@@ -177,6 +201,9 @@ export default {
                 notes: '',
                 is_high_priority: false,
                 products: [],
+                oce_media: null, //archivo OCE
+                anotherFiles: null, //otros archivos
+                shipping_option: null, //indica el numero de parcialidades de entrega
             }),
             availableContacts: [],
             clientProducts: [],
@@ -187,6 +214,12 @@ export default {
                 'Llamada telefónica',
                 'Resurtido programado',
                 'Otro',
+            ],
+            shippingOptions: [
+                'Entrega única',
+                '2 parcialidades',
+                '3 parcialidades',
+                '4 parcialidades',
             ],
         };
     },

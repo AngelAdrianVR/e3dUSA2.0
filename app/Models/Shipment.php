@@ -13,7 +13,8 @@ class Shipment extends Model
 
     protected $fillable = [
         'sale_id',
-        'status',
+        'status', // Pendiente, Enviado
+        'promise_date',
         'shipping_company',
         'tracking_guide',
         'number_of_packages',

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('sale_id')->constrained()->cascadeOnDelete();
             $table->string('status')->default('Empacado'); // 'Empacado', 'Enviado', 'Entregado'
             $table->string('shipping_company')->nullable();
+            $table->date('promise_date')->nullable();
             $table->string('tracking_guide')->nullable();
             $table->integer('number_of_packages')->nullable();
             $table->decimal('shipping_cost', 10, 2)->nullable();
