@@ -82,7 +82,6 @@
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
                             </div>
-                            <!-- <TextInput label="Medio de Petición" :error="form.errors.order_via" v-model="form.order_via" /> -->
                             
                             <div>
                                 <InputLabel value="Opción de Flete" />
@@ -139,10 +138,11 @@ import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import Back from "@/Components/MyComponents/Back.vue";
-import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue"; // <-- IMPORTADO
-import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue"; // <-- IMPORTADO
-import { ElMessage } from 'element-plus';
+import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
+import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
+import { h } from 'vue'; // <-- NUEVO: Importar 'h' para crear VNodes
 
 export default {
     components: {
@@ -154,8 +154,8 @@ export default {
         InputLabel,
         PrimaryButton,
         SecondaryButton,
-        SaleProductManager,     // <-- REGISTRADO
-        ClientProductsDrawer,   // <-- REGISTRADO
+        SaleProductManager,
+        ClientProductsDrawer,
     },
     props: {
         branches: Array,
@@ -190,6 +190,17 @@ export default {
             ],
         };
     },
+    watch: {
+        'form.quote_id'(newQuoteId) {
+            if (newQuoteId) {
+                this.fetchQuoteDetails(newQuoteId);
+            } else {
+                this.form.reset('branch_id', 'contact_id', 'freight_option', 'freight_cost', 'notes', 'products');
+                this.availableContacts = [];
+                this.clientProducts = [];
+            }
+        }
+    },
     methods: {
         store() {
             this.form.post(route("sales.store"), {
@@ -202,14 +213,13 @@ export default {
                 }
             });
         },
-        handleBranchChange(branchId) {
+        async handleBranchChange(branchId) {
             this.form.contact_id = null;
-            this.form.products = [];
             
             const selectedBranch = this.branches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
-            this.fetchClientProducts();
+            await this.fetchClientProducts();
         },
         async fetchClientProducts() {
             if (!this.form.branch_id) return;
@@ -217,12 +227,102 @@ export default {
             try {
                 const response = await axios.get(route('branches.fetch-products', this.form.branch_id));
                 this.clientProducts = response.data;
-                this.$emit('products-loaded', this.clientProducts); // Emitir productos al padre
+                this.$emit('products-loaded', this.clientProducts);
             } catch (error) {
                 console.error("Error fetching client products:", error);
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
             }
         },
+        async fetchQuoteDetails(quoteId) {
+            try {
+                const response = await axios.get(route('quotes.details-for-sale', quoteId));
+                const quoteData = response.data;
+
+                this.form.branch_id = quoteData.branch_id;
+                this.form.freight_option = quoteData.freight_option;
+                this.form.freight_cost = quoteData.freight_cost;
+                this.form.notes = quoteData.notes;
+
+                await this.handleBranchChange(quoteData.branch_id);
+
+                this.form.contact_id = quoteData.contact_id;
+
+                this.processQuoteProducts(quoteData.products);
+
+            } catch (error) {
+                console.error("Error fetching quote details:", error);
+                ElMessage.error('No se pudo cargar la información de la cotización.');
+            }
+        },
+        async processQuoteProducts(quoteProducts) {
+            this.form.products = [];
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+
+            for (const product of quoteProducts) {
+                if (clientProductIds.has(product.id)) {
+                    this.addProductToSaleForm(product);
+                } else {
+                    try {
+                        // MODIFICADO: Usamos VNodes para mostrar la imagen y el texto
+                        await ElMessageBox.confirm(
+                           '', // El mensaje ahora se pasa como VNode en las opciones
+                           {
+                                title: 'Producto no asignado',
+                                message: h('div', { class: 'flex flex-col items-center text-center' }, [ // Diseño en columna y centrado
+                                    h('img', {
+                                        src: product.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A', // Imagen de fallback
+                                        class: 'w-48 h-48 rounded-lg object-cover border mb-4', // Imagen más grande y con margen inferior
+                                        alt: product.name
+                                    }),
+                                    h('p', null, `El producto "${product.name}" (P/N: ${product.part_number}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
+                                ]),
+                                confirmButtonText: 'Sí, asignar y agregar',
+                                cancelButtonText: 'No, omitir',
+                                type: 'warning',
+                           }
+                        );
+                        await this.associateAndAddProduct(product);
+                    } catch (action) {
+                        ElMessage.info(`Se omitió el producto: "${product.name}"`);
+                    }
+                }
+            }
+        },
+        
+        async associateAndAddProduct(product) {
+            try {
+                const payload = {
+                    products: [
+                        {
+                            product_id: product.id,
+                            price: null 
+                        }
+                    ]
+                };
+
+                await axios.post(route('branches.add-products', this.form.branch_id), payload);
+                
+                ElMessage.success(`Producto "${product.name}" asociado al cliente.`);
+                
+                await this.fetchClientProducts();
+
+                this.addProductToSaleForm(product);
+
+            } catch (error) {
+                console.error("Error associating product:", error);
+                ElMessage.error(`No se pudo asociar el producto "${product.name}".`);
+            }
+        },
+        
+        addProductToSaleForm(product) {
+            this.form.products.push({
+                id: product.id,
+                quantity: product.quantity,
+                price: product.unit_price,
+                notes: product.notes,
+                is_new_design: false,
+            });
+        }
     },
 };
 </script>

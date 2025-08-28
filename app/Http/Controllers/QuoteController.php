@@ -489,9 +489,8 @@ class QuoteController extends Controller
      */
     public function getDetailsForSale(Quote $quote)
     {
-        // Cargamos las relaciones necesarias para evitar N+1 queries.
-        // 'branch' para el cliente y 'products' con los datos del pivote.
-        $quote->load('branch', 'products');
+        // MODIFICADO: Cargamos también la relación 'media' de cada producto.
+        $quote->load('branch', 'products.media');
 
         // Formateamos los productos para que sea más fácil consumirlos en el frontend.
         // Solo incluimos los productos que fueron aprobados en la cotización.
@@ -506,16 +505,18 @@ class QuoteController extends Controller
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
                     'notes' => $product->pivot->notes,
+                    // NUEVO: Agregamos la URL de la primera imagen del producto.
+                    'image_url' => $product->media->first()?->original_url,
                 ];
             });
 
         return response()->json([
             'branch_id' => $quote->branch_id,
-            'contact_id' => $quote->branch->main_contact_id, // Puedes ajustar esto si la cotización guarda un contacto específico
+            'contact_id' => $quote->branch->main_contact_id,
             'freight_option' => $quote->freight_option,
             'freight_cost' => $quote->freight_cost,
             'notes' => $quote->notes,
-            'products' => $approvedProducts->values(), // .values() para re-indexar el array
+            'products' => $approvedProducts->values(),
         ]);
     }
 }

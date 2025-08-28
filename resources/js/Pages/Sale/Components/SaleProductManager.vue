@@ -31,7 +31,7 @@
             <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
             <!-- Tarjeta de producto seleccionado -->
-            <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id">
+            <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id && currentProduct.storages">
                 <figure 
                     v-if="currentProduct.media" 
                     class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
@@ -154,6 +154,7 @@ export default {
                 price: null,
                 notes: '',
                 is_new_design: false,
+                storages: null, // Inicializar para evitar errores
             },
             editIndex: null,
             loadingProductData: false,
@@ -183,10 +184,15 @@ export default {
             this.products = updatedProducts; // Esto activará el 'set' de la propiedad computada
             this.resetCurrentProduct();
         },
-        editProduct(index) {
+        async editProduct(index) {
+            // Clonamos el producto de la lista para llenar el formulario
             this.currentProduct = JSON.parse(JSON.stringify(this.products[index]));
             this.editIndex = index;
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
+            
+            // CORRECCIÓN: Llamamos a getProductData para obtener los detalles completos
+            // del producto (como 'storages' y 'media') que no están en la lista principal.
+            await this.getProductData();
         },
         deleteProduct(index) {
             let updatedProducts = [...this.products];
@@ -201,6 +207,7 @@ export default {
                 price: null, 
                 notes: '', 
                 is_new_design: false,
+                storages: null,
             };
             this.editIndex = null;
         },
@@ -226,7 +233,12 @@ export default {
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
                     this.currentProduct.base_price = productData.base_price;
-                    this.currentProduct.unit_price = productData.base_price;
+                    
+                    // Si no estamos editando, asignamos el precio base.
+                    // Si estamos editando, el precio ya se copió del producto de la lista.
+                    if (this.editIndex === null) {
+                        this.currentProduct.price = productData.base_price;
+                    }
 
                     // --- NUEVA LÓGICA ---
                     // Revisa si es un producto registrado por el cliente para obtener su precio especial
@@ -239,8 +251,10 @@ export default {
                             ? clientProduct.price_history[0].price 
                             : clientProduct.base_price;
 
-                        // Asigna el precio del cliente como precio unitario por defecto
-                        this.currentProduct.price = this.currentProduct.current_price;
+                        // Si no estamos editando, asigna el precio del cliente como precio por defecto
+                        if (this.editIndex === null) {
+                            this.currentProduct.price = this.currentProduct.current_price;
+                        }
                     } else {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
