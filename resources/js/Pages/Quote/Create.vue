@@ -92,7 +92,7 @@
                              </div>
                              <div></div> <!-- Espaciador -->
                             <div>
-                                 <InputLabel value="Opción de flete*" />
+                                <InputLabel value="Opción de flete*" />
                                 <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
                                     <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                     <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
@@ -140,7 +140,7 @@
                                 <div class="lg:col-span-2">
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <!-- MODIFICADO: Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
+                                        <!-- Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
                                         <el-option v-for="product in localCatalogProducts" 
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
@@ -469,7 +469,8 @@
                 </div>
             </div>
         </el-drawer>
-
+        
+        <!-- Modal para actualizar precio especial -->
         <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
             <template #title>
                 Actualizar precio de <span class="text-blue-500">{{ productForUpdate?.name }}</span>
@@ -594,6 +595,7 @@ export default {
                 current_base_price: 0,
                 min_allowed_price: 0,
             },
+
             // Se agregan más propiedades para manejar el estado del producto actual
             currentProduct: {
                 id: null,
@@ -823,7 +825,7 @@ export default {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
-                    this.$inertia.reload({ preserveScroll: true });
+                    this.fetchClientProducts(this.form.branch_id);
                 }
             } catch (error) {
                 console.error("Error al finalizar el precio:", error);

@@ -161,8 +161,8 @@ export default {
                     active: 
                         route().current('crm.*') 
                         || route().current('quotes.*') 
-                        || route().current('branches.*'),
-                        // || route().current('sales.*') 
+                        || route().current('branches.*')
+                        || route().current('sales.*'),
                         // || route().current('oportunities.*') 
                         // || route().current('oportunity-tasks.*')
                         // || route().current('client-monitors.*') 
@@ -221,14 +221,14 @@ export default {
                                 return notification.data.module === 'quote';
                             }),
                         },
-                //         {
-                //             label: 'Órdenes de venta / stock',
-                //             route: 'sales.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'sales';
-                //             }),
-                //         },
+                        {
+                            label: 'Órdenes de venta / stock',
+                            route: 'sales.index',
+                            show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'sales';
+                            // }),
+                        },
                 //         {
                 //             label: 'Facturación',
                 //             route: 'invoices.index',
@@ -240,7 +240,7 @@ export default {
                     show: 
                      this.$page.props.auth.user.permissions.includes('Ver clientes') 
                     || this.$page.props.auth.user.permissions.includes('Ver cotizaciones') 
-                    // || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
+                    || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
                     // || this.$page.props.auth.user.permissions.includes('Ver oportunidades') 
                     // || this.$page.props.auth.user.permissions.includes('Ver seguimiento integral') 
                     // || this.$page.props.auth.user.permissions.includes('Ver facturas') 

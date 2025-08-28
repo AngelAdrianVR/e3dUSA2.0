@@ -804,7 +804,7 @@ export default {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
-                    this.$inertia.reload({ preserveScroll: true });
+                    this.fetchClientProducts(this.form.branch_id);s
                 }
             } catch (error) {
                 console.error("Error al finalizar el precio:", error);

@@ -480,4 +480,42 @@ class QuoteController extends Controller
 
         return response()->json($quotes);
     }
+
+    /**
+     * Recupera los detalles de una cotización para ser usados en la creación de una venta.
+     *
+     * @param  \App\Models\Quote  $quote
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDetailsForSale(Quote $quote)
+    {
+        // Cargamos las relaciones necesarias para evitar N+1 queries.
+        // 'branch' para el cliente y 'products' con los datos del pivote.
+        $quote->load('branch', 'products');
+
+        // Formateamos los productos para que sea más fácil consumirlos en el frontend.
+        // Solo incluimos los productos que fueron aprobados en la cotización.
+        $approvedProducts = $quote->products
+            ->where('pivot.customer_approval_status', 'Aprobado')
+            ->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'cost' => $product->cost,
+                    'quantity' => $product->pivot->quantity,
+                    'unit_price' => $product->pivot->unit_price,
+                    'notes' => $product->pivot->notes,
+                ];
+            });
+
+        return response()->json([
+            'branch_id' => $quote->branch_id,
+            'contact_id' => $quote->branch->main_contact_id, // Puedes ajustar esto si la cotización guarda un contacto específico
+            'freight_option' => $quote->freight_option,
+            'freight_cost' => $quote->freight_cost,
+            'notes' => $quote->notes,
+            'products' => $approvedProducts->values(), // .values() para re-indexar el array
+        ]);
+    }
 }
