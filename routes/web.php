@@ -122,6 +122,10 @@ Route::get('quotes/{quote}/details-for-sale', [QuoteController::class, 'getDetai
 
 // ------- CRM(Ordenes de venta Routes)  ---------
 Route::resource('sales', SaleController::class)->middleware('auth');
+Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
+Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
+Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');
+Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('auth')->name('sales.print');
 
 
 // ------- Recursos humanos(users routes)  ---------

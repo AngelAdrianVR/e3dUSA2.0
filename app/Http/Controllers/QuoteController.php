@@ -393,7 +393,6 @@ class QuoteController extends Controller
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
-                // Busca dentro de la relación de la matriz (parent)
                 ->orWhereHas('user', function ($parentQuery) use ($query) {
                     $parentQuery->where('name', 'like', "%{$query}%");
                 })
@@ -504,6 +503,7 @@ class QuoteController extends Controller
                     'cost' => $product->cost,
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
+                    'customization_details' => json_decode($product->pivot->customization_details),
                     'notes' => $product->pivot->notes,
                     // NUEVO: Agregamos la URL de la primera imagen del producto.
                     'image_url' => $product->media->first()?->original_url,

@@ -73,7 +73,57 @@
             <div class="lg:col-span-full">
                  <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" />
             </div>
-            <label class="flex items-center">
+
+            <!-- INICIO: SECCIÓN DE PERSONALIZACIÓN -->
+            <label class="flex items-center col-span-full mt-2">
+                <Checkbox v-model:checked="currentProduct.has_customization" class="bg-transparent border-gray-500" />
+                <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Agregar personalización al producto</span>
+            </label>
+
+            <div v-if="currentProduct.has_customization" class="lg:col-span-full mt-3 p-4 border border-dashed dark:border-slate-700 rounded-lg">
+                <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-300">Detalles de Personalización</h4>
+                
+                <!-- Inputs para agregar nuevo detalle -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
+                    <div>
+                        <InputLabel value="Tipo*" />
+                        <el-select v-model="newCustomization.type" placeholder="Selecciona" class="!w-full">
+                            <el-option v-for="item in customizationTypes" :key="item" :label="item" :value="item" />
+                        </el-select>
+                    </div>
+                    <TextInput label="Concepto*" v-model="newCustomization.key" placeholder="Ej. Teléfono" />
+                    <TextInput label="Valor" v-model="newCustomization.value" placeholder="Ej. 3312158856" />
+                </div>
+                <div class="flex justify-end mt-2">
+                    <SecondaryButton @click="addCustomizationDetail" type="button" :disabled="!newCustomization.type || !newCustomization.key">
+                        <i class="fa-solid fa-plus mr-2"></i>
+                        Agregar Detalle
+                    </SecondaryButton>
+                </div>
+
+                <!-- Lista de detalles agregados al producto actual -->
+                <div v-if="currentProduct.customization_details.length" class="mt-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Detalles agregados:</p>
+                    <div class="flex flex-wrap gap-2">
+                        <el-tag
+                            v-for="(detail, index) in currentProduct.customization_details"
+                            :key="index"
+                            closable
+                            @close="removeCustomizationDetail(index)"
+                            type="info"
+                            size="large"
+                            class="!h-auto"
+                        >
+                            <span class="whitespace-normal">
+                                <strong>{{ detail.type }}</strong> | {{ detail.key }}: {{ detail.value }}
+                            </span>
+                        </el-tag>
+                    </div>
+                </div>
+            </div>
+            <!-- FIN: SECCIÓN DE PERSONALIZACIÓN -->
+
+            <label class="flex items-center mt-2">
                 <Checkbox v-model:checked="currentProduct.is_new_design" class="bg-transparent border-gray-500" />
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Diseño nuevo</span>
             </label>
@@ -101,6 +151,18 @@
                             Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
                         </p>
                         <small v-if="product.notes" class="text-xs text-gray-500 dark:text-gray-400">{{ product.notes }}</small>
+                        
+                        <!-- INICIO: Mostrar detalles de personalización en la lista -->
+                        <div v-if="product.customization_details && product.customization_details.length" class="mt-2">
+                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Personalización:</p>
+                            <ul class="list-disc list-inside pl-1">
+                                <li v-for="(detail, i) in product.customization_details" :key="i" class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ detail.type }} - {{ detail.key }}: {{ detail.value }}
+                                </li>
+                            </ul>
+                        </div>
+                        <!-- FIN: Mostrar detalles de personalización en la lista -->
+
                     </span>
                 </div>
                 <div class="flex items-center space-x-3">
@@ -154,14 +216,27 @@ export default {
                 price: null,
                 notes: '',
                 is_new_design: false,
-                storages: null, // Inicializar para evitar errores
+                storages: null,
+                has_customization: false,
+                customization_details: [],
             },
+            newCustomization: {
+                type: null,
+                key: '',
+                value: ''
+            },
+            customizationTypes: [
+                'Grabado de medallón',
+                'Estampado',
+                'Bordado',
+                'Impresión digital',
+                'Otro'
+            ],
             editIndex: null,
             loadingProductData: false,
         };
     },
     computed: {
-        // Hacemos una propiedad computada para poder modificar el array internamente y emitir el cambio
         products: {
             get() {
                 return this.modelValue;
@@ -181,17 +256,20 @@ export default {
             } else {
                 updatedProducts.push(productToAdd);
             }
-            this.products = updatedProducts; // Esto activará el 'set' de la propiedad computada
+            this.products = updatedProducts;
             this.resetCurrentProduct();
         },
         async editProduct(index) {
-            // Clonamos el producto de la lista para llenar el formulario
             this.currentProduct = JSON.parse(JSON.stringify(this.products[index]));
+            
+            if (!this.currentProduct.customization_details) {
+                this.currentProduct.customization_details = [];
+            }
+            this.currentProduct.has_customization = this.currentProduct.customization_details.length > 0;
+
             this.editIndex = index;
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
             
-            // CORRECCIÓN: Llamamos a getProductData para obtener los detalles completos
-            // del producto (como 'storages' y 'media') que no están en la lista principal.
             await this.getProductData();
         },
         deleteProduct(index) {
@@ -208,8 +286,23 @@ export default {
                 notes: '', 
                 is_new_design: false,
                 storages: null,
+                has_customization: false,
+                customization_details: [],
             };
             this.editIndex = null;
+            this.newCustomization = { type: null, key: '', value: '' };
+        },
+        addCustomizationDetail() {
+            if (!this.newCustomization.type || !this.newCustomization.key || !this.newCustomization.value) {
+                ElMessage.warning('Completa todos los campos de personalización.');
+                return;
+            }
+            this.currentProduct.customization_details.push({ ...this.newCustomization });
+            this.newCustomization = { type: null, key: '', value: '' };
+        },
+        removeCustomizationDetail(index) {
+            this.currentProduct.customization_details.splice(index, 1);
+            ElMessage.info('Detalle de personalización eliminado.');
         },
         getProductName(productId) {
             const product = this.clientProducts.find(p => p.id === productId);
@@ -223,7 +316,6 @@ export default {
         },
         async getProductData() {
             if (!this.currentProduct.id) return;
-            // 1. Inicia el estado de carga
             this.loadingProductData = true;
             try {
                 const response = await axios.get(route('products.get-media', this.currentProduct.id));
@@ -234,24 +326,18 @@ export default {
                     this.currentProduct.storages = productData.storages;
                     this.currentProduct.base_price = productData.base_price;
                     
-                    // Si no estamos editando, asignamos el precio base.
-                    // Si estamos editando, el precio ya se copió del producto de la lista.
                     if (this.editIndex === null) {
                         this.currentProduct.price = productData.base_price;
                     }
 
-                    // --- NUEVA LÓGICA ---
-                    // Revisa si es un producto registrado por el cliente para obtener su precio especial
                     const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
                     if (clientProduct) {
                         this.currentProduct.isClientProduct = true;
-                        // Obtiene el precio actual del historial o usa el precio base como fallback
                         this.currentProduct.current_price = 
                         (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
                             ? clientProduct.price_history[0].price 
                             : clientProduct.base_price;
 
-                        // Si no estamos editando, asigna el precio del cliente como precio por defecto
                         if (this.editIndex === null) {
                             this.currentProduct.price = this.currentProduct.current_price;
                         }

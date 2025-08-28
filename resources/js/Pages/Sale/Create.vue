@@ -45,7 +45,7 @@
 
                             <div>
                                 <InputLabel value="Cliente*" />
-                                <el-select v-model="form.branch_id" :disabled="form.quote_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
+                                <el-select v-model="form.branch_id" :disabled="form.quote_id ? true : false" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
                                     <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
                                 </el-select>
                                 <InputError :message="form.errors.branch_id" />
@@ -68,9 +68,9 @@
                             :products-error="form.errors.products"
                         />
                         
-                        <!-- SECCIÓN 3: LOGÍSTICA Y DETALLES -->
+                        <!-- SECCIÓN 3: LOGÍSTICA -->
                         <el-divider content-position="left" class="!mt-8">
-                            <span>Logística y Detalles de la Orden</span>
+                            <span>Logística de la Orden</span>
                         </el-divider>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
                             <div>
@@ -81,21 +81,6 @@
                                         :value="item" />
                                 </el-select>
                                 <InputError :message="form.errors.shipping_option" />
-                            </div>
-                            <TextInput label="Fecha promesa" :error="form.errors.promise_date" v-model="form.promise_date" type="date" />
-                            <TextInput label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
-                             <div>
-                                <InputLabel value="Medio de petición*" />
-                                <el-select v-model="form.order_via" placeholder="Medio de petición *">
-                                    <el-option v-for="item in orderVias" :key="item" :label="item" :value="item" />
-                                </el-select>
-                                <InputError :message="form.errors.order_via" />
-                            </div>
-
-                            <!-- Archivos de OCE -->
-                            <div class="col-span-full my-2">
-                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
-                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
                             </div>
                             
                             <div>
@@ -110,18 +95,99 @@
                             <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" label="Costo de Flete*" :error="form.errors.freight_option" v-model="form.freight_cost" type="number" :formatAsNumber="true">
                                 <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
+
+                            <!-- ENVÍOS / PARCIALIDADES -->
+                            <div v-if="form.products.length" class="col-span-full">
+                                <div v-if="!form.shipping_option" class="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-800 p-3 rounded-lg">
+                                    <p>Por favor, selecciona una opción de envío para configurar las parcialidades.</p>
+                                </div>
+                                <div v-else class="space-y-6">
+                                    <div v-for="(shipment, s_index) in form.shipments" :key="s_index" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border dark:border-slate-700">
+                                        <h3 class="font-bold text-lg mb-3 text-gray-800 dark:text-gray-200">Parcialidad {{ s_index + 1 }}</h3>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
+                                            <TextInput label="Fecha promesa de envío*" :error="form.errors[`shipments.${s_index}.promise_date`]" v-model="shipment.promise_date" type="date" />
+                                            <div>
+                                                <InputLabel value="Paquetería" />
+                                                <el-select v-model="shipment.shipping_company" filterable clearable placeholder="Selecciona" class="!w-full">
+                                                    <el-option v-for="company in shippingCompanies" :key="company" :label="company" :value="company" />
+                                                </el-select>
+                                                <InputError :message="form.errors[`shipments.${s_index}.shipping_company`]" />
+                                            </div>
+                                            <TextInput label="Guía de rastreo" :error="form.errors[`shipments.${s_index}.tracking_guide`]" v-model="shipment.tracking_guide" />
+                                            <div class="col-span-full my-2">
+                                                <InputLabel :value="`Acuse de envío para parcialidad ${s_index + 1}`" />
+                                                <FileUploader @files-selected="shipment.acknowledgement_file = $event[0]" :multiple="false" acceptedFormat="Todo" />
+                                                <InputError :message="form.errors[`shipments.${s_index}.acknowledgement_file`]" />
+                                            </div>
+                                        </div>
+                                        <!-- Productos de la parcialidad -->
+                                        <div class="mt-4">
+                                            <h4 class="font-semibold text-md mb-2 text-gray-700 dark:text-gray-300">Productos en esta parcialidad</h4>
+                                            <div class="overflow-x-auto">
+                                                <table class="w-full text-sm">
+                                                    <thead>
+                                                        <tr class="text-left text-gray-600 dark:text-gray-400">
+                                                            <th class="font-semibold p-2">Producto</th>
+                                                            <th class="font-semibold p-2">Total en Venta</th>
+                                                            <th class="font-semibold p-2">Cantidad en este envío</th>
+                                                            <th class="font-semibold p-2">Restantes por asignar</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr v-for="(product, p_index) in shipment.products" :key="p_index" class="border-t dark:border-slate-700">
+                                                            <td class="p-2">
+                                                                <p class="font-medium text-gray-800 dark:text-gray-200">{{ product.name }}</p>
+                                                            </td>
+                                                            <td class="p-2 text-center dark:text-white">{{ getProductTotalQuantity(product.product_id) }}</td>
+                                                            <td class="p-2">
+                                                                <!-- INICIO: MODIFICACIÓN CON VALIDACIONES -->
+                                                                <el-input-number 
+                                                                    v-model="product.quantity" 
+                                                                    :min="0" 
+                                                                    :max="getMaxShippableQuantity(product.product_id, s_index)" 
+                                                                    :disabled="form.shipments.length === 1"
+                                                                    size="small" 
+                                                                    controls-position="right" 
+                                                                    class="!w-28" />
+                                                                <!-- FIN: MODIFICACIÓN CON VALIDACIONES -->
+                                                            </td>
+                                                            <td class="p-2 text-center" :class="getRemainingQuantity(product.product_id) < 0 ? 'text-red-500 font-bold' : 'text-green-600'">
+                                                                {{ getRemainingQuantity(product.product_id) }}
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SECCIÓN 4: DETALLES GENERALES DE LA ORDEN -->
+                            <el-divider content-position="left" class="!mt-8 col-span-full">
+                                <span>Detalles generales</span>
+                            </el-divider>
+
+                            <TextInput label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
+                             <div>
+                                <InputLabel value="Medio de petición*" />
+                                <el-select v-model="form.order_via" placeholder="Medio de petición *">
+                                    <el-option v-for="item in orderVias" :key="item" :label="item" :value="item" />
+                                </el-select>
+                                <InputError :message="form.errors.order_via" />
+                            </div>
+
+                            <!-- Archivos de OCE -->
+                            <div class="col-span-full my-2">
+                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
+                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
+                            </div>
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
                                 <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" />
                             </div>
                             
-                            <!-- Otros Archivos -->
-                            <div class="col-span-full my-2">
-                                <InputLabel value="Otros archivos (máx. 3 archivos)" />
-                                <FileUploader @files-selected="form.anotherFiles = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
-                            </div>
-
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_high_priority" class="bg-transparent border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Prioridad Alta</span>
@@ -165,7 +231,7 @@ import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
-import { h } from 'vue'; // <-- NUEVO: Importar 'h' para crear VNodes
+import { h } from 'vue';
 
 export default {
     components: {
@@ -193,7 +259,6 @@ export default {
                 quote_id: null,
                 contact_id: null,
                 type: 'venta',
-                promise_date: null,
                 oce_name: '',
                 order_via: '',
                 freight_option: 'Por cuenta del cliente',
@@ -201,9 +266,10 @@ export default {
                 notes: '',
                 is_high_priority: false,
                 products: [],
-                oce_media: null, //archivo OCE
-                anotherFiles: null, //otros archivos
-                shipping_option: null, //indica el numero de parcialidades de entrega
+                oce_media: null,
+                anotherFiles: null,
+                shipping_option: null,
+                shipments: [], 
             }),
             availableContacts: [],
             clientProducts: [],
@@ -221,6 +287,15 @@ export default {
                 '3 parcialidades',
                 '4 parcialidades',
             ],
+            shippingCompanies: [
+                'DHL',
+                'UPS',
+                'FedEx',
+                'Estafeta',
+                'Paquetexpress',
+                'Envío propio',
+                'Otro',
+            ],
         };
     },
     watch: {
@@ -232,20 +307,129 @@ export default {
                 this.availableContacts = [];
                 this.clientProducts = [];
             }
+        },
+        'form.shipping_option'(newValue) {
+            this.generateShipmentPartials(newValue);
+        },
+        'form.products': {
+            handler() {
+                this.generateShipmentPartials(this.form.shipping_option);
+            },
+            deep: true
         }
     },
     methods: {
         store() {
+            // --- INICIO: VALIDACIÓN DE CANTIDADES EN PARCIALIDADES ---
+            if (this.form.shipping_option && this.form.products.length > 0) {
+                for (const product of this.form.products) {
+                    const remaining = this.getRemainingQuantity(product.id);
+                    if (remaining !== 0) {
+                        const productName = this.getProductInfo(product.id)?.name || `ID ${product.id}`;
+                        ElMessage.error(`Debe asignar la cantidad total para el producto "${productName}". Faltan ${remaining} por asignar.`);
+                        return; // Detiene el envío del formulario
+                    }
+                }
+            }
+            // --- FIN: VALIDACIÓN DE CANTIDADES EN PARCIALIDADES ---
+
+            this.form.shipments.forEach(shipment => {
+                if (shipment.acknowledgement_file && typeof shipment.acknowledgement_file === 'object' && shipment.acknowledgement_file.file) {
+                    shipment.acknowledgement_file = shipment.acknowledgement_file.file;
+                }
+            });
+
             this.form.post(route("sales.store"), {
                 onSuccess: () => {
                     ElMessage.success('Órden de venta creada correctamente');
                 },
-                onError: () => {
+                onError: (errors) => {
+                    console.error(errors);
                     this.$refs.formContainer.scrollIntoView({ behavior: 'smooth' });
                     ElMessage.error('Por favor, revisa los errores en el formulario.');
                 }
             });
         },
+        generateShipmentPartials(option) {
+            if (!option || !this.form.products.length) {
+                this.form.shipments = [];
+                return;
+            }
+
+            const count = parseInt(option.split(' ')[0]) || 1;
+            const newShipments = [];
+
+            for (let i = 0; i < count; i++) {
+                const existingShipment = this.form.shipments[i] || {};
+                
+                newShipments.push({
+                    promise_date: existingShipment.promise_date || null,
+                    shipping_company: existingShipment.shipping_company || null,
+                    tracking_guide: existingShipment.tracking_guide || '',
+                    acknowledgement_file: existingShipment.acknowledgement_file || null,
+                    products: this.form.products.map(p => {
+                        const existingProduct = existingShipment.products?.find(sp => sp.product_id === p.id);
+                        const productInfo = this.getProductInfo(p.id);
+                        
+                        // --- INICIO: LÓGICA MEJORADA PARA ASIGNAR CANTIDAD ---
+                        let quantity = 0;
+                        if (count === 1) {
+                            // Si es entrega única, asigna el total del producto.
+                            quantity = p.quantity;
+                        } else {
+                            // Si son múltiples parcialidades, mantiene la cantidad existente o la inicializa en 0.
+                            quantity = existingProduct?.quantity || 0;
+                        }
+                        // --- FIN: LÓGICA MEJORADA ---
+
+                        return {
+                            product_id: p.id,
+                            quantity: quantity,
+                            name: productInfo?.name,
+                            part_number: productInfo?.part_number,
+                        };
+                    })
+                });
+            }
+            this.form.shipments = newShipments;
+        },
+        getProductInfo(productId) {
+            let product = this.clientProducts.find(p => p.id === productId);
+            if (product) return product;
+            
+            product = this.catalog_products.find(p => p.id === productId);
+            return product;
+        },
+        getProductTotalQuantity(productId) {
+            const productInSale = this.form.products.find(p => p.id === productId);
+            return productInSale ? productInSale.quantity : 0;
+        },
+        getRemainingQuantity(productId) {
+            const totalQuantity = this.getProductTotalQuantity(productId);
+            const assignedQuantity = this.form.shipments.reduce((sum, shipment) => {
+                const productInShipment = shipment.products.find(p => p.product_id === productId);
+                return sum + (productInShipment ? productInShipment.quantity : 0);
+            }, 0);
+            return totalQuantity - assignedQuantity;
+        },
+        // --- INICIO: NUEVO MÉTODO PARA CALCULAR EL MÁXIMO PERMITIDO EN EL INPUT ---
+        getMaxShippableQuantity(productId, currentShipmentIndex) {
+            const totalQuantity = this.getProductTotalQuantity(productId);
+            let assignedInOtherShipments = 0;
+
+            this.form.shipments.forEach((shipment, s_index) => {
+                if (s_index !== currentShipmentIndex) {
+                    const productInShipment = shipment.products.find(p => p.product_id === productId);
+                    if (productInShipment) {
+                        assignedInOtherShipments += productInShipment.quantity;
+                    }
+                }
+            });
+
+            // El máximo es el total menos lo que ya está asignado en OTRAS parcialidades.
+            return totalQuantity - assignedInOtherShipments;
+        },
+        // --- FIN: NUEVO MÉTODO ---
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
             
@@ -296,15 +480,14 @@ export default {
                     this.addProductToSaleForm(product);
                 } else {
                     try {
-                        // MODIFICADO: Usamos VNodes para mostrar la imagen y el texto
                         await ElMessageBox.confirm(
-                           '', // El mensaje ahora se pasa como VNode en las opciones
+                           '',
                            {
                                 title: 'Producto no asignado',
-                                message: h('div', { class: 'flex flex-col items-center text-center' }, [ // Diseño en columna y centrado
+                                message: h('div', { class: 'flex flex-col items-center text-center' }, [
                                     h('img', {
-                                        src: product.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A', // Imagen de fallback
-                                        class: 'w-48 h-48 rounded-lg object-cover border mb-4', // Imagen más grande y con margen inferior
+                                        src: product.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A',
+                                        class: 'w-48 h-48 rounded-lg object-cover border mb-4',
                                         alt: product.name
                                     }),
                                     h('p', null, `El producto "${product.name}" (P/N: ${product.part_number}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
@@ -321,7 +504,6 @@ export default {
                 }
             }
         },
-        
         async associateAndAddProduct(product) {
             try {
                 const payload = {
@@ -346,13 +528,15 @@ export default {
                 ElMessage.error(`No se pudo asociar el producto "${product.name}".`);
             }
         },
-        
         addProductToSaleForm(product) {
             this.form.products.push({
                 id: product.id,
                 quantity: product.quantity,
                 price: product.unit_price,
                 notes: product.notes,
+                // --- INICIO: AÑADIR CUSTOMIZATION DETAILS ---
+                customization_details: product.customization_details || [],
+                // --- FIN: AÑADIR CUSTOMIZATION DETAILS ---
                 is_new_design: false,
             });
         }

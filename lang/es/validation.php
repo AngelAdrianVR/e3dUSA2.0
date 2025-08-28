@@ -246,5 +246,6 @@ return [
         'contacts.*.email' => 'correo de contacto',
         'early_payment_discount_amount' => 'porcentaje de descuento',
         'freight_option' => 'opción de flete',
+        'shipments.*.acknowledgement_file' => 'acuse de parcialidad',
     ],
 ];
