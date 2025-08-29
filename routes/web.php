@@ -126,6 +126,7 @@ Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
 Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');
 Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('auth')->name('sales.print');
+Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 
 
 // ------- Recursos humanos(users routes)  ---------

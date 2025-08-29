@@ -22,8 +22,9 @@
             <!-- Encabezado -->
             <header class="flex justify-between items-start pb-6 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Orden de Venta</h1>
-                    <p class="text-lg font-semibold text-blue-600">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ sale.type === 'venta' ? 'Orden de Venta' : 'Orden de stock'}}</h1>
+                    <p v-if="sale.type === 'venta'" class="text-lg font-semibold text-blue-600">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                    <p v-else class="text-lg font-semibold text-blue-600">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
                     <p v-if="sale.quote_id" class="text-sm">Cotización Relacionada: COT-{{ sale.quote_id.toString().padStart(4, '0') }}</p>
                 </div>
                 <div class="text-right">
@@ -35,7 +36,7 @@
 
             <!-- Información General -->
             <section class="grid grid-cols-3 gap-8 my-6">
-                <div class="col-span-2">
+                <div v-if="sale.type === 'venta'" class="col-span-2">
                     <h2 class="text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2">CLIENTE</h2>
                     <p class="font-bold text-lg text-gray-800 dark:text-gray-200">{{ sale.branch.name }}</p>
                 </div>
@@ -47,7 +48,7 @@
             </section>
 
             <!-- Detalles de la Orden -->
-             <section class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg grid grid-cols-2 gap-4 text-sm mb-2">
+             <section v-if="sale.type === 'venta'" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg grid grid-cols-2 gap-4 text-sm mb-2">
                 <div>
                     <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>
                     <span class="ml-2 text-gray-800 dark:text-gray-200">{{ sale.oce_name || 'N/A' }}</span>
@@ -118,7 +119,7 @@
             </section> -->
 
              <!-- Envíos / Parcialidades -->
-            <section class="mt-4" v-if="sale.shipments && sale.shipments.length">
+            <section class="mt-4" v-if="sale.shipments && sale.shipments.length && sale.type === 'venta'">
                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-3">Plan de Envíos</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div v-for="(shipment, index) in sale.shipments" :key="shipment.id" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border dark:border-slate-700">
