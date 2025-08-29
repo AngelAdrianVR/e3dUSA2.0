@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\Sale;
+use App\Notifications\SaleAuthorizedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -21,11 +22,6 @@ class SaleController extends Controller
         // El frontend enviará un query param `view=all` para ver todas.
         $showAll = $request->query('view') === 'all';
 
-        // Aquí deberías agregar tu lógica de permisos.
-        // Ejemplo: if ($showAll && !Auth::user()->can('view all sales')) {
-        //     abort(403);
-        // }
-
         $query = Sale::query();
 
         // Si no se solicita ver todo, filtra por el usuario autenticado.
@@ -33,15 +29,12 @@ class SaleController extends Controller
             $query->where('user_id', Auth::id());
         }
 
-        // Carga ansiosa (Eager Loading) para evitar problemas N+1 en la vista.
-        // Cargamos las relaciones 'user' (creador) y 'branch' (cliente).
         $sales = $query->with(['user:id,name', 'branch:id,name', 'saleProducts.product:id,name,cost'])
                     ->select('id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
                     ->latest() // Ordena por los más recientes primero
                     ->paginate(15) // Pagina los resultados
                     ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación
         
-                    //    return $sales;
         // Retorna la vista de Inertia con los datos paginados.
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
@@ -49,8 +42,16 @@ class SaleController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        // Valida que el quote_id, si existe, sea un número
+        $request->validate([
+            'quote_id' => 'nullable|integer|exists:quotes,id'
+        ]);
+
+        // Obtiene el quote_id de la solicitud
+        $quoteToConvertId = $request->input('quote_id');
+
         // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
@@ -65,157 +66,148 @@ class SaleController extends Controller
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get()
+            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
+            // Pasa el ID de la cotización a convertir como un prop
+            'quoteToConvertId' => $quoteToConvertId,
         ]);
     }
 
     public function store(Request $request)
     {
-        // --- 1. VALIDACIÓN DE DATOS ---
+        // --- 1. VALIDACIÓN DE DATOS CONDICIONAL ---
+        $isSaleType = $request->input('type') === 'venta';
+
         $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
-            'contact_id' => 'required|exists:contacts,id',
-            'quote_id' => 'nullable|exists:quotes,id',
             'type' => ['required', Rule::in(['venta', 'stock'])],
             'oce_name' => 'nullable|string|max:255',
-            'order_via' => 'required|string|max:255',
-            'freight_option' => 'required|string|max:255',
-            'freight_cost' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
-            'shipping_option' => 'required|string',
 
-            // Validación de productos de la venta
+            // --- Reglas condicionales para 'venta' ---
+            'branch_id' => [Rule::requiredIf($isSaleType), 'exists:branches,id'],
+            'contact_id' => [Rule::requiredIf($isSaleType), 'exists:contacts,id'],
+            'quote_id' => 'nullable|exists:quotes,id',
+            'order_via' => [Rule::requiredIf($isSaleType), 'string', 'max:255'],
+            'freight_option' => [Rule::requiredIf($isSaleType), 'string', 'max:255'],
+            'freight_cost' => 'nullable|numeric|min:0',
+            'shipping_option' => [Rule::requiredIf($isSaleType), 'string'],
+            
+            // --- Validación de productos ---
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
-            'products.*.price' => 'required|numeric|min:0',
+            'products.*.price' => [Rule::requiredIf($isSaleType), 'numeric', 'min:0'],
             'products.*.notes' => 'nullable|string',
+            'products.*.customization_details' => 'nullable|array', // <-- NUEVO: Validación para personalización
 
-            // Validación de parcialidades (envíos)
-            'shipments' => 'required|array|min:1',
-            'shipments.*.promise_date' => 'required|date',
+            // --- Validación de parcialidades (solo para 'venta') ---
+            'shipments' => [Rule::requiredIf($isSaleType), 'array', 'min:1'],
+            'shipments.*.promise_date' => [Rule::requiredIf($isSaleType), 'date'],
             'shipments.*.shipping_company' => 'nullable|string|max:255',
             'shipments.*.tracking_guide' => 'nullable|string|max:255',
             'shipments.*.acknowledgement_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048',
+            'shipments.*.products' => [Rule::requiredIf($isSaleType), 'array'],
+            'shipments.*.products.*.product_id' => [Rule::requiredIf($isSaleType), 'exists:products,id'],
+            'shipments.*.products.*.quantity' => [Rule::requiredIf($isSaleType), 'integer', 'min:0'],
 
-            // Validación de productos dentro de cada parcialidad
-            'shipments.*.products' => 'required|array',
-            'shipments.*.products.*.product_id' => 'required|exists:products,id',
-            'shipments.*.products.*.quantity' => 'required|integer|min:0',
-
-            // Validación de archivos
+            // --- Validación de archivos ---
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml|max:2048',
-            'anotherFiles' => 'nullable|array|max:3',
-            'anotherFiles.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048',
         ]);
 
-        // --- 2. TRANSACCIÓN DE BASE DE DATOS ---
         DB::beginTransaction();
 
         try {
-            // --- 3. CREAR LA ORDEN DE VENTA PRINCIPAL ---
+            // --- 3. CREAR LA ORDEN (VENTA O STOCK) ---
             $sale = Sale::create([
-                'branch_id' => $validated['branch_id'],
-                'contact_id' => $validated['contact_id'],
-                'quote_id' => $validated['quote_id'],
-                'user_id' => auth()->id(),
                 'type' => $validated['type'],
-                'status' => 'Pendiente', // Estado inicial
+                'user_id' => auth()->id(),
+                'status' => 'Pendiente',
                 'oce_name' => $validated['oce_name'],
-                'order_via' => $validated['order_via'],
                 'notes' => $validated['notes'],
                 'is_high_priority' => $validated['is_high_priority'],
-                'freight_option' => $validated['freight_option'],
-                'freight_cost' => $validated['freight_cost'],
-                'total_amount' => array_reduce($validated['products'], function ($carry, $product) {
+                
+                // Campos que pueden ser nulos para 'stock'
+                'branch_id' => $validated['branch_id'] ?? null,
+                'contact_id' => $validated['contact_id'] ?? null,
+                'quote_id' => $validated['quote_id'] ?? null,
+                'order_via' => $validated['order_via'] ?? null,
+                'freight_option' => $validated['freight_option'] ?? null,
+                'freight_cost' => $validated['freight_cost'] ?? 0,
+                
+                'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * $product['price']);
-                }, 0),
+                }, 0) : 0,
             ]);
             
-            // Si la venta está basada en una cotización, actualizar la cotización para vincularla a esta venta
-            if (isset($validated['quote_id']) && $validated['quote_id']) {
-                Quote::find($validated['quote_id'])->update(['sale_id' => $sale->id]);
+            if ($isSaleType && isset($validated['quote_id'])) {
+                Quote::find($validated['quote_id'])->update([
+                    'sale_id' => $sale->id,
+                    'status' => 'Aceptada'
+                ]);
             }
 
-            // --- 4. GUARDAR PRODUCTOS DE LA VENTA (TABLA PIVOTE `sale_products`) ---
-            $saleProductsMap = []; // Mapa para fácil acceso: [product_id => sale_product_id]
+            // --- 4. GUARDAR PRODUCTOS DE LA ORDEN ---
+            $saleProductsMap = [];
             foreach ($validated['products'] as $productData) {
                 $saleProduct = $sale->saleProducts()->create([
                     'product_id' => $productData['id'],
                     'quantity' => $productData['quantity'],
-                    'price' => $productData['price'],
+                    'price' => $productData['price'] ?? 0,
                     'notes' => $productData['notes'] ?? null,
-                    // Valores iniciales
+                    // <-- NUEVO: Guardar personalización como JSON -->
+                    'customization_details' => isset($productData['customization_details']) 
+                                            ? $productData['customization_details'] 
+                                            : null,
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
                 ]);
                 $saleProductsMap[$productData['id']] = $saleProduct->id;
             }
 
-            // --- 5. GUARDAR ENVÍOS (PARCIALIDADES) Y SUS PRODUCTOS ---
-            foreach ($validated['shipments'] as $index => $shipmentData) {
-                // Crear el registro del envío
-                $shipment = $sale->shipments()->create([
-                    'status' => 'Pendiente', // Estado inicial
-                    'promise_date' => $shipmentData['promise_date'],
-                    'shipping_company' => $shipmentData['shipping_company'],
-                    'tracking_guide' => $shipmentData['tracking_guide'],
-                    'sent_by' => null, // Se llenará cuando se marque como enviado
-                    'sent_at' => null,
-                ]);
+            // --- 5. GUARDAR ENVÍOS (SOLO SI ES VENTA) ---
+            if ($isSaleType) {
+                foreach ($validated['shipments'] as $index => $shipmentData) {
+                    $shipment = $sale->shipments()->create([
+                        'status' => 'Pendiente',
+                        'promise_date' => $shipmentData['promise_date'],
+                        'shipping_company' => $shipmentData['shipping_company'],
+                        'tracking_guide' => $shipmentData['tracking_guide'],
+                    ]);
 
-                // Manejar subida de archivo de acuse si existe
-                if ($request->hasFile("shipments.{$index}.acknowledgement_file")) {
-                    $file = $request->file("shipments.{$index}.acknowledgement_file");
-                    // Aquí puedes usar Spatie/MediaLibrary o el Storage de Laravel
-                    // Ejemplo con Spatie/MediaLibrary:
-                    $shipment->addMedia($file)->toMediaCollection('acuse_files');
-                }
+                    if ($request->hasFile("shipments.{$index}.acknowledgement_file")) {
+                        $shipment->addMedia($request->file("shipments.{$index}.acknowledgement_file"))->toMediaCollection('acuse_files');
+                    }
 
-                // Guardar los productos de este envío
-                foreach ($shipmentData['products'] as $shipmentProductData) {
-                    if ($shipmentProductData['quantity'] > 0) {
-                        $shipment->shipmentProducts()->create([
-                            'sale_product_id' => $saleProductsMap[$shipmentProductData['product_id']],
-                            'quantity' => $shipmentProductData['quantity'],
-                        ]);
+                    foreach ($shipmentData['products'] as $shipmentProductData) {
+                        if ($shipmentProductData['quantity'] > 0) {
+                            $shipment->shipmentProducts()->create([
+                                'sale_product_id' => $saleProductsMap[$shipmentProductData['product_id']],
+                                'quantity' => $shipmentProductData['quantity'],
+                            ]);
+                        }
                     }
                 }
             }
             
-            // --- 6. MANEJAR ARCHIVOS ADJUNTOS A LA VENTA ---
-            // Ejemplo con Spatie/MediaLibrary:
+            // --- 6. MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('oce_media')) {
                 $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
                     $fileAdder->toMediaCollection('oce_media');
                 });
             }
-            if ($request->hasFile('anotherFiles')) {
-                $sale->addMultipleMediaFromRequest(['anotherFiles'])->each(function ($fileAdder) {
-                    $fileAdder->toMediaCollection('other_files');
-                });
-            }
 
-            // --- 7. CONFIRMAR TRANSACCIÓN ---
             DB::commit();
 
-            // Log de éxito (opcional)
-            Log::info("Órden de venta #{$sale->id} creada exitosamente por el usuario " . auth()->id());
+            Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
 
-            return redirect()->route('sales.index', $sale)->with('success', 'Órden de venta creada exitosamente.');
+            return redirect()->route('sales.index')->with('success', 'Órden creada exitosamente.');
 
         } catch (\Exception $e) {
-            // --- 8. REVERTIR TRANSACCIÓN EN CASO DE ERROR ---
             DB::rollBack();
-
-            // Log del error para depuración
-            Log::error("Error al crear la órden de venta: " . $e->getMessage());
+            Log::error("Error al crear la órden: " . $e->getMessage());
             Log::error($e->getTraceAsString());
-
-            // Redirigir de vuelta con un mensaje de error
-            return back()->withInput()->withErrors(['generic_error' => 'Ocurrió un error inesperado al guardar la órden de venta. Por favor, inténtalo de nuevo.']);
+            return back()->withInput()->withErrors(['generic_error' => 'Ocurrió un error inesperado.']);
         }
     }
 
@@ -278,18 +270,24 @@ class SaleController extends Controller
             'status' => 'Autorizada',
         ]);
 
-        // notificar a creador de la orden si quien autoriza no es el mismo usuario
-        // if (auth()->id() != $quote->user->id) {
-        //     $quote_folio = 'OV-' . str_pad($quote->id, 4, "0", STR_PAD_LEFT);
-        //     $quote->user->notify(new ApprovalQuoteNotification(
-        //         'Orden de venta autorizada',
-        //         $quote_folio,
-        //         'quote',
-        //         route('quotes.show', $quote->id)
-        //     ));
-        // }
+        $sale->load('user');
 
-        return response()->json(['message' => 'Orden de venta autorizada', 'item' => $sale]); //en caso de actualizar en la misma vista descomentar
+        // Notificar al creador de la orden si quien autoriza no es el mismo usuario
+        if (auth()->id() != $sale->user->id) {
+            // Generamos un folio legible para la notificación
+            $sale_folio = 'OV-' . str_pad($sale->id, 4, "0", STR_PAD_LEFT);
+            
+            // Enviamos la notificación al usuario que creó la venta
+            $sale->user->notify(new SaleAuthorizedNotification(
+                'Orden autorizada', // Título de la notificación
+                $sale_folio, // Folio para mostrar
+                $sale->type, // El tipo de orden ('venta' o 'stock')
+                route('sales.show', $sale->id) // URL para redirigir al usuario
+            ));
+        }
+        // --- FIN: LÓGICA DE NOTIFICACIÓN ACTUALIZADA ---
+
+        return response()->json(['message' => 'Orden autorizada', 'item' => $sale]);
     }
 
     /**

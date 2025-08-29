@@ -30,15 +30,18 @@
                             </el-popconfirm>
                             
                             <!-- Switch para ver todas las ventas / mis ventas -->
-                            <el-switch
+                            <div
                                 v-if="$page.props.auth.user.permissions.includes('Ver todas las ventas')"
-                                v-model="showAllSales"
-                                @change="toggleView"
-                                style="--el-switch-on-color: #13ce66; --el-switch-off-color: #3b82f6"
-                                inline-prompt
-                                active-text="Todas"
-                                inactive-text="Mías"
-                            />
+                                class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700"
+                            >
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
+                                <el-switch
+                                    v-model="showAllSales"
+                                    @change="toggleView"
+                                    style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;"
+                                />
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
+                            </div>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -423,7 +426,7 @@ export default {
                 'Autorizada': '',
                 'Sin stock': 'danger',
                 'Producción': 'warning',
-                'Terminado': 'primary',
+                'Terminado': 'success',
                 'Enviado': 'success',
                 'Cancelado': 'danger',
             };

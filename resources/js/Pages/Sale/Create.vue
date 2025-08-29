@@ -105,7 +105,21 @@
                                     <div v-for="(shipment, s_index) in form.shipments" :key="s_index" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border dark:border-slate-700">
                                         <h3 class="font-bold text-lg mb-3 text-gray-800 dark:text-gray-200">Parcialidad {{ s_index + 1 }}</h3>
                                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
-                                            <TextInput label="Fecha promesa de envío*" :error="form.errors[`shipments.${s_index}.promise_date`]" v-model="shipment.promise_date" type="date" />
+                                            <!-- <TextInput label="Fecha promesa de envío*" :error="form.errors[`shipments.${s_index}.promise_date`]" v-model="shipment.promise_date" type="date" /> -->
+                                            <div>
+                                                <InputLabel value="Fecha promesa de embarque" />
+                                                <el-date-picker
+                                                    v-model="shipment.promise_date"
+                                                    type="date"
+                                                    placeholder="Selecciona una fecha"
+                                                    format="YYYY-MM-DD"
+                                                    value-format="YYYY-MM-DD"
+                                                    :disabled-date="disabledBeforeToday"
+                                                />
+                                                <div v-if="form.errors[`shipments.${s_index}.promise_date`]" class="text-red-500 text-sm mt-1">
+                                                {{ form.errors[`shipments.${s_index}.promise_date`] }}
+                                                </div>
+                                            </div>
                                             <div>
                                                 <InputLabel value="Paquetería" />
                                                 <el-select v-model="shipment.shipping_company" filterable clearable placeholder="Selecciona" class="!w-full">
@@ -251,6 +265,7 @@ export default {
         branches: Array,
         quotes: Array,
         catalog_products: Array,
+        quoteToConvertId: Number, // <- Recibe id de cotización si viene desde cotizaciones
     },
     data() {
         return {
@@ -429,6 +444,12 @@ export default {
             // El máximo es el total menos lo que ya está asignado en OTRAS parcialidades.
             return totalQuantity - assignedInOtherShipments;
         },
+        disabledBeforeToday(date) {
+            // Comparar solo fechas, no horas
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date < today;
+        },
         // --- FIN: NUEVO MÉTODO ---
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
@@ -541,5 +562,14 @@ export default {
             });
         }
     },
+    mounted() {
+        // --- Si recibimos una cotización para convertir... 
+        if (this.quoteToConvertId) {
+            // ...lo asignamos al 'quote_id' del formulario.
+            // Esto activará automáticamente el 'watcher' que ya tienes,
+            // el cual llamará a 'fetchQuoteDetails' para poblar todo el formulario.
+            this.form.quote_id = Number(this.quoteToConvertId);
+        }
+    }
 };
 </script>
