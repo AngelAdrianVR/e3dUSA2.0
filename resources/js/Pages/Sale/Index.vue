@@ -72,7 +72,8 @@
                                         <el-tooltip :content="scope.row.type === 'venta' ? 'Orden de Venta' : 'Orden de Stock'" placement="top">
                                             <i :class="scope.row.type === 'venta' ? 'fa-solid fa-cart-shopping text-purple-500' : 'fa-solid fa-box text-rose-500'"></i>
                                         </el-tooltip>
-                                        <span>{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        <span v-if="scope.row.type === 'venta'">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        <span v-else>{{ 'OS-' + scope.row.id.toString().padStart(4, '0') }}</span>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -102,7 +103,7 @@
                             <!-- COLUMNA DE UTILIDAD -->
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver utilidad ventas')" label="Utilidad" width="100">
                                 <template #default="scope">
-                                    <el-tooltip placement="top">
+                                    <el-tooltip v-if="scope.row.type === 'venta'" placement="top">
                                         <template #content>
                                             <div class="text-xs">
                                                 <p class="text-white font-bold mb-2">No se toma en cuenta flete</p>
@@ -120,6 +121,7 @@
                                                 <span class="font-semibold text-xs">{{ scope.row.utility_data.percentage.toFixed(1) }}%</span>
                                         </div>
                                     </el-tooltip>
+                                    <p v-else class="text-center">N/A</p>
                                 </template>
                             </el-table-column>
                             <el-table-column label="Creado por" width="120">
@@ -134,7 +136,7 @@
                             </el-table-column>
                             <el-table-column prop="status" label="Estatus" width="130">
                                 <template #default="scope">
-                                    <el-tag :type="getStatusTagType(scope.row.status)" disable-transitions>
+                                    <el-tag :type="getStatusTagType(scope.row.status)">
                                         {{ scope.row.status }}
                                     </el-tag>
                                 </template>
@@ -194,7 +196,7 @@
                                                     </svg>Ver
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')"
+                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta') && scope.row.authorized_at === null"
                                                     :command="'edit-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />

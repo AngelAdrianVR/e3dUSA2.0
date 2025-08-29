@@ -49,6 +49,12 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->belongsTo(User::class);
     }
 
+    /** contacto */
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
+    }
+
     /** Una venta pertenece a una sucursal */
     public function branch(): BelongsTo
     {

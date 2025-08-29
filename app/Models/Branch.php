@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -101,5 +102,43 @@ class Branch extends Model implements Auditable
         return $this->belongsToMany(Product::class, 'branch_suggested_products')
                     ->withPivot('sort_order')
                     ->orderBy('sort_order');
+    }
+
+    // ==============
+    // MÉTODOS
+    // ==============
+
+    /**
+     * Busca la última venta de tipo 'venta' para esta sucursal
+     * y actualiza el campo 'last_purchase_date'.
+     */
+    public function setLastPurchaseDate()
+    {
+        $lastSale = $this->sales()
+                         ->where('type', 'venta')
+                         ->latest('created_at') // Ordena por la fecha de creación para obtener la más reciente
+                         ->first();
+
+        if ($lastSale) {
+            $this->last_purchase_date = $lastSale->created_at;
+            $this->save();
+        }
+    }
+
+    // ==============
+    // ACCESORS
+    // ==============
+
+    /**
+     * Obtiene la fecha de la última compra formateada como 'd-M-Y'.
+     * Ejemplo: 10-Aug-2025
+     */
+    public function getFormattedLastPurchaseDateAttribute()
+    {
+        if ($this->last_purchase_date) {
+            return Carbon::parse($this->last_purchase_date)->format('d-M-Y');
+        }
+
+        return 'N/A'; // O el valor que prefieras si no hay fecha
     }
 }

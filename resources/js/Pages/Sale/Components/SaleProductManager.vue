@@ -6,7 +6,7 @@
     <InputError :message="productsError" class="mt-2" />
 
     <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
-        <p v-if="!branchId" class="text-center text-gray-500">
+        <p v-if="saleType === 'venta' && !branchId" class="text-center text-gray-500">
             <i class="fa-solid fa-arrow-up mr-2"></i>
             Selecciona un cliente para agregar productos.
         </p>
@@ -14,8 +14,9 @@
             <!-- Formulario para agregar/editar producto -->
             <div class="lg:col-span-2">
                 <InputLabel value="Producto*" />
-                <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full" no-data-text="No hay productos para este cliente">
-                    <el-option v-for="product in clientProducts" 
+                <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full" 
+                           :no-data-text="saleType === 'venta' ? 'No hay productos para este cliente' : 'No hay productos en el catálogo'">
+                    <el-option v-for="product in availableProducts" 
                         :key="product.id" 
                         :label="product.name" 
                         :value="product.id"
@@ -23,7 +24,9 @@
                 </el-select>
             </div>
             <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-            <TextInput label="Precio Unitario*" v-model="currentProduct.price" type="number" :formatAsNumber="true">
+            
+            <!-- El precio solo es para 'venta' -->
+            <TextInput v-if="saleType === 'venta'" label="Precio Unitario*" v-model="currentProduct.price" type="number" :formatAsNumber="true">
                 <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
             </TextInput>
 
@@ -51,7 +54,7 @@
                 <!-- informacion de almacén -->
                 <div>
                     <!-- Etiqueta de producto de cliente -->
-                    <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
+                    <span v-if="saleType === 'venta' && currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
                         Producto de cliente
                     </span>
                     <p class="text-gray-500 dark:text-gray-300">
@@ -60,11 +63,11 @@
                     <p class="text-gray-500 dark:text-gray-300">
                         Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                     </p>
-                    <p class="text-gray-500 dark:text-gray-300">
+                    <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300">
                         Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
                     </p>
                     <!-- Precio actual del cliente -->
-                    <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                    <p v-if="saleType === 'venta' && currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
                         Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                     </p>
                 </div>
@@ -83,7 +86,6 @@
             <div v-if="currentProduct.has_customization" class="lg:col-span-full mt-3 p-4 border border-dashed dark:border-slate-700 rounded-lg">
                 <h4 class="font-semibold mb-3 text-gray-700 dark:text-gray-300">Detalles de Personalización</h4>
                 
-                <!-- Inputs para agregar nuevo detalle -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
                     <div>
                         <InputLabel value="Tipo*" />
@@ -101,7 +103,6 @@
                     </SecondaryButton>
                 </div>
 
-                <!-- Lista de detalles agregados al producto actual -->
                 <div v-if="currentProduct.customization_details.length" class="mt-4">
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-2">Detalles agregados:</p>
                     <div class="flex flex-wrap gap-2">
@@ -128,7 +129,7 @@
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Diseño nuevo</span>
             </label>
             <div class="pt-2 col-span-full">
-                <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.price">
+                <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || (saleType === 'venta' && !currentProduct.price)">
                     {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
                 </SecondaryButton>
                 <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
@@ -148,11 +149,13 @@
                     <span class="text-sm text-gray-800 dark:text-gray-200">
                         <p class="font-bold text-primary">{{ getProductName(product.id) }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
+                            Cantidad: {{ product.quantity }} 
+                            <template v-if="saleType === 'venta'">
+                                | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
+                            </template>
                         </p>
                         <small v-if="product.notes" class="text-xs text-gray-500 dark:text-gray-400">{{ product.notes }}</small>
                         
-                        <!-- INICIO: Mostrar detalles de personalización en la lista -->
                         <div v-if="product.customization_details && product.customization_details.length" class="mt-2">
                             <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Personalización:</p>
                             <ul class="list-disc list-inside pl-1">
@@ -161,8 +164,6 @@
                                 </li>
                             </ul>
                         </div>
-                        <!-- FIN: Mostrar detalles de personalización en la lista -->
-
                     </span>
                 </div>
                 <div class="flex items-center space-x-3">
@@ -202,9 +203,16 @@ export default {
         Checkbox,
     },
     props: {
-        modelValue: Array, // Para v-model:products
+        modelValue: Array,
         branchId: Number,
-        clientProducts: Array,
+        saleType: {
+            type: String,
+            required: true,
+        },
+        availableProducts: {
+            type: Array,
+            required: true,
+        },
         productsError: String,
     },
     emits: ['update:modelValue'],
@@ -248,6 +256,11 @@ export default {
     },
     methods: {
         addProduct() {
+            // para orden de stock, el precio siempre es 0
+            if (this.saleType === 'stock') {
+                this.currentProduct.price = 0;
+            }
+
             const productToAdd = { ...this.currentProduct };
             let updatedProducts = [...this.products];
 
@@ -305,7 +318,7 @@ export default {
             ElMessage.info('Detalle de personalización eliminado.');
         },
         getProductName(productId) {
-            const product = this.clientProducts.find(p => p.id === productId);
+            const product = this.availableProducts.find(p => p.id === productId);
             return product ? product.name : 'Producto no encontrado';
         },
         formatNumber(value) {
@@ -324,26 +337,30 @@ export default {
                     const productData = response.data.product;
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
-                    this.currentProduct.base_price = productData.base_price;
                     
-                    if (this.editIndex === null) {
-                        this.currentProduct.price = productData.base_price;
-                    }
-
-                    const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
-                    if (clientProduct) {
-                        this.currentProduct.isClientProduct = true;
-                        this.currentProduct.current_price = 
-                        (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
-                            ? clientProduct.price_history[0].price 
-                            : clientProduct.base_price;
-
+                    // La lógica de precios solo aplica para 'venta'
+                    if (this.saleType === 'venta') {
+                        this.currentProduct.base_price = productData.base_price;
+                        
                         if (this.editIndex === null) {
-                            this.currentProduct.price = this.currentProduct.current_price;
+                            this.currentProduct.price = productData.base_price;
                         }
-                    } else {
-                        this.currentProduct.isClientProduct = false;
-                        this.currentProduct.current_price = null;
+
+                        const clientProduct = this.availableProducts.find(p => p.id === this.currentProduct.id);
+                        if (clientProduct && clientProduct.price_history) { // Se asume que si tiene historial es producto de cliente
+                            this.currentProduct.isClientProduct = true;
+                            this.currentProduct.current_price = 
+                            (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
+                                ? clientProduct.price_history[0].price 
+                                : clientProduct.base_price;
+
+                            if (this.editIndex === null) {
+                                this.currentProduct.price = this.currentProduct.current_price;
+                            }
+                        } else {
+                            this.currentProduct.isClientProduct = false;
+                            this.currentProduct.current_price = null;
+                        }
                     }
                 }
             } catch (error) {
