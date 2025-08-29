@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
@@ -16,19 +17,30 @@ use Illuminate\Support\Facades\Log;
 
 class QuoteController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Se obtienen las cotizaciones paginadas.
-        $quotes = Quote::with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'products:id,name,cost'])
+        // Determina si se deben mostrar todas las cotizaciones o solo las del usuario.
+        $showAll = $request->query('view') === 'all';
+        
+        $query = Quote::query();
+
+        // Si no se solicita ver todo, filtra por el usuario autenticado.
+        if (!$showAll) {
+            $query->where('user_id', Auth::id());
+        }
+
+        // Se obtienen las cotizaciones paginadas con la consulta ya filtrada.
+        $quotes = $query->with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'products:id,name,cost'])
             ->latest() // Ordena por los más recientes primero
             ->select(['id', 'status', 'receiver', 'department', 'currency', 'rejection_reason', 'customer_responded_at', 'authorized_by_user_id', 'authorized_at',
             'created_by_customer', 'has_early_payment_discount', 'early_payment_discount_amount', 'early_paid_at', 'branch_id', 'user_id', 'sale_id', 'created_at'])
-            ->paginate(20); // O el número que prefieras por página
+            ->paginate(20) // O el número que prefieras por página
+            ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación
 
-            // return $quotes;
-        // Retornamos la vista de Inertia, pasando los datos de las cotizaciones.
+        // Retornamos la vista de Inertia, pasando los datos y los filtros.
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
+            'filters' => $request->only(['view']), // Pasa los filtros actuales a la vista
         ]);
     }
 
@@ -393,7 +405,6 @@ class QuoteController extends Controller
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
-                // Busca dentro de la relación de la matriz (parent)
                 ->orWhereHas('user', function ($parentQuery) use ($query) {
                     $parentQuery->where('name', 'like', "%{$query}%");
                 })
@@ -504,6 +515,7 @@ class QuoteController extends Controller
                     'cost' => $product->cost,
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
+                    'customization_details' => json_decode($product->pivot->customization_details),
                     'notes' => $product->pivot->notes,
                     // NUEVO: Agregamos la URL de la primera imagen del producto.
                     'image_url' => $product->media->first()?->original_url,

@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('status')->default('Autorizado. Sin orden de producción');
             $table->string('oce_name')->nullable();
             $table->string('order_via')->nullable();
-            $table->date('promise_date')->nullable();
+            // $table->date('promise_date')->nullable(); se agrega a cada parcialidad
             $table->text('notes')->nullable();
             $table->boolean('is_high_priority')->default(false);
             $table->decimal('total_amount', 10, 2);

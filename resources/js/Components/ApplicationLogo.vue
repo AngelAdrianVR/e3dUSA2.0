@@ -1,5 +1,5 @@
 <template>
     <figure>
-        <img src="@/../../public/images/logo.png" alt="Logo">
+        <img class="h-12" src="@/../../public/images/logo.png" alt="Logo">
     </figure>
 </template>

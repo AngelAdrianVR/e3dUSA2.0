@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Sale extends Model
+class Sale extends Model implements HasMedia, Auditable
 {
-    use HasFactory;
+    use InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
         'branch_id',
@@ -20,7 +24,6 @@ class Sale extends Model
         'status',
         'oce_name',
         'order_via',
-        'promise_date',
         'notes',
         'is_high_priority',
         'total_amount',
@@ -34,8 +37,9 @@ class Sale extends Model
 
     protected $casts = [
         'authorized_at' => 'datetime',
-        'promise_date' => 'date',
     ];
+
+    protected $appends = ['utility_data'];
 
     // --- RELACIONES ---
 
@@ -62,5 +66,38 @@ class Sale extends Model
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);
+    }
+
+
+    /**
+     * Calcula y devuelve los datos de utilidad para la venta.
+     *
+     * @return array
+     */
+    public function getUtilityDataAttribute()
+    {
+        // Carga la relación si aún no ha sido cargada para evitar problemas N+1
+        $this->loadMissing('saleProducts.product');
+
+        $totalSale = 0;
+        $totalCost = 0;
+
+        foreach ($this->saleProducts as $item) {
+            // Asegurarse de que el producto y su costo existen
+            if ($item->product) {
+                $totalSale += $item->quantity * $item->price;
+                $totalCost += $item->quantity * $item->product->cost;
+            }
+        }
+
+        $profit = $totalSale - $totalCost;
+        $percentage = ($totalSale > 0) ? ($profit / $totalSale) * 100 : 0;
+
+        return [
+            'total_sale' => $totalSale,
+            'total_cost' => $totalCost,
+            'profit' => $profit,
+            'percentage' => $percentage,
+        ];
     }
 }

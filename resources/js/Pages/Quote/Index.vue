@@ -28,6 +28,21 @@
                                     </el-button>
                                 </template>
                             </el-popconfirm>
+
+                            <!-- Switch para ver todas las cotizaciones / mis cotizaciones -->
+                            <div
+                                v-if="$page.props.auth.user.permissions.includes('Ver todas las cotizaciones')"
+                                class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700"
+                            >
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
+                                <el-switch
+                                    v-model="showAllSales"
+                                    @change="toggleView"
+                                    style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;"
+                                />
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
+                            </div>
+
                             <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch"
                                 :searchProps="SearchProps" />
                         </div>
@@ -330,6 +345,7 @@ export default {
             rejectionModalVisible: false,
             rejectionReason: '',
             selectedQuoteIdForRejection: null,
+            showAllSales: this.filters.view === 'all', // filtro para ver todas o solo mías
             statusMap: {
                 'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500"></i>', text: 'Aceptada por el cliente' },
                 'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500"></i>', text: 'Rechazada por el cliente' },
@@ -346,8 +362,21 @@ export default {
     },
     props: {
         quotes: Object,
+        filters: Object,
     },
     methods: {
+        toggleView() {
+            const params = {};
+            if (this.showAllSales) {
+                params.view = 'all';
+            }
+            router.get(route('quotes.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
         getProfitabilityClass(margin) {
             if (margin < 10) return 'text-red-600';
             if (margin >= 10 && margin < 30) return 'text-amber-600';
@@ -435,7 +464,7 @@ export default {
                 'show': () => this.$inertia.get(route('quotes.show', id)),
                 'edit': () => this.$inertia.get(route('quotes.edit', id)),
                 'clone': () => this.clone(id),
-                'make_so': () => console.log('Convertir a OV:', id), // Implementar lógica de conversión
+                'make_so': () => this.$inertia.get(route('sales.create', { quote_id: id })),
                 'authorize': () => this.authorize(id),
                 'changeStatus': () => {
                     if (newStatus === 'Rechazada') {
@@ -477,7 +506,11 @@ export default {
             });
         },
         handlePageChange(page) {
-            this.$inertia.get(route('quotes.index', { page }), {
+            const params = { page };
+            if (this.showAllSales) {
+                params.view = 'all';
+            }
+            router.get(route('quotes.index', params), {
                 preserveState: true,
                 replace: true,
             });

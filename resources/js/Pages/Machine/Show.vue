@@ -406,7 +406,7 @@
       <template #content>
         <div>
           <form @submit.prevent="uploadFiles" ref="myUploadFilesForm">
-            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="4" />
+            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="Todo" :max-files="4" />
           </form>
         </div>
       </template>
