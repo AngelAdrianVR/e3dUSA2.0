@@ -486,6 +486,8 @@ class QuoteController extends Controller
     public function fetchBranchQuotes(Branch $branch)
     {
         $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)
+            ->latest()
+            ->take(20) // Limita a las 20 más recientes
             ->get(['id', 'user_id', 'authorized_at', 'sale_id', 'status', 'created_at', 'branch_id', 'currency', 'has_early_payment_discount', 
             'early_paid_at', 'customer_responded_at']);
 

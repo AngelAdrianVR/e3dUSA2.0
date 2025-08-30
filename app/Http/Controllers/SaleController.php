@@ -649,4 +649,16 @@ class SaleController extends Controller
             }
         }
     }
+
+    public function branchSales(Branch $branch)
+    {
+        // Carga las ventas con las relaciones necesarias para la tabla
+        $sales = $branch->sales()
+                        ->with(['user:id,name', 'saleProducts.product:id,name,cost'])
+                        ->latest() // Ordena por las más recientes
+                        ->take(20) // Limita a las 20 más recientes
+                        ->get(['id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'authorized_user_name', 'authorized_at']);
+
+        return response()->json($sales);
+    }
 }

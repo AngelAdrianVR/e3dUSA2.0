@@ -67,7 +67,7 @@
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Matriz:</span>
-                            <span @click="$inertia.visit(route('branches.show', branch.parent.id))" :class="branch.parent?.id ? 'text-blue-500 hover:underline cursor-pointer' : ''">{{ branch.parent?.name ?? 'N/A' }}</span>
+                            <span @click="branch.parent?.id ? $inertia.visit(route('branches.show', branch.parent.id)) : null" :class="branch.parent?.id ? 'text-blue-500 hover:underline cursor-pointer' : ''">{{ branch.parent?.name ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">RFC:</span>
@@ -82,23 +82,35 @@
 
                 <!-- Card de Contactos -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Contactos</h3>
-                    <div v-if="branch.contacts.length" class="space-y-4">
-                        <div v-for="contact in branch.contacts" :key="contact.id">
+                    <div class="flex justify-between items-center border-b dark:border-gray-600 pb-3 mb-4">
+                        <h3 class="text-lg font-semibold">Contactos</h3>
+                        <button @click="openContactModal()" class="text-primary hover:underline text-sm font-bold">
+                            <i class="fa-solid fa-plus mr-1"></i> Nuevo
+                        </button>
+                    </div>
+                    <div v-if="branch.contacts?.length" class="space-y-4">
+                        <div v-for="contact in branch.contacts" :key="contact.id" class="relative">
+                            <div class="absolute top-0 right-0 flex space-x-1 transition-opacity duration-200">
+                                <el-tooltip content="Editar" placement="top">
+                                    <button @click="openContactModal(contact)" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
+                                        <i class="fa-solid fa-pencil text-xs"></i>
+                                    </button>
+                                </el-tooltip>
+                                <el-tooltip content="Eliminar" placement="top">
+                                    <button @click="showConfirmDeleteContact = { show: true, contactId: contact.id }" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
+                                        <i class="fa-regular fa-trash-can text-xs"></i>
+                                    </button>
+                                </el-tooltip>
+                            </div>
+
                             <p class="font-semibold">{{ contact.name }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
-                                <p><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
-                                <p><i class="fa-solid fa-phone mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Teléfono') }}</p>
-                                <!-- ============================================= -->
-                                <!-- INICIO: LÍNEA PARA MOSTRAR CUMPLEAÑOS         -->
-                                <!-- ============================================= -->
+                                <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
+                                <p v-if="getPrimaryDetail(contact, 'Teléfono')"><i class="fa-solid fa-phone mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Teléfono') }}</p>
                                 <p v-if="contact.birthdate">
                                     <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
                                 </p>
-                                <!-- =========================================== -->
-                                <!-- FIN: LÍNEA PARA MOSTRAR CUMPLEAÑOS          -->
-                                <!-- =========================================== -->
                             </div>
                         </div>
                     </div>
@@ -108,8 +120,8 @@
 
             <!-- COLUMNA DERECHA: PESTAÑAS DE INFORMACIÓN -->
             <div class="lg:col-span-2">
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg">
-                        <el-tabs v-model="activeTab" class="p-6">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg max-h-[70vh]">
+                        <el-tabs v-model="activeTab" class="p-5">
                         <el-tab-pane label="Información General" name="general">
                             <ul class="space-y-4 text-sm mt-2">
                                 <li><strong class="font-semibold w-32 inline-block">Dirección:</strong> {{ branch.address ?? 'No especificada' }}</li>
@@ -135,108 +147,38 @@
                             <Quotes v-else :quotes="quotes" />
                         </el-tab-pane>
                         <el-tab-pane label="Ventas" name="sales">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Próximamente: Historial de ventas.</p>
+                            <LoadingIsoLogo v-if="loadingSales" />
+                            <Sales v-else :sales="sales" />
                         </el-tab-pane>
-                        <el-tab-pane label="Proyectos" name="projects">
+                        <!-- <el-tab-pane label="Proyectos" name="projects">
                             <p class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Próximamente: Proyectos relacionados.</p>
-                        </el-tab-pane>
+                        </el-tab-pane> -->
                     </el-tabs>
                 </div>
             </div>
         </main>
 
-        <!-- ===== MODAL PARA AGREGAR PRODUCTOS ===== -->
-        <DialogModal :show="showAddProductsModal" @close="showAddProductsModal = false">
+        <!-- Modals -->
+        <ModalCrearEditarContacto :show="showContactModal" :contact="contactToEdit" :branchId="branch.id" @close="showContactModal = false" />
+        <AddProductsModal :show="showAddProductsModal" :branch="branch" :catalog_products="catalog_products" @close="showAddProductsModal = false" />
+
+        <!-- Modal de Confirmación para Eliminar contacto -->
+        <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
             <template #title>
-                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                    <i class="fa-solid fa-tags mr-2"></i> Asignar Productos a {{ branch.name }}
-                </h2>
+                Eliminar Contacto
             </template>
             <template #content>
-                <form @submit.prevent="saveProducts">
-                    <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                            <div>
-                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
-                                <!-- ===== SELECT MODIFICADO ===== -->
-                                <el-select @change="getProductMedia" :teleported="false" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                    <el-option v-for="item in availableProducts" 
-                                        :key="item.id" 
-                                        :label="item.name" 
-                                        :value="item.id"
-                                        :disabled="isProductInForm(item.id)"
-                                    />
-                                </el-select>
-                            </div>
-                            <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
-                                :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
-                        </div>
-
-                        <div v-if="loadingProductMedia" class="flex items-center justify-center h-32">
-                            <p class="text-gray-500">Cargando imagen...</p>
-                        </div>
-                        <div v-else-if="currentProduct.media" class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mt-4">
-                            <figure class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg">
-                                <img v-if="currentProduct.media?.length" :src="currentProduct.media[0]?.original_url" alt="Imagen del producto" class="rounded-2xl w-full h-auto object-cover">
-                                <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-2 text-center">
-                                    <i class="fa-solid fa-image text-3xl"></i>
-                                    <p class="text-xs mt-1">Sin imagen</p>
-                                </div>
-                            </figure>
-                            <div>
-                                <p class="text-gray-500 dark:text-gray-300">
-                                    Precio Base: <strong>${{ currentProduct.base_price?.toFixed(2) ?? '0.00' }}</strong>
-                                </p>
-                                <p class="text-gray-500 dark:text-gray-300">
-                                    Stock: <strong>{{ currentProduct.current_stock ?? '0' }}</strong> unidades
-                                </p>
-                                <p class="text-gray-500 dark:text-gray-300">
-                                    Ubicación: <strong>{{ currentProduct.location ?? 'No asignado' }}</strong>
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-end mt-4">
-                            <PrimaryButton @click="addProduct" type="button" plain :disabled="!currentProduct.product_id">
-                                <i class="fa-solid fa-plus mr-2"></i> Agregar a la lista
-                            </PrimaryButton>
-                        </div>
-                    </div>
-
-                    <div v-if="form.products.length" class="mt-4">
-                        <InputError :message="form.errors.products" />
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Productos a asignar:</p>
-                        <ul class="rounded-lg bg-gray-100 dark:bg-slate-900 p-3 space-y-2 max-h-48 overflow-y-auto">
-                            <li v-for="(product, index) in form.products" :key="index" class="flex justify-between items-center p-2 rounded-md">
-                                <span class="text-sm text-gray-800 dark:text-gray-200">
-                                    <span class="font-bold text-primary">{{ getProductName(product.product_id) }}</span>
-                                </span>
-                                <div class="flex items-center space-x-3 text-sm">
-                                    <span class="text-gray-600 dark:text-gray-400">
-                                        Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
-                                    </span>
-                                    <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
-                                        <i class="fa-solid fa-trash"></i>
-                                    </button>
-                                </div>
-                            </li>
-                        </ul>
-                    </div>
-                     <p v-else class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Aún no has agregado productos a la lista.</p>
-                </form>
+                ¿Estás seguro de que deseas eliminar este contacto? Esta acción es irreversible.
             </template>
             <template #footer>
                 <div class="flex space-x-2">
-                    <CancelButton @click="showAddProductsModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="saveProducts" :disabled="!form.products.length || form.processing">
-                        <span v-if="form.processing">Guardando...</span>
-                        <span v-else>Guardar Productos</span>
-                    </PrimaryButton>
+                    <CancelButton @click="showConfirmDeleteContact.show = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="deleteContact" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
                 </div>
             </template>
-        </DialogModal>
+        </ConfirmationModal>
 
-        <!-- Modal de Confirmación para Eliminar (Sin cambios) -->
+        <!-- Modal de Confirmación para Eliminar cliente -->
         <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
             <template #title>
                 Eliminar Cliente
@@ -258,6 +200,11 @@
 // Pestañas
 import Products from "@/Pages/Branch/Tabs/Products.vue";
 import Quotes from "@/Pages/Branch/Tabs/Quotes.vue";
+import Sales from "@/Pages/Branch/Tabs/Sales.vue";
+
+// Modals
+import AddProductsModal from "@/Pages/Branch/Modals/AddProductsModal.vue";
+import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarContacto.vue"; // <-- NUEVO
 
 // Componentes
 import AppLayout from "@/Layouts/AppLayout.vue";
@@ -290,10 +237,19 @@ export default {
             selectedBranch: this.branch.id,
             showConfirmModal: false,
             showAddProductsModal: false, // Estado para el nuevo modal
+            showContactModal: false,
+            showConfirmDeleteContact: { show: false, contactId: null },
 
             // Cotizaciones
             quotes: [],
             loadingQuotes: false,
+
+            //Ventas
+            sales: [],
+            loadingSales: false,
+            
+            // Contactos
+            contactToEdit: null,
 
             // --- LÓGICA PARA ASIGNAR PRODUCTOS (del Create.vue) ---
             currentProduct: {
@@ -324,7 +280,12 @@ export default {
 
         // Pestañas
         Products,
-        Quotes
+        Quotes,
+        Sales,
+
+        // Modales
+        AddProductsModal,
+        ModalCrearEditarContacto,
     },
     props: {
         branch: Object,
@@ -341,6 +302,31 @@ export default {
         }
     },
     methods: {
+        // --- GESTIÓN DE CONTACTOS ---
+        openContactModal(contact = null) {
+            this.contactToEdit = contact;
+            this.showContactModal = true;
+        },
+        deleteContact() {
+            const contactId = this.showConfirmDeleteContact.contactId;
+            router.delete(route('contacts.destroy', contactId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Contacto eliminado correctamente');
+                    this.showConfirmDeleteContact = { show: false, contactId: null };
+                },
+                onError: () => {
+                    ElMessage.error('Ocurrió un error al eliminar el contacto');
+                }
+            });
+        },
+        getPrimaryDetail(contact, type) {
+            if (!contact.details) return 'No disponible';
+            const detail = contact.details.find(d => d.type === type && d.is_primary);
+            return detail ? detail.value : 'No disponible';
+        },
+        // --- FIN GESTIÓN DE CONTACTOS ---
+
         // --- MÉTODOS PARA GUARDAR PRODUCTOS ---
         saveProducts() {
             // Se necesita una nueva ruta para manejar esta lógica en el backend
@@ -482,22 +468,33 @@ export default {
                 this.loadingQuotes = false;
             }
         },
+        async fetchSales() {
+            try {
+                this.loadingSales = true;
+                const response = await axios.get(route('sales.branch-sales', this.branch.id));
+                this.sales = response.data;
+            } catch (error) {
+                console.error("Error al cargar las ventas:", error);
+                ElMessage.error('Ocurrió un error al cargar las ventas.');
+            } finally {
+                this.loadingSales = false;
+            }
+        },
     },
     watch: {
-        'branch.id'(newId) {
-            this.selectedBranch = newId;
-            this.activeTab = 'general';
-        },
-        // Limpiar el formulario del modal cuando se cierra
-        showAddProductsModal(value) {
-            if (!value) {
-                this.form.reset();
-                this.resetCurrentProduct();
+        'branch.id'(newId, oldId) {
+            if (newId !== oldId) {
+                this.selectedBranch = newId;
+                this.activeTab = 'general';
+                // Recargar datos para el nuevo cliente
+                this.fetchQuotes();
+                this.fetchSales();
             }
-        }
+        },
     },
     mounted() {
         this.fetchQuotes();
+        this.fetchSales();
     }
 };
 </script>
