@@ -31,12 +31,14 @@ class Sale extends Model implements HasMedia, Auditable
         'freight_cost',
         'authorized_user_name',
         'authorized_at',
+        'shipping_option', // indica cuantas parcialidades tiene la venta
     ];
 
     protected $guarded = ['id'];
 
     protected $casts = [
         'authorized_at' => 'datetime',
+        'is_high_priority' => 'boolean',
     ];
 
     protected $appends = ['utility_data'];
@@ -72,6 +74,18 @@ class Sale extends Model implements HasMedia, Auditable
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);
+    }
+
+    // cambia el estatus de la sucursal a 'Cliente' si es 'Prospecto' al crear una venta
+    protected static function booted()
+    {
+        // Esto se ejecutará automáticamente cada vez que un nuevo registro de 'Sale' sea creado.
+        static::created(function ($sale) {
+            // Verificamos que la venta tenga una sucursal y que el estado sea 'Prospecto'
+            if ($sale->branch && $sale->branch->status === 'Prospecto') {
+                $sale->branch->update(['status' => 'Cliente']);
+            }
+        });
     }
 
 

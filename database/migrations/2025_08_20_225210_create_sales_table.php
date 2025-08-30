@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('status')->default('Pendiente'); // Pendiente, Autorizada, En Proceso, Completada, Enviada
             $table->string('oce_name')->nullable();
             $table->string('order_via')->nullable();
+            $table->string('shipping_option')->nullable();
             // $table->date('promise_date')->nullable(); se agrega a cada parcialidad
             $table->text('notes')->nullable();
             $table->boolean('is_high_priority')->default(false);

@@ -1,4 +1,5 @@
 <template>
+<p class="text-xs mb-1 ml-3">Últimas 20</p>
     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-900 dark:text-gray-300">
             <tr>

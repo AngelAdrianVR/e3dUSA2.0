@@ -34,44 +34,94 @@
             <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
             <!-- Tarjeta de producto seleccionado -->
-            <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id && currentProduct.storages">
-                <figure 
-                    v-if="currentProduct.media" 
-                    class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
-                    <img v-if="currentProduct.media?.length"
-                        :src="currentProduct.media[0]?.original_url" 
-                        alt="" 
-                        class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
-                    >
-                    <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                        </svg>
-                    <p>Sin imagen</p>
-                    </div>
-                </figure>
+            <div class="p-4 bg-gray-100 dark:bg-slate-900/50 rounded-lg col-span-full mb-2 border border-gray-200 dark:border-slate-800" v-if="currentProduct.id">
+                
+                <!-- Sección de Información Principal del Producto -->
+                <div class="flex items-start space-x-4">
+                    <figure 
+                        v-if="currentProduct.media" 
+                        class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                        <img v-if="currentProduct.media?.length"
+                            :src="currentProduct.media[0]?.original_url" 
+                            alt="Imagen del producto" 
+                            class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                        >
+                        <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                            </svg>
+                            <p>Sin imagen</p>
+                        </div>
+                    </figure>
 
-                <!-- informacion de almacén -->
-                <div>
-                    <!-- Etiqueta de producto de cliente -->
-                    <span v-if="saleType === 'venta' && currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
-                        Producto de cliente
-                    </span>
-                    <p class="text-gray-500 dark:text-gray-300">
-                        Stock: <strong>{{ currentProduct.storages[0]?.quantity ?? 0 }}</strong> unidades
-                    </p>
-                    <p class="text-gray-500 dark:text-gray-300">
-                        Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
-                    </p>
-                    <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300">
-                        Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
-                    </p>
-                    <!-- Precio actual del cliente -->
-                    <p v-if="saleType === 'venta' && currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
-                        Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
-                    </p>
+                    <!-- Información de almacén y precios -->
+                    <div>
+                        <span v-if="saleType === 'venta' && currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
+                            Producto de cliente
+                        </span>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock (P. Terminado): <strong>{{ currentProduct.storages[0]?.quantity ?? 0 }}</strong> unidades
+                        </p>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
+                        </p>
+                        <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300">
+                            Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                        </p>
+                        <p v-if="saleType === 'venta' && currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                            Precio actual (especial): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- --- INICIO DE LA NUEVA SECCIÓN DE COMPONENTES --- -->
+                <div v-if="currentProduct.components?.length" class="mt-4 pt-4 border-t border-gray-300 dark:border-slate-800">
+                    <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Componentes para Producción</h4>
+                    <ul class="space-y-2">
+                        <li v-for="component in currentProduct.components" :key="component.id" class="flex items-center justify-between text-sm p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
+                            <div class="flex items-center space-x-3">
+                                <figure 
+                                    v-if="component.media" 
+                                    class="relative flex items-center justify-center size-12 min-w-12 rounded-lg border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                    <img v-if="component.media?.length"
+                                        :src="component.media[0]?.original_url" 
+                                        alt="Imagen del producto" 
+                                        class="rounded-lg w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                                    >
+                                    <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                        </svg>
+                                        <p>Sin imagen</p>
+                                    </div>
+                                </figure>
+                                <div>
+                                    <p class="font-medium text-gray-900 dark:text-gray-100">{{ component.name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Requerido: {{ component.pivot.quantity }} {{ component.measure_unit }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-3 text-right">
+                                <!-- Icono de advertencia para stock bajo -->
+                                <div v-if="(component.storages[0]?.quantity ?? 0) < component.min_quantity" class="text-yellow-500" title="El stock está por debajo del mínimo requerido">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                                <!-- Información de stock con colores condicionales -->
+                                <span class="font-bold text-base" :class="{
+                                    'text-red-500': (component.storages[0]?.quantity ?? 0) == 0,
+                                    'text-yellow-500': (component.storages[0]?.quantity ?? 0) > 0 && (component.storages[0]?.quantity ?? 0) < component.min_quantity,
+                                    'text-green-500 dark:text-green-400': (component.storages[0]?.quantity ?? 0) >= component.min_quantity
+                                }">
+                                    {{ formatNumber(component.storages[0]?.quantity) ?? 0 }}
+                                    <span class="font-normal text-xs text-gray-500 dark:text-gray-400">en stock</span>
+                                </span>
+                            </div>
+                        </li>
+                    </ul>
                 </div>
             </div>
+
             
             <div class="lg:col-span-full">
                  <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" />
@@ -337,6 +387,7 @@ export default {
                     const productData = response.data.product;
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
+                    this.currentProduct.components = productData.components;
                     
                     // La lógica de precios solo aplica para 'venta'
                     if (this.saleType === 'venta') {

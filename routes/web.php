@@ -6,6 +6,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchPriceHistoryController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MachineController;
@@ -105,6 +106,12 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 
 
 // ------- CRM(historial de precios de productos de cliente Routes)  ---------
+Route::post('contacts', [ContactController::class, 'store'])->name('contacts.store');
+Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
+Route::delete('contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+
+
+// ------- CRM(historial de precios de productos de cliente Routes)  ---------
 Route::post('/branches/{branch}/products/{product}/price', [BranchPriceHistoryController::class, 'store'])->middleware('auth')->name('branches.products.price.store');
 Route::patch('/branch-price-history/{priceHistory}/close', [BranchPriceHistoryController::class, 'close'])->middleware('auth')->name('branch-price-history.close');
 
@@ -127,6 +134,7 @@ Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middlew
 Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');
 Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('auth')->name('sales.print');
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
+Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 
 
 // ------- Recursos humanos(users routes)  ---------

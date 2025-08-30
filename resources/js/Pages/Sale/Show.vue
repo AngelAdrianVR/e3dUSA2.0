@@ -35,9 +35,10 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip content="Editar Órden" placement="top">
-                    <Link :href="route('sales.edit', sale.id)">
-                        <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                <el-tooltip :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top">
+                    <Link :href="sale.authorized_at ? '' : route('sales.edit', sale.id)">
+                        <button :disabled="sale.authorized_at" 
+                            class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <i class="fa-solid fa-pencil text-sm"></i>
                         </button>
                     </Link>
@@ -57,7 +58,7 @@
                             Crear nueva Órden
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Órden
                         </DropdownLink>
                     </template>
@@ -72,9 +73,9 @@
 
 
         <!-- === CONTENIDO PRINCIPAL === -->
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-7 mt-5 dark:text-white">
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-7 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
-            <div class="lg:col-span-1 space-y-6">
+            <div class="lg:col-span-1 space-y-5">
             <!-- === STEPPER DE ESTADO === -->
             <Stepper :currentStatus="sale.status" :steps="['Autorizada', 'En Proceso', 'Completada', 'Enviada']" />
                 <!-- Card de Información de la Órden -->
@@ -106,7 +107,7 @@
                                         <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
                                         <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
                                         <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                        <p><strong class="font-semibold">Última compra:</strong> {{ sale.branch?.last_purchase_date ?? 'Sin registro' }}</p>
+                                        <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
                                     </div>
 
                                     <!-- Footer -->
@@ -137,9 +138,10 @@
                             <!-- Cotización -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cotización Rel.</span>
-                                <span @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
-                                COT-{{ sale.quote_id ?? 'N/A' }}
+                                <span v-if="sale.quote_id" @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
+                                    COT-{{ sale.quote_id }}
                                 </span>
+                                <span v-else>N/A</span>
                             </li>
                             </template>
 
@@ -168,14 +170,26 @@
                         </li>
                     </ul>
                 </div>
+
+                <!-- Card de Archivos adjuntos de Órden -->
+                <div v-if="sale.media?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Archivos de la Órden</h3>
+
+                    <div v-if="sale.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 gap-3 col-span-full mb-3">
+                        <FileView v-for="file in sale.media" :key="file" :file="file" :deletable="true"
+                            @delete-file="deleteFile($event)" />
+                    </div>
+
+                    <Empty v-else />
+                </div>
             </div>
 
             <!-- COLUMNA DERECHA: PRODUCTOS -->
             <div class="lg:col-span-2">
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] max-h-[75vh] overflow-auto">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px]">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Productos de la Órden</h3>
                     <!-- --- SECCIÓN DE PRODUCTOS --- -->
-                    <div v-if="sale.sale_products?.length" class="space-y-4">
+                    <div v-if="sale.sale_products?.length" class="space-y-3 max-h-[65vh] overflow-auto">
                         <ProductSaleCard 
                             v-for="product in sale.sale_products" 
                             :key="product.id"
@@ -191,11 +205,31 @@
                 </div>
             </div>
         </main>
+
+        <!-- Modal de Confirmación para Eliminar (Sin cambios) -->
+        <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
+            <template #title>
+                Eliminar Orden de {{ sale.type === 'venta' ? 'Venta' : 'Stock' }} {{ sale.type === 'venta' ? 'OV-' : 'OS-' }} {{ sale.id.toString().padStart(4, '0') }}
+            </template>
+            <template #content>
+                ¿Estás seguro de que deseas eliminar permanentemente esta Orden? Todos los datos relacionados se perderán. Esta acción no se puede deshacer.
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
+                    <SecondaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</SecondaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
     </AppLayout>
 </template>
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import FileView from "@/Components/MyComponents/FileView.vue";
+import ConfirmationModal from "@/Components/ConfirmationModal.vue";
+import Empty from "@/Components/MyComponents/Empty.vue";
+import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ProductSaleCard from "@/Components/MyComponents/ProductSaleCard.vue";
@@ -206,18 +240,23 @@ import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import axios from 'axios';
 
 export default {
     name: 'SaleShow',
     components: {
         Link,
         Back,
+        Empty,
         Stepper,
+        FileView,
         Dropdown,
         AppLayout,
-        ProductSaleCard,
         DropdownLink,
+        CancelButton,
         SecondaryButton,
+        ProductSaleCard,
+        ConfirmationModal,
     },
     props: {
         sale: Object,
@@ -227,6 +266,7 @@ export default {
             selectedSale: this.sale.id,
             salesList: [],
             loadingSales: false,
+            showConfirmModal: false,
         };
     },
     computed: {
@@ -243,6 +283,34 @@ export default {
         navigateToSale(saleId) {
             this.$inertia.visit(route('sales.show', saleId));
         },
+        deleteFile(fileId) {
+            this.sale.media = this.sale.media.filter(m => m.id !== fileId);
+        },
+        formatRelative(dateString) {
+            if (!dateString) return "Sin registro";
+
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date; // Diferencia en milisegundos
+
+            if (diffMs < 0) {
+                return "En el futuro"; // por si la fecha viene futura
+            }
+
+            const seconds = Math.floor(diffMs / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            const months = Math.floor(days / 30);
+            const years = Math.floor(months / 12);
+
+            if (seconds < 60) return `Hace ${seconds} segundos`;
+            if (minutes < 60) return `Hace ${minutes} minutos`;
+            if (hours < 24) return `Hace ${hours} horas`;
+            if (days < 30) return `Hace ${days} días`;
+            if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
+            return `Hace ${years} año${years > 1 ? "s" : ""}`;
+        },
         async authorize() {
             try {
                 const response = await axios.put(route('sales.authorize', this.sale.id));
@@ -254,6 +322,23 @@ export default {
             } catch (err) {
                 ElMessage.error('Ocurrió un error al autorizar la venta');
                 console.error(err);
+            }
+        },
+        async deleteItem() {
+            try {
+                const response = await axios.post(route('sales.destroy', this.sale.id), {
+                _method: 'DELETE'
+                });
+
+                if (response.status === 200) {
+                    ElMessage.success(response.data.message || 'Venta eliminada con éxito.');
+                    this.$inertia.visit(route('sales.index'));
+                }
+            } catch (err) {
+                ElMessage.error('Ocurrió un error al eliminar el Venta.');
+                console.error(err);
+            } finally {
+                this.showConfirmModal = false;
             }
         },
         async fetchSalesList() {

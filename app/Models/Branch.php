@@ -27,12 +27,17 @@ class Branch extends Model implements Auditable
         'parent_branch_id',
         'days_to_reactive',
         'account_manager_id', // vendedor asignado (usuario)
+    ];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = [
         'last_purchase_date',
     ];
 
-    protected $casts = [
-        'last_purchase_date' => 'date'
-    ];
 
     // relaciones
     /**
@@ -44,6 +49,14 @@ class Branch extends Model implements Auditable
         // El nombre de la tabla pivote 'branch_product' sigue la convención de Laravel,
         // por lo que no es necesario especificarla.
         return $this->belongsToMany(Product::class);
+    }
+
+    /**
+     * Una sucursal puede tener muchas ventas.
+     */
+    public function sales(): HasMany
+    {
+        return $this->hasMany(Sale::class);
     }
 
     /**
@@ -105,40 +118,22 @@ class Branch extends Model implements Auditable
     }
 
     // ==============
-    // MÉTODOS
-    // ==============
-
-    /**
-     * Busca la última venta de tipo 'venta' para esta sucursal
-     * y actualiza el campo 'last_purchase_date'.
-     */
-    public function setLastPurchaseDate()
-    {
-        $lastSale = $this->sales()
-                         ->where('type', 'venta')
-                         ->latest('created_at') // Ordena por la fecha de creación para obtener la más reciente
-                         ->first();
-
-        if ($lastSale) {
-            $this->last_purchase_date = $lastSale->created_at;
-            $this->save();
-        }
-    }
-
-    // ==============
     // ACCESORS
     // ==============
 
     /**
-     * Obtiene la fecha de la última compra formateada como 'd-M-Y'.
-     * Ejemplo: 10-Aug-2025
+     * Obtiene la fecha de la última compra de tipo 'venta'.
+     * El valor se calcula al momento, asegurando que siempre esté actualizado.
+     * Devuelve un objeto Carbon o null.
      */
-    public function getFormattedLastPurchaseDateAttribute()
+    public function getLastPurchaseDateAttribute()
     {
-        if ($this->last_purchase_date) {
-            return Carbon::parse($this->last_purchase_date)->format('d-M-Y');
-        }
+        $lastSale = $this->sales()
+                         ->where('type', 'venta')
+                         ->latest('created_at') // Ordena por la fecha de creación para obtener la más reciente
+                         ->select('created_at') // Selecciona solo la columna necesaria para optimizar
+                         ->first();
 
-        return 'N/A'; // O el valor que prefieras si no hay fecha
+        return $lastSale ? $lastSale->created_at : null;
     }
 }
