@@ -76,6 +76,18 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->hasMany(Shipment::class);
     }
 
+    // cambia el estatus de la sucursal a 'Cliente' si es 'Prospecto' al crear una venta
+    protected static function booted()
+    {
+        // Esto se ejecutará automáticamente cada vez que un nuevo registro de 'Sale' sea creado.
+        static::created(function ($sale) {
+            // Verificamos que la venta tenga una sucursal y que el estado sea 'Prospecto'
+            if ($sale->branch && $sale->branch->status === 'Prospecto') {
+                $sale->branch->update(['status' => 'Cliente']);
+            }
+        });
+    }
+
 
     /**
      * Calcula y devuelve los datos de utilidad para la venta.

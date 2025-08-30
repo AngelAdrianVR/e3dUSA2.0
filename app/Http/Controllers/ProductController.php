@@ -99,8 +99,25 @@ class ProductController extends Controller
 
         // 2. MAPEO DE CLAVES 
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
-        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak',
-                    'SCH' => 'Solid Chrome', 'MM' => 'Micrometal'];
+        $materials = [
+            'M'   => 'METAL',
+            'PLS' => 'PLASTICO',
+            'PL'  => 'PIEL DE LUJO',
+            'O'   => 'ORIGINAL',
+            'L'   => 'LUJO',
+            'P'   => 'PIEL',
+            'ZK'  => 'ZAMAK',
+            'SCH' => 'SOLIDCHROME',
+            'MM'  => 'MICROMETAL',
+            'FCH' => 'FLEXCHROME',
+            'AL'  => 'ALUMINIO',
+            'ES'  => 'ESTIRENO',
+            'ABS' => 'ABS',
+            'PVC' => 'PVC',
+            'T'   => 'TELA',
+            'CAU' => 'CAUCHO',
+            'VPL' => 'VINILPIEL',
+        ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
@@ -274,7 +291,25 @@ class ProductController extends Controller
 
         // 2. MAPEO DE CLAVES
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
-        $materials = ['M' => 'Metal', 'PL' => 'Piel de lujo', 'O' => 'Original', 'L' => 'Lujo', 'P' => 'Piel', 'PLS' => 'Plastico', 'ZK' => 'Zamak', 'SCH' => 'Solid Chrome', 'MM' => 'Micrometal'];
+        $materials = [
+            'M'   => 'METAL',
+            'PLS' => 'PLASTICO',
+            'PL'  => 'PIEL DE LUJO',
+            'O'   => 'ORIGINAL',
+            'L'   => 'LUJO',
+            'P'   => 'PIEL',
+            'ZK'  => 'ZAMAK',
+            'SCH' => 'SOLIDCHROME',
+            'MM'  => 'MICROMETAL',
+            'FCH' => 'FLEXCHROME',
+            'AL'  => 'ALUMINIO',
+            'ES'  => 'ESTIRENO',
+            'ABS' => 'ABS',
+            'PVC' => 'PVC',
+            'T'   => 'TELA',
+            'CAU' => 'CAUCHO',
+            'VPL' => 'VINILPIEL',
+        ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
@@ -371,7 +406,7 @@ class ProductController extends Controller
     {
         $query = $request->input('query');
 
-        $rawMaterials = Product::where('product_type', 'Materia prima') // O la clave que uses, ej. 'MP'
+        $rawMaterials = Product::where('product_type', 'Materia prima')
                             ->where('name', 'LIKE', "%{$query}%")
                             ->select('id', 'name') // Solo selecciona los datos necesarios
                             ->limit(10) // Limita los resultados para no sobrecargar
@@ -404,7 +439,7 @@ class ProductController extends Controller
 
     public function getProductMedia(Product $product)
     {
-        $product->load(['media', 'storages']);
+        $product->load(['media', 'storages', 'components.media', 'components.storages']);
 
         return response()->json(compact('product'));
     }

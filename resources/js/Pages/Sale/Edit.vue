@@ -91,7 +91,7 @@
                                 
                                 <div>
                                     <InputLabel value="Opción de Flete" />
-                                    <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
+                                    <el-select @change="handleFreightOption" v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
                                         <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                         <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
                                         <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
@@ -225,7 +225,7 @@
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing" :disabled="!form.products.length">
-                                Crear Órden
+                                Guardar cambios
                             </SecondaryButton>
                         </div>
                     </form>
@@ -391,6 +391,11 @@ export default {
                     ElMessage.error('Por favor, revisa los errores en el formulario.');
                 }
             });
+        },
+        handleFreightOption() {
+            if (this.form.freight_option === 'El cliente manda la guia') {
+                this.form.freight_cost = 0;
+            }
         },
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);

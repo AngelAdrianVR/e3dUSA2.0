@@ -82,17 +82,18 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
                                 <div>
                                     <InputLabel value="Opciones de envío*" />
-                                    <el-select v-model="form.shipping_option"
+                                    <el-select :disabled="!form.products.length" v-model="form.shipping_option"
                                         placeholder="Selecciona">
                                         <el-option v-for="item in shippingOptions" :key="item" :label="item"
                                             :value="item" />
                                     </el-select>
+                                    <small v-if="!form.products.length" class="text-amber-500 text-xs">Agrega un producto a la lista</small>
                                     <InputError :message="form.errors.shipping_option" />
                                 </div>
                                 
                                 <div>
                                     <InputLabel value="Opción de Flete" />
-                                    <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
+                                    <el-select @change="handleFreightOption" v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
                                         <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                         <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
                                         <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
@@ -394,6 +395,11 @@ export default {
                     ElMessage.error('Por favor, revisa los errores en el formulario.');
                 }
             });
+        },
+        handleFreightOption() {
+            if (this.form.freight_option === 'El cliente manda la guia') {
+                this.form.freight_cost = 0;
+            }
         },
         generateShipmentPartials(option) {
             if (!option || !this.form.products.length || this.form.type !== 'venta') {

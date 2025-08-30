@@ -138,9 +138,10 @@
                             <!-- Cotización -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cotización Rel.</span>
-                                <span @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
-                                COT-{{ sale.quote_id ?? 'N/A' }}
+                                <span v-if="sale.quote_id" @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
+                                    COT-{{ sale.quote_id }}
                                 </span>
+                                <span v-else>N/A</span>
                             </li>
                             </template>
 
@@ -239,6 +240,7 @@ import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import axios from 'axios';
 
 export default {
     name: 'SaleShow',
@@ -324,7 +326,10 @@ export default {
         },
         async deleteItem() {
             try {
-                const response = await axios.delete(route('sales.destroy', this.sale.id));
+                const response = await axios.post(route('sales.destroy', this.sale.id), {
+                _method: 'DELETE'
+                });
+
                 if (response.status === 200) {
                     ElMessage.success(response.data.message || 'Venta eliminada con éxito.');
                     this.$inertia.visit(route('sales.index'));

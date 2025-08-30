@@ -15,6 +15,7 @@ class SaleProduct extends Model
         'sale_id',
         'product_id',
         'quantity',
+        'quantity_to_produce', // la cantidad que hay que producir (es para logica de descuentos de stock)
         'price',
         'is_new_design',
         'customization_details',

@@ -49,7 +49,7 @@
                             <div>
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
-                                        <span>Marca del producto *</span>
+                                        <span>Marca del producto/Agencia*</span>
                                          <button @click="showCreateBrandModal = true" type="button" class="text-primary hover:scale-125 transition-transform">
                                             <i class="fa-solid fa-circle-plus"></i>
                                         </button>
@@ -467,9 +467,11 @@ export default {
                 // { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
-                { label: 'Metal', key: 'M' }, { label: 'Plástico', key: 'PLS' }, { label: 'Piel de lujo', key: 'PL' },
-                { label: 'Original', key: 'O' }, { label: 'Lujo', key: 'L' }, { label: 'Piel', key: 'P' }, { label: 'Zamak', key: 'ZK' },
-                { label: 'Solid Chrome', key: 'SCH' }, { label: 'Micrometal', key: 'MM' }
+                { label: 'METAL', key: 'M' }, { label: 'PLASTICO', key: 'PLS' }, { label: 'PIEL DE LUJO', key: 'PL' },
+                { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
+                { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
+                { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
+                { label: 'VINILPIEL', key: 'VPL' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
@@ -548,7 +550,8 @@ export default {
             const id = this.catalog_product.id || 'XXX';
 
             if (type && family && material) {
-                this.form.code = `${type}-${family}-${material}-${brand}-${id}`;
+                // this.form.code = `${type}-${material}-${family}-${brand}-${id}`; // Antes incluia el tipo de producto
+                this.form.code = `${material}-${family}-${brand}-${id}`;
             } else {
                 this.form.code = '';
             }
