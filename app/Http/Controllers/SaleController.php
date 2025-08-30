@@ -215,6 +215,7 @@ class SaleController extends Controller
     {
         $sale->load([
             'branch',
+            'media',
             'user',
             'saleProducts.product.media',
             'saleProducts.product.priceHistory' => function ($q) {
@@ -242,13 +243,13 @@ class SaleController extends Controller
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
                     ->get();
-        
+
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
             'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
-            'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product']),
-            ]);
+            'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
+        ]);
     }
 
     public function update(Request $request, Sale $sale)
@@ -279,7 +280,7 @@ class SaleController extends Controller
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
             $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
-            $rules['shipments'] = ['required', 'array', 'min:1'];
+            $rules['shipments'] = ['nullable', 'array']; // Cambiado a nullable para flexibilidad
             $rules['shipments.*.promise_date'] = ['required', 'date'];
             // ... (resto de reglas de shipments)
         } else {
@@ -342,19 +343,34 @@ class SaleController extends Controller
                             'tracking_guide' => $shipmentData['tracking_guide'] ?? null,
                         ]);
                         // Lógica para archivos de acuse (si aplica en edición)
-                        foreach ($shipmentData['products'] as $shipmentProductData) {
-                            if ($shipmentProductData['quantity'] > 0 && isset($saleProductsMap[$shipmentProductData['product_id']])) {
-                                $shipment->shipmentProducts()->create([
-                                    'sale_product_id' => $saleProductsMap[$shipmentProductData['product_id']],
-                                    'quantity' => $shipmentProductData['quantity'],
-                                ]);
+                        if ($request->hasFile("shipments.{$index}.acknowledgement_file")) {
+                            $shipment->clearMediaCollection('acuse_files');
+                            $shipment
+                                ->addMedia($request->file("shipments.{$index}.acknowledgement_file"))
+                                ->toMediaCollection('acuse_files');
+                        }
+
+                        // AÑADIMOS ESTA CONDICIÓN PARA EVITAR EL ERROR SI NO EXISTE UNA CLAVE DE PRODUCTO
+                        if (isset($shipmentData['products']) && is_array($shipmentData['products'])) {
+                            foreach ($shipmentData['products'] as $shipmentProductData) {
+                                if ($shipmentProductData['quantity'] > 0 && isset($saleProductsMap[$shipmentProductData['product_id']])) {
+                                    $shipment->shipmentProducts()->create([
+                                        'sale_product_id' => $saleProductsMap[$shipmentProductData['product_id']],
+                                        'quantity' => $shipmentProductData['quantity'],
+                                    ]);
+                                }
                             }
                         }
                     }
                 }
             }
             
-            // --- 6. MANEJAR ARCHIVOS ADJUNTOS (si se desea permitir edición de archivos) ---
+            // --- 6. MANEJAR ARCHIVOS ADJUNTOS ---
+            if ($request->hasFile('oce_media')) {
+                $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
+                    $fileAdder->toMediaCollection('oce_media');
+                });
+            }
             
             DB::commit();
 
@@ -371,7 +387,7 @@ class SaleController extends Controller
 
     public function destroy(Sale $sale)
     {
-        //
+        $sale->delete();
     }
 
     public function massiveDelete(Request $request)

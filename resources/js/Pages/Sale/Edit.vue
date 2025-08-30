@@ -41,7 +41,7 @@
                             <template v-if="form.type === 'venta'">
                                 <div>
                                     <InputLabel value="Cotización relacionada (Opcional)" />
-                                    <el-select v-model="form.quote_id" filterable clearable placeholder="Selecciona una cotización" class="!w-full">
+                                    <el-select :disabled="sale.quote_id ? true : false" v-model="form.quote_id" filterable clearable placeholder="Selecciona una cotización" class="!w-full">
                                         <el-option v-for="quote in quotes" :key="quote.id" :label="`COT-${quote.id} - ${quote.branch?.name}`" :value="quote.id" />
                                     </el-select>
                                 </div>
@@ -197,6 +197,13 @@
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
                             </div>
+                            
+                            <!-- Archivos adjuntos de la orden (OCE) -->
+                            <div v-if="sale.media?.filter(m => m.collection_name === 'oce_media')?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
+                                <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
+                                <FileView v-for="file in sale.media?.filter(m => m.collection_name == 'oce_media')" :key="file" :file="file" :deletable="true"
+                                    @delete-file="deleteFile($event)" />
+                            </div>
 
                             <!-- Archivos de OCE -->
                             <div v-if="form.type === 'venta'" class="col-span-full my-2">
@@ -241,6 +248,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import FileView from "@/Components/MyComponents/FileView.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import InputLabel from "@/Components/InputLabel.vue";
@@ -258,6 +266,7 @@ export default {
     components: {
         Back,
         Checkbox,
+        FileView,
         TextInput,
         AppLayout,
         InputError,
@@ -296,14 +305,36 @@ export default {
                     customization_details: p.customization_details || [],
                     is_new_design: false,
                 })),
-                shipping_option: null, // Deberás cargar esto si lo guardas en la BD
-                shipments: [], // Cargar y mapear los shipments existentes si es necesario
+                shipping_option: this.sale.shipping_option, // Deberás cargar esto si lo guardas en la BD
+                // Mapea los shipments existentes de la venta al formato del formulario
+                shipments: this.sale.shipments?.map(shipment => ({
+                    id: shipment.id, // Conserva el ID para la actualización
+                    promise_date: shipment.promise_date,
+                    shipping_company: shipment.shipping_company,
+                    tracking_guide: shipment.tracking_guide,
+                    acknowledgement_file: null, // El archivo se maneja por separado
+                    products: shipment.shipment_products.map(sp => ({
+                        product_id: sp.sale_product.product_id,
+                        quantity: sp.quantity,
+                        name: sp.sale_product.product.name,
+                        part_number: sp.sale_product.product.code,
+                    }))
+                })) || [],
             }),
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
             orderVias: ['Correo electrónico', 'WhatsApp', 'Llamada telefónica', 'Resurtido programado', 'Otro'],
             shippingOptions: ['Entrega única', '2 parcialidades', '3 parcialidades', '4 parcialidades'],
+            shippingCompanies: [
+                'DHL',
+                'UPS',
+                'FedEx',
+                'Estafeta',
+                'Paquetexpress',
+                'Envío propio',
+                'Otro',
+            ],
         };
     },
     computed: {
@@ -360,6 +391,9 @@ export default {
                     ElMessage.error('Por favor, revisa los errores en el formulario.');
                 }
             });
+        },
+        deleteFile(fileId) {
+            this.sale.media = this.sale.media.filter(m => m.id !== fileId);
         },
         generateShipmentPartials(option) {
             if (!option || !this.form.products.length || this.form.type !== 'venta') {
@@ -537,6 +571,11 @@ export default {
             const selectedBranch = this.branches.find(b => b.id === this.form.branch_id);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
             await this.fetchClientProducts();
+        }
+
+        // Asegura que las parcialidades se muestren correctamente al cargar la página
+        if (this.form.type === 'venta') {
+           this.generateShipmentPartials(this.form.shipping_option);
         }
     }
 };

@@ -31,12 +31,14 @@ class Sale extends Model implements HasMedia, Auditable
         'freight_cost',
         'authorized_user_name',
         'authorized_at',
+        'shipping_option', // indica cuantas parcialidades tiene la venta
     ];
 
     protected $guarded = ['id'];
 
     protected $casts = [
         'authorized_at' => 'datetime',
+        'is_high_priority' => 'boolean',
     ];
 
     protected $appends = ['utility_data'];

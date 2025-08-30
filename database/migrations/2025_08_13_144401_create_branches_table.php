@@ -28,7 +28,7 @@ return new class extends Migration
             // Datos de Contacto y Seguimiento
             $table->foreignId('account_manager_id')->nullable()->constrained('users')->onDelete('set null');
             $table->unsignedSmallInteger('days_to_reactive')->default(60);
-            $table->date('last_purchase_date')->nullable();
+            // $table->date('last_purchase_date')->nullable(); // fecha de la última compra realizada en accesor
             $table->text('important_notes')->nullable();
             
              // Configuración fiscal (SAT)

@@ -73,6 +73,10 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">RFC:</span>
                             <span>{{ branch.rfc ?? 'No especificado' }}</span>
                         </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Ultima compra:</span>
+                            <span>{{ formatRelative(branch.last_purchase_date) }}</span>
+                        </li>
                     </ul>
                 </div>
 
@@ -424,6 +428,31 @@ export default {
             if (!dateString) return '';
             const date = new Date(dateString);
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
+        },
+        formatRelative(dateString) {
+            if (!dateString) return "Sin registro";
+
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffMs = now - date; // Diferencia en milisegundos
+
+            if (diffMs < 0) {
+                return "En el futuro"; // por si la fecha viene futura
+            }
+
+            const seconds = Math.floor(diffMs / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            const months = Math.floor(days / 30);
+            const years = Math.floor(months / 12);
+
+            if (seconds < 60) return `Hace ${seconds} segundos`;
+            if (minutes < 60) return `Hace ${minutes} minutos`;
+            if (hours < 24) return `Hace ${hours} horas`;
+            if (days < 30) return `Hace ${days} días`;
+            if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
+            return `Hace ${years} año${years > 1 ? "s" : ""}`;
         },
         async deleteItem() {
             try {
