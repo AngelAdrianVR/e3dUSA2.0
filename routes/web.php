@@ -17,6 +17,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFamilyController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
@@ -147,6 +148,11 @@ Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->name('sales.quality-certificate');
+
+
+// ------- (Produccion Routes)  ---------
+Route::resource('productions', ProductionController::class)->middleware('auth');
+Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
 
 
 // ------- Recursos humanos(users routes)  ---------

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SaleProduct extends Model
 {
@@ -45,7 +46,17 @@ class SaleProduct extends Model
         return $this->belongsTo(Product::class);
     }
 
-    /** Un producto de venta puede tener muchas órdenes de producción */
+    /** * Un producto de venta tiene UNA orden de producción.
+     * La lógica principal usa esta relación (HasOne) para verificar si ya existe una orden.
+     */
+    public function production(): HasOne
+    {
+        return $this->hasOne(Production::class);
+    }
+
+    /** * Un producto de venta puede tener MUCHAS órdenes de producción (para re-trabajos, etc.).
+     * Mantenemos esta relación para futura escalabilidad.
+     */
     public function productions(): HasMany
     {
         return $this->hasMany(Production::class);

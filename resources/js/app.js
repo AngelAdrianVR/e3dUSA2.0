@@ -11,6 +11,8 @@ import ElementPlus from 'element-plus';
 import es from 'element-plus/dist/locale/es.js';
 import 'element-plus/dist/index.css';
 
+// import vIntersect from "./directives/v-intersect.js";
+
 // apexcharts
 import VueApexCharts from 'vue3-apexcharts';
 
