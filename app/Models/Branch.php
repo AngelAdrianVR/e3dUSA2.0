@@ -52,6 +52,15 @@ class Branch extends Model implements Auditable
     }
 
     /**
+     * Obtiene todas las notas asociadas con el cliente.
+     */
+    public function notes()
+    {
+        // Ordena las notas por la más reciente.
+        return $this->hasMany(BranchNote::class)->latest();
+    }
+
+    /**
      * Una sucursal puede tener muchas ventas.
      */
     public function sales(): HasMany

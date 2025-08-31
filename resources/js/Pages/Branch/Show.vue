@@ -1,5 +1,8 @@
 <template>
     <AppLayout :title="`Cliente: ${branch.name}`">
+        <!-- Panel Flotante de Notas -->
+        <BranchNotes :branch-id="branch.id" />
+
         <!-- === ENCABEZADO === -->
         <h1 class="dark:text-white font-bold text-2xl mb-4">{{ branch.name }}</h1>
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-gray-500">
@@ -210,6 +213,7 @@ import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarCont
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import DialogModal from "@/Components/DialogModal.vue"; // Importar DialogModal
@@ -268,6 +272,7 @@ export default {
         Link,
         Dropdown,
         AppLayout,
+        BranchNotes,
         DropdownLink,
         CancelButton,
         PrimaryButton,
