@@ -5,6 +5,7 @@ use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BranchNoteController;
 use App\Http\Controllers\BranchPriceHistoryController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DiscountController;
@@ -103,6 +104,15 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
 // Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
+
+
+// ------- CRM(Notas importantes de clientes Routes)  ---------
+Route::get('/branches/{branch}/notes', [BranchNoteController::class, 'index'])->name('branch-notes.index');
+Route::prefix('branch-notes')->name('branch-notes.')->group(function () {
+    Route::post('/', [BranchNoteController::class, 'store'])->name('store');
+    Route::put('/{branchNote}', [BranchNoteController::class, 'update'])->name('update');
+    Route::delete('/{branchNote}', [BranchNoteController::class, 'destroy'])->name('destroy');
+});
 
 
 // ------- CRM(historial de precios de productos de cliente Routes)  ---------
