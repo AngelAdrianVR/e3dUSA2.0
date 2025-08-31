@@ -114,7 +114,8 @@
                     <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2">{{ quote.is_spanish_template ? 'Conceptos de la Cotización' : 'Quote Concepts' }}</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div v-for="(item, productIndex) in quote.products" :key="item.id"
-                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-md flex flex-col">
+                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-xl flex flex-col"
+                             :class="{'print:hidden': item.pivot.customer_approval_status === 'Rechazado' }">
                             <!-- Imagen y Selector -->
                             <div class="bg-gray-200 p-2 relative group">
                                 <img v-if="item.pivot.show_image" 
@@ -128,10 +129,14 @@
                                     {{ quote.is_spanish_template ? 'Producto sin imagen' : 'No image available' }}
                                 </div>
 
-                                <!-- Aprobado Badge -->
+                                <!-- Status Badge -->
                                 <span v-if="item.pivot.customer_approval_status === 'Aprobado'"
-                                    class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow">
+                                      class="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md print:hidden">
                                     {{ quote.is_spanish_template ? 'ACEPTADO' : 'APPROVED' }}
+                                </span>
+                                <span v-if="item.pivot.customer_approval_status === 'Rechazado'"
+                                      class="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md print:hidden">
+                                    {{ quote.is_spanish_template ? 'RECHAZADO' : 'REJECTED' }}
                                 </span>
 
                                 <!-- Botones de Navegación de Imagen -->
@@ -176,6 +181,44 @@
                                         <span class="font-bold text-gray-600">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
                                         <span class="font-bold text-sky-700">{{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }} {{ quote.currency }}</span>
                                     </div>
+                                </div>
+                                
+                                <!-- Botones de Aprobación y Rechazo -->
+                                <div class="mt-auto pt-4 flex items-center space-x-2" v-show="showAdditionalElements">
+                                    <!-- Botón de Aprobación -->
+                                    <button @click="toggleApprovalStatus(item)"
+                                        :disabled="item.pivot.customer_approval_status === 'Rechazado'"
+                                        class="w-full text-center py-2 px-4 rounded-lg transition-all duration-300 ease-in-out text-sm font-bold flex items-center justify-center space-x-2 shadow-sm hover:shadow-md disabled:shadow-none disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 transform hover:-translate-y-0.5"
+                                        :class="{
+                                            'bg-gradient-to-r from-green-500 to-teal-600 text-white': item.pivot.customer_approval_status === 'Aprobado',
+                                            'bg-gray-200 text-gray-700 hover:bg-gray-300': item.pivot.customer_approval_status === 'Pendiente'
+                                        }">
+                                        
+                                        <div class="w-5 h-5 flex items-center justify-center rounded-full transition-transform duration-300"
+                                            :class="{
+                                                'bg-white/30': item.pivot.customer_approval_status === 'Aprobado',
+                                                'border-2 border-gray-400 rotate-180': item.pivot.customer_approval_status === 'Pendiente'
+                                            }">
+                                            <i v-if="item.pivot.customer_approval_status === 'Aprobado'" class="fa-solid fa-check text-white text-xs"></i>
+                                        </div>
+
+                                        <span v-if="item.pivot.customer_approval_status === 'Aprobado'">{{ quote.is_spanish_template ? 'Aprobado' : 'Approved' }}</span>
+                                        <span v-else>{{ quote.is_spanish_template ? 'Aprobar' : 'Approve' }}</span>
+                                    </button>
+                                    
+                                    <!-- Botón para Rechazar o Mover a Pendiente -->
+                                    <button @click="item.pivot.customer_approval_status === 'Rechazado' ? updateProductStatus(item, 'Pendiente') : updateProductStatus(item, 'Rechazado')"
+                                        :title="item.pivot.customer_approval_status === 'Rechazado' ? 'Mover a pendiente' : 'Rechazar producto'"
+                                        class="flex-shrink-0 size-9 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                                        :class="{
+                                            'bg-red-100 text-red-600 hover:bg-red-200': item.pivot.customer_approval_status !== 'Rechazado',
+                                            'bg-gray-200 text-gray-700 hover:bg-gray-300': item.pivot.customer_approval_status === 'Rechazado'
+                                        }">
+                                        <i class="fa-solid" :class="{
+                                            'fa-times': item.pivot.customer_approval_status !== 'Rechazado',
+                                            'fa-undo': item.pivot.customer_approval_status === 'Rechazado'
+                                        }"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -310,6 +353,39 @@ export default {
         },
     },
     methods: {
+        async updateProductStatus(product, newStatus) {
+            try {
+                // Asume que tienes una ruta para actualizar el estatus del producto en la cotización.
+                const response = await axios.put(route('quotes.products.updateStatus', product.pivot.id), {
+                    status: newStatus
+                });
+
+                if (response.status === 200) {
+                    // Recarga los props de la página para obtener los totales actualizados del servidor
+                    router.reload({ 
+                        preserveScroll: true,
+                        onSuccess: () => {
+                             ElMessage({
+                                message: response.data.message || 'Estatus actualizado.',
+                                type: 'success'
+                            });
+                        }
+                    });
+                }
+            } catch (err) {
+                ElMessage({
+                    title: 'Error al actualizar',
+                    message: err.response?.data?.message || 'No se pudo cambiar el estatus del producto.',
+                    type: 'error'
+                });
+                console.error(err);
+            }
+        },
+        toggleApprovalStatus(product) {
+            // Determina el nuevo estatus
+            const newStatus = product.pivot.customer_approval_status === 'Aprobado' ? 'Pendiente' : 'Aprobado';
+            this.updateProductStatus(product, newStatus);
+        },
         printQuote() {
         this.showAdditionalElements = false;
 
@@ -398,3 +474,4 @@ export default {
     }
 };
 </script>
+

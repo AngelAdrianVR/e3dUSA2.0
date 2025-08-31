@@ -46,11 +46,18 @@
                                 <div class="px-3 py-2 text-sm font-semibold bg-[#EAEAEA] dark:bg-zinc-800 text-gray-900 dark:text-white">{{ menu.label }}</div>
                                 <div class="border-t border-gray-300 dark:border-zinc-500"></div>
                                 <div class="p-1 space-y-1 bg-[#f2f2f2] dark:bg-zinc-800">
-                                    <div v-for="option in menu.options" :key="option.route">
-                                        <DropdownNavLink v-if="option.show" :href="route(option.route)" :active="option.active"
-                                            :notifications="option.notifications">
-                                            {{ option.label }}
-                                        </DropdownNavLink>
+                                    <div v-for="option in menu.options" :key="option.label">
+                                        <template v-if="option.show">
+                                            <DropdownNavLink v-if="option.route" :href="route(option.route)" :active="option.active"
+                                                :notifications="option.notifications">
+                                                {{ option.label }}
+                                            </DropdownNavLink>
+                                            <!-- Handle actions that are not routes, like opening a modal -->
+                                            <div v-else-if="option.action" @click="option.action" 
+                                                 class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
+                                                {{ option.label }}
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -69,11 +76,17 @@
                                 <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
                                 <div class="border-t border-gray-200 dark:border-zinc-700"></div>
                                 <div class="p-1 space-y-1">
-                                    <div v-for="option in menu.options" :key="option.route">
-                                        <DropdownNavLink v-if="option.show" :href="route(option.route)" :active="option.active"
-                                            :notifications="option.notifications">
-                                            {{ option.label }}
-                                        </DropdownNavLink>
+                                     <div v-for="option in menu.options" :key="option.label">
+                                        <template v-if="option.show">
+                                            <DropdownNavLink v-if="option.route" :href="route(option.route)" :active="option.active"
+                                                :notifications="option.notifications">
+                                                {{ option.label }}
+                                            </DropdownNavLink>
+                                            <div v-else-if="option.action" @click="option.action" 
+                                                 class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
+                                                {{ option.label }}
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -98,26 +111,134 @@
         </div>
     </div>
 
+    <!-- Payroll Modal -->
     <DialogModal :show="showModal" @close="showModal = false">
         <template #title>
             Nómina semanal
-            <!-- <p class="text-sm text-primary mt-3 mx-20">
-                Se notifica a todos los colaboradores de emblems3d que a partir del 8 de Septiembre del 2023,
-                los registros de salida después de las horas de su jornada diaria no contarán como horas adicionales.
-            </p> -->
             <div class="w-1/2 mt-5 mx-10">
                 <el-select v-model="payrollId" filterable :reserve-keyword="false" placeholder="Buscar nómina">
                     <el-option v-for="item in payrolls" :key="item.id" :label="'Nómina semana: ' + item.week"
                         :value="item.id" />
                 </el-select>
             </div>
-
         </template>
         <template #content>
             <!-- <PayrollTemplate :user="$page.props.auth.user" :payrollId="payrollId" dontShowDetails /> -->
         </template>
         <template #footer>
             <CancelButton @click="showModal = false">Cerrar</CancelButton>
+        </template>
+    </DialogModal>
+
+    <!-- Carpet Calculator Modal -->
+    <DialogModal :show="showCarpetCalculatorModal" @close="closeCarpetCalculator">
+        <template #title>
+            <div class="flex items-center space-x-3">
+                <span class="bg-blue-100 dark:bg-blue-900 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-blue-600 dark:text-blue-300">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                    </svg>
+                </span>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Cotizador de Alfombras</h2>
+            </div>
+        </template>
+        <template #content>
+            <div class="space-y-6 p-4">
+                <div class="bg-gray-50 dark:bg-zinc-800 p-3 rounded-lg border border-gray-200 dark:border-zinc-700 flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-300">
+                            El precio se calcula con base en: 
+                            <strong class="text-gray-900 dark:text-white">{{ formatCurrency(basePriceConfig.price) }}</strong>
+                            por una alfombra de 
+                            <strong class="text-gray-900 dark:text-white">{{ basePriceConfig.length }}cm x {{ basePriceConfig.width }}cm</strong>.
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Precio por cm²: {{ formatCurrency(carpetPricePerCm2) }}
+                        </p>
+                    </div>
+                    <button @click="resetBaseConfig" title="Reiniciar configuración" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="carpet-length" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo (cm)</label>
+                        <input type="number" id="carpet-length" v-model="carpetQuote.length" placeholder="e.g., 200"
+                            class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="carpet-width" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho (cm)</label>
+                        <input type="number" id="carpet-width" v-model="carpetQuote.width" placeholder="e.g., 150"
+                            class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="carpet-discount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento (%) <span class="text-gray-500">(Opcional)</span></label>
+                    <input type="number" id="carpet-discount" v-model="carpetQuote.discount" placeholder="e.g., 10" min="0" max="100"
+                        class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+
+                <div v-if="totalCarpetPrice > 0" class="mt-6 text-center bg-blue-50 dark:bg-blue-900/50 p-4 rounded-lg">
+                    <p class="text-lg font-medium text-gray-600 dark:text-gray-300">Precio Total Estimado</p>
+                    <p class="text-4xl font-extrabold text-blue-600 dark:text-blue-300 tracking-tight">{{ formatCurrency(totalCarpetPrice) }}</p>
+                    <p v-if="carpetQuote.discount > 0" class="text-sm text-green-600 dark:text-green-400 mt-1">
+                        Con {{ carpetQuote.discount }}% de descuento aplicado.
+                    </p>
+                </div>
+            </div>
+        </template>
+        <template #footer>
+            <CancelButton @click="closeCarpetCalculator">Cerrar</CancelButton>
+        </template>
+    </DialogModal>
+
+    <!-- Base Price Config Modal -->
+    <DialogModal :show="showBasePriceModal" @close="showBasePriceModal = false">
+        <template #title>
+            <div class="flex items-center space-x-3">
+                <span class="bg-orange-100 dark:bg-orange-900 rounded-full p-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-orange-600 dark:text-orange-300">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.78.93l-.15.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.149-.894c-.07-.424-.384-.764-.78-.93-.398-.164-.855-.142-1.205.108l-.737.527a1.125 1.125 0 0 1-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894Z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    </svg>
+                </span>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Configuración Inicial</h2>
+            </div>
+        </template>
+        <template #content>
+            <div class="p-4 space-y-4">
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    Es la primera vez que usas el cotizador. Por favor, define los valores base que se usarán para los cálculos. Esta información se guardará en tu navegador.
+                </p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Base (MXN)</label>
+                    <input type="number" v-model="basePriceConfig.price" placeholder="7500"
+                        class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo Base (cm)</label>
+                        <input type="number" v-model="basePriceConfig.length" placeholder="120"
+                            class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho Base (cm)</label>
+                        <input type="number" v-model="basePriceConfig.width" placeholder="60"
+                            class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
+                    </div>
+                </div>
+            </div>
+        </template>
+        <template #footer>
+            <CancelButton @click="showBasePriceModal = false">Cancelar</CancelButton>
+            <button @click="saveBasePriceConfig" 
+                    class="ml-2 inline-flex items-center justify-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 focus:outline-none focus:border-orange-700 focus:ring focus:ring-orange-200 disabled:opacity-25 transition">
+                Guardar y Continuar
+            </button>
         </template>
     </DialogModal>
 </template>
@@ -134,6 +255,18 @@ import DialogModal from "@/Components/DialogModal.vue";
 export default {
     data() {
         return {
+            showCarpetCalculatorModal: false,
+            showBasePriceModal: false,
+            basePriceConfig: {
+                price: 7500,
+                width: 60,
+                length: 120,
+            },
+            carpetQuote: {
+                width: null,
+                length: null,
+                discount: 0,
+            },
             menus: [
                 {
                     label: 'Inicio',
@@ -163,276 +296,75 @@ export default {
                         || route().current('quotes.*') 
                         || route().current('branches.*')
                         || route().current('sales.*'),
-                        // || route().current('oportunities.*') 
-                        // || route().current('oportunity-tasks.*')
-                        // || route().current('client-monitors.*') 
-                        // || route().current('meeting-monitors.*') 
-                        // || route().current('payment-monitors.*')
-                        // || route().current('sale-analitics.*') 
-                        // || route().current('prospects.*') 
-                        // || route().current('invoices.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return ['quote', 'sales', 'opportunities', 'prospects'].includes(notification.data.module);
-                    // }),
                     options: [
-                //         {
-                //             label: 'Inicio CRM',
-                //             route: 'sale-analitics.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Analisis de ventas'),
-                //             notifications: false,
-                //         },
-                //         {
-                //             label: 'Prospectos',
-                //             route: 'prospects.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver prospectos'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'prospects';
-                //             }),
-                //         },
                         {
                             label: 'Clientes',
                             route: 'branches.index',
                             active: route().current('branches.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver clientes'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'companies';
-                            // }),
                         },
-                //         {
-                //             label: 'Oportunidades',
-                //             route: 'oportunities.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver oportunidades'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'opportunities';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Seguimiento integral',
-                //             route: 'client-monitors.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver seguimiento integral'),
-                //             notifications: false,
-                //         },
                         {
                             label: 'Cotizaciones',
                             route: 'quotes.index',
                             active: route().current('quotes.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver cotizaciones'),
-                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                                return notification.data.module === 'quote';
-                            }),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'quote';
+                            // }),
                         },
                         {
                             label: 'Órdenes de venta / stock',
                             route: 'sales.index',
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'sales';
-                            // }),
                         },
-                //         {
-                //             label: 'Facturación',
-                //             route: 'invoices.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
-                //             notifications: false
-                //         },
                     ],
                     dropdown: true,
                     show: 
                      this.$page.props.auth.user.permissions.includes('Ver clientes') 
                     || this.$page.props.auth.user.permissions.includes('Ver cotizaciones') 
                     || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
-                    // || this.$page.props.auth.user.permissions.includes('Ver oportunidades') 
-                    // || this.$page.props.auth.user.permissions.includes('Ver seguimiento integral') 
-                    // || this.$page.props.auth.user.permissions.includes('Ver facturas') 
                 },
                 {
                     label: 'Compras',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg>',
-                    // active: route().current('suppliers.*') || route().current('purchases.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return ['po', 'suppliers'].includes(notification.data.module);
-                    // }),
                     options: [
                         {
                             label: 'Proveedores',
                             route: 'dashboard',
                             show: true,
-                            // route: 'suppliers.index',
-                            // show: this.$page.props.auth.user.permissions.includes('Ver proveedores'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'suppler';
-                            // }),
                             notifications: false,
                         },
                         {
                             label: 'Órdenes de compra',
                             route: 'dashboard',
                             show: true,
-                            // route: 'purchases.index',
-                            // show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'po';
-                            // }),
                         },
 
                     ],
                     dropdown: true,
                     show: true,
-                    // show: this.$page.props.auth.user.permissions.includes('Ver proveedores') ||
-                    //     this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
                 },
-                // {
-                //     label: 'Logistica',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>',
-                //     active: route().current('shippings.*') || route().current('boxes.*') || route().current('shipping-rates.*'),
-                //     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //     //     return notification.data.module === 'shippings';
-                //     // }),
-                //      options: [
-                //         {
-                //             label: 'Envíos',
-                //             route: 'shippings.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver logistica'),
-                //             // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //             //     return notification.data.module === 'suppler';
-                //             // }),
-                //             // notifications: false,
-                //         },
-                //         {
-                //             label: 'Administrador de cajas',
-                //             route: 'boxes.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver logistica'),
-                //             // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //             //     return notification.data.module === 'suppler';
-                //             // }),
-                //             // notifications: false,
-                //         },
-                //         {
-                //             label: 'Tarifas',
-                //             route: 'shipping-rates.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver logistica'),
-                //             // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //             //     return notification.data.module === 'suppler';
-                //             // }),
-                //             // notifications: false,
-                //         },
-                //     ],
-                //     dropdown: true,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver logistica')
-                // },
-                // {
-                //     label: 'Proyectos',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
-                //     route: route('projects.index'),
-                //     active: route().current('projects.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return notification.data.module === 'projects';
-                //     }),
-                //     show: this.$page.props.auth.user.permissions.includes('Ver proyectos')
-                // },
-                // {
-                //     label: 'Almacén',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>',
-                //     active: route().current('storages.*') || route().current('raw-materials.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return ['raw-material', 'consumable', 'finished-product', 'scrap'].includes(notification.data.module);
-                //     }),
-                //     options: [
-                //         {
-                //             label: 'Materia prima',
-                //             route: 'storages.raw-materials.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver materia prima'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'raw-material';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Insumos',
-                //             route: 'storages.consumables.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver insumos'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'consumable';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Producto terminado',
-                //             route: 'storages.finished-products.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver producto terminado'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'finished-products';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Scrap',
-                //             route: 'storages.scraps.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver scrap'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'scrap';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Obsoletos',
-                //             route: 'storages.obsolete.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver producto obsoleto'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'obsoletes';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Seguimiento',
-                //             route: 'storages.samples.index',
-                //             show: this.$page.props.auth.user.permissions.includes('Ver producto de seguimiento'),
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'samples';
-                //             }),
-                //         },
-                //     ],
-                //     dropdown: true,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver materia prima') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver insumos') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver producto terminado') ||
-                //         this.$page.props.auth.user.permissions.includes('Ver scrap')
-                // },
                 {
                     label: 'Recursos Humanos',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>',
                     active: 
-                        // route().current('payrolls.*')
-                        // || route().current('admin-additional-times.*')
                          route().current('users.*')
                         || route().current('role-permissions.*')
                         || route().current('bonuses.*')
                         || route().current('holidays.*')
                         || route().current('discounts.*'),
-                    notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
-                    }),
+                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                    //     return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
+                    // }),
                     options: [
-                        // {
-                        //     label: 'Nóminas',
-                        //     route: 'payrolls.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver nominas'),
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'payroll';
-                        //     }),
-                        // },
-                        // {
-                        //     label: 'Solicitudes de tiempo adicional',
-                        //     route: 'dashboard',
-                        //     active: route().current('admin-additional-time.*'),
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional'),
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'admin-additional-time';
-                        //     }),
-                        // },
                         {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),
                             show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
-                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                                return notification.data.module === 'user';
-                            }),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'user';
+                            // }),
                         },
                         {
                             label: 'Roles y permisos',
@@ -466,130 +398,35 @@ export default {
                     show: 
                         this.$page.props.auth.user.permissions.includes('Ver roles y permisos') 
                         || this.$page.props.auth.user.permissions.includes('Ver bonos') 
-                        // this.$page.props.auth.user.permissions.includes('Ver nominas') 
-                        // || this.$page.props.auth.user.permissions.includes('Ver solicitudes de tiempo adicional') 
                         || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                 },
-                // {
-                //     label: 'Diseño',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" /></svg>',
-                //     active: route().current('designs.*') || route().current('design-authorizations.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return ['design', 'design-authorization'].includes(notification.data.module);
-                //     }),
-                //     options: [
-                //         {
-                //             label: 'Órdenes de diseño',
-                //             route: 'designs.index',
-                //             show: true,
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'design';
-                //             }),
-                //         },
-                //         {
-                //             label: 'Formatos de autorización de diseño',
-                //             route: 'design-authorizations.index',
-                //             show: true,
-                //             notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //                 return notification.data.module === 'design-authorization';
-                //             }),
-                //         },
-                //     ],
-                //     dropdown: true,
-                //     show: true
-                // },
-                // {
-                //     label: 'Producción',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" /></svg>',
-                //     route: route('productions.index'),
-                //     active: route().current('productions.*'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return notification.data.module === 'production';
-                //     }),
-                //     show: true
-                // },
-                // {
-                //     label: 'Calidad',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0 1 18 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3 1.5 1.5 3-3.75" /></svg>',
-                //     route: route('qualities.index'),
-                //     active: route().current('qualities.*'),
-                //     show: this.$page.props.auth.user.permissions.includes('Ver modulo de calidad')
-                // },
-                // {
-                //     label: 'Mercadotecnia',
-                //     icon: '<i class="fa-solid fa-lightbulb text-xs"></i>',
-                //     route: route('dashboard'),
-                //     active: route().current('dashboar'),
-                //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //         return notification.data.module === 'marketing';
-                //     }),
-                //     show: false
-                // },
                 {
                     label: 'Más',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
                     active: 
                         route().current('machines.*') ||
-                        // route().current('more-additional-times.*') || 
-                        // route().current('meetings.*') ||
-                        // route().current('samples.*') || 
                         route().current('production-costs.*') ||
                         route().current('manuals.*') ||
                         route().current('audits.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return ['machine', 'meeting', 'samples', 'media-library'].includes(notification.data.module);
-                    // }),
                     options: [
                         {
                             label: 'Tutoriales y manuales',
                             route: 'manuals.index',
                             active: route().current('manuals.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver tutoriales y manuales'),
-                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                                return notification.data.module === 'manual';
-                            }),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'manual';
+                            // }),
                         },
                         {
                             label: 'Máquinaria',
                             route: 'machines.index',
                             active: route().current('machines.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
-                            notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                                return notification.data.module === 'machine';
-                            }),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'machine';
+                            // }),
                         },
-                        // {
-                        //     label: 'Solicitudes de tiempo adicional',
-                        //     route: 'more-additional-times.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal'),
-                        //     notifications: false,
-                        // },
-                        // {
-                        //     label: 'Reuniones',
-                        //     route: 'meetings.index',
-                        //     // show: this.$page.props.auth.user.permissions.includes('Reuniones personal'),
-                        //     show: false,
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'meeting';
-                        //     }),
-                        // },
-                        // {
-                        //     label: 'Biblioteca de medios',
-                        //     route: 'dashboard',
-                        //     // show: this.$page.props.auth.user.permissions.includes('Ver medios')
-                        //     show: false,
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'media-library';
-                        //     }),
-                        // },
-                        // {
-                        //     label: 'Seguimiento de muestras',
-                        //     route: 'samples.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver muestra'),
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'samples';
-                        //     }),
-                        // },
                         {
                             label: 'Procesos de producción',
                             route: 'production-costs.index',
@@ -603,24 +440,17 @@ export default {
                             active: route().current('audits.*'),
                             show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
                         },
+                        {
+                            label: 'Cotizador de alfombras',
+                            action: this.openCarpetCalculator,
+                            show: true,
+                        },
                     ],
                     dropdown: true,
-                    // show: true,
                     show: this.$page.props.auth.user.permissions.includes('Ver maquinas') 
-                        // || this.$page.props.auth.user.permissions.includes('Solicitudes de tiempo adicional personal') 
-                        // || this.$page.props.auth.user.permissions.includes('Reuniones personal') 
-                        // || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios') 
                         || this.$page.props.auth.user.permissions.includes('Ver historial de acciones') 
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
                 },
-                // {
-                //     label: 'Configuración',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>',
-                //     route: route('settings.index'),
-                //     active: route().current('settings.*'),
-                //     notifications: false,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver configuraciones')
-                // },
             ],
             showModal: false,
             payrollId: null,
@@ -640,7 +470,6 @@ export default {
         ProfileCard,
         SideNavLink,
         DialogModal,
-        // PayrollTemplate
     },
     computed: {
         // Separa los menús que irán en la parte inferior
@@ -653,25 +482,72 @@ export default {
             const bottomLabels = ['Configuración'];
             return this.menus.filter(menu => !bottomLabels.includes(menu.label));
         },
+        carpetPricePerCm2() {
+            if (this.basePriceConfig.width > 0 && this.basePriceConfig.length > 0) {
+                const baseArea = this.basePriceConfig.width * this.basePriceConfig.length;
+                return this.basePriceConfig.price / baseArea;
+            }
+            return 0;
+        },
+        totalCarpetPrice() {
+            if (this.carpetQuote.width > 0 && this.carpetQuote.length > 0 && this.carpetPricePerCm2 > 0) {
+                const quoteArea = this.carpetQuote.width * this.carpetQuote.length;
+                let price = quoteArea * this.carpetPricePerCm2;
+                if (this.carpetQuote.discount > 0 && this.carpetQuote.discount <= 100) {
+                    const discountAmount = price * (this.carpetQuote.discount / 100);
+                    price -= discountAmount;
+                }
+                return price;
+            }
+            return 0;
+        },
     },
     methods: {
-        // async getAllPayrolls() {
-        //     try {
-        //         const response = await axios.post(route('payrolls.get-all-payrolls'));
-
-        //         if (response.status === 200) {
-        //             this.payrolls = response.data.items;
-        //             this.payrollId = this.payrolls[0].id;
-        //         }
-
-        //     } catch (error) {
-        //         console.log(error.message);
-        //     }
-        // }
+        formatCurrency(value) {
+            if (typeof value !== 'number') {
+                return '$0.00';
+            }
+            return value.toLocaleString('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            });
+        },
+        openCarpetCalculator() {
+            const storedConfig = localStorage.getItem('carpetBaseConfig');
+            if (storedConfig) {
+                this.basePriceConfig = JSON.parse(storedConfig);
+                this.showCarpetCalculatorModal = true;
+            } else {
+                this.basePriceConfig = { price: 7500, width: 60, length: 120 };
+                this.showBasePriceModal = true;
+            }
+        },
+        saveBasePriceConfig() {
+            if (this.basePriceConfig.price > 0 && this.basePriceConfig.width > 0 && this.basePriceConfig.length > 0) {
+                localStorage.setItem('carpetBaseConfig', JSON.stringify(this.basePriceConfig));
+                this.showBasePriceModal = false;
+                this.showCarpetCalculatorModal = true;
+            } else {
+                // Here you can add a more sophisticated feedback, like a toast message.
+                console.error("Please provide valid base configuration values.");
+            }
+        },
+        closeCarpetCalculator() {
+            this.showCarpetCalculatorModal = false;
+            this.carpetQuote = {
+                width: null,
+                length: null,
+                discount: 0,
+            };
+        },
+        resetBaseConfig() {
+            localStorage.removeItem('carpetBaseConfig');
+            this.showCarpetCalculatorModal = false;
+            this.openCarpetCalculator();
+        },
     },
     mounted() {
-        // this.getAllPayrolls();
-
     }
 }
 </script>
+

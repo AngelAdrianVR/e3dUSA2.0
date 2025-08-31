@@ -474,7 +474,7 @@ export default {
                 { label: 'VINILPIEL', key: 'VPL' }
             ],
             mesureUnits: [
-                'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
+                'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
             ],
         };
     },

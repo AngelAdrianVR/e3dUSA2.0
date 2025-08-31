@@ -1,5 +1,8 @@
 <template>
     <AppLayout :title="`Detalles de la Órden #${sale.id}`">
+        <!-- Panel Flotante de Notas -->
+        <BranchNotes :branch-id="sale.branch.id" />
+
         <!-- === ENCABEZADO === -->
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
@@ -56,6 +59,11 @@
                         </DropdownLink>
                         <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
                             Crear nueva Órden
+                        </DropdownLink>
+                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM')) || true" as="button">
+                            <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
+                                <p>Ver certificado de calidad</p>
+                            </a>
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
                         <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
@@ -226,6 +234,7 @@
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
@@ -252,6 +261,7 @@ export default {
         FileView,
         Dropdown,
         AppLayout,
+        BranchNotes,
         DropdownLink,
         CancelButton,
         SecondaryButton,
