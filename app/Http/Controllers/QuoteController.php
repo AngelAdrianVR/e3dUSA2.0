@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\QuoteProduct;
 use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
 use Carbon\Carbon;
@@ -532,5 +533,19 @@ class QuoteController extends Controller
             'notes' => $quote->notes,
             'products' => $approvedProducts->values(),
         ]);
+    }
+
+    // Cambia el estatus de los productos den la cotizacion (Aprobado/Pendiente)
+    public function updateProductStatus(Request $request, QuoteProduct $quoteProduct)
+    {
+        $request->validate([
+            'status' => 'required|in:Pendiente,Aprobado,Rechazado',
+        ]);
+
+        $quoteProduct->update(['customer_approval_status' => $request->status]);
+
+        // Opcional: Recalcular totales de la cotización aquí si es necesario.
+
+        return response()->json(['message' => 'Estatus del producto actualizado con éxito.']);
     }
 }

@@ -85,7 +85,7 @@ class ProductController extends Controller
             'height' => 'nullable|numeric|min:0',
             'diameter' => 'nullable|numeric|min:0',
             'media' => 'nullable|array|max:3',
-            'media.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'media.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'components' => [
                 'nullable',
                 'array',
@@ -276,7 +276,7 @@ class ProductController extends Controller
             'height' => 'nullable|numeric|min:0',
             'diameter' => 'nullable|numeric|min:0',
             'media' => 'nullable|array|max:3',
-            'media.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            'media.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             'components' => [
                 'nullable',
                 'array',

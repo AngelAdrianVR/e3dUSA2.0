@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('created_by_user_id')->constrained('users')->cascadeOnDelete();
 
             $table->integer('quantity_to_produce');
-            $table->string('status')->default('Pendiente'); // 'Pendiente', 'En Proceso', 'Pausada', 'Terminada', 'Cancelada'
+            $table->string('status')->default('Pendiente'); // 'Pendiente', 'En Proceso', 'Pausada', 'Terminada', 'Falta Material'
             $table->integer('estimated_time_minutes')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('finished_at')->nullable();

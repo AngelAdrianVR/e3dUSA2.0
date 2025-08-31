@@ -58,4 +58,9 @@ class Production extends Model
     {
         return $this->hasMany(ProductionLog::class);
     }
+
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(ProductionTask::class);
+    }
 }

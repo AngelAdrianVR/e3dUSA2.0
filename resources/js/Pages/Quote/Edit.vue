@@ -1,5 +1,8 @@
 <template>
     <AppLayout title="Editar Cotización">
+        <!-- Panel Flotante de Notas -->
+        <BranchNotes v-if="form.branch_id" :branch-id="form.branch_id" />
+
         <!-- Encabezado -->
         <div class="px-4 sm:px-0 flex justify-between items-center">
             <div class="flex items-center space-x-2">
@@ -520,6 +523,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
@@ -652,6 +656,7 @@ export default {
         AppLayout,
         InputError,
         InputLabel,
+        BranchNotes,
         CancelButton,
         PrimaryButton,
         LoadingIsoLogo,

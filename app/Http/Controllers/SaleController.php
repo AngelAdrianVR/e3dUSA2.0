@@ -90,7 +90,7 @@ class SaleController extends Controller
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
 
         // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
@@ -109,7 +109,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];
@@ -258,7 +258,7 @@ class SaleController extends Controller
         $sale->load([
             'branch',
             'media',
-            'user',
+            'user:id,name',
             'saleProducts.product.media',
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->orderBy('created_at', 'desc');
@@ -309,7 +309,7 @@ class SaleController extends Controller
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
 
         if ($isSaleType) {
@@ -327,7 +327,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];
@@ -660,5 +660,15 @@ class SaleController extends Controller
                         ->get(['id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'authorized_user_name', 'authorized_at']);
 
         return response()->json($sales);
+    }
+
+    public function qualityCertificate(Sale $sale)
+    {
+       // Carga todas las relaciones necesarias para evitar consultas N+1
+        $sale->load(['branch', 'contact', 'saleProducts.product']);
+
+        return inertia('Sale/QualityCertificate', [
+            'sale' => $sale
+        ]);
     }
 }

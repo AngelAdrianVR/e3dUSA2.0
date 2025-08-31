@@ -86,6 +86,12 @@
                                 <InputError :message="form.errors.measure_unit" class="mt-1" />
                             </div>
                         </div>
+
+                        <p v-if="form.material == 'T'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
+                        Si el producto se vende por medidas personalizadas, indicar stock y costo tomando como unidad el metro lineal.  
+                        (Ejemplo: un rollo de tela de 1.52m x 30m equivale a 30 en stock y la unidad es Metro(s)).
+                        </p>
+
                         
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <TextInput v-model="form.min_quantity" label="Cantidad mínima" :error="form.errors.min_quantity" type="number" placeholder="Ej. 100" />
@@ -489,7 +495,7 @@ export default {
                 { label: 'VINILPIEL', key: 'VPL' }
             ],
             mesureUnits: [
-                'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
+                'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
             ],
         };
     },

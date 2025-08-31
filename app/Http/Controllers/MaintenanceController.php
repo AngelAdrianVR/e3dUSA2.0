@@ -34,7 +34,7 @@ class MaintenanceController extends Controller
             'machine_id'       => 'required|integer|exists:machines,id',
             'maintenance_date' => 'required|date',
             'media'            => 'nullable|array',
-            'media.*'          => 'nullable|file|mimes:jpg,jpeg,png,gif|max:4096',
+            'media.*'          => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096',
 
             // Validación para las refacciones utilizadas
             'spare_parts_used'           => 'nullable|array',
@@ -125,7 +125,7 @@ class MaintenanceController extends Controller
             'machine_id'       => 'required|integer|exists:machines,id',
             'maintenance_date' => 'required|date',
             'media'            => 'nullable|array',
-            'media.*'          => 'nullable|file|mimes:jpg,jpeg,png,gif|max:4096',
+            'media.*'          => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096',
             'spare_parts_used' => 'nullable|array',
             'spare_parts_used.*.id' => 'required_with:spare_parts_used|integer|exists:spare_parts,id',
             'spare_parts_used.*.quantity' => 'required_with:spare_parts_used|integer|min:1',

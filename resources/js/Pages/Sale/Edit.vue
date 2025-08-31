@@ -1,5 +1,8 @@
 <template>
     <AppLayout :title="form.type === 'venta' ? 'Editar Órden de Venta' : 'Editar Órden de Stock'">
+        <!-- Panel Flotante de Notas -->
+        <BranchNotes v-if="form.branch_id" :branch-id="form.branch_id" />
+
         <!-- Encabezado -->
         <div class="px-4 sm:px-0 flex justify-between items-center">
             <div class="flex items-center space-x-2">
@@ -248,6 +251,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
@@ -271,6 +275,7 @@ export default {
         AppLayout,
         InputError,
         InputLabel,
+        BranchNotes,
         FileUploader,
         PrimaryButton,
         SecondaryButton,
