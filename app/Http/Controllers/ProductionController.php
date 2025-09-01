@@ -35,6 +35,7 @@ class ProductionController extends Controller
                     'productions.tasks.operator:id,name',
                     'saleProducts:id,sale_id,product_id,quantity_to_produce',
                     'saleProducts.product:id,name,code,measure_unit',
+                    'saleProducts.product.media',
                 ]);
             // --- Aplicar filtro por estatus general de producción ---
             if ($selectedStatus) {
@@ -77,15 +78,27 @@ class ProductionController extends Controller
         if ($user->hasRole('Operador')) {
             $myTasks = ProductionTask::where('operator_id', $user->id)
                 ->with([
+                    'production:id,sale_product_id,quantity_to_produce,status',
+                    'production.saleProduct:id,sale_id,product_id,quantity_to_produce',
+                    'production.saleProduct.product:id,name,code,measure_unit',
+                    'production.saleProduct.product:id,name,code,measure_unit',
                     'production.saleProduct.product.media',
+                    'production.saleProduct.product.components:id,name,measure_unit',
+                    'production.saleProduct.product.components.storages', // Stock de los componentes
+                    // 'production.saleProduct.product.components.media',
+                    'production.saleProduct.sale:id,branch_id,authorized_at,type,status,is_high_priority,user_id',
                     'production.saleProduct.sale.branch:id,name',
+                    'production.saleProduct.sale.saleProducts:id,sale_id,product_id,quantity_to_produce',
+                    'production.saleProduct.sale.saleProducts.product:id,name,code,measure_unit',
                 ])
                 ->whereHas('production', function ($query) {
                     $query->whereNotIn('status', ['Terminada', 'Cancelada']);
                 })
                 ->orderBy('created_at', 'desc')
+                ->take(20)
                 ->get();
 
+                // return $myTasks;
             return Inertia::render('Production/Index', [
                 'viewType' => 'operator',
                 'tasks' => $myTasks,
@@ -113,6 +126,7 @@ class ProductionController extends Controller
                     $query->whereDoesntHave('production')->with([
                         'product:id,name,code,archived_at,measure_unit', // Solo lo necesario para la tabla
                         'product.storages', // Stock del producto terminado
+                        'product.media',
                         'product.components:id,name,measure_unit',
                         'product.components.storages' // Stock de los componentes
                     ]);

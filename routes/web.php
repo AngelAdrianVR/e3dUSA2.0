@@ -19,6 +19,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
+use App\Http\Controllers\ProductionTaskController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
@@ -153,6 +154,10 @@ Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityC
 // ------- (Produccion Routes)  ---------
 Route::resource('productions', ProductionController::class)->middleware('auth');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+
+
+// ------- (Tareas de produccion Routes)  ---------
+Route::put('/production-tasks/{production_task}/status', [ProductionTaskController::class, 'updateStatus'])->name('production-tasks.updateStatus');
 
 
 // ------- Recursos humanos(users routes)  ---------

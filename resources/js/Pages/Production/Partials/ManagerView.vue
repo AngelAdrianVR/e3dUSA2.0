@@ -4,7 +4,7 @@
         <div v-show="activeView === 'kanban'" class="kanban-board-container">
             <div class="flex space-x-4 overflow-x-auto p-4">
                 <!-- Columnas del Kanban -->
-                <div v-for="column in columns" :key="column.id" class="bg-gray-200 dark:bg-slate-800/50 rounded-lg w-80 flex-shrink-0 flex flex-col h-[calc(100vh-17rem)]">
+                <div v-for="column in columns" :key="column.id" class="bg-gray-200 dark:bg-slate-800/50 rounded-lg w-80 flex-shrink-0 flex flex-col h-[calc(100vh-14rem)]">
                     <!-- Encabezado de la columna -->
                     <h3 class="font-bold text-gray-800 dark:text-gray-200 px-4 pt-4 pb-3 flex items-center border-b-2 border-gray-300 dark:border-slate-700 flex-shrink-0">
                        <span class="w-3 h-3 rounded-full mr-2" :class="column.color"></span>
@@ -19,7 +19,7 @@
                                class="p-3 overflow-y-auto flex-grow"
                                :disabled="true">
                         <template #item="{element: sale}">
-                           <div class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-2 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
+                           <div class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-3 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
                                 <!-- Indicador de Alta Prioridad (Más visible) -->
                                 <div v-if="sale.is_high_priority" class="absolute top-0 right-0 h-16 w-16">
                                     <div class="absolute transform rotate-45 bg-red-600 text-center text-white font-semibold py-1 right-[-34px] top-[32px] w-[170px] shadow-lg">
@@ -54,7 +54,7 @@
                                                 <h4 class="font-semibold text-xs text-gray-300 mb-2 border-b border-slate-600 pb-1">PRODUCTOS</h4>
                                                 <div class="space-y-2">
                                                     <div v-for="item in sale.sale_products" :key="item.id" class="flex items-center space-x-3">
-                                                        <img :src="item.product.images_urls[0]" class="w-10 h-10 rounded-md object-cover bg-gray-500" v-if="item.product.images_urls?.length > 0">
+                                                        <img draggable="off" :src="item.product.media[0]?.original_url" class="w-10 h-10 rounded-md object-cover bg-gray-500" v-if="item.product.media?.length > 0">
                                                         <div class="w-10 h-10 rounded-md bg-gray-700 flex items-center justify-center" v-else>
                                                             <i class="fa-solid fa-image text-gray-500"></i>
                                                         </div>
@@ -137,19 +137,62 @@
         <div v-show="activeView === 'table'" class="p-4 sm:p-6 lg:p-8">
             <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg">
                 <el-table :data="sales" style="width: 100%" class="dark:!bg-slate-900 dark:!text-gray-300">
-                    <el-table-column prop="id" label="OV #" width="100" #default="scope">OV-{{ scope.row.id }}</el-table-column>
-                    <el-table-column label="Cliente" #default="scope">{{ scope.row.branch?.name }}</el-table-column>
-                    <el-table-column prop="production_summary.status" label="Estatus General" width="150">
-                         <template #default="scope">
-                            <el-tag :type="statusTagType(scope.row.production_summary.status)">{{ scope.row.production_summary.status }}</el-tag>
+                    <el-table-column prop="id" label="Folio" width="150" #default="scope">
+                        <div class="flex items-center space-x-2">
+                            <svg v-if="scope.row.type === 'venta'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-purple-500">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                            </svg>
+                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-red-500">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                            </svg>
+                            <p v-if="scope.row.type === 'venta'">OV-{{ scope.row.id.toString().padStart(4, '0') }}</p>
+                            <p v-else>OS-{{ scope.row.id.toString().padStart(4, '0') }}</p>
+                        </div>
+                    </el-table-column>
+                    <el-table-column label="Prioridad" width="100" align="center">
+                        <template #default="scope">
+                            <div class="flex justify-center">
+                                 <span v-if="scope.row.is_high_priority" class="h-8 w-8 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
+                                    <i class="fa-solid fa-fire text-red-500 text-lg" title="Alta Prioridad"></i>
+                                 </span>
+                                 <span v-else class="text-gray-400 dark:text-gray-600">-</span>
+                            </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Productos" width="150" align="center" #default="scope">
-                        {{ scope.row.production_summary.completed_productions }} / {{ scope.row.production_summary.total_productions }}
+                    <el-table-column label="Cliente" #default="scope">
+                        {{ scope.row.branch?.name ?? 'N/A' }}
                     </el-table-column>
-                    <el-table-column label="Progreso Tareas" width="180">
+                    <el-table-column label="Creado por" width="200">
+                        <template #default="scope">
+                            <div class="flex items-center space-x-3">
+                                <img :src="scope.row.user.profile_photo_url" class="size-9 rounded-full object-cover">
+                                <span class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ scope.row.user.name }}</span>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="production_summary.status" label="Estatus General" width="150" align="center">
                          <template #default="scope">
-                            <el-progress :percentage="scope.row.production_summary.percentage" />
+                            <el-tag :type="statusTagType(scope.row.production_summary.status)" class="!text-xs !font-bold">{{ scope.row.production_summary.status }}</el-tag>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Productos Terminados" width="180" align="center">
+                         <template #default="scope">
+                            <span class="font-semibold text-gray-700 dark:text-gray-200 text-sm">
+                                {{ scope.row.production_summary.completed_productions }} / {{ scope.row.production_summary.total_productions }}
+                            </span>
+                        </template>
+                    </el-table-column>
+                    <el-table-column label="Progreso Tareas" width="220">
+                         <template #default="scope">
+                            <div>
+                                <div class="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    <span>Tareas completadas</span>
+                                    <span class="font-semibold">{{ scope.row.production_summary.completed_tasks }}/{{ scope.row.production_summary.total_tasks }}</span>
+                                </div>
+                                <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-2.5 mt-1">
+                                    <div class="h-2.5 rounded-full transition-all duration-500" :style="getProgressBarStyle(scope.row.production_summary.percentage)"></div>
+                                </div>
+                            </div>
                         </template>
                     </el-table-column>
                     <el-table-column label="Acciones" width="120" align="right">

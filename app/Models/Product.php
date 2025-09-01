@@ -44,7 +44,7 @@ class Product extends Model implements HasMedia, Auditable
         'archived_at' => 'datetime',
     ];
 
-    protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes
+    // protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes
 
 
     // relaciones
@@ -114,10 +114,10 @@ class Product extends Model implements HasMedia, Auditable
     }
 
     // ==== ACCESORES ====
-    public function getImagesUrlsAttribute()
-    {
-        return $this->getMedia('images')->map(function ($media) {
-            return $media->getUrl(); // también existe getFullUrl() si usas rutas absolutas
-        });
-    }
+    // public function getImagesUrlsAttribute()
+    // {
+    //     return $this->getMedia('images')->map(function ($media) {
+    //         return $media->getUrl(); // también existe getFullUrl() si usas rutas absolutas
+    //     });
+    // }
 }

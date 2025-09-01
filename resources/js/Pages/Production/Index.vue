@@ -47,6 +47,35 @@
                     </SecondaryButton>
                 </Link>
 
+                <!-- Componente de Paginación -->
+                <div v-if="viewType === 'manager' && sales.links.length > 3" class="flex justify-center mt-6">
+                    <div class="flex flex-wrap gap-2">
+                        <template v-for="(link, key) in sales.links" :key="key">
+                        <!-- Botón deshabilitado -->
+                        <div
+                            v-if="link.url === null"
+                            class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg cursor-not-allowed select-none"
+                            v-html="link.label"
+                        />
+                        
+                        <!-- Botón activo o normal -->
+                        <Link
+                            v-else
+                            class="px-4 py-2 text-sm font-medium rounded-lg border transition-all duration-200
+                                hover:shadow-md hover:scale-105
+                                focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            :class="{
+                            'bg-primary text-white border-primary shadow-md': link.active,
+                            'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800': !link.active
+                            }"
+                            :href="link.url"
+                            v-html="link.label"
+                        />
+                        </template>
+                    </div>
+                </div>
+
+
             </div>
         </div>
         
@@ -64,19 +93,6 @@
             <p>No tienes una vista de producción asignada.</p>
         </div>
 
-        <!-- Componente de Paginación -->
-        <div v-if="viewType === 'manager' && sales.links.length > 3" class="flex justify-center mt-3">
-            <div class="flex flex-wrap -mb-1">
-                <template v-for="(link, key) in sales.links" :key="key">
-                    <div v-if="link.url === null" class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" v-html="link.label" />
-                    <Link v-else 
-                          class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded transition-all duration-200 hover:bg-white dark:hover:bg-slate-700 focus:border-primary focus:text-primary" 
-                          :class="{ 'bg-primary text-white dark:border-primary': link.active, 'dark:text-gray-300 dark:border-slate-600': !link.active }" 
-                          :href="link.url" 
-                          v-html="link.label" />
-                </template>
-            </div>
-        </div>
     </AppLayout>
 </template>
 

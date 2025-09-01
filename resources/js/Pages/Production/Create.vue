@@ -69,7 +69,7 @@
                                         <template #content>
                                             <ul class="list-disc list-inside text-xs">
                                                 <li v-for="item in scope.row.sale_products" :key="item.id" class="flex items-center space-x-2 mb-2">
-                                                    <img draggable="false" :src="item.product.images_urls[0]" :alt="item.product.name" class="size-12 rounded-md object-cover mr-2">
+                                                    <img draggable="false" :src="getProductImage(item.product)" :alt="item.product.name" class="size-12 rounded-md object-cover mr-2">
                                                     ({{ item.quantity }}) {{ item.product.name }}
                                                 </li>
                                             </ul>
@@ -105,7 +105,7 @@
                          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[60vh] overflow-auto">
                             <div v-for="product in productsToProduce" :key="product.id" class="bg-gray-50 dark:bg-slate-800 border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between">
                                 <div class="flex items-start space-x-4">
-                                    <img draggable="false" :src="product.product.images_urls[0]" :alt="product.product.name" class="size-24 rounded object-cover">
+                                    <img draggable="false" :src="getProductImage(product.product)" :alt="product.product.name" class="size-24 rounded object-cover">
                                     <div class="flex-1">
                                         <p class="text-xs text-primary font-bold">OV-{{ product.sale_id.toString().padStart(4, '0') }}</p>
                                         <h4 class="font-bold text-lg text-gray-800 dark:text-gray-200">{{ product.product.name }}</h4>
@@ -183,7 +183,7 @@
                                 class="bg-gray-50 dark:bg-slate-800/50 backdrop-blur-sm border border-primary/20 rounded-xl p-4 shadow-lg hover:border-primary/60 transition-all duration-300 ease-in-out">
                                 
                                 <div class="flex items-center space-x-4 mb-4">
-                                    <!-- <img :src="product.product.images_urls[0]" :alt="product.product.name" class="size-16 rounded-lg object-cover border-2 border-slate-700 shadow-md"> -->
+                                    <img :src="getProductImage(product.product)" :alt="product.product.name" class="size-16 rounded-lg object-cover border-2 border-slate-700 shadow-md">
                                     <div>
                                         <p class="text-xs text-primary font-bold">OV-{{ product.sale_id.toString().padStart(4, '0') }}</p>
                                         <h4 class="font-bold text-lg dark:text-gray-100">{{ product.product.name }}</h4>
