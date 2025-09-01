@@ -13,8 +13,8 @@ class ProductionLog extends Model
     protected $fillable = [
         'production_id',
         'user_id',
-        'type',
-        'notes',
+        'type', // 'pausa', 'reanudacion', 'progreso'
+        'notes', 
     ];
 
     protected $guarded = ['id'];
