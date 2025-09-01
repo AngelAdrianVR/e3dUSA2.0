@@ -14,7 +14,7 @@ class ProductionTask extends Model
         'production_id',
         'operator_id',
         'name',
-        'description',
+        // 'description',
         'estimated_time_minutes',
         'status',
         'started_at',

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('production_id')->constrained()->cascadeOnDelete();
             $table->foreignId('operator_id')->constrained('users')->cascadeOnDelete();
             $table->string('name'); // Ejemplo: 'Serigrafía', 'Empaque', 'Corte'
-            $table->text('description')->nullable();
+            // $table->text('description')->nullable();
             $table->integer('estimated_time_minutes');
             $table->string('status')->default('Pendiente'); // 'Pendiente', 'En Proceso', 'Terminada'
             $table->timestamp('started_at')->nullable();

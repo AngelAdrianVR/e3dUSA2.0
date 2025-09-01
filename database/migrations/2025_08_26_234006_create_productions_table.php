@@ -14,12 +14,10 @@ return new class extends Migration
         Schema::create('productions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sale_product_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('operator_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('created_by_user_id')->constrained('users')->cascadeOnDelete();
 
             $table->integer('quantity_to_produce');
             $table->string('status')->default('Pendiente'); // 'Pendiente', 'En Proceso', 'Pausada', 'Terminada', 'Falta Material'
-            $table->integer('estimated_time_minutes')->nullable();
             $table->timestamp('started_at')->nullable();
             $table->timestamp('finished_at')->nullable();
             $table->integer('good_units')->default(0);

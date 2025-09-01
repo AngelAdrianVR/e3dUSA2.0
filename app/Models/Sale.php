@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
@@ -41,7 +42,7 @@ class Sale extends Model implements HasMedia, Auditable
         'is_high_priority' => 'boolean',
     ];
 
-    protected $appends = ['utility_data'];
+    protected $appends = ['utility_data', 'production_summary'];
 
     // --- RELACIONES ---
 
@@ -76,6 +77,11 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->hasMany(Shipment::class);
     }
 
+    public function productions(): HasManyThrough
+    {
+        return $this->hasManyThrough(Production::class, SaleProduct::class);
+    }
+
     // cambia el estatus de la sucursal a 'Cliente' si es 'Prospecto' al crear una venta
     protected static function booted()
     {
@@ -97,7 +103,7 @@ class Sale extends Model implements HasMedia, Auditable
     public function getUtilityDataAttribute()
     {
         // Carga la relación si aún no ha sido cargada para evitar problemas N+1
-        $this->loadMissing('saleProducts.product');
+        // $this->loadMissing('saleProducts.product');
 
         $totalSale = 0;
         $totalCost = 0;
@@ -118,6 +124,58 @@ class Sale extends Model implements HasMedia, Auditable
             'total_cost' => $totalCost,
             'profit' => $profit,
             'percentage' => $percentage,
+        ];
+    }
+
+     /**
+     * Calcula y devuelve un resumen del estado de producción para la venta.
+     */
+    public function getProductionSummaryAttribute()
+    {
+        // Carga las relaciones necesarias si no están ya cargadas, para optimizar consultas.
+        // $this->loadMissing('productions.tasks');
+
+        if ($this->productions->isEmpty()) {
+            return [
+                'status' => 'Sin Producción',
+                'total_productions' => 0,
+                'completed_productions' => 0,
+                'total_tasks' => 0,
+                'completed_tasks' => 0,
+                'percentage' => 0,
+            ];
+        }
+
+        $statuses = $this->productions->pluck('status');
+        $totalProductions = $statuses->count();
+        $overallStatus = 'Pendiente'; // Estado por defecto
+
+        // Lógica de prioridad para el estado general
+        if ($statuses->contains('Sin material')) {
+            $overallStatus = 'Sin material';
+        } elseif ($statuses->every(fn ($status) => $status === 'Terminada')) {
+            $overallStatus = 'Terminada';
+        } elseif ($statuses->contains('En Proceso')) {
+            $overallStatus = 'En Proceso';
+        } elseif ($statuses->contains('Pausada')) {
+            $overallStatus = 'Pausada';
+        }
+
+        // Cálculo del progreso basado en tareas
+        $totalTasks = 0;
+        $completedTasks = 0;
+        foreach ($this->productions as $production) {
+            $totalTasks += $production->tasks->count();
+            $completedTasks += $production->tasks->where('status', 'Terminada')->count();
+        }
+
+        return [
+            'status' => $overallStatus,
+            'total_productions' => $totalProductions,
+            'completed_productions' => $this->productions->where('status', 'Terminada')->count(),
+            'total_tasks' => $totalTasks,
+            'completed_tasks' => $completedTasks,
+            'percentage' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0,
         ];
     }
 }

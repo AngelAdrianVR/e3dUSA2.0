@@ -1,20 +1,11 @@
 <template>
     <AppLayout title="Producción">
         <!-- Encabezado dinámico -->
-        <div class="flex justify-between items-center">
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                <i :class="headerIcon" class="mr-2"></i> {{ headerTitle }}
-            </h2>
-            
-            <!-- Controles para el manager -->
-            <div v-if="viewType === 'manager'" class="flex items-center space-x-4">
-                <!-- Botón para crear producción -->
-                <Link :href="route('productions.create')">
-                     <SecondaryButton>
-                        <i class="fa-solid fa-plus mr-2"></i>
-                        Crear Producción
-                    </SecondaryButton>
-                </Link>
+        <div>
+            <div class="flex items-center justify-between space-x-2">
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    <i :class="headerIcon" class="mr-2"></i> {{ headerTitle }}
+                </h2>
 
                 <!-- Switch de vistas Kanban/Tabla -->
                 <div class="flex items-center space-x-2 p-1 bg-gray-200 dark:bg-slate-800 rounded-full">
@@ -28,20 +19,63 @@
                     </button>
                 </div>
             </div>
+            
+            <!-- Controles para el manager -->
+            <div v-if="viewType === 'manager'" class="flex items-center justify-start space-x-3 w-full">
+                 <!-- Filtro por Estatus -->
+                <el-select
+                    v-model="selectedStatus"
+                    @change="filterByStatus"
+                    placeholder="Filtrar por Estatus"
+                    clearable
+                    class="!w-64"
+                >
+                    <el-option label="Mostrar Todos" value="" />
+                    <el-option
+                        v-for="status in productionStatuses"
+                        :key="status.id"
+                        :label="status.label"
+                        :value="status.id"
+                    />
+                </el-select>
+
+                <!-- Botón para crear producción -->
+                <Link :href="route('productions.create')">
+                     <SecondaryButton>
+                        <i class="fa-solid fa-plus mr-2"></i>
+                        Crear
+                    </SecondaryButton>
+                </Link>
+
+            </div>
         </div>
         
-        <!-- Renderizado condicional basado en la prop viewType -->
+        <!-- Vista del Manager -->
         <ManagerView 
             v-if="viewType === 'manager'" 
-            :productions="productions" 
-            :kanban-data="kanbanData" 
+            :sales="sales.data"
             :active-view="managerView.activeView"
         />
+        <!-- Vista del Operador -->
         <OperatorView v-else-if="viewType === 'operator'" :tasks="tasks" />
 
-        <!-- Fallback por si acaso -->
-        <div v-else class="p-8 text-center text-gray-500">
+        <!-- Fallback -->
+        <div v-else class="p-4 text-center text-gray-500">
             <p>No tienes una vista de producción asignada.</p>
+        </div>
+
+        <!-- Componente de Paginación -->
+        <div v-if="viewType === 'manager' && sales.links.length > 3" class="flex justify-center mt-3">
+            <div class="flex flex-wrap -mb-1">
+                <template v-for="(link, key) in sales.links" :key="key">
+                    <div v-if="link.url === null" class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded" v-html="link.label" />
+                    <Link v-else 
+                          class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded transition-all duration-200 hover:bg-white dark:hover:bg-slate-700 focus:border-primary focus:text-primary" 
+                          :class="{ 'bg-primary text-white dark:border-primary': link.active, 'dark:text-gray-300 dark:border-slate-600': !link.active }" 
+                          :href="link.url" 
+                          v-html="link.label" />
+                </template>
+            </div>
         </div>
     </AppLayout>
 </template>
@@ -51,7 +85,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import ManagerView from './Partials/ManagerView.vue';
 import OperatorView from './Partials/OperatorView.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 
 export default {
     name: 'ProductionIndex',
@@ -64,40 +98,61 @@ export default {
     },
     props: {
         viewType: String,
-        productions: { 
-            type: Array, 
-            required: false 
-        },
-        kanbanData: { 
+        sales: { // Ahora recibe el objeto paginado completo
             type: Object, 
             required: false 
         },
         tasks: { 
             type: Array, 
             required: false 
+        },
+        filters: {
+            type: Object,
+            required: false
         }
     },
     data() {
         return {
-            // Estado local para controlar la vista activa del manager
             managerView: {
                 activeView: 'kanban'
-            }
+            },
+            // v-model para el nuevo filtro de estatus
+            selectedStatus: this.filters?.status || '',
+            // Opciones para el dropdown de filtro
+            productionStatuses: [
+                { id: 'Pendiente', label: 'Pendiente' },
+                { id: 'En Proceso', label: 'En Proceso' },
+                { id: 'Sin material', label: 'Sin material' },
+                { id: 'Pausada', label: 'Pausada' },
+                { id: 'Terminada', label: 'Terminada' },
+            ]
         };
     },
     computed: {
-        // Título dinámico para el encabezado
         headerTitle() {
             return this.viewType === 'manager' 
                 ? 'Panel de Producción' 
                 : 'Mis Tareas de Producción';
         },
-        // Ícono dinámico para el encabezado
         headerIcon() {
             return this.viewType === 'manager' 
                 ? 'fa-solid fa-layer-group' 
                 : 'fa-solid fa-list-check';
         }
+    },
+    methods: {
+        // Método para recargar la página con el filtro de estatus
+        filterByStatus() {
+            router.get(route('productions.index'),
+                { status: this.selectedStatus },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                    replace: true,
+                }
+            );
+        }
     }
 };
 </script>
+
