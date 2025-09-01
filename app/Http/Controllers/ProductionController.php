@@ -12,37 +12,68 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Inertia\Inertia;
 
 class ProductionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
 
-        // --- Vista para el Jefe de Producción ---
+        // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
         if ($user->hasRole('Jefe de Producción') || $user->hasRole('Super Administrador')) {
-            $productions = Production::with([
-                'saleProduct.product.media', // Imagen del producto
-                'saleProduct.sale:id,branch_id', // Solo lo necesario para la OV
-                'saleProduct.sale.branch:id,name', // Solo nombre del cliente
-                'tasks:id,production_id,operator_id,status', // Para el progreso
-                'tasks.operator:id,name' // Para las fotos de perfil
-            ])
-            ->latest()
-            ->get(); // Traemos todo para el Kanban, luego paginaremos en el frontend si es necesario
+            $selectedStatus = $request->input('status');
 
-            // Agrupar por estatus para el Kanban
-            $groupedProductions = $productions->groupBy('status');
+            // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
+            $query = Sale::query()
+                ->whereHas('productions')
+                ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id'])
+                ->with([
+                    'user:id,name',
+                    'branch:id,name',
+                    'productions.tasks:id,production_id,status,operator_id,started_at,finished_at,name',
+                    'productions.tasks.operator:id,name',
+                    'saleProducts:id,sale_id,product_id,quantity_to_produce',
+                    'saleProducts.product:id,name,code,measure_unit',
+                ]);
+            // --- Aplicar filtro por estatus general de producción ---
+            if ($selectedStatus) {
+                $query->where(function ($query) use ($selectedStatus) {
+                    if ($selectedStatus === 'Sin material') {
+                        // Ventas que tienen al menos una producción 'Sin material'
+                        $query->whereHas('productions', fn($q) => $q->where('status', 'Sin material'));
+                    } elseif ($selectedStatus === 'Terminada') {
+                        // Ventas donde TODAS sus producciones están 'Terminada'
+                        $query->whereDoesntHave('productions', fn($q) => $q->where('status', '!=', 'Terminada'))
+                              ->whereHas('productions');
+                    } elseif ($selectedStatus === 'En Proceso') {
+                        // Tienen al menos una 'En Proceso' y NINGUNA 'Sin material'
+                        $query->whereHas('productions', fn($q) => $q->where('status', 'En Proceso'))
+                              ->whereDoesntHave('productions', fn($q) => $q->where('status', 'Sin material'));
+                    } elseif ($selectedStatus === 'Pausada') {
+                         // Tienen al menos una 'Pausada' y NINGUNA 'Sin material' o 'En Proceso'
+                         $query->whereHas('productions', fn($q) => $q->where('status', 'Pausada'))
+                               ->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso']));
+                    } elseif ($selectedStatus === 'Pendiente') {
+                         // No tienen producciones en estados de mayor prioridad y no están todas terminadas
+                         $query->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso', 'Pausada']))
+                               ->whereHas('productions', fn($q) => $q->where('status', '!=', 'Terminada'));
+                    }
+                });
+            }
 
-            // return $productions;
-            return inertia('Production/Index', [
+            // --- Paginación ---
+            $sales = $query->latest()->paginate(20)->withQueryString();
+
+            // return $sales;
+            return Inertia::render('Production/Index', [
                 'viewType' => 'manager',
-                'productions' => $productions, // Para la tabla
-                'kanbanData' => $groupedProductions, // Para el Kanban
+                'sales' => $sales,
+                'filters' => $request->only(['status']), // Ahora el filtro es por status
             ]);
         }
 
-        // --- Vista para el Operador ---
+        // --- Vista para el Operador (Sin cambios) ---
         if ($user->hasRole('Operador')) {
             $myTasks = ProductionTask::where('operator_id', $user->id)
                 ->with([
@@ -55,17 +86,15 @@ class ProductionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
-            return inertia('Production/Index', [
+            return Inertia::render('Production/Index', [
                 'viewType' => 'operator',
                 'tasks' => $myTasks,
             ]);
         }
 
-        // --- Redirección o vista por defecto si no es ninguno ---
-        // Puedes cambiar esto a una página de error o al dashboard.
-        return inertia('404Error');
+        // Redirección por defecto
+        return Inertia::render('404Error');
     }
-
 
     public function create()
     {
@@ -79,11 +108,12 @@ class ProductionController extends Controller
         // Eager-load de todas las relaciones para optimizar al máximo.
         $sales = Sale::where('status', 'Autorizada')
             ->with([
-                'branch',
+                'branch:id,name',
                 'saleProducts' => function ($query) {
                     $query->whereDoesntHave('production')->with([
-                        'product.media', // Para la imagen
+                        'product:id,name,code,archived_at,measure_unit', // Solo lo necesario para la tabla
                         'product.storages', // Stock del producto terminado
+                        'product.components:id,name,measure_unit',
                         'product.components.storages' // Stock de los componentes
                     ]);
                 }
@@ -91,8 +121,9 @@ class ProductionController extends Controller
             ->whereHas('saleProducts', function ($query) {
                 $query->whereDoesntHave('production');
             })
+            ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', ])
             ->latest()
-            ->paginate(15); // Paginación
+            ->paginate(10); // Paginación
 
         return inertia('Production/Create', [
             'sales' => $sales,

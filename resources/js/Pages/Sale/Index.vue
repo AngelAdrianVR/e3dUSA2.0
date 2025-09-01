@@ -82,7 +82,7 @@
                                     {{ scope.row.branch?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <!-- NUEVA COLUMNA DE PRODUCTOS -->
+                            <!-- COLUMNA DE PRODUCTOS -->
                             <el-table-column label="Productos" width="130">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.sale_products?.length" placement="top">

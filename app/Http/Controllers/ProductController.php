@@ -19,9 +19,8 @@ class ProductController extends Controller
 {
     public function index()
     {
-        $catalog_products = Product::with('media')
-            ->where('product_type', 'Catalogo')
-            ->with('brand:id,name')
+        $catalog_products = Product::where('product_type', 'Catalogo')
+            ->with(['media', 'brand:id,name'])
             ->latest()
             ->select(['id', 'code', 'name', 'cost', 'material','brand_id', 'archived_at'])
             ->paginate(30);
