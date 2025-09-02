@@ -203,6 +203,18 @@
                                 <InputError :message="form.errors.order_via" />
                             </div>
 
+                            <div>
+                                <InputLabel value="Fecha máxima de producción" />
+                                <el-date-picker
+                                    v-model="form.promise_date"
+                                    type="date"
+                                    placeholder="Selecciona una fecha"
+                                    format="YYYY-MM-DD"
+                                    value-format="YYYY-MM-DD"
+                                    :disabled-date="disabledBeforeToday"
+                                />
+                            </div>
+
                             <!-- Archivos de OCE -->
                             <div v-if="form.type === 'venta'" class="col-span-full my-2">
                                 <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
@@ -298,6 +310,7 @@ export default {
                 oce_media: null,
                 anotherFiles: null,
                 shipping_option: null,
+                promise_date: null,
                 shipments: [], 
             }),
             availableContacts: [],

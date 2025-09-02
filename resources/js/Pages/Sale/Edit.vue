@@ -200,6 +200,18 @@
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
                             </div>
+
+                            <div>
+                                <InputLabel value="Fecha máxima de producción" />
+                                <el-date-picker
+                                    v-model="form.promise_date"
+                                    type="date"
+                                    placeholder="Selecciona una fecha"
+                                    format="YYYY-MM-DD"
+                                    value-format="YYYY-MM-DD"
+                                    :disabled-date="disabledBeforeToday"
+                                />
+                            </div>
                             
                             <!-- Archivos adjuntos de la orden (OCE) -->
                             <div v-if="sale.media?.filter(m => m.collection_name === 'oce_media')?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
@@ -301,6 +313,7 @@ export default {
                 freight_option: this.sale.freight_option,
                 freight_cost: this.sale.freight_cost,
                 notes: this.sale.notes,
+                promise_date: this.sale.promise_date,
                 is_high_priority: this.sale.is_high_priority,
                 products: this.sale.sale_products.map(p => ({
                     id: p.product_id,

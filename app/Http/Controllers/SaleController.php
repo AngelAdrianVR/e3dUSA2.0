@@ -102,6 +102,7 @@ class SaleController extends Controller
             $rules['freight_option'] = ['required', 'string', 'max:255'];
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
+            $rules['promise_date'] = ['nullable', 'date'];
             
             $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
 
@@ -131,6 +132,7 @@ class SaleController extends Controller
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'promise_date' => $validated['promise_date'],
                 
                 // Campos que son nulos para 'stock'
                 'branch_id' => $validated['branch_id'] ?? null,
@@ -320,7 +322,8 @@ class SaleController extends Controller
             $rules['freight_option'] = ['required', 'string', 'max:255'];
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
-            
+            $rules['promise_date'] = ['nullable', 'date'];
+
             $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
 
             $rules['shipments'] = ['required', 'array', 'min:1'];
@@ -357,6 +360,7 @@ class SaleController extends Controller
                 'order_via' => $validated['order_via'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
                 'freight_cost' => $validated['freight_cost'] ?? 0,
+                'promise_date' => $validated['promise_date'] ?? 0,
                 'shipping_option' => $validated['shipping_option'] ?? null,
                 'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * ($product['price'] ?? 0));

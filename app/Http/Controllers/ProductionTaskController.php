@@ -93,4 +93,27 @@ class ProductionTaskController extends Controller
 
         return back();
     }
+
+    /**
+     * MÉTODO NUEVO: Recupera los detalles completos de una tarea para la vista expandida.
+     * ? Puede usarse en un futuro para mostrar tarifaas de envios, empaques, etc
+     */
+    public function getTaskDetails(ProductionTask $task)
+    {
+        // Valida que el operador solo pueda ver sus propias tareas
+        if ($task->operator_id !== auth()->id()) {
+            return response()->json(['error' => 'No autorizado'], 403);
+        }
+
+        $task->load([
+            // Carga los componentes del producto asociado a la tarea
+            'production.saleProduct.product.components' => function ($query) {
+                $query->with(['storages', 'media']); // Carga el stock y media de cada componente
+            },
+            // Carga los avances de producción (asumiendo que tienes esta relación)
+            // 'production.advancements',
+        ]);
+
+        return response()->json($task);
+    }
 }
