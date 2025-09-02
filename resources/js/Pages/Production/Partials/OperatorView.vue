@@ -50,8 +50,8 @@
                         <div v-for="task in group.tasks" :key="task.id"
                              class="bg-white dark:bg-slate-900 shadow-md rounded-lg border border-slate-200 dark:border-slate-800 flex flex-col self-start transition-all duration-300"
                              :class="{'ring-2 ring-primary dark:ring-primary shadow-xl': selectedTask && selectedTask.id === task.id}">
-                            <!-- Card Principal (Clickable) -->
-                            <div @click="toggleDetails(task)" class="p-4 cursor-pointer flex-grow">
+                            <!-- Card Principal -->
+                            <div class="p-4 cursor-default flex-grow">
                                 <div class="flex items-start space-x-4">
                                     <img draggable="false" :src="getProductImage(task.production.sale_product.product)" class="w-16 h-16 rounded-md object-cover border dark:border-slate-700 flex-shrink-0">
                                     <div class="flex-1 min-w-0">
@@ -67,40 +67,65 @@
                                          <!-- START: Customization details -->
                                          <div
                                             v-if="getCustomizationDetails(task).length > 0"
-                                            class="mt-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm bg-gray-100 dark:bg-slate-800"
+                                            class="mt-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-800"
                                             >
-                                            <h3 class="text-blue-500 font-semibold text-sm mb-3 tracking-wide">
-                                                ✨ Detalles de Personalización
-                                            </h3>
-
-                                            <div
-                                                v-for="(group, index) in groupByType(getCustomizationDetails(task))"
-                                                :key="index"
-                                                class="mb-4 last:mb-0"
+                                            <!-- Encabezado clickable -->
+                                            <button
+                                                class="w-full flex justify-between cursor-default items-center px-4 py-3 text-blue-500 font-semibold text-sm tracking-wide focus:outline-none"
                                             >
-                                                <!-- Tipo de personalización -->
-                                                <div class="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 border-b border-dashed border-slate-300 dark:border-slate-600 pb-1">
-                                                {{ group.type }}
-                                                </div>
-
-                                                <!-- Lista de detalles -->
-                                                <ul class="space-y-1 text-sm">
-                                                <li
-                                                    v-for="(detail, idx) in group.details"
-                                                    :key="idx"
-                                                    class="flex items-start gap-2"
+                                                <span>✨ Detalles de Personalización</span>
+                                                <!-- <svg
+                                                :class="['w-4 h-4 transform transition-transform', isOpen ? 'rotate-180' : 'rotate-0']"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
                                                 >
-                                                    <span class="font-medium text-slate-600 dark:text-slate-300 min-w-[80px]">
-                                                    {{ detail.key }}:
-                                                    </span>
-                                                    <span class="text-slate-500 dark:text-slate-400">
-                                                    {{ detail.value }}
-                                                    </span>
-                                                </li>
-                                                </ul>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 9l-7 7-7-7" />
+                                                </svg> -->
+                                            </button>
+
+                                            <!-- Contenido colapsable -->
+                                            <transition
+                                                enter-active-class="transition duration-300 ease-out"
+                                                enter-from-class="opacity-0 max-h-0"
+                                                enter-to-class="opacity-100 max-h-screen"
+                                                leave-active-class="transition duration-200 ease-in"
+                                                leave-from-class="opacity-100 max-h-screen"
+                                                leave-to-class="opacity-0 max-h-0"
+                                            >
+                                                <div v-show="isOpen" class="px-4 pb-4">
+                                                <div
+                                                    v-for="(group, index) in groupByType(getCustomizationDetails(task))"
+                                                    :key="index"
+                                                    class="mb-4 last:mb-0"
+                                                >
+                                                    <!-- Tipo de personalización -->
+                                                    <div class="text-xs font-bold text-slate-700 dark:text-slate-200 mb-2 border-b border-dashed border-slate-300 dark:border-slate-600 pb-1">
+                                                    {{ group.type }}
+                                                    </div>
+
+                                                    <!-- Lista de detalles -->
+                                                    <ul class="space-y-1 text-sm">
+                                                    <li
+                                                        v-for="(detail, idx) in group.details"
+                                                        :key="idx"
+                                                        class="flex items-start gap-2"
+                                                    >
+                                                        <span class="font-medium text-slate-600 dark:text-slate-300 min-w-[80px]">
+                                                        {{ detail.key }}:
+                                                        </span>
+                                                        <span class="text-slate-500 dark:text-slate-400">
+                                                        {{ detail.value }}
+                                                        </span>
+                                                    </li>
+                                                    </ul>
+                                                </div>
+                                                </div>
+                                            </transition>
                                             </div>
-                                        </div>
                                         <!-- END: Customization details -->
+                                        
                                          <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs border-t border-slate-200 dark:border-slate-700 pt-2">
                                             <div>
                                                 <span class="text-gray-400">Ordenado:</span>
@@ -124,34 +149,39 @@
                             </div>
                             
                             <!-- Acciones -->
-                            <div class="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-end space-x-2">
-                                 <el-tooltip content="Reportar Falta de Material" placement="top">
-                                    <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-8 w-8 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition">
-                                       <i class="fa-solid fa-triangle-exclamation"></i>
-                                   </button>
-                                 </el-tooltip>
+                            <div class="px-4 py-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-between">
+                                 <button class="text-primary text-sm hover:underline" @click="toggleDetails(task)">
+                                    Ver componentes
+                                 </button>
+                                 <div class="flex items-center space-x-2">
+                                    <el-tooltip content="Reportar Falta de Material" placement="top">
+                                        <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-8 w-8 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                        </button>
+                                    </el-tooltip>
 
-                                 <el-tooltip content="Pausar Tarea" placement="top">
-                                    <button @click="pauseTask(task.id)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
-                                       <i class="fa-solid fa-pause"></i>
-                                   </button>
-                                 </el-tooltip>
-                                 
-                                <el-tooltip content="Iniciar Tarea" placement="top">
-                                    <button @click="startTask(task.id)" v-if="task.status === 'Pendiente'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition">
-                                       <i class="fa-solid fa-play"></i>
-                                   </button>
-                                </el-tooltip>
+                                    <el-tooltip content="Pausar Tarea" placement="top">
+                                        <button @click="pauseTask(task.id)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
+                                        <i class="fa-solid fa-pause"></i>
+                                    </button>
+                                    </el-tooltip>
+                                    
+                                    <el-tooltip content="Iniciar Tarea" placement="top">
+                                        <button @click="startTask(task.id)" v-if="task.status === 'Pendiente'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                    </el-tooltip>
 
-                                 <el-tooltip content="Reanudar Tarea" placement="top">
-                                    <button @click="resumeTask(task.id)" v-if="task.status === 'Pausada'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition">
-                                       <i class="fa-solid fa-play"></i>
-                                   </button>
-                                 </el-tooltip>
+                                    <el-tooltip content="Reanudar Tarea" placement="top">
+                                        <button @click="resumeTask(task.id)" v-if="task.status === 'Pausada' || task.status === 'Sin material'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition">
+                                        <i class="fa-solid fa-play"></i>
+                                    </button>
+                                    </el-tooltip>
 
-                                <button @click="finishTask(task)" v-if="['En Proceso', 'Pausada'].includes(task.status)" class="px-3 py-1 bg-green-600 border border-transparent rounded-md text-xs font-semibold text-white uppercase hover:bg-green-500 transition">
-                                   <i class="fa-solid fa-check mr-1.5"></i> Finalizar
-                                </button>
+                                    <button @click="finishTask(task)" v-if="['En Proceso', 'Pausada'].includes(task.status)" class="px-3 py-1 bg-green-600 border border-transparent rounded-md text-xs font-semibold text-white uppercase hover:bg-green-500 transition">
+                                    <i class="fa-solid fa-check mr-1.5"></i> Finalizar
+                                    </button>
+                                 </div>
                             </div>
 
                              <!-- Vista de Detalles (Expandible) -->
@@ -177,6 +207,38 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ====== INICIO: Bloque de Paginación ====== -->
+                <div
+                    v-if="tasks.data.length > 0 && tasks.links.length > 3"
+                    class="mt-8 flex justify-center items-center"
+                    >
+                    <div class="flex flex-wrap gap-2">
+                        <template v-for="(link, key) in tasks.links" :key="key">
+                        <!-- Botón deshabilitado -->
+                        <span
+                            v-if="link.url === null"
+                            class="px-3 py-2 text-sm text-gray-400 dark:text-gray-500 rounded-full border border-gray-200 dark:border-slate-700 cursor-not-allowed bg-gray-100 dark:bg-slate-800"
+                            v-html="link.label"
+                        />
+                        <!-- Botón de enlace -->
+                        <Link
+                            v-else
+                            class="px-3 py-2 text-sm rounded-full border border-gray-200 dark:border-slate-700 transition-all duration-200
+                                hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/20 focus:ring-2 focus:ring-primary/50"
+                            :class="{
+                            'bg-primary text-white border-primary shadow-sm': link.active
+                            }"
+                            :href="link.url"
+                            v-html="link.label"
+                            preserve-scroll
+                        />
+                        </template>
+                    </div>
+                </div>
+
+                <!-- ====== FIN: Bloque de Paginación ====== -->
+
             </div>
 
             <div v-else class="text-center py-20 bg-white dark:bg-slate-900/50 rounded-xl shadow-md border border-slate-200 dark:border-slate-800">
@@ -189,19 +251,24 @@
 </template>
 
 <script>
+import { Link } from '@inertiajs/vue3'; // Importar el componente Link de Inertia
 import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 
 export default {
     name: 'OperatorView',
+    components: {
+        Link, // Registrar el componente Link
+    },
     props: {
         tasks: {
-            type: Array,
-            default: () => [],
+            type: Object, // Cambiar a Object porque el paginador es un objeto
+            default: () => ({}),
         },
     },
     data() {
         return {
+            isOpen: true, // Para detalles de personalización
             selectedTask: null,
             taskDetails: null,
             isLoadingDetails: false,
@@ -217,9 +284,10 @@ export default {
     },
     computed: {
         groupedTasks() {
-            if (!this.tasks || this.tasks.length === 0) return [];
+            // Acceder a los datos de la página actual a través de 'this.tasks.data'
+            if (!this.tasks.data || this.tasks.data.length === 0) return [];
             
-            const groups = this.tasks.reduce((acc, task) => {
+            const groups = this.tasks.data.reduce((acc, task) => {
                 const sale = task.production.sale_product.sale;
                 if (!sale) return acc;
 
@@ -373,4 +441,3 @@ export default {
     },
 };
 </script>
-

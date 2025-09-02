@@ -119,7 +119,7 @@ export default {
             required: false 
         },
         tasks: { 
-            type: Array, 
+            type: Object, 
             required: false 
         },
         filters: {

@@ -21,27 +21,45 @@
                         <template #item="{element: sale}">
                            <div class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-3 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
                                 <!-- Indicador de Alta Prioridad (Más visible) -->
-                                <div v-if="sale.is_high_priority" class="absolute top-0 right-0 h-16 w-16">
+                                <div v-if="sale.is_high_priority" class="absolute top-0 right-0 size-16">
                                     <div class="absolute transform rotate-45 bg-red-600 text-center text-white font-semibold py-1 right-[-42px] top-[32px] w-[170px] shadow-lg">
                                         <i class="fa-solid fa-fire mr-1"></i> Prioridad
                                     </div>
                                 </div>
 
+                                <!-- Fecha Promesa de Embarque -->
+                                <div class="absolute top-1 right-2">
+                                    <el-tooltip v-if="sale.promise_date" content="Fecha promesa de embarque" placement="top">
+                                        <template #content>
+                                            <div v-if="isDateInPast(sale.promise_date)">
+                                                <p>La fecha promesa ha vencido.<i class="fa-solid fa-triangle-exclamation text-red-500 ml-2"></i></p>
+                                                <p class="font-bold">Fecha: {{ formatDate(sale.promise_date) }}</p>
+                                            </div>
+                                                <p v-else class="font-bold">Fecha promesa de embarque: {{ formatDate(sale.promise_date) }}</p>
+                                        </template>
+                                        <div class="flex items-center justify-end space-x-2 text-xs mt-2 w-[90%]" :class="isDateInPast(sale.promise_date) ? 'text-red-500 font-semibold' : 'text-gray-500 dark:text-gray-400'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0h18" />
+                                            </svg>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+
                                 <!-- Encabezado de la tarjeta -->
                                 <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="flex items-center space-x-2">
-                                            <svg v-if="sale.type === 'venta'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-purple-500">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                                            </svg>
-                                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-red-500">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                                            </svg>
-                                            <Link :href="route('sales.show', sale.id)">
-                                                <p v-if="sale.type === 'venta'" class="text-sm font-bold text-primary hover:underline">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
-                                                <p v-else class="text-sm font-bold text-primary hover:underline">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
-                                            </Link>
-                                        </div>
+                                    <div class="w-full">
+                                            <div class="flex items-center space-x-2">
+                                                <svg v-if="sale.type === 'venta'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-purple-500">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                                </svg>
+                                                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-red-500">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                                </svg>
+                                                <Link :href="route('sales.show', sale.id)">
+                                                    <p v-if="sale.type === 'venta'" class="text-sm font-bold text-primary hover:underline">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                                                    <p v-else class="text-sm font-bold text-primary hover:underline">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
+                                                </Link>
+                                            </div>
                                         <p class="font-semibold text-base text-gray-800 dark:text-gray-200 mt-1">{{ sale.branch?.name || 'N/A' }}</p>
                                     </div>
                                 </div>
@@ -84,8 +102,8 @@
                                                                             <el-tag size="small" :type="statusTagType(task.status)">{{ task.status }}</el-tag>
                                                                         </div>
                                                                         <div class="text-xs text-gray-400 mt-1 pl-8">
-                                                                            <p><b class="text-gray-500">Inicio:</b> {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
-                                                                            <p><b class="text-gray-500">Fin:</b> {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No terminado' }}</p>
+                                                                            <p class="text-white"><b class="text-amber-500">Inicio:</b> {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
+                                                                            <p class="text-white"><b class="text-amber-500">Fin:</b> {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No terminado' }}</p>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -102,7 +120,7 @@
                                                                     <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center truncate">
                                                                         {{ item.product.name }}
                                                                         <i v-if="getProductionStatusForProduct(sale, item.id) === 'Sin material'"
-                                                                           class="fa-solid fa-triangle-exclamation text-yellow-400 ml-2 flex-shrink-0"
+                                                                           class="fa-solid fa-triangle-exclamation text-yellow-500 ml-2 flex-shrink-0"
                                                                            title="Falta material para este producto"></i>
                                                                     </p>
                                                                     <p class="text-xs text-gray-400">Cantidad: {{ item.quantity_to_produce }}</p>
@@ -278,6 +296,19 @@ export default {
         },
         getProductionForProduct(sale, saleProductId) {
             return sale.productions.find(p => p.sale_product_id === saleProductId);
+        },
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('es-MX', options);
+        },
+        isDateInPast(dateString) {
+            if (!dateString) return false;
+            const promiseDate = new Date(dateString);
+            promiseDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return promiseDate < today;
         }
     },
 };
