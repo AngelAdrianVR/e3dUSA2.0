@@ -74,15 +74,6 @@
                                                 class="w-full flex justify-between cursor-default items-center px-4 py-3 text-blue-500 font-semibold text-sm tracking-wide focus:outline-none"
                                             >
                                                 <span>✨ Detalles de Personalización</span>
-                                                <!-- <svg
-                                                :class="['w-4 h-4 transform transition-transform', isOpen ? 'rotate-180' : 'rotate-0']"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                                >
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 9l-7 7-7-7" />
-                                                </svg> -->
                                             </button>
 
                                             <!-- Contenido colapsable -->
@@ -142,6 +133,14 @@
                                             <div>
                                                 <span class="text-gray-400">T. Estimado:</span>
                                                 <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ task.estimated_time_minutes }} min</span>
+                                            </div>
+                                            <div v-if="task.started_at">
+                                                <span class="text-gray-400">Inicio:</span>
+                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ formatDateTime(task.started_at) }}</span>
+                                            </div>
+                                            <div v-if="task.finished_at">
+                                                <span class="text-gray-400">Fin:</span>
+                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ formatDateTime(task.finished_at) }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -251,24 +250,24 @@
 </template>
 
 <script>
-import { Link } from '@inertiajs/vue3'; // Importar el componente Link de Inertia
+import { Link } from '@inertiajs/vue3';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 
 export default {
     name: 'OperatorView',
     components: {
-        Link, // Registrar el componente Link
+        Link,
     },
     props: {
         tasks: {
-            type: Object, // Cambiar a Object porque el paginador es un objeto
+            type: Object,
             default: () => ({}),
         },
     },
     data() {
         return {
-            isOpen: true, // Para detalles de personalización
+            isOpen: true,
             selectedTask: null,
             taskDetails: null,
             isLoadingDetails: false,
@@ -284,7 +283,6 @@ export default {
     },
     computed: {
         groupedTasks() {
-            // Acceder a los datos de la página actual a través de 'this.tasks.data'
             if (!this.tasks.data || this.tasks.data.length === 0) return [];
             
             const groups = this.tasks.data.reduce((acc, task) => {
@@ -342,7 +340,7 @@ export default {
             } catch (error) {
                 console.error("Error fetching task details:", error);
                 ElMessage.error('No se pudieron cargar los detalles de la tarea.');
-                this.selectedTask = null; // Cierra si hay error
+                this.selectedTask = null;
             } finally {
                 this.isLoadingDetails = false;
             }
@@ -359,7 +357,10 @@ export default {
             }, {
                 preserveScroll: true,
                 onSuccess: () => ElMessage.success(`Tarea actualizada a "${newStatus}"`),
-                onError: () => ElMessage.error('No se pudo actualizar la tarea.'),
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] || 'No se pudo actualizar la tarea.';
+                    ElMessage.error(errorMessage);
+                },
             });
         },
         startTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
@@ -373,6 +374,19 @@ export default {
             ).catch(() => ElMessage.info('Acción cancelada'));
         },
         finishTask(task) {
+            if ((task.status === 'En Proceso' || task.status === 'Pausada')  && task.started_at) {
+                const startTime = new Date(task.started_at);
+                const now = new Date();
+                const elapsedTimeMinutes = (now.getTime() - startTime.getTime()) / (1000 * 60);
+                const requiredTimeMinutes = task.estimated_time_minutes / 2;
+
+                if (elapsedTimeMinutes < requiredTimeMinutes) {
+                    const remainingMinutes = Math.ceil(requiredTimeMinutes - elapsedTimeMinutes);
+                    ElMessage.warning(`Aún no puedes finalizar. Debes esperar al menos ${remainingMinutes} minuto(s) más.`);
+                    return;
+                }
+            }
+
             const quantityToProduce = this.getQuantityToProduce(task);
             ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
                 confirmButtonText: 'Siguiente',
@@ -430,6 +444,11 @@ export default {
             const options = { year: 'numeric', month: 'short', day: 'numeric' };
             return new Date(dateString).toLocaleDateString('es-MX', options);
         },
+        formatDateTime(dateString) {
+            if (!dateString) return 'N/A';
+            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+            return new Date(dateString).toLocaleString('es-MX', options);
+        },
         isDateInPast(dateString) {
             if (!dateString) return false;
             const promiseDate = new Date(dateString);
@@ -441,3 +460,4 @@ export default {
     },
 };
 </script>
+

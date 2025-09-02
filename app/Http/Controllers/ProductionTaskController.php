@@ -43,6 +43,24 @@ class ProductionTaskController extends Controller
         }
 
         if ($newStatus === 'Terminada') {
+            // --- VALIDACIÓN DE TIEMPO (BACKEND) ---
+            if ($production_task->started_at) {
+                // Se convierte la fecha de inicio (que puede ser un string) a un objeto Carbon para asegurar un cálculo correcto.
+                $startTime = new Carbon($production_task->started_at);
+                
+                // Se calcula la diferencia de tiempo entre ahora y el inicio.
+                $elapsedMinutes = $startTime->diffInMinutes(Carbon::now());
+                $requiredMinutes = $production_task->estimated_time_minutes / 2;
+
+                if ($elapsedMinutes < $requiredMinutes) {
+                    $remainingMinutes = ceil($requiredMinutes - $elapsedMinutes);
+                    return back()->withErrors(['error' => "No se puede finalizar. Debes esperar al menos {$remainingMinutes} minuto(s) más."]);
+                }
+            } else {
+                return back()->withErrors(['error' => 'No se puede finalizar una tarea que no ha sido iniciada.']);
+            }
+            // --- FIN DE LA VALIDACIÓN ---
+
             $production_task->finished_at = Carbon::now();
             // También actualizar cantidades en la producción si se proporcionan
             $production = $production_task->production;

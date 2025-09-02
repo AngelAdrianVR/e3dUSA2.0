@@ -60,39 +60,42 @@ class Production extends Model
      */
     public function updateStatusFromTasks(): void
     {
-        // Si no hay tareas, no hacemos nada.
         if ($this->tasks->isEmpty()) {
             return;
         }
 
         $taskStatuses = $this->tasks->pluck('status');
         $totalTasks = $taskStatuses->count();
-        $newStatus = $this->status; // Por defecto, mantenemos el estatus actual
+        $newStatus = $this->status;
 
-        // 1. Si al menos una tarea está "Sin material", la producción es "Sin material" (Máxima prioridad)
+        // Prioridad 1: "Sin material" (bloqueante, máxima prioridad)
         if ($taskStatuses->contains('Sin material')) {
             $newStatus = 'Sin material';
         }
-        // 2. Si TODAS las tareas están "Terminada"
+        // Prioridad 2: Si TODAS las tareas están "Terminada"
         elseif ($this->tasks->where('status', 'Terminada')->count() === $totalTasks) {
             $newStatus = 'Terminada';
         }
-        // 3. Si TODAS las tareas están "Pausada"
-        elseif ($this->tasks->where('status', 'Pausada')->count() === $totalTasks) {
+        // Prioridad 3: Si AL MENOS UNA tarea está "En Proceso" (la producción está activa)
+        elseif ($taskStatuses->contains('En Proceso')) {
+            $newStatus = 'En Proceso';
+        }
+        // Prioridad 4: Si todas las tareas no finalizadas están en pausa (es decir, no hay 'Pendiente' o 'En Proceso')
+        elseif ($taskStatuses->every(fn($status) => in_array($status, ['Pausada', 'Terminada']))) {
             $newStatus = 'Pausada';
         }
-        // 4. Si al menos una es diferente de "Pendiente" (y no se cumplió ninguna condición anterior)
-        elseif ($taskStatuses->contains(fn($status) => $status !== 'Pendiente')) {
+        // Prioridad 5: Si se ha iniciado alguna tarea (no es 'Pendiente') y no cumple las condiciones anteriores
+        // (Ej: mezcla de Pendiente y Terminada), la producción está "En proceso".
+        elseif ($taskStatuses->some(fn($status) => $status !== 'Pendiente')) {
             $newStatus = 'En proceso';
         }
+        // Si no, se queda como 'Pendiente' o su estado actual si no ha cambiado.
 
-        // Actualizamos el estado solo si ha cambiado para evitar escrituras innecesarias en la BD
         if ($this->status !== $newStatus) {
             $this->status = $newStatus;
             $this->save();
         }
     }
-
 
     // --- RELACIONES ---
 
