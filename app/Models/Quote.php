@@ -200,7 +200,7 @@ class Quote extends Model implements Auditable
 
         // La utilidad se calcula sobre la venta final (con descuento).
         $profit = $final_sale - $total_cost;
-        $percentage = $final_sale > 0 ? ($profit / $final_sale) * 100 : 0;
+        $percentage = $total_cost > 0 ? ($profit / $total_cost) * 100 : 0;
 
         return [
             'total_sale' => (float) $final_sale,

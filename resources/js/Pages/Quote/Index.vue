@@ -135,7 +135,7 @@
                                                 <i v-for="n in getProfitabilityStars(scope.row.utility_data.percentage)" :key="`filled-${n}`" class="fa-solid fa-star text-xs text-yellow-500"></i>
                                                 <i v-for="n in (3 - getProfitabilityStars(scope.row.utility_data.percentage))" :key="`unfilled-${n}`" class="fa-regular fa-star text-xs"></i>
                                             </div>
-                                                <span class="font-semibold text-xs">{{ scope.row.utility_data.percentage.toFixed(1) }}%</span>
+                                                <span class="font-semibold text-xs">{{ scope.row.utility_data.percentage.toFixed(1).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}%</span>
                                         </div>
                                     </el-tooltip>
                                 </template>
@@ -378,13 +378,13 @@ export default {
             });
         },
         getProfitabilityClass(margin) {
-            if (margin < 10) return 'text-red-600';
-            if (margin >= 10 && margin < 30) return 'text-amber-600';
+            if (margin < 20) return 'text-red-600';
+            if (margin >= 20 && margin < 100) return 'text-amber-600';
             return 'text-green-600';
         },
         getProfitabilityStars(margin) {
-            if (margin < 10) return 1;
-            if (margin >= 10 && margin < 30) return 2;
+            if (margin < 20) return 1;
+            if (margin >= 20 && margin < 100) return 2;
             return 3;
         },
         formatNumber(value) {

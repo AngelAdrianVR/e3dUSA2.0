@@ -120,7 +120,7 @@ class Sale extends Model implements HasMedia, Auditable
         }
 
         $profit = $totalSale - $totalCost;
-        $percentage = ($totalSale > 0) ? ($profit / $totalSale) * 100 : 0;
+        $percentage = ($totalCost > 0) ? ($profit / $totalCost) * 100 : 0;
 
         return [
             'total_sale' => $totalSale,

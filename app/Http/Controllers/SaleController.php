@@ -98,11 +98,10 @@ class SaleController extends Controller
             $rules['branch_id'] = ['required', 'exists:branches,id'];
             $rules['contact_id'] = ['required', 'exists:contacts,id'];
             $rules['quote_id'] = ['nullable', 'exists:quotes,id'];
-            $rules['order_via'] = ['required', 'string', 'max:255'];
+            $rules['order_via'] = ['nullable', 'string', 'max:255'];
             $rules['freight_option'] = ['required', 'string', 'max:255'];
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
-            $rules['promise_date'] = ['nullable', 'date'];
             
             $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
 
@@ -121,6 +120,9 @@ class SaleController extends Controller
 
         $validated = $request->validate($rules);
 
+        // --- NUEVO: OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
+        $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
+
         DB::beginTransaction();
 
         try {
@@ -132,7 +134,7 @@ class SaleController extends Controller
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
-                'promise_date' => $validated['promise_date'],
+                'promise_date' => $firstPromiseDate, // Se asigna la fecha del primer envío
                 
                 // Campos que son nulos para 'stock'
                 'branch_id' => $validated['branch_id'] ?? null,
@@ -166,12 +168,40 @@ class SaleController extends Controller
                     'customization_details' => $productData['customization_details'] ?? null,
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
-                    'quantity_to_produce' => $productData['quantity'], // Valor inicial sin descuentos de stock
+                    'quantity_to_produce' => $productData['quantity'],
                 ]);
                 $saleProductsMap[$productData['id']] = $saleProduct->id;
             }
 
-            // --- 5. LÓGICA DE INVENTARIO Y PRODUCCIÓN (SOLO PARA VENTAS) ---
+            // --- 5. NUEVO: CREAR ENVÍOS Y SUS PRODUCTOS (SOLO PARA VENTAS) ---
+            if ($isSaleType && !empty($validated['shipments'])) {
+                foreach ($validated['shipments'] as $shipmentData) {
+                    // Crear el envío asociado a la venta
+                    $shipment = $sale->shipments()->create([
+                        'status' => 'Pendiente',
+                        'promise_date' => $shipmentData['promise_date'] ?? null,
+                        'shipping_company' => $shipmentData['shipping_company'] ?? null,
+                        'tracking_guide' => $shipmentData['tracking_guide'] ?? null,
+                    ]);
+
+                    // Asociar productos al envío
+                    if (!empty($shipmentData['products'])) {
+                        foreach ($shipmentData['products'] as $productShipmentData) {
+                            // Usar el mapa para encontrar el ID del producto de la venta correspondiente
+                            $saleProductId = $saleProductsMap[$productShipmentData['product_id']] ?? null;
+
+                            if ($saleProductId && $productShipmentData['quantity'] > 0) {
+                                $shipment->shipmentProducts()->create([
+                                    'sale_product_id' => $saleProductId,
+                                    'quantity' => $productShipmentData['quantity'],
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (SOLO PARA VENTAS) ---
             if ($isSaleType) {
                 foreach ($validated['products'] as $productData) {
                     $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
@@ -180,14 +210,13 @@ class SaleController extends Controller
                     
                     $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
 
-                    // 5.1 Calcular cuánto se toma de stock y cuánto se produce
+                    // 6.1 Calcular cuánto se toma de stock y cuánto se produce
                     $takenFromStock = min($quantityInSale, $stockFinishedProduct);
                     $quantityToProduce = $quantityInSale - $takenFromStock;
                     
-                    // Actualizar el SaleProduct con la cantidad real a producir
                     $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
                     
-                    // 5.2 Descontar stock del producto terminado y registrar movimiento
+                    // 6.2 Descontar stock del producto terminado y registrar movimiento
                     if ($takenFromStock > 0) {
                         $storage = $product->storages->first();
                         $storage->decrement('quantity', $takenFromStock);
@@ -201,7 +230,7 @@ class SaleController extends Controller
                         ]);
                     }
 
-                    // 5.3 Descontar stock de los componentes (solo para lo que se va a producir)
+                    // 6.3 Descontar stock de los componentes (solo para lo que se va a producir)
                     if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
                         foreach ($product->components as $component) {
                             $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
@@ -209,16 +238,10 @@ class SaleController extends Controller
 
                             if ($componentStorage) {
                                 $currentStock = $componentStorage->quantity;
-
-                                // La cantidad que realmente se puede descontar
                                 $discountQuantity = min($requiredQuantity, $currentStock);
 
-                                // Actualizar stock sin dejarlo en negativo
-                                $componentStorage->update([
-                                    'quantity' => max(0, $currentStock - $requiredQuantity)
-                                ]);
+                                $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
 
-                                // Registrar movimiento solo si hubo descuento real
                                 if ($discountQuantity > 0) {
                                     StockMovement::create([
                                         'product_id' => $component->id,
@@ -234,7 +257,7 @@ class SaleController extends Controller
                 }
             }
             
-            // --- 6. MANEJAR ARCHIVOS ADJUNTOS ---
+            // --- 7. MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('oce_media')) {
                 $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
                     $fileAdder->toMediaCollection('oce_media');
@@ -318,7 +341,7 @@ class SaleController extends Controller
             $rules['branch_id'] = ['required', 'exists:branches,id'];
             $rules['contact_id'] = ['required', 'exists:contacts,id'];
             $rules['quote_id'] = ['nullable', 'exists:quotes,id'];
-            $rules['order_via'] = ['required', 'string', 'max:255'];
+            $rules['order_via'] = ['nullable', 'string', 'max:255'];
             $rules['freight_option'] = ['required', 'string', 'max:255'];
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];

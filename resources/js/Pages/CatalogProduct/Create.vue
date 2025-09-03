@@ -99,10 +99,9 @@
                              <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
                              <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
-                                v-if="!form.hasComponents"
                                 v-model="form.cost" 
                                 :error="form.errors.cost"
-                                label="Cuánto le cuesta a E3D"
+                                label="Cuánto le cuesta a E3D*"
                                 :formatAsNumber="true">
                                 <template #icon-left>
                                     <i class="fa-solid fa-dollar-sign"></i>
@@ -149,10 +148,11 @@
                         <!-- ================================================================== -->
                         <!-- ================== SECCIÓN DE COMPONENTES ============= -->
                         <!-- ================================================================== -->
-                        <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
+                        <div v-if="form.product_type_key === 'C'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
+                            class="space-y-4 p-4 border rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox @change="form.hasComponents ? form.cost = 0 : ''" v-model:checked="form.hasComponents" name="is_circular" />
+                                    <Checkbox v-model:checked="form.hasComponents" name="is_circular" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
@@ -173,7 +173,7 @@
                                             class="w-full"
                                             no-data-text="No hay materias primas registradas"
                                             no-match-text="No se encontraron coincidencias">
-                                            <el-option v-for="item in raw_materials" :key="item.id" :label="item.name" :value="item.id" />
+                                            <el-option v-for="item in raw_materials" :key="item.id" :label="item.name" :value="item.id" :disabled="isComponentSelected(item.id)" />
                                         </el-select>
                                     </div>
                                     <TextInput v-model="currentComponent.quantity" label="Cantidad necesaria*" type="number" placeholder="Ej. 1" />
@@ -202,14 +202,14 @@
                                         <!-- informacion de almacén -->
                                         <div>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Stock: <strong>{{ currentComponent.storages[0]?.quantity }}</strong> unidades
+                                                Stock: <strong>{{ currentComponent.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ currentComponent.measure_unit }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Ubicación: <strong>{{ currentComponent.storages[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
-                                            <!-- <p class="text-gray-500 dark:text-gray-300">
-                                                costo: <strong>{{ currentComponent.cost ?? '0.00' }}</strong>
-                                            </p> -->
+                                            <p class="text-gray-500 dark:text-gray-300">
+                                                Costo: <strong>${{ currentComponent.cost ?? '0.00' }} {{ currentComponent.currency }}</strong>
+                                            </p>
                                         </div>
                                     </div>
 
@@ -234,7 +234,7 @@
                                                 (x{{ component.quantity }})
                                             </span>
                                             <div class="flex items-center space-x-3">
-                                                <button @click="editComponentIndex = null" v-if="editComponentIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+                                                <button @click="editComponentIndex = null; currentComponent = []" v-if="editComponentIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
                                                     <i class="fa-solid fa-xmark"></i>
                                                 </button>
                                                 <button @click="editComponent(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
@@ -252,9 +252,7 @@
 
                         </div>
 
-                        <!-- ================================================================== -->
                         <!-- ================== NUEVA SECCIÓN DE PROCESOS ===================== -->
-                        <!-- ================================================================== -->
                         <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
@@ -271,7 +269,7 @@
                                     <div class="sm:col-span-1">
                                         <InputLabel value="Proceso*" />
                                         <el-select @change="getSelectedProcessData" v-model="currentProcess.process_id" filterable placeholder="Selecciona los procesos en orden" class="w-full">
-                                            <el-option v-for="item in production_processes" :key="item.id" :label="item.name" :value="item.id" />
+                                            <el-option v-for="item in production_processes" :key="item.id" :label="item.name" :value="item.id" :disabled="isProcessSelected(item.id)" />
                                         </el-select>
                                     </div>
                                     <TextInput v-model="currentProcess.time" label="Tiempo estimado*" type="text" placeholder="Ej. 5 min 15 seg" :disabled="true" />
@@ -289,7 +287,7 @@
                                     </button>
                                     <SecondaryButton type="button" v-if="$page.props.auth.user.permissions.includes('Ver costos de produccion')"
                                         @click="openProcessessCreate">
-                                        Crearn nuevo Proceso
+                                        Crear nuevo Proceso
                                     </SecondaryButton>
                                     <el-tooltip content="Refrescar procesos" placement="top">
                                         <button
@@ -585,11 +583,33 @@ export default {
                 this. searchingSimilarProducts = false;
             }
         },
-        proceedToStore () {
-            // suma al costo los componentes
-            if ( this.form.product_type_key === 'C' ) {
-                this.form.cost = this.totalComponentsCost;
+        isComponentSelected(productId) {
+            const isSelected = this.form.components.some(c => c.product_id === productId);
+            if (!isSelected) return false;
+
+            if (this.editComponentIndex !== null) {
+                const editingProductId = this.form.components[this.editComponentIndex].product_id;
+                if (productId === editingProductId) {
+                    return false;
+                }
             }
+            
+            return true;
+        },
+        isProcessSelected(processId) {
+            const isSelected = this.form.production_processes.some(p => p.process_id === processId);
+            if (!isSelected) return false;
+
+            if (this.editProcessIndex !== null) {
+                const editingProcessId = this.form.production_processes[this.editProcessIndex].process_id;
+                if (processId === editingProcessId) {
+                    return false;
+                }
+            }
+            
+            return true;
+        },
+        proceedToStore () {
             this.form.post(route("catalog-products.store"), {
                 onSuccess: () => {
                     ElMessage.success('Producto creado con éxito');
@@ -651,6 +671,8 @@ export default {
                     this.currentComponent.media = response.data.product.media;
                     this.currentComponent.storages = response.data.product.storages;
                     this.currentComponent.cost = response.data.product.cost;
+                    this.currentComponent.measure_unit = response.data.product.measure_unit;
+                    this.currentComponent.currency = response.data.product.currency;
                 }
             } catch (error) {
                 console.log(error);

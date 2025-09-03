@@ -24,6 +24,7 @@ return new class extends Migration
             
             // Cantidad del componente para UNA unidad del ensamble.
             $table->decimal('quantity', 8, 2);
+            $table->decimal('cost', 8, 2);
 
             $table->timestamps();
 
