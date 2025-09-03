@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('production_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete(); // Usuario que realiza la acción (operador)
-            $table->enum('type', ['pausa', 'reanudacion', 'progreso']);
+            $table->enum('type', ['pausa', 'reanudacion', 'progreso','alerta']);
             $table->text('notes')->nullable();
             $table->timestamps();
         });

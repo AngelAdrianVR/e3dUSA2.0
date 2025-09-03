@@ -21,6 +21,11 @@ class ProductionTask extends Model
         'finished_at',
     ];
 
+    protected $casts = [
+        'started_at' => 'datetime',
+        'finished_at' => 'datetime',
+    ];
+
     public function production(): BelongsTo
     {
         return $this->belongsTo(Production::class);

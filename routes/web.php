@@ -158,6 +158,9 @@ Route::put('/productions/{production}/update-status', [ProductionController::cla
 
 // ------- (Tareas de produccion Routes)  ---------
 Route::put('/production-tasks/{production_task}/status', [ProductionTaskController::class, 'updateStatus'])->name('production-tasks.updateStatus');
+Route::get('/production-tasks/{task}/details', [ProductionTaskController::class, 'getTaskDetails'])
+    ->name('production-tasks.details')
+    ->middleware('auth');
 
 
 // ------- Recursos humanos(users routes)  ---------

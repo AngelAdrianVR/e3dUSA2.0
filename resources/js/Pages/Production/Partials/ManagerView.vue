@@ -21,67 +21,118 @@
                         <template #item="{element: sale}">
                            <div class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-3 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
                                 <!-- Indicador de Alta Prioridad (Más visible) -->
-                                <div v-if="sale.is_high_priority" class="absolute top-0 right-0 h-16 w-16">
-                                    <div class="absolute transform rotate-45 bg-red-600 text-center text-white font-semibold py-1 right-[-34px] top-[32px] w-[170px] shadow-lg">
+                                <div v-if="sale.is_high_priority" class="absolute top-0 right-0 size-16">
+                                    <div class="absolute transform rotate-45 bg-red-600 text-center text-white font-semibold py-1 right-[-42px] top-[32px] w-[170px] shadow-lg">
                                         <i class="fa-solid fa-fire mr-1"></i> Prioridad
                                     </div>
                                 </div>
 
+                                <!-- Fecha Promesa de Embarque -->
+                                <div class="absolute top-1 right-2">
+                                    <el-tooltip v-if="sale.promise_date" content="Fecha promesa de embarque" placement="top">
+                                        <template #content>
+                                            <div v-if="isDateInPast(sale.promise_date)">
+                                                <p>La fecha promesa ha vencido.<i class="fa-solid fa-triangle-exclamation text-red-500 ml-2"></i></p>
+                                                <p class="font-bold">Fecha: {{ formatDate(sale.promise_date) }}</p>
+                                            </div>
+                                                <p v-else class="font-bold">Fecha promesa de embarque: {{ formatDate(sale.promise_date) }}</p>
+                                        </template>
+                                        <div class="flex items-center justify-end space-x-2 text-xs mt-2 w-[90%]" :class="isDateInPast(sale.promise_date) ? 'text-red-500 font-semibold' : 'text-gray-500 dark:text-gray-400'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0h18" />
+                                            </svg>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+
                                 <!-- Encabezado de la tarjeta -->
                                 <div class="flex justify-between items-start">
-                                    <div>
-                                        <div class="flex items-center space-x-2">
-                                            <svg v-if="sale.type === 'venta'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-purple-500">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                                            </svg>
-                                            <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-red-500">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                                            </svg>
-                                            <Link :href="route('sales.show', sale.id)">
-                                                <p v-if="sale.type === 'venta'" class="text-sm font-bold text-primary hover:underline">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
-                                                <p v-else class="text-sm font-bold text-primary hover:underline">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
-                                            </Link>
-                                        </div>
+                                    <div class="w-full">
+                                            <div class="flex items-center space-x-2">
+                                                <svg v-if="sale.type === 'venta'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-purple-500">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                                </svg>
+                                                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 text-red-500">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                                </svg>
+                                                <Link :href="route('sales.show', sale.id)">
+                                                    <p v-if="sale.type === 'venta'" class="text-sm font-bold text-primary hover:underline">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                                                    <p v-else class="text-sm font-bold text-primary hover:underline">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
+                                                </Link>
+                                            </div>
                                         <p class="font-semibold text-base text-gray-800 dark:text-gray-200 mt-1">{{ sale.branch?.name || 'N/A' }}</p>
                                     </div>
                                 </div>
 
-                                <!-- Resumen de producción con Tooltip de productos -->
+                                <!-- Resumen de producción con Collapse de productos -->
                                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 text-xs text-gray-500 dark:text-gray-400 space-y-2">
-                                    <el-tooltip effect="dark" placement="top">
-                                        <template #content>
-                                            <div class="max-w-xs">
-                                                <h4 class="font-semibold text-xs text-gray-300 mb-2 border-b border-slate-600 pb-1">PRODUCTOS</h4>
-                                                <div class="space-y-2">
-                                                    <div v-for="item in sale.sale_products" :key="item.id" class="flex items-center space-x-3">
-                                                        <img draggable="off" :src="item.product.media[0]?.original_url" class="w-10 h-10 rounded-md object-cover bg-gray-500" v-if="item.product.media?.length > 0">
-                                                        <div class="w-10 h-10 rounded-md bg-gray-700 flex items-center justify-center" v-else>
-                                                            <i class="fa-solid fa-image text-gray-500"></i>
-                                                        </div>
-                                                        <div>
-                                                            <p class="text-xs font-semibold text-gray-200 flex items-center">
-                                                                {{ item.product.name }}
-                                                                <i v-if="getProductionStatusForProduct(sale, item.id) === 'Sin material'"
-                                                                   class="fa-solid fa-triangle-exclamation text-yellow-400 ml-2"
-                                                                   title="Falta material para este producto"></i>
-                                                            </p>
-                                                            <p class="text-xs text-gray-400">Cantidad: {{ item.quantity_to_produce }}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </template>
-                                        <div class="flex justify-between hover:bg-gray-100 dark:hover:bg-slate-800 rounded-md -mx-1 px-1 py-0.5">
-                                            <span>Productos en Producción:</span>
-                                            <span class="font-semibold text-gray-700 dark:text-gray-200">{{ sale.production_summary.total_productions }} <i class="fa-solid fa-circle-info ml-1"></i></span>
-                                        </div>
-                                    </el-tooltip>
+                                    <div class="flex justify-between">
+                                        <span>Productos en Producción:</span>
+                                        <span class="font-semibold text-gray-700 dark:text-gray-200">{{ sale.production_summary.total_productions }}</span>
+                                    </div>
                                     <div class="flex justify-between">
                                         <span>Productos Terminados:</span>
                                         <span class="font-semibold text-gray-700 dark:text-gray-200">{{ sale.production_summary.completed_productions }} / {{ sale.production_summary.total_productions }}</span>
                                     </div>
-                                </div>
 
+                                    <!-- Collapse para detallar productos y sus tareas -->
+                                     <div class="mt-2 -mx-4">
+                                        <el-collapse class="products-collapse">
+                                            <el-collapse-item name="1">
+                                                <template #title>
+                                                    <span class="px-4 text-xs font-semibold text-secondary w-full">
+                                                        PRODUCTOS A PRODUCIR
+                                                    </span>
+                                                </template>
+                                                <div class="space-y-1 px-2 pb-2">
+                                                    <div v-for="item in sale.sale_products" :key="item.id">
+                                                        <el-tooltip effect="dark" placement="right-start" :hide-after="0" popper-class="tasks-tooltip">
+                                                            <template #content>
+                                                                <h5 class="font-semibold text-xs text-gray-300 mb-2 border-b border-slate-600 pb-1">TAREAS ASIGNADAS</h5>
+                                                                <div v-if="getProductionForProduct(sale, item.id) && getProductionForProduct(sale, item.id).tasks.length > 0" class="space-y-2">
+                                                                    <div v-for="task in getProductionForProduct(sale, item.id).tasks" :key="task.id" class="text-xs">
+                                                                        <div class="flex items-center justify-between">
+                                                                            <div class="flex items-center space-x-2">
+                                                                                <img :src="task.operator.profile_photo_url" class="size-6 rounded-full">
+                                                                                <div>
+                                                                                    <p class="font-semibold text-gray-200">{{ task.operator.name }}</p>
+                                                                                    <p class="text-gray-400">{{ task.name }}</p>
+                                                                                </div>
+                                                                            </div>
+                                                                            <el-tag size="small" :type="statusTagType(task.status)">{{ task.status }}</el-tag>
+                                                                        </div>
+                                                                        <div class="text-xs text-gray-400 mt-1 pl-8">
+                                                                            <p class="text-white"><b class="text-amber-500">Inicio:</b> {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
+                                                                            <p class="text-white"><b class="text-amber-500">Fin:</b> {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No terminado' }}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div v-else class="text-center text-xs text-gray-400 italic py-2">
+                                                                    No hay tareas asignadas.
+                                                                </div>
+                                                            </template>
+                                                            <div class="flex items-center space-x-3 w-full p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 cursor-default">
+                                                                <img draggable="false" :src="item.product.media[0]?.original_url" class="w-8 h-8 rounded-md object-cover bg-gray-500 flex-shrink-0" v-if="item.product.media?.length > 0">
+                                                                <div class="w-8 h-8 rounded-md bg-gray-700 flex items-center justify-center flex-shrink-0" v-else>
+                                                                    <i class="fa-solid fa-image text-gray-500"></i>
+                                                                </div>
+                                                                <div class="flex-grow overflow-hidden">
+                                                                    <p class="text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center truncate">
+                                                                        {{ item.product.name }}
+                                                                        <i v-if="getProductionStatusForProduct(sale, item.id) === 'Sin material'"
+                                                                           class="fa-solid fa-triangle-exclamation text-yellow-500 ml-2 flex-shrink-0"
+                                                                           title="Falta material para este producto"></i>
+                                                                    </p>
+                                                                    <p class="text-xs text-gray-400">Cantidad: {{ item.quantity_to_produce }}</p>
+                                                                </div>
+                                                            </div>
+                                                        </el-tooltip>
+                                                    </div>
+                                                </div>
+                                            </el-collapse-item>
+                                        </el-collapse>
+                                     </div>
+                                </div>
 
                                 <!-- Barra de Progreso General -->
                                 <div class="mt-4">
@@ -94,30 +145,6 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Collapse de Tareas -->
-                                <div class="mt-4 pt-3 border-t border-gray-200 dark:border-slate-700">
-                                    <button @click="toggleTasks(sale.id)" class="text-xs font-semibold text-primary hover:underline w-full text-left">
-                                        Ver Tareas <i class="fa-solid ml-1" :class="expandedCardId === sale.id ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                                    </button>
-                                    <div v-if="expandedCardId === sale.id" class="mt-2 space-y-2">
-                                        <div v-for="production in sale.productions" :key="production.id" class="space-y-1">
-                                            <div v-for="task in production.tasks" :key="task.id" class="bg-gray-100 dark:bg-slate-800 p-2 rounded-md">
-                                                <div class="flex items-center justify-between">
-                                                    <div class="flex items-center space-x-2">
-                                                        <img :src="task.operator.profile_photo_url" class="size-7 rounded-full" :title="task.operator.name">
-                                                        <span class="text-xs text-gray-700 dark:text-gray-300">{{ task.name }}</span>
-                                                    </div>
-                                                    <el-tag size="small" :type="statusTagType(task.status)">{{ task.status }}</el-tag>
-                                                </div>
-                                                <div class="text-xs text-gray-400 dark:text-gray-500 mt-1 pl-8">
-                                                    <p>Inicio: {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
-                                                    <p>Fin: {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No termiando' }}</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <!-- Pie de la tarjeta: Creador -->
                                 <div class="mt-4 pt-3 border-t border-gray-200 dark:border-slate-700 flex items-center space-x-2">
                                      <img :src="sale.user.profile_photo_url" class="size-7 rounded-full">
@@ -222,7 +249,6 @@ export default {
     },
     data() {
         return {
-            expandedCardId: null, // ID de la tarjeta con tareas expandidas
             columns: [
                 { id: 'Pendiente', title: 'Pendiente', color: 'bg-yellow-400' },
                 { id: 'En Proceso', title: 'En Proceso', color: 'bg-blue-400' },
@@ -264,16 +290,25 @@ export default {
             };
             return map[status] || 'info';
         },
-        toggleTasks(saleId) {
-            if (this.expandedCardId === saleId) {
-                this.expandedCardId = null;
-            } else {
-                this.expandedCardId = saleId;
-            }
-        },
         getProductionStatusForProduct(sale, saleProductId) {
             const production = sale.productions.find(p => p.sale_product_id === saleProductId);
             return production ? production.status : null;
+        },
+        getProductionForProduct(sale, saleProductId) {
+            return sale.productions.find(p => p.sale_product_id === saleProductId);
+        },
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('es-MX', options);
+        },
+        isDateInPast(dateString) {
+            if (!dateString) return false;
+            const promiseDate = new Date(dateString);
+            promiseDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return promiseDate < today;
         }
     },
 };
@@ -288,4 +323,39 @@ export default {
 .dark .overflow-x-auto::-webkit-scrollbar-thumb { background-color: #52525b; }
 .overflow-x-auto::-webkit-scrollbar-thumb:hover { background-color: #78716c; }
 .dark .overflow-x-auto::-webkit-scrollbar-thumb:hover { background-color: #71717a; }
+
+/* Estilos personalizados para el collapse de productos */
+.products-collapse {
+    border-top: none;
+    border-bottom: none;
+}
+
+:deep(.products-collapse .el-collapse-item__header) {
+    background-color: transparent !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    height: auto;
+    line-height: normal;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+.dark :deep(.products-collapse .el-collapse-item__header) {
+    border-bottom: 1px solid #334155 !important;
+}
+
+:deep(.products-collapse .el-collapse-item__header.is-active) {
+    border-bottom: 1px solid #e5e7eb !important;
+}
+.dark :deep(.products-collapse .el-collapse-item__header.is-active) {
+    border-bottom: 1px solid #334155 !important;
+}
+
+:deep(.products-collapse .el-collapse-item__wrap) {
+    background-color: transparent !important;
+    border-bottom: none !important;
+}
+
+:deep(.tasks-tooltip) {
+    max-width: 300px;
+}
 </style>
+

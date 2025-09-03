@@ -425,7 +425,7 @@ export default {
         getStatusTagType(status) {
             const statusMap = {
                 'Pendiente': 'info',
-                'Autorizada': '',
+                'Autorizada': 'info',
                 'Sin stock': 'danger',
                 'Producción': 'warning',
                 'Terminado': 'success',

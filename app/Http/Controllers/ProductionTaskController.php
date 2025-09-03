@@ -43,6 +43,24 @@ class ProductionTaskController extends Controller
         }
 
         if ($newStatus === 'Terminada') {
+            // --- VALIDACIÓN DE TIEMPO (BACKEND) ---
+            if ($production_task->started_at) {
+                // Se convierte la fecha de inicio (que puede ser un string) a un objeto Carbon para asegurar un cálculo correcto.
+                $startTime = new Carbon($production_task->started_at);
+                
+                // Se calcula la diferencia de tiempo entre ahora y el inicio.
+                $elapsedMinutes = $startTime->diffInMinutes(Carbon::now());
+                $requiredMinutes = $production_task->estimated_time_minutes / 2;
+
+                if ($elapsedMinutes < $requiredMinutes) {
+                    $remainingMinutes = ceil($requiredMinutes - $elapsedMinutes);
+                    return back()->withErrors(['error' => "No se puede finalizar. Debes esperar al menos {$remainingMinutes} minuto(s) más."]);
+                }
+            } else {
+                return back()->withErrors(['error' => 'No se puede finalizar una tarea que no ha sido iniciada.']);
+            }
+            // --- FIN DE LA VALIDACIÓN ---
+
             $production_task->finished_at = Carbon::now();
             // También actualizar cantidades en la producción si se proporcionan
             $production = $production_task->production;
@@ -92,5 +110,28 @@ class ProductionTaskController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * MÉTODO NUEVO: Recupera los detalles completos de una tarea para la vista expandida.
+     * ? Puede usarse en un futuro para mostrar tarifaas de envios, empaques, etc
+     */
+    public function getTaskDetails(ProductionTask $task)
+    {
+        // Valida que el operador solo pueda ver sus propias tareas
+        if ($task->operator_id !== auth()->id()) {
+            return response()->json(['error' => 'No autorizado'], 403);
+        }
+
+        $task->load([
+            // Carga los componentes del producto asociado a la tarea
+            'production.saleProduct.product.components' => function ($query) {
+                $query->with(['storages', 'media']); // Carga el stock y media de cada componente
+            },
+            // Carga los avances de producción (asumiendo que tienes esta relación)
+            // 'production.advancements',
+        ]);
+
+        return response()->json($task);
     }
 }

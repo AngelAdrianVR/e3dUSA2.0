@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('oce_name')->nullable();
             $table->string('order_via')->nullable();
             $table->string('shipping_option')->nullable();
-            // $table->date('promise_date')->nullable(); se agrega a cada parcialidad
+            $table->timestamp('promise_date')->nullable(); // util para indicar fecha en producción
             $table->text('notes')->nullable();
             $table->boolean('is_high_priority')->default(false);
             $table->decimal('total_amount', 10, 2)->nullable();

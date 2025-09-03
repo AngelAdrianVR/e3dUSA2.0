@@ -8,6 +8,7 @@ use App\Models\ProductionTask;
 use App\Models\Sale;
 use App\Models\SaleProduct;
 use App\Models\User;
+use App\Notifications\TaskAssignedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class ProductionController extends Controller
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
             $query = Sale::query()
                 ->whereHas('productions')
-                ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id'])
+                ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id', 'created_at', 'promise_date'])
                 ->with([
                     'user:id,name',
                     'branch:id,name',
@@ -74,30 +75,27 @@ class ProductionController extends Controller
             ]);
         }
 
-        // --- Vista para el Operador (Sin cambios) ---
+        // --- Vista para el Operador ---
         if ($user->hasRole('Operador')) {
+            // --- CARGA OPTIMIZADA ---
+            // Solo se carga la información esencial para la vista de tarjetas.
             $myTasks = ProductionTask::where('operator_id', $user->id)
                 ->with([
-                    'production:id,sale_product_id,quantity_to_produce,status',
-                    'production.saleProduct:id,sale_id,product_id,quantity_to_produce',
-                    'production.saleProduct.product:id,name,code,measure_unit',
-                    'production.saleProduct.product:id,name,code,measure_unit',
+                    'production:id,sale_product_id,status,quantity_to_produce',
+                    'production.saleProduct:id,sale_id,product_id,quantity_to_produce,quantity',
+                    'production.saleProduct.product:id,name',
                     'production.saleProduct.product.media',
-                    'production.saleProduct.product.components:id,name,measure_unit',
-                    'production.saleProduct.product.components.storages', // Stock de los componentes
-                    // 'production.saleProduct.product.components.media',
-                    'production.saleProduct.sale:id,branch_id,authorized_at,type,status,is_high_priority,user_id',
+                    'production.saleProduct.sale:id,branch_id,type,is_high_priority,promise_date',
                     'production.saleProduct.sale.branch:id,name',
-                    'production.saleProduct.sale.saleProducts:id,sale_id,product_id,quantity_to_produce',
-                    'production.saleProduct.sale.saleProducts.product:id,name,code,measure_unit',
+                    'production.saleProduct.sale.saleProducts.product:id,name,measure_unit',
+                    'production.saleProduct.sale.saleProducts.product.media',
                 ])
                 ->whereHas('production', function ($query) {
                     $query->whereNotIn('status', ['Terminada', 'Cancelada']);
                 })
                 ->orderBy('created_at', 'desc')
-                ->take(20)
-                ->get();
-
+                ->paginate(15); 
+                
                 // return $myTasks;
             return Inertia::render('Production/Index', [
                 'viewType' => 'operator',
@@ -127,6 +125,7 @@ class ProductionController extends Controller
                         'product:id,name,code,archived_at,measure_unit', // Solo lo necesario para la tabla
                         'product.storages', // Stock del producto terminado
                         'product.media',
+                        'product.components.media',
                         'product.components:id,name,measure_unit',
                         'product.components.storages' // Stock de los componentes
                     ]);
@@ -170,12 +169,31 @@ class ProductionController extends Controller
                 ]);
 
                 foreach ($productData['tasks'] as $taskData) {
-                    ProductionTask::create([
+                    // Create the production task
+                    $productionTask = ProductionTask::create([
                         'production_id' => $production->id,
                         'operator_id' => $taskData['operator_id'],
                         'name' => $taskData['name'],
                         'estimated_time_minutes' => $taskData['estimated_time_minutes'],
                     ]);
+
+                    // --- NOTIFICATION LOGIC ---
+                    // Find the assigned operator
+                    $operator = User::find($taskData['operator_id']);
+
+                    // Check if the operator exists and is not the person creating the task
+                    // if ($operator && $operator->id !== auth()->id()) {
+                        $production_folio = 'PROD-' . str_pad($production->id, 4, "0", STR_PAD_LEFT);
+
+                        // Send the notification
+                        $operator->notify(new TaskAssignedNotification(
+                            'Nueva Tarea Asignada',
+                            $production_folio,
+                            'production_task',
+                            route('productions.index'),
+                            $productionTask->name
+                        ));
+                    // }
                 }
             }
         });

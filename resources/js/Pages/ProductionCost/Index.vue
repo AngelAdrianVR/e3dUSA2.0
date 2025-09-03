@@ -14,13 +14,13 @@
                         <!-- Botón para abrir el modal de creación -->
                         <SecondaryButton @click="openCreateModal">
                             <i class="fa-solid fa-plus mr-2"></i>
-                            Nuevo Costo
+                            Nuevo Proceso
                         </SecondaryButton>
                         
                         <div class="flex items-center space-x-4">
                             <!-- Botón de eliminación masiva -->
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar costos de produccion')" confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
-                                title="¿Estás seguro de eliminar los costos seleccionados?" @confirm="deleteSelections">
+                                title="¿Estás seguro de eliminar los procesos seleccionados?" @confirm="deleteSelections">
                                 <template #reference>
                                     <el-button type="danger" plain :disabled="!selectedItems.length">
                                         Eliminar seleccionados
@@ -43,7 +43,7 @@
                         <el-table-column v-if="$page.props.auth.user.permissions.includes('Eliminar costos de produccion')" type="selection" width="45" />
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
-                        <el-table-column prop="cost_type" label="Tipo de costo" width="150">
+                        <el-table-column prop="cost_type" label="Tipo de proceso" width="150">
                              <template #default="scope">
                                 <span class="capitalize">{{ scope.row.cost_type.replace('_', ' ') }}</span>
                             </template>
@@ -137,7 +137,7 @@
                 <div class="flex space-x-3">
                     <CancelButton @click="closeModal" :disabled="form.processing">Cancelar</CancelButton>
                     <SecondaryButton @click="submit" :loading="form.processing">
-                        {{ isEditing ? 'Actualizar' : 'Crear Costo' }}
+                        {{ isEditing ? 'Actualizar' : 'Crear Proceso' }}
                     </SecondaryButton>
                 </div>
             </template>
@@ -192,7 +192,7 @@ export default {
     },
     computed: {
         modalTitle() {
-            return this.isEditing ? 'Editar Costo de Producción' : 'Crear Nuevo Costo de Producción';
+            return this.isEditing ? 'Editar Proceso de Producción' : 'Crear Nuevo Proceso de Producción';
         }
     },
     methods: {
@@ -259,7 +259,7 @@ export default {
         store() {
             this.form.post(route('production-costs.store'), {
                 onSuccess: () => {
-                    ElMessage.success('Costo creado correctamente');
+                    ElMessage.success('Proceso creado correctamente');
                     this.closeModal();
                 },
             });
@@ -267,7 +267,7 @@ export default {
         update() {
             this.form.put(route('production-costs.update', this.form.id), {
                 onSuccess: () => {
-                    ElMessage.success('Costo actualizado correctamente');
+                    ElMessage.success('Proceso actualizado correctamente');
                     this.closeModal();
                 },
             });
@@ -279,7 +279,7 @@ export default {
             const ids = this.selectedItems.map(item => item.id);
             router.post(route('production-costs.massive-delete'), { ids }, {
                 onSuccess: () => {
-                    ElMessage.success('Costos seleccionados eliminados');
+                    ElMessage.success('Procesos seleccionados eliminados');
                 },
             });
         },

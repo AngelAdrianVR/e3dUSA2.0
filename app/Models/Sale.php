@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,6 +27,7 @@ class Sale extends Model implements HasMedia, Auditable
         'oce_name',
         'order_via',
         'notes',
+        'promise_date',
         'is_high_priority',
         'total_amount',
         'freight_option',
@@ -39,6 +41,7 @@ class Sale extends Model implements HasMedia, Auditable
 
     protected $casts = [
         'authorized_at' => 'datetime',
+        'promise_date' => 'date',
         'is_high_priority' => 'boolean',
     ];
 
@@ -177,5 +180,26 @@ class Sale extends Model implements HasMedia, Auditable
             'completed_tasks' => $completedTasks,
             'percentage' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0,
         ];
+    }
+
+    /**
+     * START: New Method
+     * Checks if the promise date has passed and updates the priority to high.
+     * This method can be called from a controller or a scheduled job.
+     * It only acts if the date has passed and the priority is not already high.
+     */
+    public function updatePriorityBasedOnPromiseDate()
+    {
+        // 1. Check if there is a promise date and priority is not already high
+        if (!$this->promise_date || $this->is_high_priority) {
+            return;
+        }
+
+        // 2. Check if the promise date is in the past
+        // Using startOfDay to ensure we compare dates only, not times.
+        if (Carbon::parse($this->promise_date)->startOfDay()->isPast()) {
+            $this->is_high_priority = true;
+            $this->save();
+        }
     }
 }

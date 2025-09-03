@@ -65,8 +65,8 @@
                                 <template #default="scope">
                                     <figure class="border rounded-md size-20 flex items-center justify-center bg-white">
                                         <el-image @click.stop="" style="width: 100%; height: 100%; border-radius: 6px"
-                                            :src="scope.row.images_urls[0]"
-                                            :preview-src-list="[scope.row.images_urls[0]]" fit="contain"
+                                            :src="scope.row.media[0]?.original_url"
+                                            :preview-src-list="[scope.row.media[0]?.original_url]" fit="contain"
                                             preview-teleported :hide-on-click-modal="true" />
                                     </figure>
                                 </template>
