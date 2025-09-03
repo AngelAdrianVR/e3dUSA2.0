@@ -96,6 +96,10 @@ class Production extends Model implements Auditable
         if ($this->status !== $newStatus) {
             $this->status = $newStatus;
             $this->save();
+
+            // Una vez que el estado de esta producción ha cambiado, le decimos a la venta 
+            // a la que pertenece que re-evalúe su propio estado general.
+            $this->saleProduct->sale->updateStatus();
         }
     }
 

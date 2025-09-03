@@ -222,11 +222,16 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Acciones" width="120" align="right">
+                    <el-table-column label="Acciones" width="150" align="right">
                         <template #default="scope">
-                            <Link :href="route('sales.show', scope.row.id)">
-                                <PrimaryButton><i class="fa-solid fa-eye"></i></PrimaryButton>
-                            </Link>
+                            <div class="flex justify-end space-x-2 pr-2">
+                                <Link :href="route('sales.show', scope.row.id)">
+                                    <PrimaryButton><i class="fa-solid fa-eye"></i></PrimaryButton>
+                                </Link>
+                                <DangerButton @click="confirmDelete(scope.row)">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </DangerButton>
+                            </div>
                         </template>
                     </el-table-column>
                 </el-table>
@@ -237,12 +242,14 @@
 
 <script>
 import draggable from 'vuedraggable';
-import { Link } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import DangerButton from '@/Components/DangerButton.vue';
+import { ElMessageBox, ElMessage } from 'element-plus';
 
 export default {
     name: 'ManagerView',
-    components: { draggable, Link, PrimaryButton },
+    components: { draggable, Link, PrimaryButton, DangerButton },
     props: {
         sales: { type: Array, default: () => [] },
         activeView: { type: String, default: 'kanban' },
@@ -309,6 +316,47 @@ export default {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             return promiseDate < today;
+        },
+        confirmDelete(sale) {
+            const saleIdentifier = sale.type === 'venta' ? `OV-${sale.id.toString().padStart(4, '0')}` : `OS-${sale.id.toString().padStart(4, '0')}`;
+            ElMessageBox.confirm(
+                `¿Estás seguro de que deseas eliminar la orden ${saleIdentifier}? Esta acción no se puede deshacer.`,
+                'Confirmar Eliminación',
+                {
+                    confirmButtonText: 'Sí, Eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            ).then(() => {
+                this.deleteSale(sale.id);
+            }).catch(() => {
+                ElMessage({
+                    title: 'Cancelado',
+                    message: 'La eliminación de la orden ha sido cancelada.',
+                    type: 'info',
+                    duration: 2000,
+                });
+            });
+        },
+        deleteSale(saleId) {
+            router.delete(route('productions.destroy', saleId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage({
+                        title: 'Éxito',
+                        message: 'La orden de producción se ha eliminado correctamente.',
+                        type: 'success',
+                    });
+                },
+                onError: (errors) => {
+                    ElMessage({
+                        title: 'Error',
+                        message: 'Hubo un error al eliminar la orden. Por favor, inténtalo de nuevo.',
+                        type: 'error',
+                    });
+                    console.error('Error deleting sale:', errors);
+                },
+            });
         }
     },
 };
@@ -358,4 +406,3 @@ export default {
     max-width: 300px;
 }
 </style>
-

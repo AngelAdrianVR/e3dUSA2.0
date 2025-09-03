@@ -120,7 +120,7 @@ class SaleController extends Controller
 
         $validated = $request->validate($rules);
 
-        // --- NUEVO: OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
+        // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
 
         DB::beginTransaction();
@@ -268,7 +268,7 @@ class SaleController extends Controller
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
 
-            return redirect()->route('sales.index')->with('success', 'Órden creada exitosamente.');
+            return redirect()->route('sales.show', $sale->id);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -284,6 +284,7 @@ class SaleController extends Controller
             'branch',
             'media',
             'user:id,name',
+            'productions.tasks', // para darle info al accesor y mostrar estatus de la producción.
             'saleProducts.product.media',
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->orderBy('created_at', 'desc');
@@ -337,6 +338,7 @@ class SaleController extends Controller
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
 
+        // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
         if ($isSaleType) {
             $rules['branch_id'] = ['required', 'exists:branches,id'];
             $rules['contact_id'] = ['required', 'exists:contacts,id'];
@@ -345,11 +347,12 @@ class SaleController extends Controller
             $rules['freight_option'] = ['required', 'string', 'max:255'];
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
-            $rules['promise_date'] = ['nullable', 'date'];
-
+            
             $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
 
+            // Reglas para envíos
             $rules['shipments'] = ['required', 'array', 'min:1'];
+            $rules['shipments.*.id'] = ['nullable', 'exists:shipments,id']; // Para identificar envíos existentes
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
@@ -363,41 +366,42 @@ class SaleController extends Controller
 
         $validated = $request->validate($rules);
 
+        // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
+        $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
+
         DB::beginTransaction();
 
         try {
 
-            // --- 2. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SI ES VENTA) ---
-            if ($isSaleType) {
+            // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
+            // if ($isSaleType) {
                 $this->revertStockForSale($sale);
-            }
+            // }
 
-            // --- 3. ACTUALIZAR LA ORDEN ---
+            // --- 4. ACTUALIZAR LA ORDEN ---
             $sale->update([
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
                 'quote_id' => $validated['quote_id'] ?? null,
                 'order_via' => $validated['order_via'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
                 'freight_cost' => $validated['freight_cost'] ?? 0,
-                'promise_date' => $validated['promise_date'] ?? 0,
                 'shipping_option' => $validated['shipping_option'] ?? null,
                 'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * ($product['price'] ?? 0));
                 }, 0) : 0,
             ]);
 
-            // --- 4. SINCRONIZAR PRODUCTOS Y RECALCULAR STOCK ---
-            // Eliminar productos que ya no están en la petición
+            // --- 5. SINCRONIZAR PRODUCTOS DE LA ORDEN ---
             $productIdsFromRequest = collect($validated['products'])->pluck('id');
             $sale->saleProducts()->whereNotIn('product_id', $productIdsFromRequest)->delete();
 
             foreach ($validated['products'] as $productData) {
-                // Actualizar o crear el producto en la venta
-                $saleProduct = $sale->saleProducts()->updateOrCreate(
+                $sale->saleProducts()->updateOrCreate(
                     ['product_id' => $productData['id']],
                     [
                         'quantity' => $productData['quantity'],
@@ -406,20 +410,73 @@ class SaleController extends Controller
                         'customization_details' => $productData['customization_details'] ?? null,
                     ]
                 );
+            }
+            
+            // --- 6. SINCRONIZAR ENVÍOS Y SUS PRODUCTOS (SOLO PARA VENTAS) ---
+            if ($isSaleType) {
+                // Forzamos la recarga de la relación para asegurar que tenemos los datos más frescos
+                $sale->load('saleProducts');
+                // Creamos un mapa para encontrar fácilmente el 'sale_product_id' a partir del 'product_id'
+                $saleProductsMap = $sale->saleProducts()->pluck('id', 'product_id');
 
-                // --- 5. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
-                if ($isSaleType) {
+                $incomingShipmentIds = collect($validated['shipments'])->pluck('id')->filter();
+                
+                // Eliminar envíos que ya no están en la petición
+                $sale->shipments()->whereNotIn('id', $incomingShipmentIds)->delete();
+
+                foreach ($validated['shipments'] as $shipmentData) {
+                    // Actualizar o crear el envío
+                    $shipment = $sale->shipments()->updateOrCreate(
+                        ['id' => $shipmentData['id'] ?? null],
+                        [
+                            'status' => $shipmentData['status'] ?? 'Pendiente',
+                            'promise_date' => $shipmentData['promise_date'] ?? null,
+                            'shipping_company' => $shipmentData['shipping_company'] ?? null,
+                            'tracking_guide' => $shipmentData['tracking_guide'] ?? null,
+                        ]
+                    );
+
+                    // Sincronizar los productos de este envío (MANUALMENTE para relaciones HasMany)
+                    $saleProductIdsInRequest = [];
+                    $productSyncData = [];
+
+                    // 1. Preparar los datos y los IDs de la petición actual
+                    foreach($shipmentData['products'] as $productShipmentData) {
+                        $saleProductId = $saleProductsMap->get($productShipmentData['product_id']);
+                        // Solo procesar si el producto existe en la orden y la cantidad es positiva
+                        if ($saleProductId && $productShipmentData['quantity'] > 0) {
+                            $saleProductIdsInRequest[] = $saleProductId;
+                            $productSyncData[$saleProductId] = ['quantity' => $productShipmentData['quantity']];
+                        }
+                    }
+
+                    // 2. Eliminar los productos que se quitaron de este envío
+                    $shipment->shipmentProducts()->whereNotIn('sale_product_id', $saleProductIdsInRequest)->delete();
+
+                    // 3. Actualizar o crear los productos que están en el envío
+                    foreach ($productSyncData as $saleProdId => $data) {
+                        $shipment->shipmentProducts()->updateOrCreate(
+                            ['sale_product_id' => $saleProdId],  // Condición para buscar
+                            ['quantity' => $data['quantity']]   // Datos para actualizar o crear
+                        );
+                    }
+                }
+            }
+
+            // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
+            if ($isSaleType) {
+                foreach ($validated['products'] as $productData) {
                     $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                    $saleProduct = $sale->saleProducts()->where('product_id', $product->id)->first();
                     $quantityInSale = $productData['quantity'];
+                    
                     $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
 
-                    // 5.1 Recalcular cuánto se toma y cuánto se produce
                     $takenFromStock = min($quantityInSale, $stockFinishedProduct);
                     $quantityToProduce = $quantityInSale - $takenFromStock;
                     
                     $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
                     
-                    // 5.2 Descontar stock del producto terminado
                     if ($takenFromStock > 0) {
                         $storage = $product->storages->first();
                         $storage->decrement('quantity', $takenFromStock);
@@ -432,19 +489,20 @@ class SaleController extends Controller
                         ]);
                     }
 
-                    // 5.3 Descontar stock de los componentes
+                    // Lógica para descontar componentes (si aplica)
                     if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
                         foreach ($product->components as $component) {
                             $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                             $componentStorage = $component->storages->first();
-                            if ($componentStorage) {
-                                $componentStorage->decrement('quantity', $requiredQuantity);
+                            if ($componentStorage && $componentStorage->quantity > 0) {
+                                $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
+                                $componentStorage->decrement('quantity', $discountQuantity);
                                 StockMovement::create([
                                     'product_id' => $component->id,
                                     'storage_id' => $componentStorage->id,
-                                    'quantity_change' => $requiredQuantity,
+                                    'quantity_change' => $discountQuantity,
                                     'type' => 'Salida',
-                                    'notes' => "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id}) (Actualizado)"
+                                    'notes' => "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id}, Actualizado)"
                                 ]);
                             }
                         }
@@ -452,7 +510,7 @@ class SaleController extends Controller
                 }
             }
             
-            // --- 6. MANEJAR ARCHIVOS ADJUNTOS ---
+            // --- 8. MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('oce_media')) {
                 $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
                     $fileAdder->toMediaCollection('oce_media');
@@ -462,13 +520,13 @@ class SaleController extends Controller
             DB::commit();
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
-            return redirect()->route('sales.index')->with('success', 'Órden actualizada exitosamente.');
+            return redirect()->route('sales.show', $sale->id);
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error("Error al actualizar la órden #{$sale->id}: " . $e->getMessage());
             Log::error($e->getTraceAsString());
-            return back()->withInput()->withErrors(['generic_error' => 'Ocurrió un error inesperado.']);
+            return back()->withInput()->withErrors(['generic_error' => 'Ocurrió un error inesperado al actualizar la orden.']);
         }
     }
 
@@ -652,7 +710,7 @@ class SaleController extends Controller
                     'storage_id' => $storage->id,
                     'quantity_change' => $takenFromStock, // Positivo para devolver
                     'type' => 'Entrada',
-                    'notes' => "Reversión por Orden #{$sale->id}"
+                    'notes' => "Reversión por " . $sale->type === 'venta' ? "OV-" : "OS-" . $sale->id 
                 ]);
             }
 

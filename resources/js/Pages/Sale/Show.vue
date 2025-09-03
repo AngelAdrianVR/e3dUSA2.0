@@ -1,5 +1,7 @@
 <template>
-    <AppLayout :title="`Detalles de la Órden #${sale.id}`">
+    <AppLayout
+        :title="`Detalles de la Órden ${sale.type === 'venta' ? 'OV-' : 'OS-'}${sale.id.toString().padStart(4, '0')}`"
+    >
         <!-- Panel Flotante de Notas -->
         <BranchNotes :branch-id="sale.branch.id" />
 
@@ -81,11 +83,11 @@
 
 
         <!-- === CONTENIDO PRINCIPAL === -->
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-7 mt-3 dark:text-white">
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-5">
             <!-- === STEPPER DE ESTADO === -->
-            <Stepper :currentStatus="sale.status" :steps="['Autorizada', 'En Proceso', 'Completada', 'Enviada']" />
+            <Stepper :currentStatus="sale.status" :steps="['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada']" />
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
@@ -177,6 +179,56 @@
                             <span>${{ parseFloat(sale.total_amount)?.toFixed(2)?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
                         </li>
                     </ul>
+                </div>
+
+                <!-- Card de Resumen de Producción -->
+                <div v-if="sale.production_summary && sale.production_summary.total_productions > 0"
+                    class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4">
+                    <div class="flex justify-between items-center border-b dark:border-gray-600 pb-2 mb-3">
+                        <h3 class="text-lg font-semibold">Resumen de Producción</h3>
+                        <!-- Estadísticas Detalladas -->
+                        <div class="grid grid-cols-2 text-center text-sm">
+                            <div>
+                                <p class="font-bold text-lg">{{ sale.production_summary.completed_productions }} / {{ sale.production_summary.total_productions }}</p>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs">Productos</p>
+                            </div>
+                            <div>
+                                <p class="font-bold text-lg">{{ sale.production_summary.completed_tasks }} / {{ sale.production_summary.total_tasks }}</p>
+                                <p class="text-gray-500 dark:text-gray-400 text-xs">Tareas</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <!-- Estado General -->
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Estado:</span>
+                            <span class="font-bold px-2 py-1 rounded-md text-xs"
+                                :class="{
+                                    'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300': sale.production_summary.status === 'Terminada',
+                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300': sale.production_summary.status === 'En Proceso',
+                                    'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300': sale.production_summary.status === 'Sin material',
+                                    'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300': sale.production_summary.status === 'Pendiente',
+                                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300': sale.production_summary.status === 'Pausada',
+                                }">
+                                {{ sale.production_summary.status }}
+                            </span>
+                        </div>
+
+                        <!-- Barra de Progreso Futurista -->
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Progreso General</span>
+                                <span class="text-xs font-bold text-primary dark:text-green-400">{{ sale.production_summary.percentage }}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-slate-700">
+                                <div class="bg-gradient-to-r from-emerald-600 to-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+                                    :style="{ width: sale.production_summary.percentage + '%' }">
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
 
                 <!-- Card de Archivos adjuntos de Órden -->

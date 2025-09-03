@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? `Editar órden de venta #${sale.id}` : `Editar órden de stock #${sale.id}` }}
+                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.idtoString().padStart(4, '0')}` }}
                 </h2>
             </div>
         </div>
