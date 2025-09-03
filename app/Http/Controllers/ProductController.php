@@ -64,7 +64,7 @@ class ProductController extends Controller
                 'string',
             ],
             'caracteristics' => 'nullable|string',
-            'cost' => 'nullable|numeric|max:99999',
+            'cost' => 'required|numeric|max:99999',
             'base_price' => [
                 'nullable',
                 'required_if:product_type_key,C',
@@ -122,21 +122,28 @@ class ProductController extends Controller
         $validatedData['material'] = $materials[$validatedData['material']];
 
         // ================== INICIO: LÓGICA DE CÁLCULO DE COSTO ============
-        // Se recalcula el costo únicamente si se envían procesos de producción.
-        if ($request->filled('production_processes')) {
-            // Se obtiene el costo inicial del formulario (materia prima), si no existe se toma como 0.
-            $initialCost = $validatedData['cost'] ?? 0;
+        // Se inicializa el costo total con el valor base del formulario.
+        $totalCost = $validatedData['cost'] ?? 0;
 
-            // Se obtienen los IDs de los procesos del request.
-            $processIds = array_column($request->input('production_processes'), 'process_id');
-
-            // Se consultan los costos reales de la base de datos para mayor seguridad.
-            $processes = ProductionCost::whereIn('id', $processIds)->get();
-            $totalProcessesCost = $processes->sum('cost');
-
-            // El costo final es la suma del costo de materia prima más el de los procesos.
-            $validatedData['cost'] = $initialCost + $totalProcessesCost;
+        // 1. Sumar el costo de los componentes (si existen)
+        if ($request->filled('components')) {
+            $totalComponentsCost = 0;
+            foreach ($request->input('components') as $component) {
+                // Acumular el costo del componente (costo del request * cantidad)
+                $totalComponentsCost += $component['cost'] * $component['quantity'];
+            }
+            $totalCost += $totalComponentsCost;
         }
+
+        // 2. Sumar el costo de los procesos de producción (si existen)
+        if ($request->filled('production_processes')) {
+            // Sumar directamente los costos del arreglo del request.
+            $totalProcessesCost = array_sum(array_column($request->input('production_processes'), 'cost'));
+            $totalCost += $totalProcessesCost;
+        }
+
+        // Asignar el costo final calculado.
+        $validatedData['cost'] = $totalCost;
         // ================== FIN: LÓGICA DE CÁLCULO DE COSTO ===============
 
         // 3. TRANSACCIÓN DE BASE DE DATOS
@@ -161,7 +168,10 @@ class ProductController extends Controller
                 if ($request->filled('components')) {
                     $componentsToSync = [];
                     foreach ($request->input('components') as $component) {
-                        $componentsToSync[$component['product_id']] = ['quantity' => $component['quantity']];
+                        $componentsToSync[$component['product_id']] = [
+                            'quantity' => $component['quantity'],
+                            'cost' => $component['cost']
+                        ];
                     }
                     $product->components()->sync($componentsToSync);
                 }
@@ -230,7 +240,7 @@ class ProductController extends Controller
     {
         // Carga todas las relaciones necesarias para el formulario
         $catalog_product->load('brand', 'productFamily', 'storages', 'components', 'productionCosts', 'media');
-
+        
         // Aquí deberías pasar los mismos datos que en tu método `create`
         // para poblar los selectores (marcas, familias, etc.)
         return inertia('CatalogProduct/Edit', [
@@ -250,7 +260,7 @@ class ProductController extends Controller
             // Ignora el producto actual al verificar si el código es único
             'code' => ['required', 'string', Rule::unique('products')->ignore($catalog_product->id)],
             'caracteristics' => 'nullable|string',
-            'cost' => 'nullable|numeric|max:99999',
+            'cost' => 'required|numeric|max:99999',
             'currency' => [
                 'nullable',
                 'required_if:product_type_key,C',
@@ -279,7 +289,7 @@ class ProductController extends Controller
             'components' => [
                 'nullable',
                 'array',
-                Rule::when(fn ($input) => $input->hasComponent === true, ['min:2']),
+                Rule::when(fn ($input) => $input->hasComponents === true, ['min:2']),
             ],
             'components.*.product_id' => 'required_with:components|exists:products,id',
             'components.*.quantity' => 'required_with:components|numeric|min:1',
@@ -313,22 +323,30 @@ class ProductController extends Controller
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
         $validatedData['material'] = $materials[$validatedData['material']];
 
-        // 3. LÓGICA DE CÁLCULO DE COSTO
-        // Se recalcula el costo únicamente si se envían procesos de producción.
-        if ($request->filled('production_processes')) {
-            // Se obtiene el costo inicial del formulario (materia prima), si no existe se toma como 0.
-            $initialCost = $validatedData['cost'] ?? 0;
+        // ================== INICIO: LÓGICA DE CÁLCULO DE COSTO ============
+        // Se inicializa el costo total con el valor base del formulario.
+        $totalCost = $validatedData['cost'] ?? 0;
 
-            // Se obtienen los IDs de los procesos del request.
-            $processIds = array_column($request->input('production_processes'), 'process_id');
-
-            // Se consultan los costos reales de la base de datos para mayor seguridad.
-            $processes = ProductionCost::whereIn('id', $processIds)->get();
-            $totalProcessesCost = $processes->sum('cost');
-
-            // El costo final es la suma del costo de materia prima más el de los procesos.
-            $validatedData['cost'] = $initialCost + $totalProcessesCost;
+        // 1. Sumar el costo de los componentes (si existen)
+        if ($request->filled('components')) {
+            $totalComponentsCost = 0;
+            foreach ($request->input('components') as $component) {
+                // Acumular el costo del componente (costo del request * cantidad)
+                $totalComponentsCost += $component['cost'] * $component['quantity'];
+            }
+            $totalCost += $totalComponentsCost;
         }
+
+        // 2. Sumar el costo de los procesos de producción (si existen)
+        if ($request->filled('production_processes')) {
+            // Sumar directamente los costos del arreglo del request.
+            $totalProcessesCost = array_sum(array_column($request->input('production_processes'), 'cost'));
+            $totalCost += $totalProcessesCost;
+        }
+
+        // Asignar el costo final calculado.
+        $validatedData['cost'] = $totalCost;
+        // ================== FIN: LÓGICA DE CÁLCULO DE COSTO ===============
 
         // revisa si el precio base se modificó para actualizar la fecha de modificación
         if ( $catalog_product->base_price != $request->base_price ) {
@@ -348,16 +366,20 @@ class ProductController extends Controller
             if ($storage) {
                 $storage->update(['location' => $request->location]);
             }
-
+            
             // 5. SINCRONIZAR RELACIONES (si es un producto de catálogo)
             if ($validatedData['product_type_key'] === 'C') {
                 $componentsToSync = [];
                 if ($request->filled('components')) {
+                    $componentsToSync = [];
                     foreach ($request->input('components') as $component) {
-                        $componentsToSync[$component['product_id']] = ['quantity' => $component['quantity']];
+                        $componentsToSync[$component['product_id']] = [
+                            'quantity' => $component['quantity'],
+                            'cost' => $component['cost']
+                        ];
                     }
+                    $catalog_product->components()->sync($componentsToSync); // sync() elimina los que no están y agrega los nuevos
                 }
-                $catalog_product->components()->sync($componentsToSync); // sync() elimina los que no están y agrega los nuevos
 
                 $processesToSync = [];
                 if ($request->filled('production_processes')) {

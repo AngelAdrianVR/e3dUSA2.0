@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? `Editar órden de venta #${sale.id}` : `Editar órden de stock #${sale.id}` }}
+                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.idtoString().padStart(4, '0')}` }}
                 </h2>
             </div>
         </div>
@@ -194,23 +194,11 @@
                             <TextInput v-if="form.type === 'venta'" label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
                             
                             <div v-if="form.type === 'venta'">
-                                <InputLabel value="Medio de petición*" />
-                                <el-select v-model="form.order_via" placeholder="Medio de petición *">
+                                <InputLabel value="Medio de petición" />
+                                <el-select v-model="form.order_via" placeholder="Selecciona el medio">
                                     <el-option v-for="item in orderVias" :key="item" :label="item" :value="item" />
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
-                            </div>
-
-                            <div>
-                                <InputLabel value="Fecha máxima de producción" />
-                                <el-date-picker
-                                    v-model="form.promise_date"
-                                    type="date"
-                                    placeholder="Selecciona una fecha"
-                                    format="YYYY-MM-DD"
-                                    value-format="YYYY-MM-DD"
-                                    :disabled-date="disabledBeforeToday"
-                                />
                             </div>
                             
                             <!-- Archivos adjuntos de la orden (OCE) -->
@@ -313,7 +301,7 @@ export default {
                 freight_option: this.sale.freight_option,
                 freight_cost: this.sale.freight_cost,
                 notes: this.sale.notes,
-                promise_date: this.sale.promise_date,
+                // promise_date: this.sale.promise_date,
                 is_high_priority: this.sale.is_high_priority,
                 products: this.sale.sale_products.map(p => ({
                     id: p.product_id,

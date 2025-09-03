@@ -31,7 +31,7 @@
                 </div>
 
                 <!-- Línea Conectora (no se muestra después del último paso) -->
-                <div v-if="index < steps.length - 1" class="flex-1 h-1 mx-2 bg-gray-200 dark:bg-slate-700 rounded-full">
+                <div v-if="index < steps.length - 1" class="flex-1 h-1 mx-1 bg-gray-200 dark:bg-slate-700 rounded-full">
                     <div
                         class="h-full rounded-full bg-gradient-to-r from-sky-400 to-secondary transition-all duration-700 ease-out"
                         :style="{ width: getLineWidth(index) }"
@@ -60,18 +60,37 @@ export default {
         },
     },
     computed: {
-        // Devuelve el índice del último paso que se ha completado.
-        completedStepIndex() {
+        // Devuelve el índice del estado actual en el arreglo de pasos.
+        currentIndex() {
             return this.steps.indexOf(this.currentStatus);
         },
-        // Devuelve el índice del paso que está actualmente "en progreso" (el que debe animarse).
-        activeStepIndex() {
-            // Si el último paso ya se completó, no hay un siguiente paso activo.
-            if (this.completedStepIndex === this.steps.length - 1) {
-                return -1; // Un valor que nunca coincidirá con un índice.
+
+        // Devuelve el índice del último paso que se considera "completado".
+        completedStepIndex() {
+            const currentIndex = this.currentIndex;
+
+            // Si el estado actual es el último, TODOS los pasos están completos.
+            if (currentIndex === this.steps.length - 1) {
+                return currentIndex;
             }
-            // El paso activo es el siguiente al último completado.
-            return this.completedStepIndex + 1;
+            
+            // Caso especial: Si el estado es el primer paso, se considera completado inmediatamente.
+            if (currentIndex === 0) {
+                return 0;
+            }
+            
+            // Caso normal: Para cualquier otro estado intermedio, los pasos completados
+            // son todos los que están ANTES del paso actual.
+            return currentIndex - 1;
+        },
+        
+        // Devuelve el índice del paso que está actualmente "en progreso".
+        activeStepIndex() {
+            // El paso activo es siempre el siguiente al último completado.
+            const nextStep = this.completedStepIndex + 1;
+            
+            // Si el siguiente paso está fuera de los límites (ya se completó todo), no hay paso activo.
+            return nextStep < this.steps.length ? nextStep : -1;
         }
     },
     methods:{
@@ -148,4 +167,3 @@ export default {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 </style>
-

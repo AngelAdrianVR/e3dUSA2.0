@@ -71,7 +71,7 @@ class Product extends Model implements HasMedia, Auditable
     public function components(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'product_components', 'catalog_product_id', 'component_product_id')
-                    ->withPivot('quantity')
+                    ->withPivot('quantity', 'cost')
                     ->withTimestamps();
     }
 
@@ -82,7 +82,7 @@ class Product extends Model implements HasMedia, Auditable
     public function assemblies(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'product_components', 'component_product_id', 'catalog_product_id')
-                    ->withPivot('quantity')
+                    ->withPivot('quantity', 'cost')
                     ->withTimestamps();
     }
 
@@ -92,7 +92,7 @@ class Product extends Model implements HasMedia, Auditable
     public function productionCosts(): BelongsToMany
     {
     return $this->belongsToMany(ProductionCost::class, 'product_production_cost')
-                ->withPivot('order') // ¡Importante! Especifica los campos adicionales
+                ->withPivot('order', 'cost')
                 ->withTimestamps()
                 ->orderBy('pivot_order', 'asc'); // Ordena los procesos según el campo 'order'
     }

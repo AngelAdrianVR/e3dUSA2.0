@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Casts\Attribute; // Importante agregar esto
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Production extends Model
+class Production extends Model implements Auditable
 {
-    use HasFactory;
+    use HasFactory, AuditableTrait;
 
     protected $fillable = [
         'sale_product_id',
@@ -94,6 +96,10 @@ class Production extends Model
         if ($this->status !== $newStatus) {
             $this->status = $newStatus;
             $this->save();
+
+            // Una vez que el estado de esta producción ha cambiado, le decimos a la venta 
+            // a la que pertenece que re-evalúe su propio estado general.
+            $this->saleProduct->sale->updateStatus();
         }
     }
 

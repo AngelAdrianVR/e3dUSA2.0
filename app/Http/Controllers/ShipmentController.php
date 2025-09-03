@@ -52,7 +52,7 @@ class ShipmentController extends Controller
      */
     public function update(Request $request, Shipment $shipment)
     {
-        //
+        //  $shipment->sale->updateStatus(); // <--- Llamas al método para actualizar estatus de venta
     }
 
     /**

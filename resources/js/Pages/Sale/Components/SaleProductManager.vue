@@ -34,7 +34,7 @@
             <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
             <!-- Tarjeta de producto seleccionado -->
-            <div class="p-4 bg-gray-100 dark:bg-slate-900/50 rounded-lg col-span-full mb-2 border border-gray-200 dark:border-slate-800" v-if="currentProduct.id">
+            <div v-else-if="currentProduct.id" class="p-4 bg-gray-100 dark:bg-slate-900/50 rounded-lg col-span-full mb-2 border border-gray-200 dark:border-slate-800" >
                 
                 <!-- Sección de Información Principal del Producto -->
                 <div class="flex items-start space-x-4">
@@ -274,7 +274,7 @@ export default {
                 price: null,
                 notes: '',
                 is_new_design: false,
-                storages: null,
+                storages: [], 
                 has_customization: false,
                 customization_details: [],
             },
@@ -348,7 +348,7 @@ export default {
                 price: null, 
                 notes: '', 
                 is_new_design: false,
-                storages: null,
+                storages: [],
                 has_customization: false,
                 customization_details: [],
             };

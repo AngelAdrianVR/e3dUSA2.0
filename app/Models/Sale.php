@@ -120,7 +120,7 @@ class Sale extends Model implements HasMedia, Auditable
         }
 
         $profit = $totalSale - $totalCost;
-        $percentage = ($totalSale > 0) ? ($profit / $totalSale) * 100 : 0;
+        $percentage = ($totalCost > 0) ? ($profit / $totalCost) * 100 : 0;
 
         return [
             'total_sale' => $totalSale,
@@ -199,6 +199,47 @@ class Sale extends Model implements HasMedia, Auditable
         // Using startOfDay to ensure we compare dates only, not times.
         if (Carbon::parse($this->promise_date)->startOfDay()->isPast()) {
             $this->is_high_priority = true;
+            $this->save();
+        }
+    }
+
+    /**
+     * Actualiza el estatus de la venta basado en el estado de sus producciones y envíos.
+     * Este método debe ser llamado cuando ocurra un evento que pueda cambiar el estado general
+     * de la venta, como terminar una producción o enviar un paquete.
+     *
+     * @return void
+     */
+    public function updateStatus()
+    {
+        // Cargar las relaciones necesarias para evitar consultas N+1
+        // $this->load(['productions', 'shipments']);
+
+        $productions = $this->productions;
+        $shipments = $this->shipments;
+        
+        $newStatus = $this->status; // Por defecto, mantener el estatus actual
+
+        // Criterio 1: "Enviada" - Si hay envíos y TODOS están en estado "Enviado"
+        if ($shipments->isNotEmpty() && $shipments->every('status', '==', 'Enviado')) {
+            $newStatus = 'Enviada';
+        }
+        // Criterio 2: "Preparando Envío" - Si hay producciones y TODAS están "Terminada"
+        elseif ($productions->isNotEmpty() && $productions->every('status', '==', 'Terminada')) {
+            $newStatus = 'Preparando Envío';
+        }
+        // Criterio 3: "En Producción" - Si hay al menos UNA producción (y no todas están terminadas)
+        elseif ($productions->isNotEmpty()) {
+            $newStatus = 'En Producción';
+        }
+        // Criterio 4: "En Proceso" - Si no hay ninguna producción asociada
+        elseif ($productions->isEmpty()) {
+            $newStatus = 'En Proceso';
+        }
+        
+        // Actualizar y guardar solo si el estatus ha cambiado para ser más eficientes
+        if ($this->status !== $newStatus) {
+            $this->status = $newStatus;
             $this->save();
         }
     }

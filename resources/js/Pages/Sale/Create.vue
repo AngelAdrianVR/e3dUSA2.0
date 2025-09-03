@@ -196,23 +196,11 @@
                             <TextInput v-if="form.type === 'venta'" label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
                             
                             <div v-if="form.type === 'venta'">
-                                <InputLabel value="Medio de petición*" />
-                                <el-select v-model="form.order_via" placeholder="Medio de petición *">
+                                <InputLabel value="Medio de petición" />
+                                <el-select v-model="form.order_via" placeholder="Selecciona el medio">
                                     <el-option v-for="item in orderVias" :key="item" :label="item" :value="item" />
                                 </el-select>
                                 <InputError :message="form.errors.order_via" />
-                            </div>
-
-                            <div>
-                                <InputLabel value="Fecha máxima de producción" />
-                                <el-date-picker
-                                    v-model="form.promise_date"
-                                    type="date"
-                                    placeholder="Selecciona una fecha"
-                                    format="YYYY-MM-DD"
-                                    value-format="YYYY-MM-DD"
-                                    :disabled-date="disabledBeforeToday"
-                                />
                             </div>
 
                             <!-- Archivos de OCE -->
@@ -310,7 +298,7 @@ export default {
                 oce_media: null,
                 anotherFiles: null,
                 shipping_option: null,
-                promise_date: null,
+                // promise_date: null, // se toma del promise_date del primer envío
                 shipments: [], 
             }),
             availableContacts: [],
