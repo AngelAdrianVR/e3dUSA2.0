@@ -6,7 +6,7 @@
         </div>
 
         <div class="flex flex-col md:flex-row gap-5">
-            <div class="flex-shrink-0 w-full md:w-40 h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
+            <div @click="$inertia.visit(route('catalog-products.show', saleProduct.product.id))" class="flex-shrink-0 w-full cursor-pointer md:w-40 h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
                 <img v-if="saleProduct.product?.media?.length" :src="saleProduct.product.media[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
                 <div v-else class="text-gray-300 dark:text-gray-600 text-center">
                     <i class="fa-regular fa-image text-5xl"></i>

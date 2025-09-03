@@ -174,12 +174,12 @@
                                         <span class="font-semibold text-gray-800">{{ item.pivot.quantity }}</span>
                                     </div>
                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500">{{ quote.is_spanish_template ? '$ Unitario' : 'Unit $' }}</span>
-                                        <span class="font-semibold text-gray-800">{{ formatNumber(item.pivot.unit_price) }} {{ quote.currency }}</span>
+                                        <span class="text-gray-500">{{ quote.is_spanish_template ? 'Precio Unitario' : 'Unit price' }}</span>
+                                        <span class="font-semibold text-gray-800">${{ formatNumber(item.pivot.unit_price) }} {{ quote.currency }}</span>
                                     </div>
                                     <div class="flex justify-between items-center text-sm mt-2 pt-2 border-t">
                                         <span class="font-bold text-gray-600">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
-                                        <span class="font-bold text-sky-700">{{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }} {{ quote.currency }}</span>
+                                        <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }} {{ quote.currency }}</span>
                                     </div>
                                 </div>
                                 

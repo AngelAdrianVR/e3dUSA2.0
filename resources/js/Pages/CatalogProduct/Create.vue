@@ -287,7 +287,23 @@
                                         <i class="fa-solid" :class="editProcessIndex !== null ? 'fa-edit' : 'fa-plus-circle'"></i>
                                         {{ editProcessIndex !== null ? ' Actualizar proceso' : ' Agregar proceso' }}
                                     </button>
-                                    <SecondaryButton type="button" v-if="$page.props.auth.user.permissions.includes('Ver costos de produccion')" @click="$inertia.visit(route('production-costs.index'))">Administrar Procesos</SecondaryButton>
+                                    <SecondaryButton type="button" v-if="$page.props.auth.user.permissions.includes('Ver costos de produccion')"
+                                        @click="openProcessessCreate">
+                                        Crearn nuevo Proceso
+                                    </SecondaryButton>
+                                    <el-tooltip content="Refrescar procesos" placement="top">
+                                        <button
+                                            @click="refreshProcesses"
+                                            type="button"
+                                            class="size-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md"
+                                        >
+                                            <!-- Ícono de refrescar (Heroicons) -->
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                            </svg>
+                                        </button>
+                                    </el-tooltip>
+
                                 </div>
 
                                 <!-- Lista de Procesos Agregados -->
@@ -417,11 +433,11 @@ import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import DialogModal from "@/Components/DialogModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import { ElMessage } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
+import { useForm, Link, router } from "@inertiajs/vue3";
 import axios from 'axios';
 
 export default {
-    components: { AppLayout, SecondaryButton, InputError, InputLabel, TextInput, Back, FileUploader, DialogModal, CancelButton, Checkbox, LoadingIsoLogo },
+    components: { AppLayout, Link, SecondaryButton, InputError, InputLabel, TextInput, Back, FileUploader, DialogModal, CancelButton, Checkbox, LoadingIsoLogo },
     props: {
         brands: Array,
         product_families: Array,
@@ -525,6 +541,16 @@ export default {
     },
 
     methods: {
+        openProcessessCreate() {
+            const url = route('production-costs.index');
+            window.open(url, '_blank');
+        },
+        refreshProcesses() {
+            router.reload({ 
+                preserveScroll: true,
+                preserveState: true 
+            });
+        },
         async confirmAndStore() {
             
             // Extrae el código base sin el consecutivo
@@ -605,8 +631,11 @@ export default {
             const id = this.consecutive || 'XXX';
 
             if (type && family && material) {
-                // this.form.code = `${type}-${material}-${family}-${brand}-${id}`; // Antes incluia el tipo de producto
-                this.form.code = `${family}-${material}-${brand}-${id}`;
+                if ( type === 'MP' ) {
+                    this.form.code = `${type}-${material}-${family}-${brand}-${id}`; // incluye el tipo de producto
+                } else {
+                    this.form.code = `${family}-${material}-${brand}-${id}`; // se quito el tipo de producto para dejarlo legible y corto para facturas
+                }
             } else {
                 this.form.code = '';
             }
