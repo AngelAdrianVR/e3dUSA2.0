@@ -209,7 +209,7 @@ class ProductionController extends Controller
         // Esto evita problemas de N+1 queries y optimiza el rendimiento.
         $sale->load([
             // Datos del cliente y la venta
-            'branch:id,name,address,post_code,status',
+            'branch:id,name,address,rfc,post_code,status',
             'contact:id,name',
             'user:id,name', // Usuario que creó la venta
 

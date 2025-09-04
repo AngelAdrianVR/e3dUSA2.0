@@ -36,7 +36,7 @@
                         <template v-if="sale.type === 'venta'">
                             <li class="flex justify-between items-center">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-                                <el-tooltip placement="top-start" effect="light" raw-content>
+                                <el-tooltip placement="right" effect="light" raw-content>
                                     <template #content>
                                         <div
                                             class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
@@ -73,14 +73,33 @@
                             </li>
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
-                                <span>{{ sale.contact.name ?? 'N/A' }}</span>
-                            </li>
-                            <li class="flex justify-between">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cotización Rel.</span>
-                                <span v-if="sale.quote_id" @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
-                                    COT-{{ sale.quote_id }}
-                                </span>
-                                <span v-else>N/A</span>
+                                
+                                <el-tooltip
+                                    v-if="sale.contact"
+                                    placement="right"
+                                    effect="dark"
+                                >
+                                    <template #content>
+                                    <div class="space-y-2 text-sm">
+                                        <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-envelope text-blue-400"></i>
+                                        <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
+                                        </p>
+                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-phone text-green-400"></i>
+                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+                                        </p>
+                                    </div>
+                                    </template>
+
+                                    <span
+                                    class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200"
+                                    >
+                                    {{ sale.contact?.name ?? 'N/A' }}
+                                    </span>
+                                </el-tooltip>
+
+                                <span v-else class="text-gray-400 italic">N/A</span>
                             </li>
                         </template>
 
@@ -186,7 +205,7 @@
                                 <div v-for="task in modernTimeline.tasks" :key="task.id" class="group">
                                     <div class="flex justify-between items-center text-xs mb-1.5">
                                         <p v-if="task.started_at" class="text-amber-400 font-bold">Inicio: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ formatDateTime(task.started_at )}}</span></p>
-                                        <p v-if="task.finishied_at" class="text-amber-400 font-bold">Fin: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ task.finished_at ? formatDateTime(task.finished_at) : '-' }}</span></p>
+                                        <p v-if="task.finished_at" class="text-amber-400 font-bold">Fin: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ task.finished_at ? formatDateTime(task.finished_at) : '-' }}</span></p>
                                     </div>
                                     <div class="flex items-center text-xs mb-1.5">
                                          <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 rounded-full mr-2">
@@ -194,7 +213,7 @@
                                         <span class="text-gray-500 dark:text-gray-400 ml-auto">Duración total: {{ getTaskDuration(task.started_at, task.finished_at) }}</span>
                                     </div>
                                     <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-5 relative flex overflow-hidden">
-                                        <div class="absolute right-0 top-0 h-5 w-7 rounded-full bg-green-500 flex items-center justify-center text-white"
+                                        <div class="absolute right-0 top-0 size-5 rounded-full bg-green-500 flex items-center justify-center text-white"
                                              v-if="task.status === 'Terminada'">
                                             <i class="fa-solid fa-check text-xs"></i>
                                         </div>
@@ -401,6 +420,11 @@ export default {
             }) ?? [];
             
             this.logModalVisible = true;
+        },
+        getPrimaryDetail(contact, type) {
+            if (!contact.details) return 'No disponible';
+            const detail = contact.details.find(d => d.type === type && d.is_primary);
+            return detail ? detail.value : 'No disponible';
         },
         formatDateTime(dateString) {
             const date = new Date(dateString);
