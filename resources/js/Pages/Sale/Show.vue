@@ -3,7 +3,7 @@
         :title="`Detalles de la Órden ${sale.type === 'venta' ? 'OV-' : 'OS-'}${sale.id.toString().padStart(4, '0')}`"
     >
         <!-- Panel Flotante de Notas -->
-        <BranchNotes :branch-id="sale.branch.id" />
+        <BranchNotes v-if="sale.branch?.id" :branch-id="sale.branch?.id" />
 
         <!-- === ENCABEZADO === -->
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
@@ -88,9 +88,9 @@
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
-            <div class="lg:col-span-1 space-y-5">
+            <div class="lg:col-span-1 space-y-4">
             <!-- === STEPPER DE ESTADO === -->
-            <Stepper :currentStatus="sale.status" :steps="['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada']" />
+            <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
@@ -160,6 +160,10 @@
 
 
                         <!-- Campos Comunes -->
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Tipo:</span>
+                            <span>{{ sale.type === 'venta' ? 'Venta' : 'Stock' }}</span>
+                        </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>
                             <span>{{ sale.oce_name ?? 'No especificado' }}</span>
@@ -332,6 +336,8 @@ export default {
             salesList: [],
             loadingSales: false,
             showConfirmModal: false,
+            saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
+            stockSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Stock Terminado'],
         };
     },
     computed: {

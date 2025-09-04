@@ -200,22 +200,24 @@ class SaleController extends Controller
                     }
                 }
             }
+            // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
+            foreach ($validated['products'] as $productData) {
+                $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
 
-            // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (SOLO PARA VENTAS) ---
-            if ($isSaleType) {
-                foreach ($validated['products'] as $productData) {
-                    $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                $quantityToProduce = 0;
+
+                // --- Lógica específica para ventas ---
+                if ($isSaleType) {
                     $saleProduct = SaleProduct::where('sale_id', $sale->id)->where('product_id', $product->id)->first();
-                    $quantityInSale = $productData['quantity'];
-                    
                     $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
 
                     // 6.1 Calcular cuánto se toma de stock y cuánto se produce
-                    $takenFromStock = min($quantityInSale, $stockFinishedProduct);
-                    $quantityToProduce = $quantityInSale - $takenFromStock;
+                    $takenFromStock = min($quantityInTransaction, $stockFinishedProduct);
+                    $quantityToProduce = $quantityInTransaction - $takenFromStock;
                     
                     $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
-                    
+
                     // 6.2 Descontar stock del producto terminado y registrar movimiento
                     if ($takenFromStock > 0) {
                         $storage = $product->storages->first();
@@ -229,33 +231,99 @@ class SaleController extends Controller
                             'notes' => "Descuento por Orden de venta #{$sale->id}"
                         ]);
                     }
+                } else {
+                    // Para movimientos que no son ventas (ej. ajustes de stock para producción),
+                    // se asume que toda la cantidad es para producir.
+                    $quantityToProduce = $quantityInTransaction;
+                }
 
-                    // 6.3 Descontar stock de los componentes (solo para lo que se va a producir)
-                    if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                        foreach ($product->components as $component) {
-                            $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
-                            $componentStorage = $component->storages->first();
+                // 6.3 Descontar stock de los componentes (se ejecuta siempre que haya algo que producir)
+                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
+                    foreach ($product->components as $component) {
+                        $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+                        $componentStorage = $component->storages->first();
 
-                            if ($componentStorage) {
-                                $currentStock = $componentStorage->quantity;
-                                $discountQuantity = min($requiredQuantity, $currentStock);
+                        if ($componentStorage) {
+                            $currentStock = $componentStorage->quantity;
+                            $discountQuantity = min($requiredQuantity, $currentStock);
 
-                                $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+                            // Se descuenta la cantidad requerida, asegurando que el stock no sea negativo.
+                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
 
-                                if ($discountQuantity > 0) {
-                                    StockMovement::create([
-                                        'product_id' => $component->id,
-                                        'storage_id' => $componentStorage->id,
-                                        'quantity_change' => $discountQuantity,
-                                        'type' => 'Salida',
-                                        'notes' => "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id})"
-                                    ]);
-                                }
+                            if ($discountQuantity > 0) {
+                                // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
+                                $notes = $isSaleType 
+                                    ? "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id})"
+                                    : "Descuento para producir {$quantityToProduce} de {$product->name} para stock.";
+
+                                StockMovement::create([
+                                    'product_id' => $component->id,
+                                    'storage_id' => $componentStorage->id,
+                                    'quantity_change' => $discountQuantity,
+                                    'type' => 'Salida',
+                                    'notes' => $notes
+                                ]);
                             }
                         }
                     }
                 }
             }
+
+            // // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (SOLO PARA VENTAS) NO DESCUENTA COMPONENTES SI LA ORDEN ES DE STOCK ---
+            // if ($isSaleType) {
+            //     foreach ($validated['products'] as $productData) {
+            //         $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+            //         $saleProduct = SaleProduct::where('sale_id', $sale->id)->where('product_id', $product->id)->first();
+            //         $quantityInSale = $productData['quantity'];
+                    
+            //         $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
+
+            //         // 6.1 Calcular cuánto se toma de stock y cuánto se produce
+            //         $takenFromStock = min($quantityInSale, $stockFinishedProduct);
+            //         $quantityToProduce = $quantityInSale - $takenFromStock;
+                    
+            //         $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
+                    
+            //         // 6.2 Descontar stock del producto terminado y registrar movimiento
+            //         if ($takenFromStock > 0) {
+            //             $storage = $product->storages->first();
+            //             $storage->decrement('quantity', $takenFromStock);
+                        
+            //             StockMovement::create([
+            //                 'product_id' => $product->id,
+            //                 'storage_id' => $storage->id,
+            //                 'quantity_change' => $takenFromStock,
+            //                 'type' => 'Salida',
+            //                 'notes' => "Descuento por Orden de venta #{$sale->id}"
+            //             ]);
+            //         }
+
+            //         // 6.3 Descontar stock de los componentes (solo para lo que se va a producir)
+            //         if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
+            //             foreach ($product->components as $component) {
+            //                 $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+            //                 $componentStorage = $component->storages->first();
+
+            //                 if ($componentStorage) {
+            //                     $currentStock = $componentStorage->quantity;
+            //                     $discountQuantity = min($requiredQuantity, $currentStock);
+
+            //                     $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+
+            //                     if ($discountQuantity > 0) {
+            //                         StockMovement::create([
+            //                             'product_id' => $component->id,
+            //                             'storage_id' => $componentStorage->id,
+            //                             'quantity_change' => $discountQuantity,
+            //                             'type' => 'Salida',
+            //                             'notes' => "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id})"
+            //                         ]);
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
             
             // --- 7. MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('oce_media')) {

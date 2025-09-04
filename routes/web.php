@@ -23,6 +23,7 @@ use App\Http\Controllers\ProductionTaskController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
@@ -149,6 +150,11 @@ Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->name('sales.quality-certificate');
+
+
+// ------- (Rutas de envíos)  ---------
+Route::resource('shipments', ShipmentController::class)->middleware('auth');
+
 
 
 // ------- (Produccion Routes)  ---------

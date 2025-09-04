@@ -105,6 +105,23 @@ class Production extends Model implements Auditable
         // Si el nuevo estatus es "Terminada" y no se ha registrado la fecha de fin, la establecemos.
         if ($newStatus === 'Terminada' && is_null($this->finished_at)) {
             $this->finished_at = now();
+
+            // Logica para sumar al stock si la venta es de tipo "stock"
+            if ($this->saleProduct->sale->type === 'stock') {
+                $product = $this->saleProduct->product;
+                // Priorizamos las unidades buenas, si no, la cantidad que se mandó a producir.
+                $quantityToAdd = $this->good_units ?? $this->quantity_to_produce;
+
+                if ($product && ($quantityToAdd > 0)) {
+                    // Busca el registro de stock para el producto en el almacén principal o lo crea con 0 si no existe.
+                    $storage = $product->storages()->firstOrCreate(
+                        ['quantity' => 0] // Valores por defecto si se crea
+                    );
+        
+                    // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.
+                    $storage->increment('quantity', $quantityToAdd);
+                }
+            }
         }
 
         // --- Guardar cambios si es necesario ---

@@ -38,6 +38,7 @@ class PermissionSeeder extends Seeder
             'Cotizaciones' => ['Ver cotizaciones', 'Crear cotizaciones', 'Editar cotizaciones', 'Eliminar cotizaciones', 'Autorizar cotizaciones', 'Descuentos cotizaciones', 'Utilidad cotizaciones'],
             'Ordenes de venta' => ['Ver ordenes de venta', 'Crear ordenes de venta', 'Editar ordenes de venta', 'Eliminar ordenes de venta', 'Ver todas las ventas', 'Ver utilidad ventas', 'Autorizar ordenes de venta'],
             'Ordenes de producción' => ['Ver ordenes de produccion', 'Crear ordenes de produccion', 'Editar ordenes de produccion', 'Eliminar ordenes de produccion', 'Ver todas las ordenes de produccion'],
+            'Envíos' => ['Ver envios', 'Crear envios', 'Editar envios', 'Eliminar envios'],
             'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas'],
         ];
 

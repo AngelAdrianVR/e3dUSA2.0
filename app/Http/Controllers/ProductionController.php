@@ -21,62 +21,62 @@ class ProductionController extends Controller
     {
         $user = Auth::user();
 
-        // // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
-        // if ($user->hasRole('Jefe de Producción') || $user->hasRole('Super Administrador')) {
-        //     $selectedStatus = $request->input('status');
+        // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
+        if ($user->hasRole('Jefe de Producción') || $user->hasRole('Super Administrador')) {
+            $selectedStatus = $request->input('status');
 
-        //     // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
-        //     $query = Sale::query()
-        //         ->whereHas('productions')
-        //         ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id', 'created_at', 'promise_date'])
-        //         ->with([
-        //             'user:id,name',
-        //             'branch:id,name',
-        //             'productions.tasks:id,production_id,status,operator_id,started_at,finished_at,name',
-        //             'productions.tasks.operator:id,name',
-        //             'saleProducts:id,sale_id,product_id,quantity_to_produce',
-        //             'saleProducts.product:id,name,code,measure_unit',
-        //             'saleProducts.product.media',
-        //         ]);
-        //     // --- Aplicar filtro por estatus general de producción ---
-        //     if ($selectedStatus) {
-        //         $query->where(function ($query) use ($selectedStatus) {
-        //             if ($selectedStatus === 'Sin material') {
-        //                 // Ventas que tienen al menos una producción 'Sin material'
-        //                 $query->whereHas('productions', fn($q) => $q->where('status', 'Sin material'));
-        //             } elseif ($selectedStatus === 'Terminada') {
-        //                 // Ventas donde TODAS sus producciones están 'Terminada'
-        //                 $query->whereDoesntHave('productions', fn($q) => $q->where('status', '!=', 'Terminada'))
-        //                       ->whereHas('productions');
-        //             } elseif ($selectedStatus === 'En Proceso') {
-        //                 // Tienen al menos una 'En Proceso' y NINGUNA 'Sin material'
-        //                 $query->whereHas('productions', fn($q) => $q->where('status', 'En Proceso'))
-        //                       ->whereDoesntHave('productions', fn($q) => $q->where('status', 'Sin material'));
-        //             } elseif ($selectedStatus === 'Pausada') {
-        //                  // Tienen al menos una 'Pausada' y NINGUNA 'Sin material' o 'En Proceso'
-        //                  $query->whereHas('productions', fn($q) => $q->where('status', 'Pausada'))
-        //                        ->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso']));
-        //             } elseif ($selectedStatus === 'Pendiente') {
-        //                  // No tienen producciones en estados de mayor prioridad y no están todas terminadas
-        //                  $query->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso', 'Pausada']))
-        //                        ->whereHas('productions', fn($q) => $q->where('status', '!=', 'Terminada'));
-        //             }
-        //         });
-        //     }
+            // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
+            $query = Sale::query()
+                ->whereHas('productions')
+                ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id', 'created_at', 'promise_date'])
+                ->with([
+                    'user:id,name',
+                    'branch:id,name',
+                    'productions.tasks:id,production_id,status,operator_id,started_at,finished_at,name',
+                    'productions.tasks.operator:id,name',
+                    'saleProducts:id,sale_id,product_id,quantity_to_produce',
+                    'saleProducts.product:id,name,code,measure_unit',
+                    'saleProducts.product.media',
+                ]);
+            // --- Aplicar filtro por estatus general de producción ---
+            if ($selectedStatus) {
+                $query->where(function ($query) use ($selectedStatus) {
+                    if ($selectedStatus === 'Sin material') {
+                        // Ventas que tienen al menos una producción 'Sin material'
+                        $query->whereHas('productions', fn($q) => $q->where('status', 'Sin material'));
+                    } elseif ($selectedStatus === 'Terminada') {
+                        // Ventas donde TODAS sus producciones están 'Terminada'
+                        $query->whereDoesntHave('productions', fn($q) => $q->where('status', '!=', 'Terminada'))
+                              ->whereHas('productions');
+                    } elseif ($selectedStatus === 'En Proceso') {
+                        // Tienen al menos una 'En Proceso' y NINGUNA 'Sin material'
+                        $query->whereHas('productions', fn($q) => $q->where('status', 'En Proceso'))
+                              ->whereDoesntHave('productions', fn($q) => $q->where('status', 'Sin material'));
+                    } elseif ($selectedStatus === 'Pausada') {
+                         // Tienen al menos una 'Pausada' y NINGUNA 'Sin material' o 'En Proceso'
+                         $query->whereHas('productions', fn($q) => $q->where('status', 'Pausada'))
+                               ->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso']));
+                    } elseif ($selectedStatus === 'Pendiente') {
+                         // No tienen producciones en estados de mayor prioridad y no están todas terminadas
+                         $query->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso', 'Pausada']))
+                               ->whereHas('productions', fn($q) => $q->where('status', '!=', 'Terminada'));
+                    }
+                });
+            }
 
-        //     // --- Paginación ---
-        //     $sales = $query->latest()->paginate(20)->withQueryString();
+            // --- Paginación ---
+            $sales = $query->latest()->paginate(20)->withQueryString();
 
-        //     // return $sales;
-        //     return Inertia::render('Production/Index', [
-        //         'viewType' => 'manager',
-        //         'sales' => $sales,
-        //         'filters' => $request->only(['status']), // Ahora el filtro es por status
-        //     ]);
-        // }
+            // return $sales;
+            return Inertia::render('Production/Index', [
+                'viewType' => 'manager',
+                'sales' => $sales,
+                'filters' => $request->only(['status']), // Ahora el filtro es por status
+            ]);
+        }
 
         // --- Vista para el Operador ---
-        if ($user->hasRole('Operador') || true) {
+        if ($user->hasRole('Operador')) {
             // --- CARGA OPTIMIZADA ---
             // Solo se carga la información esencial para la vista de tarjetas.
             $myTasks = ProductionTask::where('operator_id', $user->id)
