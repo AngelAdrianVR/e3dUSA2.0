@@ -425,12 +425,11 @@ export default {
         getStatusTagType(status) {
             const statusMap = {
                 'Pendiente': 'info',
-                'Autorizada': 'info',
-                'Sin stock': 'danger',
-                'Producción': 'warning',
-                'Terminado': 'success',
-                'Enviado': 'success',
-                'Cancelado': 'danger',
+                'Autorizada': 'primary',
+                'En Proceso': 'warning',
+                'En Producción': 'primary',
+                'Preparando Envío': 'success',
+                'Enviada': 'success',
             };
             return statusMap[status] || '';
         }

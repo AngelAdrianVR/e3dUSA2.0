@@ -152,7 +152,8 @@ Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityC
 
 
 // ------- (Produccion Routes)  ---------
-Route::resource('productions', ProductionController::class)->middleware('auth');
+Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
+Route::get('/productions/{sale}', [ProductionController::class, 'show'])->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
 
 

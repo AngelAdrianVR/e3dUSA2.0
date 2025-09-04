@@ -91,15 +91,31 @@ class Production extends Model implements Auditable
         elseif ($taskStatuses->some(fn($status) => $status !== 'Pendiente')) {
             $newStatus = 'En proceso';
         }
-        // Si no, se queda como 'Pendiente' o su estado actual si no ha cambiado.
+        
+         // Asignamos el nuevo estatus al modelo para que isDirty() lo detecte si cambia.
+        $this->status = $newStatus;
 
-        if ($this->status !== $newStatus) {
-            $this->status = $newStatus;
+        // --- Lógica para actualizar las fechas ---
+
+        // Si al menos una tarea está "En Proceso" y no se ha registrado la fecha de inicio, la establecemos.
+        if ($taskStatuses->contains('En Proceso') && is_null($this->started_at)) {
+            $this->started_at = now();
+        }
+
+        // Si el nuevo estatus es "Terminada" y no se ha registrado la fecha de fin, la establecemos.
+        if ($newStatus === 'Terminada' && is_null($this->finished_at)) {
+            $this->finished_at = now();
+        }
+
+        // --- Guardar cambios si es necesario ---
+        if ($this->isDirty()) { // isDirty() revisa si algún atributo del modelo ha cambiado.
             $this->save();
 
-            // Una vez que el estado de esta producción ha cambiado, le decimos a la venta 
-            // a la que pertenece que re-evalúe su propio estado general.
-            $this->saleProduct->sale->updateStatus();
+            // Si el estatus fue lo que cambió, le decimos a la venta a la que pertenece 
+            // que re-evalúe su propio estado general.
+            if ($this->wasChanged('status')) {
+                $this->saleProduct->sale->updateStatus();
+            }
         }
     }
 

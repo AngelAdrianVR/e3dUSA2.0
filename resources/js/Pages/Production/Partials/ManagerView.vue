@@ -19,7 +19,7 @@
                                class="p-3 overflow-y-auto flex-grow"
                                :disabled="true">
                         <template #item="{element: sale}">
-                           <div class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-3 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
+                           <div @click="$inertia.visit(route('productions.show', sale.id))" class="relative bg-white dark:bg-slate-900 rounded-lg shadow-md p-4 mb-3 cursor-pointer transition-all duration-200 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
                                 <!-- Indicador de Alta Prioridad (Más visible) -->
                                 <div v-if="sale.is_high_priority" class="absolute top-0 right-0 size-16">
                                     <div class="absolute transform rotate-45 bg-red-600 text-center text-white font-semibold py-1 right-[-42px] top-[32px] w-[170px] shadow-lg">
@@ -76,7 +76,7 @@
                                     </div>
 
                                     <!-- Collapse para detallar productos y sus tareas -->
-                                     <div class="mt-2 -mx-4">
+                                     <div @click.stop="" class="mt-2 -mx-4">
                                         <el-collapse class="products-collapse">
                                             <el-collapse-item name="1">
                                                 <template #title>
