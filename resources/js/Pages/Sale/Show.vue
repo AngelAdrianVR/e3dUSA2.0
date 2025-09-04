@@ -145,19 +145,52 @@
                             <!-- Contacto -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
-                                <span>{{ sale.contact.name ?? 'N/A' }}</span>
+                                
+                                <el-tooltip
+                                    v-if="sale.contact"
+                                    placement="right"
+                                    effect="dark"
+                                >
+                                    <template #content>
+                                    <div class="space-y-2 text-sm">
+                                        <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-envelope text-blue-400"></i>
+                                        <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
+                                        </p>
+                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-phone text-green-400"></i>
+                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+                                        </p>
+                                    </div>
+                                    </template>
+
+                                    <span
+                                    class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200"
+                                    >
+                                    {{ sale.contact?.name ?? 'N/A' }}
+                                    </span>
+                                </el-tooltip>
+
+                                <span v-else class="text-gray-400 italic">N/A</span>
                             </li>
 
                             <!-- Cotización -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cotización Rel.</span>
                                 <span v-if="sale.quote_id" @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
-                                    COT-{{ sale.quote_id }}
+                                    COT-{{ sale.quote_id?.toString().padStart(4, '0') }}
                                 </span>
                                 <span v-else>N/A</span>
                             </li>
-                        </template>
 
+                            <!-- envíos -->
+                            <li v-if="sale.shipments?.length" class="flex justify-between">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Envíos:</span>
+                                <span @click="$inertia.visit(route('shipments.show', sale.id))" class="text-blue-500 hover:underline cursor-pointer">
+                                    ENV-{{ sale.id.toString().padStart(4, '0') }}
+                                </span>
+                            </li>
+                        </template>
 
                         <!-- Campos Comunes -->
                         <li class="flex justify-between">
@@ -206,7 +239,7 @@
                         </div>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="space-y-1">
                         <!-- Estado General -->
                         <div class="flex justify-between items-center text-sm">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estado:</span>
@@ -219,6 +252,18 @@
                                     'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300': sale.production_summary.status === 'Pausada',
                                 }">
                                 {{ sale.production_summary.status }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Inicio:</span>
+                            <span class="font-bold px-2 py-1 rounded-md text-xs">
+                                {{ formatDateTime(sale.production_summary.started_at) }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fin:</span>
+                            <span class="font-bold px-2 py-1 rounded-md text-xs">
+                                {{ formatDateTime(sale.production_summary.finished_at) }}
                             </span>
                         </div>
 
@@ -351,8 +396,17 @@ export default {
         printOrder() {
             window.open(route('sales.print', this.sale.id), '_blank');
         },
+        getPrimaryDetail(contact, type) {
+            if (!contact.details) return 'No disponible';
+            const detail = contact.details.find(d => d.type === type && d.is_primary);
+            return detail ? detail.value : 'No disponible';
+        },
         navigateToSale(saleId) {
             this.$inertia.visit(route('sales.show', saleId));
+        },
+        formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
         },
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);

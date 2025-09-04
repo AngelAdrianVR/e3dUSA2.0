@@ -146,8 +146,14 @@ class Sale extends Model implements HasMedia, Auditable
                 'total_tasks' => 0,
                 'completed_tasks' => 0,
                 'percentage' => 0,
+                'started_at' => null,
+                'finished_at' => null,
             ];
         }
+
+        // Obtener la fecha de inicio más temprana y la fecha de finalización más tardía.
+        $startedAt = $this->productions->whereNotNull('started_at')->min('started_at');
+        $finishedAt = $this->productions->whereNotNull('finished_at')->max('finished_at');
 
         $statuses = $this->productions->pluck('status');
         $totalProductions = $statuses->count();
@@ -160,7 +166,7 @@ class Sale extends Model implements HasMedia, Auditable
             $overallStatus = 'Terminada';
         } elseif ($statuses->contains('En Proceso')) {
             $overallStatus = 'En Proceso';
-        } elseif ($statuses->contains('Pausada')) {
+        } elseif ($statuses->every(fn ($status) => $status === 'Pausada')) {
             $overallStatus = 'Pausada';
         }
 
@@ -179,6 +185,8 @@ class Sale extends Model implements HasMedia, Auditable
             'total_tasks' => $totalTasks,
             'completed_tasks' => $completedTasks,
             'percentage' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0,
+            'started_at' => $startedAt,
+            'finished_at' => $finishedAt,
         ];
     }
 

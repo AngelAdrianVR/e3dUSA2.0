@@ -152,15 +152,15 @@ Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales']
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->name('sales.quality-certificate');
 
 
-// ------- (Rutas de envíos)  ---------
-Route::resource('shipments', ShipmentController::class)->middleware('auth');
-
-
-
 // ------- (Produccion Routes)  ---------
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
 Route::get('/productions/{sale}', [ProductionController::class, 'show'])->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+
+
+// ------- (Rutas de envíos)  ---------
+Route::resource('shipments', ShipmentController::class)->except(['create', 'show', 'edit', 'store'])->middleware('auth');
+Route::get('/shipments/{sale}', [ShipmentController::class, 'show'])->name('shipments.show');
 
 
 // ------- (Tareas de produccion Routes)  ---------
