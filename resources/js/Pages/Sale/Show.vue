@@ -88,7 +88,7 @@
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
-            <div class="lg:col-span-1 space-y-5">
+            <div class="lg:col-span-1 space-y-4">
             <!-- === STEPPER DE ESTADO === -->
             <Stepper :currentStatus="sale.status" :steps="['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada']" />
                 <!-- Card de Información de la Órden -->
