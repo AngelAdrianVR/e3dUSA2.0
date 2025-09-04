@@ -61,7 +61,14 @@
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.product?.name ?? 'N/A' }}</td>
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.quantity }}</td>
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.product?.material ?? 'N/A' }}</td>
-                                <td class="px-6 py-3 whitespace-nowrap">{{ item.product?.large ?? '0' }} x {{ item.product?.width ?? '0' }}</td>
+                                <td class="px-6 py-3 whitespace-nowrap">
+                                  <span v-if="item.product?.diameter">
+                                    {{ item.product?.width ?? '0' }} x {{ item.product?.diameter ?? '0' }} mm
+                                  </span>
+                                  <span v-else>
+                                    {{ item.product?.large ?? '0' }} x {{ item.product?.height ?? '0' }} x {{ item.product?.diameter ?? '0' }} mm
+                                  </span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

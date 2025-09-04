@@ -203,9 +203,39 @@ class ProductionController extends Controller
         return redirect()->route('productions.index');
     }
 
-    public function show(Production $production)
+    public function show(Sale $sale)
     {
-        //
+        // Cargar la venta con todas las relaciones necesarias para la vista de producción.
+        // Esto evita problemas de N+1 queries y optimiza el rendimiento.
+        $sale->load([
+            // Datos del cliente y la venta
+            'branch:id,name,address,post_code,status',
+            'contact:id,name',
+            'user:id,name', // Usuario que creó la venta
+
+            // Productos de la venta
+            'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
+            'saleProducts.product.media', 
+
+            // Producciones relacionadas a través de los productos de la venta
+            'productions' => function ($query) {
+                $query->with([
+                    'tasks:id,production_id,operator_id,name,status,started_at,finished_at,estimated_time_minutes',
+                    // Tareas de cada producción y el operador asignado
+                    'tasks.operator:id,name',
+                    // Logs de cada producción y el usuario que los generó
+                    'logs.user:id,name',
+                    // Producto asociado a la producción para tener referencia
+                    'saleProduct.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics'
+                ])->orderBy('created_at'); // Ordenar producciones
+            }
+        ]);
+
+        // return $sale;
+        // Retornar la vista de Inertia, pasando el objeto 'sale' con todos los datos.
+        return Inertia::render('Production/Show', [
+            'sale' => $sale
+        ]);
     }
 
     public function edit(Production $production)

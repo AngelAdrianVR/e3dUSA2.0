@@ -34,6 +34,12 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
+                <el-tooltip v-if="sale.authorized_at === null" content="Autorizar Órden" placement="top">
+                    <button @click="authorize" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
+                        <i class="fa-solid fa-check-double"></i>
+                    </button>
+                </el-tooltip>
+
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-print"></i>
@@ -56,9 +62,6 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink @click="authorize" v-if="sale.authorized_at === null" as="button">
-                            <i class="fa-solid fa-check-double w-4 mr-2"></i> Marcar como Autorizada
-                        </DropdownLink>
                         <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
                             Crear nueva Órden
                         </DropdownLink>
@@ -99,38 +102,38 @@
 
                                 <!-- Tooltip Moderno -->
                                 <el-tooltip placement="top-start" effect="light" raw-content>
-                                <template #content>
-                                    <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                    <!-- Header -->
-                                    <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                        <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                        {{ sale.branch?.name }}
-                                        </h4>
-                                        <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                        {{ sale.branch?.status ?? 'N/A' }}
-                                        </span>
-                                    </div>
+                                    <template #content>
+                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
+                                        <!-- Header -->
+                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
+                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
+                                            {{ sale.branch?.name }}
+                                            </h4>
+                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
+                                            {{ sale.branch?.status ?? 'N/A' }}
+                                            </span>
+                                        </div>
 
-                                    <!-- Datos principales -->
-                                    <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                        <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                        <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                        <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                        <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                        <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                    </div>
+                                        <!-- Datos principales -->
+                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
+                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
+                                        </div>
 
-                                    <!-- Footer -->
-                                    <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                        <Link :href="route('branches.show', sale.branch?.id)">
-                                        <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                            <i class="fa-solid fa-eye"></i> Ver Cliente
-                                        </SecondaryButton>
-                                        </Link>
-                                        <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                    </div>
-                                    </div>
-                                </template>
+                                        <!-- Footer -->
+                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
+                                            <Link :href="route('branches.show', sale.branch?.id)">
+                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
+                                                <i class="fa-solid fa-eye"></i> Ver Cliente
+                                            </SecondaryButton>
+                                            </Link>
+                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
+                                        </div>
+                                        </div>
+                                    </template>
 
                                 <!-- Nombre clickable -->
                                 <span class="text-blue-500 hover:underline cursor-pointer">
@@ -153,7 +156,7 @@
                                 </span>
                                 <span v-else>N/A</span>
                             </li>
-                            </template>
+                        </template>
 
 
                         <!-- Campos Comunes -->
