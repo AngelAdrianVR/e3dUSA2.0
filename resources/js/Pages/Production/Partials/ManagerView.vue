@@ -225,7 +225,7 @@
                     <el-table-column label="Acciones" width="150" align="right">
                         <template #default="scope">
                             <div class="flex justify-end space-x-2 pr-2">
-                                <Link :href="route('sales.show', scope.row.id)">
+                                <Link :href="route('productions.show', scope.row.id)">
                                     <PrimaryButton><i class="fa-solid fa-eye"></i></PrimaryButton>
                                 </Link>
                                 <DangerButton @click="confirmDelete(scope.row)">

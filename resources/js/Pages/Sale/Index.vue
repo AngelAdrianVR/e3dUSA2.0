@@ -13,7 +13,7 @@
                             :href="route('sales.create')">
                             <SecondaryButton>
                                 <i class="fa-solid fa-plus mr-2"></i>
-                                Nueva Venta
+                                Nueva Orden
                             </SecondaryButton>
                         </Link>
 

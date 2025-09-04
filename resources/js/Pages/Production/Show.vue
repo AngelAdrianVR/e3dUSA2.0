@@ -1,13 +1,13 @@
 <template>
-    <AppLayout :title="`Producción de la Órden OV-${sale.id.toString().padStart(4, '0')}`">
+    <AppLayout :title="`Detalles de la Órden ${sale.type === 'venta' ? 'OV-' : 'OS-'}${sale.id.toString().padStart(4, '0')}`">
 
         <!-- === ENCABEZADO === -->
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
                 <div class="flex space-x-2 items-center">
                     <h1 class="dark:text-white font-bold text-2xl my-2">
-                        <span class="text-gray-500 dark:text-gray-400">Producción de Órden de Venta:</span> OV-{{
-                            sale.id.toString().padStart(4, '0') }}
+                        <span v-if="sale.type === 'venta'" class="text-gray-500 dark:text-gray-400">Producción de Órden: OV-{{sale.id.toString().padStart(4, '0') }}</span> 
+                        <span v-else class="text-gray-500 dark:text-gray-400">Producción de Órden: OS-{{sale.id.toString().padStart(4, '0') }}</span>
                     </h1>
                 </div>
             </div>
@@ -85,6 +85,10 @@
                         </template>
 
                         <!-- Campos Comunes -->
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Tipo:</span>
+                            <span>{{ sale.type === 'venta' ? 'Venta' : 'Stock' }}</span>
+                        </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>
                             <span>{{ sale.oce_name ?? 'No especificado' }}</span>
@@ -177,9 +181,13 @@
                         <!-- Main Column: Timeline Chart -->
                         <div class="lg:col-span-2">
                             <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Línea de Tiempo de Tareas</h3>
-                             <div v-if="modernTimeline.tasks.length" class="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-4">
+                             <div v-if="modernTimeline.tasks.length" class="bg-gray-100 dark:bg-slate-900/50 p-4 rounded-lg space-y-4">
                                 <!-- Modern Timeline Rows -->
                                 <div v-for="task in modernTimeline.tasks" :key="task.id" class="group">
+                                    <div class="flex justify-between items-center text-xs mb-1.5">
+                                        <p v-if="task.started_at" class="text-amber-400 font-bold">Inicio: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ formatDateTime(task.started_at )}}</span></p>
+                                        <p v-if="task.finishied_at" class="text-amber-400 font-bold">Fin: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ task.finished_at ? formatDateTime(task.finished_at) : '-' }}</span></p>
+                                    </div>
                                     <div class="flex items-center text-xs mb-1.5">
                                          <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 rounded-full mr-2">
                                         <span class="font-medium text-gray-700 dark:text-gray-300 w-1/3 truncate">{{ task.name }}</span>
@@ -222,7 +230,7 @@
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Tareas y Operadores</h3>
                                 <div v-if="selectedProduction?.tasks?.length" class="space-y-3">
-                                    <div @click="openLogModal(task)" v-for="task in selectedProduction.tasks" :key="task.id" class="flex items-center space-x-3 bg-gray-50 dark:bg-slate-700/50 p-2 rounded-lg cursor-pointer hover:scale-[1.02] transition-transform ease-linear duration-200">
+                                    <div @click="openLogModal(task)" v-for="task in selectedProduction.tasks" :key="task.id" class="flex items-center space-x-3 bg-gray-100 dark:bg-slate-700/50 p-2 rounded-lg cursor-pointer hover:scale-[1.02] transition-transform ease-linear duration-200">
                                         <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800  transition-transform object-cover" :class="taskStatusRingColor(task.status)">
                                         <div>
                                             <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
@@ -393,6 +401,10 @@ export default {
             }) ?? [];
             
             this.logModalVisible = true;
+        },
+        formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
         },
         formatDistanceToNowWithLocale(dateString) {
             if (!dateString) return '';

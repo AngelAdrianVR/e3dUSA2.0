@@ -224,9 +224,16 @@ class Sale extends Model implements HasMedia, Auditable
         if ($shipments->isNotEmpty() && $shipments->every('status', '==', 'Enviado')) {
             $newStatus = 'Enviada';
         }
-        // Criterio 2: "Preparando Envío" - Si hay producciones y TODAS están "Terminada"
+        // Criterio 2: Producción Terminada - El estatus depende del tipo de Venta
         elseif ($productions->isNotEmpty() && $productions->every('status', '==', 'Terminada')) {
-            $newStatus = 'Preparando Envío';
+            // Si el tipo es 'venta', el siguiente paso es preparar el envío.
+            if ($this->type === 'venta') {
+                $newStatus = 'Preparando Envío';
+            } 
+            // Si el tipo es 'stock', la producción ha finalizado.
+            elseif ($this->type === 'stock') {
+                $newStatus = 'Stock Terminado';
+            }
         }
         // Criterio 3: "En Producción" - Si hay al menos UNA producción (y no todas están terminadas)
         elseif ($productions->isNotEmpty()) {
