@@ -20,11 +20,15 @@ use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\ProductionTaskController;
+use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
+use App\Http\Controllers\SupplierBankAccountController;
+use App\Http\Controllers\SupplierContactController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -118,7 +122,7 @@ Route::prefix('branch-notes')->name('branch-notes.')->group(function () {
 });
 
 
-// ------- CRM(historial de precios de productos de cliente Routes)  ---------
+// ------- (rutas de contactos de clientes)  ---------
 Route::post('contacts', [ContactController::class, 'store'])->name('contacts.store');
 Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
 Route::delete('contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
@@ -162,6 +166,27 @@ Route::put('/productions/{production}/update-status', [ProductionController::cla
 Route::resource('shipments', ShipmentController::class)->except(['create', 'show', 'edit', 'store'])->middleware('auth');
 Route::get('/shipments/{sale}', [ShipmentController::class, 'show'])->middleware('auth')->name('shipments.show');
 Route::post('shipments-get-matches', [ShipmentController::class, 'getMatches'])->middleware('auth')->name('shipments.get-matches');
+
+
+// ------- (Rutas de proveedores)  ---------
+Route::resource('suppliers', SupplierController::class)->middleware('auth');
+Route::post('suppliers/massive-delete', [SupplierController::class, 'massiveDelete'])->middleware('auth')->name('suppliers.massive-delete');
+
+
+// ------- (rutas de contactos de proveedores)  ---------
+Route::post('supplier-contacts', [SupplierContactController::class, 'store'])->name('supplier-contacts.store');
+Route::put('supplier-contacts/{contact}', [SupplierContactController::class, 'update'])->name('supplier-contacts.update');
+Route::delete('supplier-contacts/{contact}', [SupplierContactController::class, 'destroy'])->name('supplier-contacts.destroy');
+
+
+// ------- (Rutas de Cuentas Bancarias de Proveedores) ---------
+Route::post('supplier-bank-accounts', [SupplierBankAccountController::class, 'store'])->name('supplier-bank-accounts.store');
+Route::put('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'update'])->name('supplier-bank-accounts.update');
+Route::delete('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'destroy'])->name('supplier-bank-accounts.destroy');
+
+
+// ------- (Rutas de compras)  ---------
+Route::resource('purchases', PurchaseController::class)->middleware('auth');
 
 
 

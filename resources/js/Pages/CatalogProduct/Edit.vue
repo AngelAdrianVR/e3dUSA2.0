@@ -174,7 +174,7 @@
                                     <LoadingIsoLogo v-if="loadingComponentMedia" />
                                     
                                     <!-- Tarjeta de materia prima seleccionada -->
-                                    <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentComponent.media">
+                                    <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentComponent.product_id">
                                         <figure 
                                             v-if="currentComponent.media" 
                                             class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
@@ -349,7 +349,6 @@
                             </SecondaryButton>
                         </div>
                     </div>
-                    {{form}}
                 </form>
             </div>
         </div>

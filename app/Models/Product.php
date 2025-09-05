@@ -42,6 +42,8 @@ class Product extends Model implements HasMedia, Auditable
 
     protected $casts = [
         'archived_at' => 'datetime',
+        'is_sellable' => 'boolean',
+        'is_purchasable' => 'boolean',
     ];
 
     // protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes
@@ -73,6 +75,13 @@ class Product extends Model implements HasMedia, Auditable
         return $this->belongsToMany(Product::class, 'product_components', 'catalog_product_id', 'component_product_id')
                     ->withPivot('quantity', 'cost')
                     ->withTimestamps();
+    }
+
+    public function suppliers(): BelongsToMany
+    {
+        return $this->belongsToMany(Supplier::class, 'product_supplier')
+            ->withPivot('last_price', 'supplier_sku', 'min_quantity')
+            ->withTimestamps();
     }
 
     /**
@@ -113,7 +122,7 @@ class Product extends Model implements HasMedia, Auditable
         return $this->belongsToMany(Branch::class, 'branch_suggested_products');
     }
 
-    // ==== ACCESORES ====
+    // ==== ACCESORES ==== // comentado porque carga la media aunque no quiera.
     // public function getImagesUrlsAttribute()
     // {
     //     return $this->getMedia('images')->map(function ($media) {

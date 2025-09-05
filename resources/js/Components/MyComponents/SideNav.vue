@@ -330,19 +330,22 @@ export default {
                     options: [
                         {
                             label: 'Proveedores',
-                            route: 'dashboard',
-                            show: true,
+                            route: 'suppliers.index',
+                            active: route().current('suppliers.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver proveedores'),
                             notifications: false,
                         },
                         {
                             label: 'Órdenes de compra',
-                            route: 'dashboard',
-                            show: true,
+                            route: 'purchases.index',
+                            active: route().current('purchases.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver compras'),
                         },
 
                     ],
                     dropdown: true,
-                    show: true,
+                    show: this.$page.props.auth.user.permissions.includes('Ver proveedores') 
+                    || this.$page.props.auth.user.permissions.includes('Ver compras') 
                 },
                 {
                     label: 'Logistica',

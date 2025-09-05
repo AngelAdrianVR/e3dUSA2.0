@@ -153,7 +153,9 @@ class ProductController extends Controller
             $product = Product::create(
                 $validatedData 
                 + [
-                    'base_price_updated_at' => now()
+                    'base_price_updated_at' => now(),
+                    'is_purchasable' =>  $request->filled('components') ? false : true, // si tiene componentes no se compra porque se tiene que producir
+                    'is_sellable' => $validatedData['product_type'] === 'Catálogo' ? true : false, // si es de catalogo es vendible
                 ]
             );
 
@@ -358,7 +360,10 @@ class ProductController extends Controller
         try {
 
             // Actualiza el producto principal
-            $catalog_product->update($validatedData);
+            $catalog_product->update($validatedData + [
+                'is_purchasable' =>  $request->filled('components') ? false : true, // si tiene componentes no se compra porque se tiene que producir
+                'is_sellable' => $validatedData['product_type'] === 'Catálogo' ? true : false, // si es de catalogo es vendible
+            ]);
 
 
             // Actualiza el registro de inventario
@@ -416,8 +421,8 @@ class ProductController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $bonus = Product::find($id);
-            $bonus?->delete();
+            $product = Product::find($id);
+            $product?->delete();
         }
     }
 
