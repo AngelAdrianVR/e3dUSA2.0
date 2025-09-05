@@ -29,6 +29,7 @@ use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\SupplierBankAccountController;
 use App\Http\Controllers\SupplierContactController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierProductController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -106,8 +107,8 @@ Route::resource('branches', BranchController::class)->middleware('auth');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
-Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->name('branches.add-products');
-Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->name('branches.products.remove');
+Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
+Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
 // Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
 // Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
 // Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
@@ -116,16 +117,16 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 // ------- CRM(Notas importantes de clientes Routes)  ---------
 Route::get('/branches/{branch}/notes', [BranchNoteController::class, 'index'])->name('branch-notes.index');
 Route::prefix('branch-notes')->name('branch-notes.')->group(function () {
-    Route::post('/', [BranchNoteController::class, 'store'])->name('store');
-    Route::put('/{branchNote}', [BranchNoteController::class, 'update'])->name('update');
-    Route::delete('/{branchNote}', [BranchNoteController::class, 'destroy'])->name('destroy');
+    Route::post('/', [BranchNoteController::class, 'store'])->middleware('auth')->name('store');
+    Route::put('/{branchNote}', [BranchNoteController::class, 'update'])->middleware('auth')->name('update');
+    Route::delete('/{branchNote}', [BranchNoteController::class, 'destroy'])->middleware('auth')->name('destroy');
 });
 
 
 // ------- (rutas de contactos de clientes)  ---------
-Route::post('contacts', [ContactController::class, 'store'])->name('contacts.store');
-Route::put('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
-Route::delete('contacts/{contact}', [ContactController::class, 'destroy'])->name('contacts.destroy');
+Route::post('contacts', [ContactController::class, 'store'])->middleware('auth')->name('contacts.store');
+Route::put('contacts/{contact}', [ContactController::class, 'update'])->middleware('auth')->name('contacts.update');
+Route::delete('contacts/{contact}', [ContactController::class, 'destroy'])->middleware('auth')->name('contacts.destroy');
 
 
 // ------- CRM(historial de precios de productos de cliente Routes)  ---------
@@ -153,12 +154,12 @@ Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->m
 Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('auth')->name('sales.print');
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
-Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->name('sales.quality-certificate');
+Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->middleware('auth')->name('sales.quality-certificate');
 
 
 // ------- (Produccion Routes)  ---------
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
-Route::get('/productions/{sale}', [ProductionController::class, 'show'])->name('productions.show');
+Route::get('/productions/{sale}', [ProductionController::class, 'show'])->middleware('auth')->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
 
 
@@ -171,22 +172,31 @@ Route::post('shipments-get-matches', [ShipmentController::class, 'getMatches'])-
 // ------- (Rutas de proveedores)  ---------
 Route::resource('suppliers', SupplierController::class)->middleware('auth');
 Route::post('suppliers/massive-delete', [SupplierController::class, 'massiveDelete'])->middleware('auth')->name('suppliers.massive-delete');
+Route::get('/suppliers/{supplier}/details', [SupplierController::class, 'getDetails'])->name('suppliers.get-details');
 
 
 // ------- (rutas de contactos de proveedores)  ---------
-Route::post('supplier-contacts', [SupplierContactController::class, 'store'])->name('supplier-contacts.store');
-Route::put('supplier-contacts/{contact}', [SupplierContactController::class, 'update'])->name('supplier-contacts.update');
-Route::delete('supplier-contacts/{contact}', [SupplierContactController::class, 'destroy'])->name('supplier-contacts.destroy');
+Route::post('supplier-contacts', [SupplierContactController::class, 'store'])->middleware('auth')->name('supplier-contacts.store');
+Route::put('supplier-contacts/{contact}', [SupplierContactController::class, 'update'])->middleware('auth')->name('supplier-contacts.update');
+Route::delete('supplier-contacts/{contact}', [SupplierContactController::class, 'destroy'])->middleware('auth')->name('supplier-contacts.destroy');
 
 
 // ------- (Rutas de Cuentas Bancarias de Proveedores) ---------
-Route::post('supplier-bank-accounts', [SupplierBankAccountController::class, 'store'])->name('supplier-bank-accounts.store');
-Route::put('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'update'])->name('supplier-bank-accounts.update');
-Route::delete('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'destroy'])->name('supplier-bank-accounts.destroy');
+Route::post('supplier-bank-accounts', [SupplierBankAccountController::class, 'store'])->middleware('auth')->name('supplier-bank-accounts.store');
+Route::put('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'update'])->middleware('auth')->name('supplier-bank-accounts.update');
+Route::delete('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'destroy'])->middleware('auth')->name('supplier-bank-accounts.destroy');
+
+
+// ------- (Rutas para la relación Productos <-> Proveedores) ---------
+Route::post('suppliers/{supplier}/products', [SupplierProductController::class, 'store'])->middleware('auth')->name('suppliers.products.store');
+Route::put('suppliers/{supplier}/products/{product}', [SupplierProductController::class, 'update'])->middleware('auth')->name('suppliers.products.update');
+Route::delete('suppliers/{supplier}/products/{product}', [SupplierProductController::class, 'destroy'])->middleware('auth')->name('suppliers.products.destroy');
 
 
 // ------- (Rutas de compras)  ---------
 Route::resource('purchases', PurchaseController::class)->middleware('auth');
+Route::post('purchases/massive-delete', [PurchaseController::class, 'massiveDelete'])->middleware('auth')->name('purchases.massive-delete');
+
 
 
 

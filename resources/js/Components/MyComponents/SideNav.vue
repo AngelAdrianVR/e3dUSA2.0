@@ -339,13 +339,13 @@ export default {
                             label: 'Órdenes de compra',
                             route: 'purchases.index',
                             active: route().current('purchases.*'),
-                            show: this.$page.props.auth.user.permissions.includes('Ver compras'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
                         },
 
                     ],
                     dropdown: true,
                     show: this.$page.props.auth.user.permissions.includes('Ver proveedores') 
-                    || this.$page.props.auth.user.permissions.includes('Ver compras') 
+                    || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra') 
                 },
                 {
                     label: 'Logistica',

@@ -106,7 +106,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div class="sm:col-span-1">
                                 <InputLabel value="Buscar producto*" />
-                                <el-select v-model="newProduct.product_id" @change="getComponentMedia()" filterable placeholder="Selecciona un producto" class="w-full" no-data-text="No hay productos comprables" no-match-text="No se encontraron coincidencias">
+                                <el-select v-model="newProduct.product_id" @change="getProductMedia()" filterable placeholder="Selecciona un producto" class="w-full" no-data-text="No hay productos comprables" no-match-text="No se encontraron coincidencias">
                                     <el-option v-for="item in products" :key="item.id" :label="item.name" :value="item.id" :disabled="isProductSelected(item.id)">
                                         <span>{{ item.name }}</span>
                                         <span class="text-xs text-gray-400 ml-2">{{ item.code }}</span>
@@ -156,23 +156,38 @@
                                     </p>
                                 </div>
                             </div>
-                         <div class="flex justify-end">
-                            <SecondaryButton @click="addProduct" :disabled="!newProduct.product_id || newProduct.last_price === null" type="button">
-                                <i class="fa-solid fa-plus-circle mr-2"></i> Agregar Producto
-                            </SecondaryButton>
+                        <div class="flex justify-end space-x-2">
+                            <template v-if="editingProductIndex === null">
+                                <SecondaryButton @click="addProduct" :disabled="!newProduct.product_id || newProduct.last_price === null" type="button">
+                                    <i class="fa-solid fa-plus-circle mr-2"></i> Agregar Producto
+                                </SecondaryButton>
+                            </template>
+                            <template v-else>
+                                <SecondaryButton @click="updateProduct" :disabled="!newProduct.product_id || newProduct.last_price === null" type="button">
+                                    <i class="fa-solid fa-save mr-2"></i> Guardar Cambios
+                                </SecondaryButton>
+                                <button @click="cancelEdit" type="button" class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-red-500 focus:outline-none dark:text-gray-200 dark:hover:text-red-500">
+                                    Cancelar edicion
+                                </button>
+                            </template>
                         </div>
                         <!-- Lista de productos agregados -->
-                         <ul v-if="form.products.length" class="rounded-lg bg-gray-100 dark:bg-slate-900 p-3 space-y-2">
-                            <li v-for="(product, index) in form.products" :key="index" class="flex justify-between items-center p-2 rounded-md">
+                        <ul v-if="form.products.length" class="rounded-lg bg-gray-100 dark:bg-slate-900 p-3 space-y-2">
+                            <li v-for="(product, index) in form.products" :key="index" :class="editingProductIndex === index ? 'bg-gray-200 dark:bg-slate-800' : ''" class="flex justify-between items-center p-2 rounded-md">
                                 <div>
                                     <p class="font-bold text-primary">{{ getProductName(product.product_id) }}</p>
                                     <p class="text-sm text-gray-600 dark:text-gray-400">Precio: ${{ product.last_price }} {{ product.currency }}</p>
                                     <p class="text-xs text-gray-500">Cantidad mínima: {{ product.min_quantity ?? 'N/A' }} {{ product.measure_unit }}</p>
                                     <!-- <p class="text-xs text-gray-500">SKU: {{ product.supplier_sku ?? 'N/A' }}</p> -->
                                 </div>
-                                <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
+                                <div class="flex items-center space-x-3">
+                                    <button v-if="editingProductIndex !== index" @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                    <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
                             </li>
                         </ul>
                     </div>
@@ -216,6 +231,18 @@ export default {
         products: Array, // Productos con is_purchasable = true
     },
     data() {
+        const initialNewProductState = {
+            product_id: null,
+            last_price: null,
+            supplier_sku: null,
+            min_quantity: 1,
+            media: [],
+            storages: [],
+            cost: null,
+            measure_unit: '',
+            currency: ''
+        };
+
         return {
             form: useForm({
                 name: null,
@@ -244,14 +271,9 @@ export default {
                 clabe: '',
                 currency: 'MXN',
             },
-            newProduct: {
-                product_id: null,
-                last_price: null,
-                supplier_sku: null,
-                min_quantity: 1,
-                media: [],
-                storages: [],
-            },
+            newProduct: { ...initialNewProductState },
+            originalNewProductState: initialNewProductState,
+            editingProductIndex: null, // index del producto en edición
             loadingComponentMedia: false
         };
     },
@@ -295,20 +317,44 @@ export default {
         addProduct() {
             if (!this.newProduct.product_id) return;
             this.form.products.push({ ...this.newProduct });
-            this.newProduct = { product_id: null, last_price: null, supplier_sku: null, min_quantity: null };
+            this.resetNewProduct();
         },
         removeProduct(index) {
             this.form.products.splice(index, 1);
         },
+        editProduct(index) {
+            this.editingProductIndex = index;
+            // Clonar el producto para evitar mutaciones directas
+            this.newProduct = JSON.parse(JSON.stringify(this.form.products[index]));
+            // Cargar la media e info del producto que se está editando
+            this.getProductMedia();
+        },
+        updateProduct() {
+            if (this.editingProductIndex !== null) {
+                this.form.products.splice(this.editingProductIndex, 1, { ...this.newProduct });
+                this.cancelEdit();
+            }
+        },
+        cancelEdit() {
+            this.editingProductIndex = null;
+            this.resetNewProduct();
+        },
+        resetNewProduct() {
+            this.newProduct = { ...this.originalNewProductState };
+        },
         isProductSelected(productId) {
+            // Durante la edición, permitir que el producto actual esté "seleccionado"
+            if (this.editingProductIndex !== null && this.form.products[this.editingProductIndex]?.product_id === productId) {
+                return false;
+            }
             return this.form.products.some(p => p.product_id === productId);
         },
         getProductName(productId) {
             const product = this.products.find(p => p.id === productId);
             return product ? product.name : 'Producto no encontrado';
         },
-        async getComponentMedia() {
-            // 1. Inicia el estado de carga
+        async getProductMedia() {
+            if (!this.newProduct.product_id) return;
             this.loadingComponentMedia = true;
             try {
                 const response = await axios.get(route('products.get-media', this.newProduct.product_id));
@@ -320,13 +366,14 @@ export default {
                     this.newProduct.measure_unit = response.data.product.measure_unit;
                     this.newProduct.currency = response.data.product.currency;
 
-                    //asignaciones automaticas
-                    this.newProduct.last_price = response.data.product.cost;
-                    
+                    // Si estamos agregando un nuevo producto (no editando), se asigna el costo como precio.
+                    if (this.editingProductIndex === null) {
+                        this.newProduct.last_price = response.data.product.cost;
+                    }
                 }
             } catch (error) {
                 console.log(error);
-                ElMessage.error('No se pudo cargar la imagen del componente')
+                ElMessage.error('No se pudo cargar la información del producto');
             } finally {
                 this.loadingComponentMedia = false;
             }

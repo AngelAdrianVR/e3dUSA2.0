@@ -135,7 +135,7 @@
 
             <!-- COLUMNA DERECHA: PESTAÑAS DE INFORMACIÓN -->
             <div class="lg:col-span-2">
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg min-h-[70vh]">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg max-h-[70vh]">
                     <el-tabs v-model="activeTab" class="p-5">
                         <el-tab-pane label="Información General" name="general">
                             <ul class="space-y-4 text-sm mt-2">
@@ -151,7 +151,7 @@
                                     <span>Productos que Suministra</span>
                                 </div>
                             </template>
-                             <div class="space-y-4 mt-2 max-h-[60vh] overflow-y-auto pr-2">
+                             <div class="space-y-4 mt-2 pb-4 max-h-[60vh] overflow-y-auto pr-2">
                                 <Products :products="supplier.products" :catalog="catalog_products" :supplierId="supplier.id" />
                              </div>
                         </el-tab-pane>
