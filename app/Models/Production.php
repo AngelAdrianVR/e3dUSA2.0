@@ -118,9 +118,17 @@ class Production extends Model implements Auditable
                         [], // Busca el primer registro existente sin condiciones específicas.
                         ['quantity' => 0] // Si no existe, lo crea con cantidad inicial 0.
                     );
-        
+
                     // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.
                     $storage->increment('quantity', $quantityToAdd);
+                    
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'storage_id' => $storage->id,
+                        'quantity_change' => $quantityToAdd,
+                        'type' => 'Entrada',
+                        'notes' => 'Entrada por orden de stock terminada OS- ' . $this->saleProduct->sale->id
+                    ]);
                 }
             }
         }

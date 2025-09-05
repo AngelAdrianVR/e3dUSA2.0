@@ -12,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 class SupplierController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request)
     {
         // Obtiene el término de búsqueda de la solicitud
         $query = $request->input('search');
@@ -25,7 +25,7 @@ class SupplierController extends Controller
                   ->orWhere('rfc', 'like', "%{$search}%");
             })
             ->latest() // Ordena por los más recientes
-            ->paginate(10) // Pagina los resultados
+            ->paginate(20) // Pagina los resultados
             ->withQueryString(); // Mantiene los parámetros de búsqueda en la paginación
 
         // Renderiza el componente de Vue y le pasa los proveedores
@@ -150,11 +150,12 @@ class SupplierController extends Controller
         return to_route('suppliers.index')->with('success', 'Proveedor creado exitosamente.');
     }
 
-    public function show(Supplier $supplier): Response
+    public function show(Supplier $supplier)
     {
         // Carga las relaciones para que estén disponibles en el componente de Vue
         // Carga los productos relacionados a través de la tabla pivote
-        $supplier->load('contacts', 'bankAccounts', 'products');
+        $supplier->load('contacts', 'bankAccounts', 'products.media',
+        'products:id,name,code,is_purchasable,archived_at,currency,measure_unit,cost');
 
         // Obtiene todos los proveedores para el selector de búsqueda rápida en la vista
         $allSuppliers = Supplier::select('id', 'name')->get();
@@ -164,7 +165,6 @@ class SupplierController extends Controller
             ->select('id', 'name', 'code', 'measure_unit')
             ->get();
 
-        // Renderiza el componente de Vue 'Supplier/Show' y le pasa los datos necesarios como props
         return Inertia::render('Supplier/Show', [
             'supplier' => $supplier,
             'suppliers' => $allSuppliers,
@@ -285,8 +285,20 @@ class SupplierController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $suppliers= Supplier::find($id);
-            $suppliers->delete();
+            $supplier = Supplier::find($id);
+            $supplier->delete();
         }
+    }
+
+    public function getDetails(Supplier $supplier)
+    {
+        // Cargar las relaciones necesarias
+        $supplier->load(['contacts', 'products', 'bankAccounts']);
+
+        return response()->json([
+            'contacts' => $supplier->contacts,
+            'products' => $supplier->products->where('is_purchasable', true)->values(), // Enviar solo productos comprables
+            'bankAccounts' => $supplier->bankAccounts,
+        ]);
     }
 }

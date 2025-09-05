@@ -134,7 +134,7 @@
                                     {{ formatDate(scope.row.created_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status" label="Estatus" width="130">
+                            <el-table-column prop="status" label="Estatus" width="145">
                                 <template #default="scope">
                                     <el-tag :type="getStatusTagType(scope.row.status)">
                                         {{ scope.row.status }}
@@ -428,6 +428,7 @@ export default {
                 'Autorizada': 'primary',
                 'En Proceso': 'warning',
                 'En Producción': 'primary',
+                'Stock Terminado': 'success',
                 'Preparando Envío': 'success',
                 'Enviada': 'success',
             };
