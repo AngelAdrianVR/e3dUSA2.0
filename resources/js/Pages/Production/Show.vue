@@ -17,6 +17,11 @@
                     class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                 <i class="fa-solid fa-eye mr-2 text-xs"></i> Ver Órden de Venta
                 </Link>
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de produccion') || sale.production_summary.status !== 'Terminada'" content="Eliminar Orden de producción" placement="top">
+                    <button @click="confirmDelete(sale)" class="size-9 flex items-center justify-center rounded-lg bg-red-300 hover:bg-red-400 dark:bg-red-800 dark:hover:bg-red-700 transition-colors">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </el-tooltip>
                 <Link :href="route('productions.index')"
                     class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
                 <i class="fa-solid fa-xmark"></i>
@@ -160,6 +165,21 @@
                         </li>
                     </ul>
                     <Empty v-else text="Esta órden no tiene productos." />
+
+                    <div class="border-t dark:border-gray-600">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Inicio:</span>
+                            <span class="font-bold px-2 py-1 rounded-md text-xs">
+                                {{ sale.production_summary.started_at ? formatDateTime(sale.production_summary.started_at) : 'No iniciada' }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Fin:</span>
+                            <span class="font-bold px-2 rounded-md text-xs">
+                                {{ sale.production_summary.finished_at ? formatDateTime(sale.production_summary.finished_at) : 'No finalizada' }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -212,18 +232,22 @@
                                         <span class="font-medium text-gray-700 dark:text-gray-300 w-1/3 truncate">{{ task.name }}</span>
                                         <span class="text-gray-500 dark:text-gray-400 ml-auto">Duración total: {{ getTaskDuration(task.started_at, task.finished_at) }}</span>
                                     </div>
-                                    <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-5 relative flex overflow-hidden">
-                                        <div class="absolute right-0 top-0 size-5 rounded-full bg-green-500 flex items-center justify-center text-white"
-                                             v-if="task.status === 'Terminada'">
+
+                                    <section class="flex items-center space-x-2">
+                                        <div class="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-5 relative flex overflow-hidden">
+                                            <el-tooltip v-for="(segment, index) in task.segments" :key="index" placement="top" effect="dark" :content="`Tiempo ${segment.status}: ${getTaskDuration(segment.start, segment.end)}`">
+                                                <div class="h-full" 
+                                                    :class="taskStatusColor(segment.status)" 
+                                                    :style="{ width: segment.width + '%' }">
+                                                </div>
+                                            </el-tooltip>
+                                        </div>
+
+                                        <div class=" size-5 rounded-full bg-green-500 flex items-center justify-center text-white"
+                                                v-if="task.status === 'Terminada'">
                                             <i class="fa-solid fa-check text-xs"></i>
                                         </div>
-                                        <el-tooltip v-for="(segment, index) in task.segments" :key="index" placement="top" effect="dark" :content="`Tiempo ${segment.status}: ${getTaskDuration(segment.start, segment.end)}`">
-                                            <div class="h-full" 
-                                                 :class="taskStatusColor(segment.status)" 
-                                                 :style="{ width: segment.width + '%' }">
-                                            </div>
-                                        </el-tooltip>
-                                    </div>
+                                    </section>
                                 </div>
                              </div>
                              <Empty v-else text="No hay tareas con seguimiento de tiempo para mostrar." class="!py-12" />
@@ -307,6 +331,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
 import { Link } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
+import { ElMessageBox, ElMessage } from 'element-plus';
 import { es } from 'date-fns/locale';
 
 export default {
@@ -512,6 +537,48 @@ export default {
                 'progreso': 'En Proceso'
             };
             return statusMap[logType] || currentStatus;
+        },
+        confirmDelete(sale) {
+            const saleIdentifier = sale.type === 'venta' ? `OV-${sale.id.toString().padStart(4, '0')}` : `OS-${sale.id.toString().padStart(4, '0')}`;
+            ElMessageBox.confirm(
+                `¿Estás seguro de que deseas eliminar la orden ${saleIdentifier}? Esta acción no se puede deshacer.`,
+                'Confirmar Eliminación',
+                {
+                    confirmButtonText: 'Sí, Eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            ).then(() => {
+                this.deleteSaleProductions(sale.id);
+            }).catch(() => {
+                ElMessage({
+                    title: 'Cancelado',
+                    message: 'La eliminación de la orden ha sido cancelada.',
+                    type: 'info',
+                    duration: 2000,
+                });
+            });
+        },
+        deleteSaleProductions(saleId) {
+            router.delete(route('productions.destroy', saleId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage({
+                        title: 'Éxito',
+                        message: 'La orden de producción se ha eliminado correctamente.',
+                        type: 'success',
+                    });
+                    this.$inertia.visit(route('productions.index'))
+                },
+                onError: (errors) => {
+                    ElMessage({
+                        title: 'Error',
+                        message: 'Hubo un error al eliminar la orden. Por favor, inténtalo de nuevo.',
+                        type: 'error',
+                    });
+                    console.error('Error deleting sale:', errors);
+                },
+            });
         }
     }
 };

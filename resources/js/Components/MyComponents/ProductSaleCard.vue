@@ -28,7 +28,8 @@
                     <div>
                         <div class="flex items-center space-x-2">
                             <p class="text-gray-500 dark:text-gray-400">Cantidad ordenada</p>
-                            <el-tooltip placement="top">
+                            <!-- v-if="branchId" porque si es de stock no contiene cliente y si es de estock no lleva movimientos de stock -->
+                            <el-tooltip v-if="branchId" placement="top">
                                 <template #content>
                                     <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
                                     <p class="text-blue-400">Cantidad tomada de stock: <span class="text-white ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>

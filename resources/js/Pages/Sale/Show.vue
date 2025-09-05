@@ -271,7 +271,7 @@
                         <div>
                             <div class="flex justify-between mb-1">
                                 <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Progreso General</span>
-                                <span class="text-xs font-bold text-primary dark:text-green-400">{{ sale.production_summary.percentage }}%</span>
+                                <span class="text-xs font-bold text-green-500">{{ sale.production_summary.percentage }}%</span>
                             </div>
                             <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-slate-700">
                                 <div class="bg-gradient-to-r from-emerald-600 to-green-500 h-3 rounded-full transition-all duration-500 ease-out"

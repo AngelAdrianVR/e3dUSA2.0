@@ -228,7 +228,7 @@
                                 <Link :href="route('productions.show', scope.row.id)">
                                     <PrimaryButton><i class="fa-solid fa-eye"></i></PrimaryButton>
                                 </Link>
-                                <DangerButton @click="confirmDelete(scope.row)">
+                                <DangerButton :disabled="scope.row.production_summary.status === 'Terminada'" @click="confirmDelete(scope.row)">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </DangerButton>
                             </div>
@@ -328,7 +328,7 @@ export default {
                     type: 'warning',
                 }
             ).then(() => {
-                this.deleteSale(sale.id);
+                this.deleteSaleProductions(sale.id);
             }).catch(() => {
                 ElMessage({
                     title: 'Cancelado',
@@ -338,7 +338,7 @@ export default {
                 });
             });
         },
-        deleteSale(saleId) {
+        deleteSaleProductions(saleId) {
             router.delete(route('productions.destroy', saleId), {
                 preserveScroll: true,
                 onSuccess: () => {

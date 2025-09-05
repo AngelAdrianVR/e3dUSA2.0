@@ -160,7 +160,9 @@ Route::put('/productions/{production}/update-status', [ProductionController::cla
 
 // ------- (Rutas de envíos)  ---------
 Route::resource('shipments', ShipmentController::class)->except(['create', 'show', 'edit', 'store'])->middleware('auth');
-Route::get('/shipments/{sale}', [ShipmentController::class, 'show'])->name('shipments.show');
+Route::get('/shipments/{sale}', [ShipmentController::class, 'show'])->middleware('auth')->name('shipments.show');
+Route::post('shipments-get-matches', [ShipmentController::class, 'getMatches'])->middleware('auth')->name('shipments.get-matches');
+
 
 
 // ------- (Tareas de produccion Routes)  ---------
