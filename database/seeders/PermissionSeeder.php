@@ -21,6 +21,7 @@ class PermissionSeeder extends Seeder
             'Usuarios' => ['Ver personal', 'Crear personal', 'Editar personal', 'Eliminar personal'],
             'Bonos' => ['Ver bonos', 'Crear bonos', 'Editar bonos', 'Eliminar bonos'],
             'Descuentos' => ['Ver descuentos', 'Crear descuentos', 'Editar descuentos', 'Eliminar descuentos'],
+            'Nóminas' => ['Ver nominas', 'Crear nominas', 'Editar nominas', 'Eliminar nominas'],
             'Historial de acciones' => ['Ver historial de acciones'],
             'Roles' => ['Ver roles y permisos', 'Crear roles y permisos', 'Editar roles y permisos', 'Eliminar roles y permisos'],
             'Tutoriales y manuales' => ['Ver tutoriales y manuales', 'Crear tutoriales y manuales', 'Editar tutoriales y manuales', 'Eliminar tutoriales y manuales'],
@@ -40,6 +41,9 @@ class PermissionSeeder extends Seeder
             'Ordenes de producción' => ['Ver ordenes de produccion', 'Crear ordenes de produccion', 'Editar ordenes de produccion', 'Eliminar ordenes de produccion', 'Ver todas las ordenes de produccion'],
             'Envíos' => ['Ver envios', 'Crear envios', 'Editar envios', 'Eliminar envios'],
             'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas'],
+            'Proveedores' => ['Ver proveedores', 'Crear proveedores', 'Editar proveedores', 'Eliminar proveedores'],
+            'Compras' => ['Ver compras', 'Crear compras', 'Editar compras', 'Eliminar compras'],
+            'Diseño' => ['Ver diseños', 'Crear diseños', 'Editar diseños', 'Eliminar diseños'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

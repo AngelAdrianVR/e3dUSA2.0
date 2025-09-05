@@ -124,6 +124,7 @@
                                                                            title="Falta material para este producto"></i>
                                                                     </p>
                                                                     <p class="text-xs text-gray-400">Cantidad: {{ item.quantity_to_produce }}</p>
+                                                                    <p class="text-xs text-red-400">Merma: {{ getProductionForProduct(sale, item.id).scrap }}</p>
                                                                 </div>
                                                             </div>
                                                         </el-tooltip>

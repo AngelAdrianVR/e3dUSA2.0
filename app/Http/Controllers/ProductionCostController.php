@@ -52,8 +52,8 @@ class ProductionCostController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $bonus = ProductionCost::find($id);
-            $bonus?->delete();
+            $Production_cost = ProductionCost::find($id);
+            $Production_cost?->delete();
         }
     }
 }

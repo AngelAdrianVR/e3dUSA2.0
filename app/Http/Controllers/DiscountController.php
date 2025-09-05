@@ -43,8 +43,8 @@ class DiscountController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $bonus = Discount::find($id);
-            $bonus?->delete();
+            $discount = Discount::find($id);
+            $discount?->delete();
         }
     }
 }

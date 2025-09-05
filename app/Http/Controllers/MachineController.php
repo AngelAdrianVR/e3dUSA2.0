@@ -115,8 +115,8 @@ class MachineController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $bonus = Machine::find($id);
-            $bonus?->delete();
+            $machine = Machine::find($id);
+            $machine?->delete();
         }
     }
 

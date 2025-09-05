@@ -53,8 +53,8 @@ class HolidayController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $bonus = Holiday::find($id);
-            $bonus?->delete();
+            $holiday = Holiday::find($id);
+            $holiday?->delete();
         }
     }
 }
