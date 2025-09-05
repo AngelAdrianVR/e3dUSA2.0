@@ -5,12 +5,12 @@
         </h2>
 
         <div class="py-7">
-            <div class="max-w-[70rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[85rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-2">
                         <span></span>
                         <!-- Input de búsqueda (a futuro) -->
-                        <SearchInput v-model="search" :searchProps="SearchProps" placeholder="Buscar envío..." />
+                        <SearchInput v-model="search" @keyup.enter="handleSearch" :searchProps="SearchProps" placeholder="Buscar envío..." />
                     </div>
 
                     <!-- Overlay de carga -->
@@ -23,7 +23,7 @@
                         <!-- Tabla de Envíos agrupada por Venta -->
                         <el-table 
                             max-height="550" 
-                            :data="sales.data"
+                            :data="tableData"
                             style="width: 100%" 
                             stripe
                             @row-click="handleRowClick"
@@ -35,11 +35,31 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Cliente" width="200">
+                            <el-table-column label="Cliente" width="130">
                                 <template #default="scope">
                                     {{ scope.row.branch?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
+
+                            <!-- INICIO: COLUMNA DE PRODUCTOS AGREGADA -->
+                            <el-table-column label="Productos" width="130">
+                                <template #default="scope">
+                                    <el-tooltip v-if="scope.row.sale_products?.length" placement="top">
+                                        <template #content>
+                                            <ul class="list-disc list-inside text-xs">
+                                                <li v-for="item in scope.row.sale_products" :key="item.id">
+                                                    ({{ item.quantity }}) {{ item.product.name }}
+                                                </li>
+                                            </ul>
+                                        </template>
+                                        <span class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                                            {{ scope.row.sale_products.length }} producto(s)
+                                        </span>
+                                    </el-tooltip>
+                                    <span v-else class="text-xs text-gray-400">N/A</span>
+                                </template>
+                            </el-table-column>
+                            <!-- FIN: COLUMNA DE PRODUCTOS AGREGADA -->
 
                             <!-- COLUMNA DE ENVÍOS -->
                             <el-table-column label="Envíos programados">
@@ -135,6 +155,7 @@ export default {
             loading: false,
             search: '',
             SearchProps: ['ID', 'Cliente', 'Estatus'],
+            tableData: this.sales.data
         };
     },
     components: {
@@ -147,6 +168,26 @@ export default {
         sales: Object,
     },
     methods: {
+        async handleSearch() {
+            this.loading = true;
+            try {
+                if (!this.search) {
+                    this.tableData = this.sales.data;
+                    this.$inertia.get(this.route('shipments.index'), {}, {
+                        preserveState: true,
+                        replace: true,
+                    });
+                    return;
+                }
+                const response = await axios.post(route('shipments.get-matches', { query: this.search }));
+                this.tableData = response.data.items;
+            } catch (error) {
+                console.error(error);
+                ElMessage.error('No se pudo realizar la búsqueda');
+            } finally {
+                this.loading = false;
+            }
+        },
         handleRowClick(row) {
             router.get(route('shipments.show', row.id));
         },

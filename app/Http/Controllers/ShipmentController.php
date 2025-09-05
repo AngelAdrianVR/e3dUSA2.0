@@ -15,10 +15,15 @@ class ShipmentController extends Controller
         // Obtenemos las ventas que tienen al menos un envío registrado.
         // Eager-loading para optimizar consultas y evitar el problema N+1.
         $salesWithShipments = Sale::has('shipments')
-            ->with(['shipments', 'branch']) // Carga las relaciones de envíos y sucursal (cliente)
+            ->with([
+                'shipments', 
+                'branch:id,name',
+            ]) // Carga las relaciones de envíos y sucursal (cliente)
+            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
             ->latest() // Ordena por los más recientes
-            ->paginate(15); // Pagina los resultados
+            ->paginate(10); // Pagina los resultados
 
+            // return $salesWithShipments;
         // Renderiza la vista de Inertia, pasando los datos de las ventas.
         return Inertia::render('Shipment/Index', [
             'sales' => $salesWithShipments,
@@ -89,5 +94,28 @@ class ShipmentController extends Controller
     public function destroy(Shipment $shipment)
     {
         //
+    }
+
+    public function getMatches(Request $request)
+    {
+        $query = $request->input('query');
+
+        // Realiza la búsqueda
+        $sales = Sale::has('shipments')
+            ->with(['shipments', 'branch:id,name'])
+            ->latest()
+            ->where(function ($q) use ($query) {
+                $q->where('id', 'like', "%{$query}%")
+                ->orWhereHas('shipments', function ($parentQuery) use ($query) {
+                    $parentQuery->where('status', 'like', "%{$query}%");
+                })
+                ->orWhereHas('branch', function ($userquery) use ($query) {
+                    $userquery->where('name', 'like', "%{$query}%");
+                });
+            })
+            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
+            ->get();
+
+        return response()->json(['items' => $sales], 200);
     }
 }

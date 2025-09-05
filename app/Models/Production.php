@@ -115,7 +115,8 @@ class Production extends Model implements Auditable
                 if ($product && ($quantityToAdd > 0)) {
                     // Busca el registro de stock para el producto en el almacén principal o lo crea con 0 si no existe.
                     $storage = $product->storages()->firstOrCreate(
-                        ['quantity' => 0] // Valores por defecto si se crea
+                        [], // Busca el primer registro existente sin condiciones específicas.
+                        ['quantity' => 0] // Si no existe, lo crea con cantidad inicial 0.
                     );
         
                     // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.

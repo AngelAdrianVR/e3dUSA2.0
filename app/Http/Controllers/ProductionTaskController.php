@@ -25,6 +25,7 @@ class ProductionTaskController extends Controller
             'good_units' => 'nullable|integer|min:0',
             'scrap' => 'nullable|integer|min:0',
             'scrap_reason' => 'nullable|string|max:255',
+            'pause_reason' => 'nullable|string|max:255', // Added validation for pause reason
         ]);
 
         $newStatus = $request->input('status');
@@ -85,15 +86,16 @@ class ProductionTaskController extends Controller
 
         if ($newStatus === 'Pausada') {
             $logType = 'pausa';
-            $notes = 'El operador ha pausado la tarea.';
+            $reason = $request->input('pause_reason', 'No especificada');
+            $notes = "El operador ha pausado la tarea. Razón: {$reason}";
         } elseif ($newStatus === 'En Proceso' && $oldStatus === 'Pausada') {
             $logType = 'reanudacion';
             $notes = 'El operador ha reanudado la tarea.';
         } elseif ($newStatus === 'Terminada') {
             $logType = 'progreso';
             $notes = "Tarea finalizada. Unidades buenas: {$request->input('good_units', 0)}, Merma: {$request->input('scrap', 0)}.";
-            if ($request->input('scrap', 0) > 0) {
-                 $notes .= " Razón: {$request->input('scrap_reason', 'N/A')}";
+            if ($request->input('scrap', 0) > 0 && $request->filled('scrap_reason')) {
+                 $notes .= " Razón: {$request->input('scrap_reason')}";
             }
         } elseif ($newStatus === 'Sin material') {
             $logType = 'alerta';
@@ -114,7 +116,7 @@ class ProductionTaskController extends Controller
 
     /**
      * MÉTODO NUEVO: Recupera los detalles completos de una tarea para la vista expandida.
-     * ? Puede usarse en un futuro para mostrar tarifaas de envios, empaques, etc
+     * ? Puede usarse en un futuro para mostrar tarifas de envios, empaques, etc
      */
     public function getTaskDetails(ProductionTask $task)
     {

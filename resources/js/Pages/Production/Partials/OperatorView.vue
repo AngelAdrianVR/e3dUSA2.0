@@ -196,7 +196,10 @@
                                             <img :src="getProductImage(component)" class="w-10 h-10 object-cover rounded-md border dark:border-slate-700">
                                             <div class="flex-grow">
                                                 <p class="font-semibold text-gray-800 dark:text-gray-200">{{ component.name }}</p>
-                                                <p class="text-gray-500 dark:text-gray-400">Stock: <span class="font-bold">{{ component.storages[0]?.quantity || 0 }}</span> | Ubicación: {{ component.storages[0]?.location || 'N/A' }}</p>
+                                                <p class="text-gray-500 dark:text-gray-400">
+                                                    <!-- Stock:  -->
+                                                    <!-- <span class="font-bold">{{ component.storages[0]?.quantity || 0 }}</span> -->
+                                                  Ubicación: {{ component.storages[0]?.location || 'N/A' }}</p>
                                             </div>
                                         </li>
                                     </ul>
@@ -235,9 +238,7 @@
                         </template>
                     </div>
                 </div>
-
                 <!-- ====== FIN: Bloque de Paginación ====== -->
-
             </div>
 
             <div v-else class="text-center py-20 bg-white dark:bg-slate-900/50 rounded-xl shadow-md border border-slate-200 dark:border-slate-800">
@@ -365,7 +366,17 @@ export default {
         },
         startTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
         resumeTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
-        pauseTask(taskId) { this.updateTaskStatus(taskId, 'Pausada'); },
+        pauseTask(taskId) {
+            ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
+                confirmButtonText: 'Confirmar Pausa',
+                cancelButtonText: 'Cancelar',
+                inputType: 'textarea',
+                inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
+                inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
+            }).then(({ value: pause_reason }) => {
+                this.updateTaskStatus(taskId, 'Pausada', { pause_reason });
+            }).catch(() => ElMessage.info('Acción cancelada'));
+        },
         reportIssue(task) {
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
@@ -396,13 +407,24 @@ export default {
                 inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
             }).then(({ value: good_units }) => {
                  ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
-                    confirmButtonText: 'Finalizar',
+                    confirmButtonText: 'Siguiente',
                     cancelButtonText: 'Cancelar',
                     inputType: 'number',
                     inputValue: 0,
                     inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
                 }).then(({ value: scrap }) => {
-                    this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap });
+                    if (scrap > 0) {
+                        ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
+                            confirmButtonText: 'Finalizar Tarea',
+                            cancelButtonText: 'Cancelar',
+                            inputType: 'textarea',
+                            inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
+                        }).then(({ value: scrap_reason }) => {
+                            this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
+                        }).catch(() => ElMessage.info('Finalización cancelada en el último paso.'));
+                    } else {
+                        this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason: '' });
+                    }
                 }).catch(() => ElMessage.info('Finalización cancelada en paso de merma.'));
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
@@ -460,4 +482,3 @@ export default {
     },
 };
 </script>
-
