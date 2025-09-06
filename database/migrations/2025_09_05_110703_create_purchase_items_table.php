@@ -16,12 +16,17 @@ return new class extends Migration
             $table->foreignId('purchase_id')->constrained()->onDelete('cascade');
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             
+            $table->string('type', 20)->default('Venta'); // si es para Muestra o Venta
             $table->string('description'); // Descripción del producto al momento de la compra (puede variar del nombre actual del producto)
             $table->decimal('quantity', 10, 2);
-            $table->string('unit', 20); // Unidad de medida (p. ej. "kg", "pieza")
+            $table->decimal('additional_stock', 10, 2)->nullable(); // cantidad a favor
+            $table->decimal('plane_stock', 10, 2)->nullable(); // cantidad en avion
+            $table->decimal('ship_stock', 10, 2)->nullable(); // cantidad en barco
+            // $table->string('unit', 20); // Unidad de medida (p. ej. "kg", "pieza")
             $table->decimal('unit_price', 10, 2);
             $table->decimal('total_price', 12, 2);
             $table->decimal('recieved_quantity', 10, 2)->default(0); // Cantidad que ya ha sido recibida
+            $table->string('notes')->nullable(); // notas
             $table->timestamps();
         });
     }

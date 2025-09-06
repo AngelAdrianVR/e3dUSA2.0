@@ -123,39 +123,39 @@
 
                         <LoadingIsoLogo v-if="loadingComponentMedia" />
 
-                            <!-- Tarjeta de materia prima seleccionada -->
-                            <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="newProduct.product_id">
-                                <figure 
-                                    v-if="newProduct.media" 
-                                    class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
-                                    <img v-if="newProduct.media?.length"
-                                        :src="newProduct.media[0]?.original_url" 
-                                        alt="" 
-                                        class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
-                                    >
-                                    <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                        </svg>
-                                    <p>Sin imagen</p>
-                                    </div>
-                                    <!-- Overlay degradado sutil -->
-                                    <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
-                                </figure>
-
-                                <!-- informacion de almacén -->
-                                <div>
-                                    <p class="text-gray-500 dark:text-gray-300">
-                                        Stock: <strong>{{ newProduct.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ newProduct.measure_unit }}</strong>
-                                    </p>
-                                    <p class="text-gray-500 dark:text-gray-300">
-                                        Ubicación: <strong>{{ newProduct.storages[0]?.location ?? 'No asignado' }}</strong>
-                                    </p>
-                                    <p class="text-gray-500 dark:text-gray-300">
-                                        Costo: <strong>${{ newProduct.cost ?? '0.00' }} {{ newProduct.currency }}</strong>
-                                    </p>
+                        <!-- Tarjeta de materia prima seleccionada -->
+                        <div class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="newProduct.product_id">
+                            <figure 
+                                v-if="newProduct.media" 
+                                class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                <img v-if="newProduct.media?.length"
+                                    :src="newProduct.media[0]?.original_url" 
+                                    alt="" 
+                                    class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                                >
+                                <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                    </svg>
+                                <p>Sin imagen</p>
                                 </div>
+                                <!-- Overlay degradado sutil -->
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
+                            </figure>
+
+                            <!-- informacion de almacén -->
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-300">
+                                    Stock: <strong>{{ newProduct.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ newProduct.measure_unit }}</strong>
+                                </p>
+                                <p class="text-gray-500 dark:text-gray-300">
+                                    Ubicación: <strong>{{ newProduct.storages[0]?.location ?? 'No asignado' }}</strong>
+                                </p>
+                                <p class="text-gray-500 dark:text-gray-300">
+                                    Costo: <strong>${{ newProduct.cost ?? '0.00' }} {{ newProduct.currency }}</strong>
+                                </p>
                             </div>
+                        </div>
                         <div class="flex justify-end space-x-2">
                             <template v-if="editingProductIndex === null">
                                 <SecondaryButton @click="addProduct" :disabled="!newProduct.product_id || newProduct.last_price === null" type="button">

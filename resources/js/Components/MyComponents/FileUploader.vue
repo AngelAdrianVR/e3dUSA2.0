@@ -103,6 +103,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ElMessage } from 'element-plus';
 
 // --- Definición de Props y Emits ---
 const props = defineProps({
@@ -155,12 +156,14 @@ const processAndAddFiles = (files) => {
 
         if (availableSlots <= 0) {
             console.warn(`Límite de ${props.maxFiles} archivos alcanzado. No se pueden agregar más.`);
+            ElMessage.warning(`Límite de ${props.maxFiles} archivos alcanzado. No se pueden agregar más.`);
             // Opcional: Muestra una notificación al usuario aquí.
             return;
         }
 
         if (fileArray.length > availableSlots) {
-            console.warn(`Solo se pueden agregar ${availableSlots} archivos más. Se han ignorado los archivos extras.`);
+          console.warn(`Solo se pueden agregar ${availableSlots} archivos más. Se han ignorado los archivos extras.`);
+          ElMessage.warning(`Solo se pueden agregar ${availableSlots} archivos más. Se han ignorado los archivos extras.`);
             // Opcional: Muestra una notificación al usuario aquí.
             filesToAdd = fileArray.slice(0, availableSlots);
         }
@@ -235,6 +238,8 @@ const fetchAndConvertFiles = async (urls) => {
     processAndAddFiles(files);
   } catch (error) {
     console.error('Error al cargar archivos existentes:', error);
+    ElMessage.error('Error al cargar archivos existentes:', error);
+
   } finally {
     loading.value = false;
   }
