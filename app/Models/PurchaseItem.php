@@ -20,8 +20,13 @@ class PurchaseItem extends Model
         'product_id',
         'description',
         'quantity',
-        'unit',
+        'type', // muestra o venta
+        'notes',
+        // 'unit', // unidad de medida
         'unit_price',
+        'additional_stock', // a favor
+        'plane_stock', // en avion
+        'ship_stock', // en barco
         'total_price',
         'recieved_quantity',
     ];

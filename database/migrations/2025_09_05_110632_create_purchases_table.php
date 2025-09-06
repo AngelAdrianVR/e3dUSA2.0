@@ -13,9 +13,10 @@ return new class extends Migration
     {
         Schema::create('purchases', function (Blueprint $table) {
             $table->id();
-            $table->string('folio', 20)->unique()->nullable(); // Folio de la orden de compra
+            // $table->string('type', 20)->default('Venta'); // si es para Muestra o Venta
+            $table->boolean('is_spanish_template')->default(true);
 
-            $table->enum('status', ['Pendiente', 'Autorizado', 'Compra realizada', 'Compra recibida', 'Cancelado'])->default('Pendiente');
+            $table->enum('status', ['Pendiente', 'Autorizada', 'Compra realizada', 'Compra recibida', 'Cancelada'])->default('Pendiente');
             
             $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->comment('Usuario que creó la orden')->constrained('users')->onDelete('cascade');

@@ -196,7 +196,9 @@ Route::delete('suppliers/{supplier}/products/{product}', [SupplierProductControl
 // ------- (Rutas de compras)  ---------
 Route::resource('purchases', PurchaseController::class)->middleware('auth');
 Route::post('purchases/massive-delete', [PurchaseController::class, 'massiveDelete'])->middleware('auth')->name('purchases.massive-delete');
-
+Route::post('purchases-get-matches', [PurchaseController::class, 'getMatches'])->middleware('auth')->name('purchases.get-matches');
+Route::put('purchases/authorize/{purchase}', [PurchaseController::class, 'authorizePurchase'])->middleware('auth')->name('purchases.authorize');
+Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->middleware('auth')->name('purchases.print');
 
 
 

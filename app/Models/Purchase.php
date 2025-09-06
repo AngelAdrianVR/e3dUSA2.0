@@ -8,10 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
+use OwenIt\Auditing\Contracts\Auditable;
+use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class Purchase extends Model
+class Purchase extends Model implements HasMedia, Auditable
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+    use InteractsWithMedia, AuditableTrait;
 
     /**
      * The attributes that are mass assignable.
@@ -19,7 +24,6 @@ class Purchase extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'folio',
         'status',
         'supplier_id',
         'user_id',
@@ -27,6 +31,8 @@ class Purchase extends Model
         'supplier_contact_id',
         'supplier_bank_account_id',
         'subtotal',
+        // 'type', // Venta, Muestra
+        'is_spanish_template',
         'tax',
         'total',
         'currency',
@@ -49,6 +55,7 @@ class Purchase extends Model
         'authorized_at' => 'datetime',
         'expected_delivery_date' => 'date',
         'recieved_at' => 'datetime',
+        'is_spanish_template' => 'boolean',
     ];
 
     /**

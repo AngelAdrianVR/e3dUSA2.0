@@ -1,11 +1,11 @@
 <template>
-    <AppLayout title="Crear Orden de Compra">
+    <AppLayout title="Editar Orden de Compra">
         <!-- Encabezado de la página -->
         <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
                 <Back :href="route('purchases.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    Crear nueva órden de compra
+                    Editar órden de compra #{{ purchase.id }}
                 </h2>
             </div>
         </div>
@@ -15,7 +15,7 @@
             <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     
-                    <form @submit.prevent="store">
+                    <form @submit.prevent="update">
                         <!-- SECCIÓN DE DATOS GENERALES -->
                         <section class="mb-8">
                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Datos Generales</h3>
@@ -66,14 +66,23 @@
                                 <!-- Selector de Fecha de Entrega -->
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada*</label>
-                                    <el-date-picker v-model="form.expected_delivery_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" :disabled-date="disabledDate" class="!w-full" />
+                                    <el-date-picker v-model="form.expected_delivery_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
                                     <InputError :message="form.errors.expected_delivery_date" />
                                 </div>
 
-                                <div class="col-span-2 mt-5">
-                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1 mb-1" for="currency">Archivos extra (max. 3)</label>
-                                    <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="todo" :max-files="3" />
-                                    <InputError :message="form.errors.media" class="mt-2" />
+                                <div class="col-span-full mt-5">
+                                    <div v-if="form.current_media.length" class="col-span-full mb-3">
+                                        <label class="text-gray-700 dark:text-white text-sm mb-2 inline-block" for="">Archivos adjuntos actuales</label>
+                                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                            <FileView v-for="file in form.current_media" :key="file.id" :file="file" :deletable="true" @delete-file="deleteFile(file.id)" />
+                                        </div>
+                                    </div>
+                                    <div v-if="form.current_media.length < 3">
+                                        <label class="text-gray-700 dark:text-gray-100 text-sm ml-1 mb-1" for="currency">Agregar más archivos (max. {{ 3 - form.current_media.length }})</label>
+                                        <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="todo" :max-files="3 - form.current_media.length" />
+                                        <InputError :message="form.errors.media" class="mt-2" />
+                                    </div>
+                                    <p v-else class="text-amber-600 text-sm mt-2 col-span-full">*Has alcanzado el límite de archivos.</p>
                                 </div>
                                 
                                 <!-- Campo de Notas -->
@@ -103,35 +112,6 @@
                                             <label class="text-gray-700 dark:text-gray-100 text-sm ml-1">Producto*</label>
                                             <el-select-v2 v-model="productForm.product_id" filterable placeholder="Busca un producto" :options="availableProducts" @change="onProductSelect" class="!w-full" />
                                         </div>
-                                        <LoadingIsoLogo v-if="loadingProductMedia" />
-
-                                        <!-- Tarjeta de materia prima seleccionada -->
-                                        <div class="md:absolute top-3 right-3 mt-2 flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="productForm.product_id">
-                                            <figure 
-                                                v-if="productForm.media" 
-                                                class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
-                                                <img v-if="productForm.media?.length"
-                                                    :src="productForm.media[0]?.original_url" 
-                                                    alt="" 
-                                                    class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
-                                                >
-                                                <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                                    </svg>
-                                                <p>Sin imagen</p>
-                                                </div>
-                                                <!-- Overlay degradado sutil -->
-                                                <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
-                                            </figure>
-
-                                            <!-- informacion de almacén -->
-                                            <div>
-                                                <p class="text-gray-500 dark:text-gray-300">
-                                                    Stock: <strong>{{ productForm.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ productForm.measure_unit }}</strong>
-                                                </p>
-                                            </div>
-                                        </div>
                                     </div>
 
                                     <div>
@@ -145,7 +125,7 @@
                                     <div class="md:col-span-2"></div> <!-- Spacer -->
 
                                     <!-- Distribución de stock -->
-                                    <div v-if="form.type === 'Venta'" class="md:col-span-full">
+                                    <div v-if="productForm.type === 'Venta'" class="md:col-span-full">
                                         <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Distribución de stock</p>
                                         <div class="grid grid-cols-3 gap-x-2 border p-3 rounded-md" :class="{
                                                 'border-red-500': stockRemaining < 0,
@@ -182,7 +162,7 @@
                                     
                                     <div class="md:col-span-full">
                                         <PrimaryButton @click="addProduct" type="button" :disabled="!productForm.product_id || !productForm.quantity > 0">
-                                            <i :class="isEditing ? 'fa-solid fa-check' : 'fa-solid fa-plus'" class="mr-2"></i> {{ isEditing ? 'Actualizar' : 'Agregar' }}
+                                            <i :class="isEditing ? 'fa-solid fa-check' : 'fa-solid fa-plus'" class="mr-2"></i> {{ isEditing ? 'Actualizar producto' : 'Agregar producto' }}
                                         </PrimaryButton>
                                         <button v-if="isEditing" @click="cancelEdit" type="button" class="ml-2 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-red-500">Cancelar</button>
                                     </div>
@@ -249,7 +229,7 @@
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing" :disabled="form.items.length === 0">
-                                Crear Órden de Compra
+                                Guardar Cambios
                             </SecondaryButton>
                         </div>
                     </form>
@@ -262,7 +242,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
-import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
+import FileView from "@/Components/MyComponents/FileView.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
@@ -274,21 +254,18 @@ import axios from 'axios';
 
 export default {
     data() {
-        // Objeto principal del formulario
+        // Mapea los items para el formulario, asegurando que tengan `product_name`.
+        const formItems = this.purchase.items.map(item => ({
+            ...item,
+            product_name: item.product.name // Agrega el nombre para la tabla
+        }));
+        
         const form = useForm({
-            supplier_id: null,
-            supplier_contact_id: null,
-            supplier_bank_account_id: null,
-            expected_delivery_date: null,
-            currency: 'MXN',
-            notes: '',
-            is_spanish_template: true, // true para español, false para inglés
-            type: 'Venta', // 'Venta' o 'Muestra'
-            items: [],
-            subtotal: 0,
-            tax: 0,
-            total: 0,
-            media: [],
+            ...this.purchase,
+            items: formItems,
+            media: [], // Para nuevos archivos
+            current_media: this.purchase.media, // Archivos existentes
+            _method: 'put',
         });
 
         // Objeto para el producto que se está agregando/editando
@@ -310,9 +287,8 @@ export default {
             supplierContacts: [],
             supplierBankAccounts: [],
             availableProducts: [],
-            editProductIndex: null, // Índice del producto en edición
-            loadingProductMedia: false,
-            tax_percent: 16,
+            editProductIndex: null,
+            tax_percent: (this.purchase.tax / this.purchase.subtotal * 100) || 16,
         };
     },
     components: {
@@ -321,27 +297,28 @@ export default {
         TextInput,
         InputError,
         FileUploader,
+        FileView,
         PrimaryButton,
-        LoadingIsoLogo,
         SecondaryButton,
     },
     props: {
+        purchase: Object,
         suppliers: Array,
-        products: Array,
+    },
+    mounted() {
+        // Cargar datos del proveedor al iniciar el componente
+        this.fetchSupplierDetails();
     },
     computed: {
-        // Calcula los totales de la orden
         totals() {
             const subtotal = this.form.items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
             const tax = subtotal * (this.tax_percent / 100);
             const total = subtotal + tax;
             return { subtotal, tax, total };
         },
-        // Devuelve true si se está editando un producto
         isEditing() {
             return this.editProductIndex !== null;
         },
-        // Calcula la cantidad de stock restante por asignar
         stockRemaining() {
             const totalStock = (this.productForm.plane_stock || 0) +
                                (this.productForm.ship_stock || 0) +
@@ -350,26 +327,30 @@ export default {
         },
     },
     methods: {
-        // Enviar el formulario para crear la orden
-        store() {
+        update() {
+            // Asigna los totales al formulario antes de enviarlo
             this.form.subtotal = this.totals.subtotal;
             this.form.tax = this.totals.tax;
             this.form.total = this.totals.total;
 
-            this.form.post(route("purchases.store"), {
+            // Prepara los IDs de los medios actuales para el backend
+            this.form.current_media_ids = this.form.current_media.map(file => file.id);
+
+            this.form.post(route("purchases.update", this.purchase.id), {
                 onSuccess: () => {
-                    ElMessage.success('Órden de compra creada');
+                    ElMessage.success('Órden de compra actualizada');
                 },
-                onError: () => {
+                onError: (errors) => {
+                    console.log(errors);
                     this.$refs.formContainer.scrollIntoView({ behavior: 'smooth' });
                 }
             });
         },
-        // Obtener detalles del proveedor (contactos, cuentas, productos)
         async fetchSupplierDetails() {
             if (!this.form.supplier_id) return;
             
-            this.resetFormOnSupplierChange();
+            // No resetear el formulario si es la carga inicial
+            // this.resetFormOnSupplierChange();
             
             try {
                 const response = await axios.get(route('suppliers.get-details', { supplier: this.form.supplier_id }));
@@ -379,56 +360,25 @@ export default {
                 this.availableProducts = data.products.map(product => ({
                     value: product.id,
                     label: `${product.name} (${product.code})`,
-                    ...product
                 }));
             } catch (error) {
                 console.error("Error al obtener detalles del proveedor:", error);
                 ElMessage.error("No se pudieron cargar los datos del proveedor.");
             }
         },
-        // Seleccionar un producto del listado
         onProductSelect(productId) {
             const product = this.availableProducts.find(p => p.value === productId);
             if (product) {
                 this.productForm.product_name = product.label;
-                this.productForm.unit_price = product.cost ?? 0;
-            }
-            this.getProductMedia();
-        },
-        async getProductMedia() {
-            if (!this.productForm.product_id) return;
-            this.loadingProductMedia = true;
-            try {
-                const response = await axios.get(route('products.get-media', this.productForm.product_id));
-
-                if ( response.status === 200 ) {
-                    this.productForm.media = response.data.product.media;
-                    this.productForm.storages = response.data.product.storages;
-                    this.productForm.cost = response.data.product.cost;
-                    this.productForm.measure_unit = response.data.product.measure_unit;
-                    this.productForm.currency = response.data.product.currency;
-
-                    // Si estamos agregando un nuevo producto (no editando), se asigna el costo como precio.
-                    if (this.editingProductIndex === null) {
-                        this.productForm.last_price = response.data.product.cost;
-                    }
-                }
-            } catch (error) {
-                console.log(error);
-                ElMessage.error('No se pudo cargar la información del producto');
-            } finally {
-                this.loadingProductMedia = false;
             }
         },
-        // Agregar o actualizar un producto en la lista
         addProduct() {
             if (!this.productForm.product_id || !this.productForm.quantity || this.productForm.unit_price === null) {
                 ElMessage.warning('Completa todos los campos del producto');
                 return;
             }
 
-            // Validación de la distribución de stock
-            if (this.form.type === 'Venta' && this.stockRemaining !== 0) {
+            if (this.productForm.type === 'Venta' && this.stockRemaining !== 0) {
                 ElMessage.error('La suma del stock (Avión, Barco, Favor) debe ser igual a la Cantidad total.');
                 return;
             }
@@ -440,34 +390,28 @@ export default {
             }
 
             if (this.isEditing) {
-                // Actualizar producto existente
                 this.form.items[this.editProductIndex] = { ...this.productForm };
             } else {
-                // Agregar nuevo producto
                 this.form.items.push({ ...this.productForm });
             }
-
             this.resetProductForm();
         },
-        // Quitar un producto de la lista
         removeProduct(index) {
             if (this.editProductIndex === index) {
                 this.cancelEdit();
             }
             this.form.items.splice(index, 1);
         },
-        // Preparar formulario para editar un producto
         editProduct(index) {
             this.editProductIndex = index;
-            this.productForm = { ...this.form.items[index] };
+            // Clonación profunda para evitar reactividad no deseada
+            this.productForm = JSON.parse(JSON.stringify(this.form.items[index]));
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },
-        // Cancelar la edición de un producto
         cancelEdit() {
             this.editProductIndex = null;
             this.resetProductForm();
         },
-        // Limpiar el formulario de producto
         resetProductForm() {
             this.productForm = {
                 product_id: null,
@@ -482,20 +426,9 @@ export default {
             };
             this.editProductIndex = null;
         },
-        // Limpiar el formulario cuando cambia el proveedor
-        resetFormOnSupplierChange() {
-            this.form.items = [];
-            this.form.supplier_contact_id = null;
-            this.form.supplier_bank_account_id = null;
-            this.resetProductForm();
+        deleteFile(fileId) {
+            this.form.current_media = this.form.current_media.filter(file => file.id !== fileId);
         },
-        // Deshabilitar fechas anteriores al día de hoy en el calendario
-        disabledDate(time) {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            return time.getTime() < today.getTime();
-        },
-        // Formatear un número como moneda
         formatCurrency(value) {
             if (value === null || value === undefined) return '$0.00';
             return Number(value).toLocaleString('es-MX', { style: 'currency', currency: this.form.currency });
