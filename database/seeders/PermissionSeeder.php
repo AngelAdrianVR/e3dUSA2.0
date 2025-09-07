@@ -16,7 +16,7 @@ class PermissionSeeder extends Seeder
 
         // Definir permisos por módulo
         $permissions = [
-            'Super Admin' => ['Ver costos de productos'],
+            'Super Admin' => ['Ver costos de productos', 'Ver cantidades de dinero'],
             'Generales' => ['Chatear'],
             'Usuarios' => ['Ver personal', 'Crear personal', 'Editar personal', 'Eliminar personal'],
             'Bonos' => ['Ver bonos', 'Crear bonos', 'Editar bonos', 'Eliminar bonos'],
@@ -44,6 +44,7 @@ class PermissionSeeder extends Seeder
             'Proveedores' => ['Ver proveedores', 'Crear proveedores', 'Editar proveedores', 'Eliminar proveedores'],
             'Compras' => ['Ver ordenes de compra', 'Crear ordenes de compra', 'Editar ordenes de compra', 'Eliminar ordenes de compra', 'Autorizar ordenes de compra', 'Ver todas las compras'],
             'Diseño' => ['Ver diseños', 'Crear diseños', 'Editar diseños', 'Eliminar diseños'],
+            'Análisis de ventas' => ['Ver analisis de ventas'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

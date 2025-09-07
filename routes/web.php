@@ -24,6 +24,7 @@ use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\SupplierBankAccountController;
@@ -121,6 +122,14 @@ Route::prefix('branch-notes')->name('branch-notes.')->group(function () {
     Route::put('/{branchNote}', [BranchNoteController::class, 'update'])->middleware('auth')->name('update');
     Route::delete('/{branchNote}', [BranchNoteController::class, 'destroy'])->middleware('auth')->name('destroy');
 });
+
+
+// --- Grupo de rutas para el Módulo de Análisis de Ventas ---
+Route::get('/sales-analysis', [SalesAnalysisController::class, 'index'])->middleware('auth')->name('sales-analysis.index');
+Route::get('/api/sales-analysis/top-products', [SalesAnalysisController::class, 'getTopProducts'])->middleware('auth')->name('api.sales-analysis.top-products');
+Route::get('/api/sales-analysis/product-sales/{product}', [SalesAnalysisController::class, 'getProductSales'])->middleware('auth')->name('api.sales-analysis.product-sales');
+Route::get('/top-customers', [SalesAnalysisController::class, 'getTopCustomers'])->middleware('auth')->name('api.sales-analysis.top-customers');
+Route::get('/sales-metrics', [SalesAnalysisController::class, 'getSalesMetrics'])->middleware('auth')->name('api.sales-analysis.sales-metrics'); 
 
 
 // ------- (rutas de contactos de clientes)  ---------
