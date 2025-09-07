@@ -295,8 +295,15 @@ export default {
                         route().current('crm.*') 
                         || route().current('quotes.*') 
                         || route().current('branches.*')
-                        || route().current('sales.*'),
+                        || route().current('sales.*')
+                        || route().current('sales-analysis.*'),
                     options: [
+                        {
+                            label: 'Análisis de ventas',
+                            route: 'sales-analysis.index',
+                            active: route().current('sales-analysis.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver analisis de ventas'),
+                        },
                         {
                             label: 'Clientes',
                             route: 'branches.index',
@@ -323,6 +330,7 @@ export default {
                      this.$page.props.auth.user.permissions.includes('Ver clientes') 
                     || this.$page.props.auth.user.permissions.includes('Ver cotizaciones') 
                     || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
+                    || this.$page.props.auth.user.permissions.includes('Ver analisis de ventas') 
                 },
                 {
                     label: 'Compras',

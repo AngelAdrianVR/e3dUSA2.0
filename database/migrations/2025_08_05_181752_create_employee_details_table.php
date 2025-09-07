@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('job_position')->nullable(); // puesto de trabajo
             $table->string('department')->nullable(); // departamento
             $table->float('hours_per_week')->unsigned(); // horas por semana
+            $table->json('department_details')->nullable(); // informacion adicional con respecto al departamento de trabajo
             $table->json('work_days')->nullable(); // dias de trabajo
             $table->json('vacations')->nullable(); // vacaciones
 
