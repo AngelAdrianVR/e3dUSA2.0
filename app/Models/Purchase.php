@@ -24,7 +24,7 @@ class Purchase extends Model implements HasMedia, Auditable
      * @var array<int, string>
      */
     protected $fillable = [
-        'status',
+        'status', //Autorizada, Compra realizada, Compra recibida
         'supplier_id',
         'user_id',
         'authorizer_id',

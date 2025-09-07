@@ -223,25 +223,11 @@ export default {
         printPage() {
             window.print();
         },
-        authorizePurchase() {
-            if (confirm('¿Estás seguro de que deseas autorizar esta orden de compra?')) {
-                router.put(route('purchases.authorize', this.purchase.id), {}, {
-                    preserveScroll: true,
-                    onSuccess: () => {
-                        // El componente se refrescará con las nuevas props
-                    },
-                    onError: (errors) => {
-                        console.error('Error al autorizar la compra:', errors);
-                        alert('Ocurrió un error al intentar autorizar la compra.');
-                    }
-                });
-            }
-        },
         async authorizePurchase() {
             try {
                 const response = await axios.put(route('purchases.authorize', this.purchase.id));
                 if (response.status === 200) {
-                    ElMessage.success(response.data.message);
+                    ElMessage.success('Compra autorizada');
                     // Refresca los props de la página actual desde el servidor.
                     router.reload({ 
                         preserveScroll: true,
