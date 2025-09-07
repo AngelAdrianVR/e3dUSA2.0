@@ -75,6 +75,7 @@ class User extends Authenticatable implements Auditable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'active_alerts' => 'array',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -127,8 +128,25 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(Quote::class, 'authorized_by_user_id');
     }
 
+     /**
+     * Get the design orders requested by the user.
+     */
+    public function requestedDesignOrders(): HasMany
+    {
+        return $this->hasMany(DesignOrder::class, 'requester_id');
+    }
 
-    // ------ metodos ---------
+    /**
+     * Get the design orders assigned to the user (as designer).
+     */
+    public function assignedDesignOrders(): HasMany
+    {
+        return $this->hasMany(DesignOrder::class, 'designer_id');
+    }
+
+    
+    // ==========================================================
+    // ========================== metodos =======================
     /**
      * Agrega o actualiza una alerta activa para el usuario.
      *

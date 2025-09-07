@@ -15,11 +15,13 @@ class EmployeeDetail extends Model
         'hours_per_week',
         'work_days',
         'vacations',
+        'department_details',
     ];
 
     protected $casts = [
         'work_days' => 'array',
         'vacations' => 'array',
+        'department_details' => 'array',
         'join_date' => 'datetime',
         'birthdate' => 'date',
     ];
