@@ -4,7 +4,6 @@
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
                 <div class="flex space-x-2 items-center">
-                    <Back :href="route('purchases.index')" />
                     <h1 class="dark:text-white font-bold text-2xl my-2">
                         <span class="text-gray-500 dark:text-gray-400">Orden de Compra:</span> OC-{{ purchase.id.toString().padStart(4, '0') }}
                     </h1>
@@ -12,19 +11,19 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip v-if="purchase.status === 'Creada' && $page.props.auth.user.permissions.includes('authorize purchases')" content="Autorizar Compra" placement="top">
-                    <button @click="updatePurchaseStatus('authorize', 'Autorizada')" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de compra') && !purchase.authorized_at" content="Autorizar Compra" placement="top">
+                    <button @click="updateStatus('Autorizada')" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
                         <i class="fa-solid fa-check-double"></i>
                     </button>
                 </el-tooltip>
-                 <el-tooltip v-if="purchase.status === 'Autorizada'" content="Marcar como Enviada" placement="top">
-                    <button @click="updatePurchaseStatus('mark-as-sent', 'Enviada')" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
-                        <i class="fa-solid fa-truck-fast"></i>
+                 <el-tooltip v-if="purchase.status === 'Autorizada'" content="Marcar como Compra Realizada" placement="top">
+                    <button @click="updateStatus('Compra realizada')" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-bag-shopping"></i>
                     </button>
                 </el-tooltip>
-                <el-tooltip v-if="purchase.status === 'Enviada'" content="Marcar como Recibida" placement="top">
-                    <button @click="showReceivedModal = true" class="size-9 flex items-center justify-center rounded-lg bg-indigo-300 hover:bg-indigo-400 dark:bg-indigo-800 dark:hover:bg-indigo-700 transition-colors">
-                        <i class="fa-solid fa-box-check"></i>
+                <el-tooltip v-if="purchase.status === 'Compra realizada'" content="Marcar como Recibida" placement="top">
+                    <button @click="updateStatus('Compra recibida')" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
+                        <i class="fa-solid fa-square-check"></i>
                     </button>
                 </el-tooltip>
 
@@ -44,21 +43,13 @@
                 </el-tooltip>
                 
                 <Dropdown align="right" width="48">
-                    <template #trigger>
-                        <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
-                            Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
-                        </button>
-                    </template>
-                    <template #content>
-                        <DropdownLink :href="route('purchases.create')" as="button">
-                            Crear nueva Compra
-                        </DropdownLink>
-                        <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
-                            <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Compra
-                        </DropdownLink>
-                    </template>
+                    <!-- ... resto del Dropdown ... -->
                 </Dropdown>
+
+                <Link :href="route('purchases.index')"
+                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+                    <i class="fa-solid fa-xmark"></i>
+                </Link>
             </div>
         </header>
 
@@ -81,6 +72,10 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Emisión:</span>
                             <span>{{ formatDateTime(purchase.emited_at) }}</span>
                         </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha estimada de Entrega:</span>
+                            <span>{{ formatDate(purchase.expected_delivery_date) }}</span>
+                        </li>
                          <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Autorizado por:</span>
                             <span>{{ purchase.authorizer?.name ?? 'N/A' }}</span>
@@ -88,6 +83,10 @@
                          <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Autorización:</span>
                             <span>{{ formatDateTime(purchase.authorized_at) }}</span>
+                        </li>
+                         <li v-if="purchase.recieved_at" class="flex justify-between">
+                            <span class="font-semibold text-green-600 dark:text-green-400">Recibida el:</span>
+                            <span class="text-green-500">{{ formatDateTime(purchase.recieved_at) }}</span>
                         </li>
                          <li class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
@@ -102,7 +101,7 @@
                     <ul class="space-y-3 text-sm">
                         <li class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Nombre:</span>
-                            <span class="text-blue-500 hover:underline cursor-pointer">{{ purchase.supplier.name }}</span>
+                            <span @click="$inertia.visit(route('suppliers.show', purchase.supplier.id))" class="text-blue-500 hover:underline cursor-pointer">{{ purchase.supplier.name }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
@@ -118,11 +117,35 @@
                         </li>
                     </ul>
                 </div>
+
+                <!-- Card de Información de pago -->
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Información de Cuenta bancaria</h3>
+                    <ul class="space-y-3 text-sm">
+                        <h2 class="dark:text-white text-lg">{{ purchase.bank_account.name }}</h2>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Nombrede propietario:</span>
+                            <span>{{ purchase.bank_account?.account_holder ?? 'N/A' }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">N° Cuenta:</span>
+                            <span>{{ purchase.bank_account.account_number }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Clabe:</span>
+                            <span>{{ purchase.bank_account.clabe }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Moneda:</span>
+                            <span>{{ purchase.bank_account.currency }}</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
 
             <!-- COLUMNA DERECHA: PRODUCTOS -->
             <div class="lg:col-span-2">
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px]">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] max-h-[70vh] overflow-y-auto">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Productos de la Orden</h3>
                     <div v-if="purchase.items?.length" class="space-y-3 max-h-[65vh] overflow-auto custom-scroll p-1">
                         <ProductPurchaseCard v-for="item in purchase.items" :key="item.id" :purchase-item="item" />
@@ -157,7 +180,6 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
-import Back from "@/Components/MyComponents/Back.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ProductPurchaseCard from "@/Components/MyComponents/ProductPurchaseCard.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
@@ -172,7 +194,6 @@ export default {
     name: 'PurchaseShow',
     components: {
         Link,
-        Back,
         Stepper,
         Dropdown,
         AppLayout,
@@ -188,7 +209,7 @@ export default {
     data() {
         return {
             showConfirmModal: false,
-            purchaseSteps: ['Autorizada', 'Enviada', 'Recibida'],
+            purchaseSteps: ['Autorizada', 'Compra realizada', 'Compra recibida'],
         };
     },
     methods: {
@@ -197,36 +218,38 @@ export default {
             const date = new Date(dateString);
             return format(date, "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
         },
+        formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return format(date, "d 'de' MMMM, yyyy", { locale: es });
+        },
         formatCurrency(value) {
             if (value === null || value === undefined) return '$0.00';
             return Number(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
         },
-        async updatePurchaseStatus(action, newStatus) {
+        async updateStatus(newStatus) {
             let routeName;
-            if (action === 'authorize') {
+            let payload = {};
+
+            // Determinamos la ruta y el payload según el estado
+            if (newStatus === 'Autorizada') {
                 routeName = 'purchases.authorize';
             } else {
-                // You should create these routes and controller methods in your backend
-                // For example: purchases.mark-as-sent, purchases.mark-as-received
-                ElMessage.warning(`La acción "${action}" no está implementada en el backend.`);
-                return;
+                routeName = 'purchases.update-status';
+                payload = { status: newStatus };
             }
 
-            try {
-                await router.put(route(routeName, this.purchase.id), {}, {
-                    onSuccess: () => {
-                        this.purchase.status = newStatus;
-                        ElMessage.success('Estatus de la compra actualizado');
-                    },
-                    onError: (errors) => {
-                         ElMessage.error('Ocurrió un error al actualizar el estatus.');
-                        console.error(errors);
-                    }
-                });
-            } catch (err) {
-                 ElMessage.error('Ocurrió un error al actualizar el estatus.');
-                console.error(err);
-            }
+            router.put(route(routeName, this.purchase.id), payload, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Estatus de la compra actualizado');
+                },
+                onError: (errors) => {
+                    // Los errores flash de Laravel son manejados automáticamente por Inertia.
+                    // No es necesario mostrar un ElMessage aquí a menos que el error no venga del backend.
+                    console.error("Error al actualizar:", errors);
+                }
+            });
         },
         async deleteItem() {
             try {

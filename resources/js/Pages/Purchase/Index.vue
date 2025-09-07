@@ -330,13 +330,11 @@ export default {
             try {
                 const response = await axios.put(route('purchases.authorize', purchaseId));
                 if (response.status === 200) {
-                    const index = this.tableData.findIndex(item => item.id == purchaseId);
-                    if (index !== -1) {
-                        this.tableData[index].authorized_at = response.data.item.authorized_at;
-                        this.tableData[index].authorizer = response.data.item.authorizer;
-                        this.tableData[index].status = response.data.item.status;
-                    }
-                    ElMessage.success(response.data.message);
+                    router.reload({ 
+                        preserveScroll: true,
+                        preserveState: true 
+                    });
+                    ElMessage.success('Compra autorizada');
                 }
             } catch (err) {
                 ElMessage.error('Ocurrió un error al autorizar la compra');

@@ -199,6 +199,7 @@ Route::post('purchases/massive-delete', [PurchaseController::class, 'massiveDele
 Route::post('purchases-get-matches', [PurchaseController::class, 'getMatches'])->middleware('auth')->name('purchases.get-matches');
 Route::put('purchases/authorize/{purchase}', [PurchaseController::class, 'authorizePurchase'])->middleware('auth')->name('purchases.authorize');
 Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->middleware('auth')->name('purchases.print');
+Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
 
 
 

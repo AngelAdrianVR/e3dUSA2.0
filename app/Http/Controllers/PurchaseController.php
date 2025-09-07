@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\StockMovement;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
+use Illuminate\Validation\Rule;
 
 class PurchaseController extends Controller
 {
@@ -143,8 +145,10 @@ class PurchaseController extends Controller
             'supplier:id,name,address,phone', // Información del proveedor
             'contact:id,name', // Contacto del proveedor
             'items.product.media', // Items de la compra, con su producto y la imagen del producto
+            'bankAccount'
         ]);
 
+        // return $purchase;
         // Renderizamos el componente de Vue y le pasamos la orden de compra con sus relaciones.
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
@@ -273,7 +277,72 @@ class PurchaseController extends Controller
 
         $purchase->load(['user', 'authorizer']);
 
-        return response()->json(['message' => 'Orden autorizada', 'item' => $purchase]);
+        // return response()->json(['message' => 'Orden autorizada', 'item' => $purchase]);
+    }
+
+    public function updateStatus(Request $request, Purchase $purchase)
+    {
+        // Validamos que el estatus enviado sea uno de los permitidos
+        $request->validate([
+            'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida'])],
+        ]);
+
+        $newStatus = $request->input('status');
+        $currentStatus = $purchase->status;
+
+        try {
+            DB::transaction(function () use ($newStatus, $currentStatus, $purchase) {
+                switch ($newStatus) {
+                    case 'Compra realizada':
+                        if ($currentStatus !== 'Autorizada') {
+                            throw new \Exception('La compra debe estar "Autorizada" para marcarla como realizada.');
+                        }
+                        $purchase->update(['status' => $newStatus]);
+                        break;
+
+                    case 'Compra recibida':
+                        if ($currentStatus !== 'Compra realizada') {
+                            throw new \Exception('La compra debe estar marcada como "Realizada" para poder recibirla.');
+                        }
+
+                        // 1. Actualizar el estado y la fecha de recepción de la compra
+                        $purchase->update([
+                            'status' => $newStatus,
+                            'recieved_at' => now(),
+                        ]);
+
+                        // 2. Cargar la relación items con sus productos para evitar N+1 queries
+                        $purchase->load('items.product');
+
+                        // 3. Iterar sobre los productos de la compra para actualizar el stock
+                        foreach ($purchase->items as $item) {
+                            if ($item->product) {
+
+                                $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
+
+                                // Incrementar el stock con la cantidad del item de la compra
+                                $storage->increment('quantity', $item->quantity);
+
+                                StockMovement::create([
+                                    'product_id' => $item->product->id,
+                                    'storage_id' => $storage->id,
+                                    'quantity_change' => $item->quantity,
+                                    'type' => 'Entrada',
+                                    'notes' => 'Entrada por orden de compra recibida OC- ' . $purchase->id
+                                ]);
+                            }
+                        }
+                        break;
+
+                    default:
+                        throw new \Exception('Estatus no válido o transición no permitida.');
+                }
+            });
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "El estatus de la compra se actualizó a \"{$newStatus}\".");
     }
 
     public function print(Purchase $purchase)
