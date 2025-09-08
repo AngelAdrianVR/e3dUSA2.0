@@ -9,6 +9,18 @@
         <p class="text-gray-400 mt-1">Dashboard interactivo para visualizar el rendimiento de ventas.</p>
       </header>
 
+      <!-- Currency Tabs -->
+      <div class="mb-4 border-b border-gray-300 dark:border-gray-500">
+          <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+              <button @click="changeCurrency('MXN')" :class="[activeCurrency === 'MXN' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']">
+                  Ventas MXN
+              </button>
+              <button @click="changeCurrency('USD')" :class="[activeCurrency === 'USD' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']">
+                  Ventas USD
+              </button>
+          </nav>
+      </div>
+
       <!-- Filters -->
       <DashboardFilters
         :active-period="activePeriod"
@@ -31,6 +43,7 @@
         <SalesCostsChart
           :options="salesCostsChartOptions"
           :series="salesCostsChartSeries"
+          :currency="activeCurrency"
         />
       </div>
 
@@ -50,6 +63,7 @@
           @close="selectedProduct = null"
           :format-currency="formatCurrency"
           :format-date="formatDate"
+          :currency="activeCurrency"
         />
         
       </div>
@@ -70,6 +84,7 @@
           :customer-amount-series="customerAmountSeries"
           :customer-quantity-series="customerQuantitySeries"
           :is-loading="isLoading.customerDetails"
+          :currency="activeCurrency"
           @close="selectedCustomer = null"
         />
       </div>
@@ -101,6 +116,7 @@
           :is-loading="isLoading.productFamiliesSales"
           :get-family-donut-options="getFamilyDonutOptions"
           :format-currency="formatCurrency"
+          :currency="activeCurrency"
       />
     </div>
   </div>
@@ -160,9 +176,9 @@ export default {
       selectedSeller: null,
       sellerSalesDetails: [],
 
-
       // State
       activePeriod: 'month',
+      activeCurrency: 'MXN', // New state for currency
       customDateRange: [],
       periods: [
         { key: 'month', label: 'Este Mes' },
@@ -179,7 +195,6 @@ export default {
         productFamiliesSales: false,
         topSellers: false,
         sellerDetails: false,
-
       },
        salesCostsChartSeries: [],
        marginChartSeries: [],
@@ -190,7 +205,9 @@ export default {
         return Object.values(this.isLoading).some(val => val);
     },
     apiParams() {
-        const params = {};
+        const params = {
+            currency: this.activeCurrency, // Add currency to all API requests
+        };
         if (this.activePeriod === 'custom' && this.customDateRange?.length === 2) {
             params.start_date = this.customDateRange[0];
             params.end_date = this.customDateRange[1];
@@ -214,7 +231,6 @@ export default {
 
     // --- Reactive Chart Options ---
     chartForeColor() {
-      // MODIFIED: Use white for dark mode and a dark gray for light mode
       return this.isDarkMode ? '#9CA3AF' : '#374151'; 
     },
     chartGridColor() {
@@ -233,7 +249,7 @@ export default {
         ...this.baseChartOptions,
         chart: { ...this.baseChartOptions.chart, type: 'area', height: 350 },
         xaxis: { type: 'datetime', labels: { datetimeUTC: false, format: 'dd MMM' }},
-        yaxis: { labels: { formatter: (val) => `$${new Intl.NumberFormat('es-MX').format(val.toFixed(0))}` }},
+        yaxis: { labels: { formatter: (val) => this.formatCurrency(val) }}, // Use dynamic formatter
         dataLabels: { enabled: false },
         stroke: { curve: 'smooth', width: 2 },
         colors: ['#4F46E5', '#10B981'],
@@ -273,7 +289,6 @@ export default {
     },
     sellerChartOptions() {
       return {
-        // ...this.baseChartOptions,
         fill: {
           type: 'gradient',
         },
@@ -288,11 +303,11 @@ export default {
                   show: true,
                   showAlways: true,
                   label: 'Total Vendido',
-                  color: '#9CA3AF', // gray-400
+                  color: '#9CA3AF', 
                   formatter: () => this.formatCurrency(this.selectedSeller.total_sold),
                 },
                 value: {
-                  color: '#9CA3AF', // etiquetas del centro
+                  color: '#9CA3AF',
                 },
               }
             },
@@ -316,14 +331,14 @@ export default {
           enabled: true,
           formatter: (val) => `${val.toFixed(1)}%`,
           style: {
-            colors: ['#9CA3AF'], // gray-400
+            colors: ['#fff'],
             fontWeight: 'bold'
           }
         },
         legend: {
           position: 'bottom',
           labels: {
-            colors: '#9CA3AF' // leyenda en gray-400
+            colors: '#9CA3AF'
           }
         },
         tooltip: {
@@ -339,7 +354,6 @@ export default {
         }
       };
     },
-
   },
   methods: {
     fetchAllData() {
@@ -349,7 +363,6 @@ export default {
         this.fetchProductFamiliesSales();
         this.fetchTopSellers();
 
-        // Clear details if selection context changes
         if (this.selectedProduct) this.fetchProductSales();
         if (this.selectedCustomer) this.fetchCustomerSalesDetails();
         if (this.selectedSeller) this.fetchSellerSalesDetails();
@@ -440,7 +453,7 @@ export default {
             this.fetchCustomerSalesDetails();
         }
     },
-    selectSeller(seller) { // NEW
+    selectSeller(seller) {
         if (this.selectedSeller?.id === seller.id) {
             this.selectedSeller = null;
         } else {
@@ -454,6 +467,10 @@ export default {
         this.customDateRange = [];
         this.fetchAllData();
       }
+    },
+    changeCurrency(currency) {
+      this.activeCurrency = currency;
+      this.fetchAllData();
     },
     handleDateChange(dates) {
         if (dates && dates.length === 2) {
@@ -471,54 +488,32 @@ export default {
         });
         return Object.values(series);
     },
-    // MODIFIED: This method now generates radialBar options
     getFamilyDonutOptions(family) {
         return {
             ...this.baseChartOptions,
             chart: { type: 'radialBar' },
             plotOptions: {
                 radialBar: {
-                    hollow: {
-                        size: '70%',
-                    },
-                    track: {
-                        background: this.isDarkMode ? '#374151' : '#E5E7EB',
-                    },
+                    hollow: { size: '70%' },
+                    track: { background: this.isDarkMode ? '#374151' : '#E5E7EB' },
                     dataLabels: {
-                        name: {
-                            show: false,
-                        },
-                        value: {
-                            color: this.chartForeColor,
-                            fontSize: '24px',
-                            fontWeight: 'bold',
-                            fontFamily: 'sans-serif',
-                            formatter: (val) => `${val.toFixed(1)}%`,
-                        },
+                        name: { show: false },
+                        value: { color: this.chartForeColor, fontSize: '24px', fontWeight: 'bold', fontFamily: 'sans-serif', formatter: (val) => `${val.toFixed(1)}%` },
                     },
                 },
             },
             fill: {
                 type: 'gradient',
-                gradient: {
-                    shade: 'dark',
-                    type: 'horizontal',
-                    shadeIntensity: 0.5,
-                    gradientToColors: ['#34D399', '#3B82F6'],
-                    inverseColors: true,
-                    opacityFrom: 1,
-                    opacityTo: 1,
-                    stops: [0, 100],
-                },
+                gradient: { shade: 'dark', type: 'horizontal', shadeIntensity: 0.5, gradientToColors: ['#34D399', '#3B82F6'], inverseColors: true, opacityFrom: 1, opacityTo: 1, stops: [0, 100] },
             },
-            stroke: {
-                lineCap: 'round',
-            },
+            stroke: { lineCap: 'round' },
             labels: ['Percent'],
         };
     },
     formatCurrency(value) {
-      return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value ?? 0);
+      const currencyCode = this.activeCurrency === 'USD' ? 'USD' : 'MXN';
+      const locale = this.activeCurrency === 'USD' ? 'en-US' : 'es-MX';
+      return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(value ?? 0);
     },
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('es-MX', { year: 'numeric', month: 'short', day: 'numeric' });

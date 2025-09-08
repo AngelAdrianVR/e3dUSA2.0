@@ -12,7 +12,7 @@
       <apexchart type="donut" height="350" :options="sellerChartOptions" :series="sellerChartSeries"></apexchart>
     </div>
     <div v-else class="flex items-center justify-center h-full -mt-12">
-        <p class="text-gray-500 dark:text-gray-400">No hay detalles de venta para este vendedor.</p>
+        <p class="text-gray-500 dark:text-gray-100">No hay detalles de venta para este vendedor.</p>
     </div>
   </div>
 </template>

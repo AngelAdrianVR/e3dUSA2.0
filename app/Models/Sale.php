@@ -22,6 +22,7 @@ class Sale extends Model implements HasMedia, Auditable
         'quote_id',
         'contact_id',
         'user_id',
+        'currency',
         'type',
         'status',
         'oce_name',

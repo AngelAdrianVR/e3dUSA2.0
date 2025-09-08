@@ -15,7 +15,7 @@ use Carbon\Carbon;
 class SalesAnalysisController extends Controller
 {
     /**
-     * Muestra el dashboard de análisis de ventas usando Inertia.
+     * Display the sales analysis dashboard using Inertia.
      */
     public function index()
     {
@@ -42,40 +42,50 @@ class SalesAnalysisController extends Controller
     }
 
     /**
-     * Obtiene el top productos más vendidos según un período de tiempo.
+     * Helper function to apply base filters for currency and sale type.
+     */
+    private function applyBaseFiltersToQuery($query, Request $request)
+    {
+        // Always filter for 'venta' type as requested.
+        $query->where('sales.type', 'venta');
+
+        // Filter by currency if provided.
+        if ($request->filled('currency')) {
+            $query->where('sales.currency', $request->input('currency'));
+        }
+    }
+
+
+    /**
+     * Get the top-selling products for a given period.
      */
     public function getTopProducts(Request $request)
     {
         $query = SaleProduct::query()
             ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
-            ->where('sales.type', 'venta')
             ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
             ->groupBy('product_id')
             ->orderBy('total_quantity', 'desc')
             ->limit(20);
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         $topProductsData = $query->get();
 
-        // Si no hay productos, devolvemos un array vacío para evitar errores.
         if ($topProductsData->isEmpty()) {
             return response()->json([]);
         }
 
         $productIds = $topProductsData->pluck('product_id')->toArray();
         
-        // CORRECCIÓN: Se eliminó el DB::raw() redundante que causaba el error.
-        // También se asegura que el orden de los IDs se mantenga.
         $products = Product::with('media')->whereIn('id', $productIds)
                     ->orderByRaw("FIELD(id, " . implode(',', $productIds) . ")")
                     ->get();
 
         $results = $topProductsData->map(function ($item) use ($products) {
             $product = $products->firstWhere('id', $item->product_id);
-
             if (!$product) return null;
-
             return [
                 'id' => $product->id,
                 'name' => $product->name,
@@ -91,7 +101,7 @@ class SalesAnalysisController extends Controller
     }
 
     /**
-     * Obtiene el historial de ventas para un producto específico.
+     * Get sales history for a specific product.
      */
     public function getProductSales(Request $request, Product $product)
     {
@@ -99,7 +109,6 @@ class SalesAnalysisController extends Controller
             ->join('sale_products', 'sales.id', '=', 'sale_products.sale_id')
             ->join('branches', 'sales.branch_id', '=', 'branches.id')
             ->where('sale_products.product_id', $product->id)
-            ->where('sales.type', 'venta')
             ->select(
                 'sales.id as sale_id',
                 'sales.created_at',
@@ -108,6 +117,7 @@ class SalesAnalysisController extends Controller
                 'sale_products.price'
             );
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         $sales = $query->orderBy('sales.created_at', 'desc')->get();
@@ -116,32 +126,31 @@ class SalesAnalysisController extends Controller
     }
 
     /**
-     * Obtiene el top clientes (sucursales) que más han comprado.
+     * Get the top customers (branches) by purchase amount.
      */
     public function getTopCustomers(Request $request)
     {
         $query = Sale::query()
-            ->where('type', 'venta')
             ->join('branches', 'sales.branch_id', '=', 'branches.id')
             ->select('branches.id', 'branches.name', DB::raw('SUM(sales.total_amount) as total_purchased'))
             ->groupBy('branches.id', 'branches.name')
             ->orderBy('total_purchased', 'desc')
             ->limit(20);
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         return response()->json($query->get());
     }
 
     /**
-     * Obtiene métricas de ventas globales (ventas, costos, utilidad, etc.).
+     * Get global sales metrics (sales, costs, profit, etc.).
      */
     public function getSalesMetrics(Request $request)
     {
         $query = Sale::query()
             ->join('sale_products', 'sales.id', '=', 'sale_products.sale_id')
             ->join('products', 'sale_products.product_id', '=', 'products.id')
-            ->where('sales.type', 'venta')
             ->select(
                 DB::raw('DATE(sales.created_at) as date'),
                 DB::raw('SUM(sale_products.quantity * sale_products.price) as daily_sales'),
@@ -149,7 +158,8 @@ class SalesAnalysisController extends Controller
             )
             ->groupBy('date')
             ->orderBy('date', 'asc');
-
+        
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
         
         $timeSeriesData = $query->get();
@@ -165,13 +175,12 @@ class SalesAnalysisController extends Controller
             'total_profit' => $totalProfit,
             'margin_percentage' => $margin,
             'time_series' => $timeSeriesData,
+            'currency' => $request->input('currency', 'MXN'), // Added currency to response
         ]);
     }
     
     /**
-     * Obtiene los detalles de ventas para un cliente específico.
-     * Asegúrate de agregar la ruta en tu archivo de rutas (ej. routes/api.php):
-     * Route::get('/sales-analysis/customer-sales/{branch}', [SalesAnalysisController::class, 'getCustomerSalesDetails'])->name('api.sales-analysis.customer-sales');
+     * Get sales details for a specific customer.
      */
     public function getCustomerSalesDetails(Request $request, Branch $branch)
     {
@@ -180,7 +189,6 @@ class SalesAnalysisController extends Controller
             ->join('products', 'sale_products.product_id', '=', 'products.id')
             ->leftJoin('product_families', 'products.product_family_id', '=', 'product_families.id')
             ->where('sales.branch_id', $branch->id)
-            ->where('sales.type', 'venta')
             ->select(
                 DB::raw('DATE(sales.created_at) as date'),
                 DB::raw('COALESCE(product_families.name, "Sin Familia") as family_name'),
@@ -190,15 +198,14 @@ class SalesAnalysisController extends Controller
             ->groupBy('date', 'family_name')
             ->orderBy('date', 'asc');
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         return response()->json($query->get());
     }
 
     /**
-     * Obtiene el total de ventas por familia de producto.
-     * Asegúrate de agregar la ruta en tu archivo de rutas (ej. routes/api.php):
-     * Route::get('/sales-analysis/product-families-sales', [SalesAnalysisController::class, 'getProductFamiliesSales'])->name('api.sales-analysis.product-families-sales');
+     * Get total sales by product family.
      */
     public function getProductFamiliesSales(Request $request)
     {
@@ -206,7 +213,6 @@ class SalesAnalysisController extends Controller
             ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
             ->join('products', 'sale_products.product_id', '=', 'products.id')
             ->leftJoin('product_families', 'products.product_family_id', '=', 'product_families.id')
-            ->where('sales.type', 'venta')
             ->select(
                 DB::raw('COALESCE(product_families.name, "Sin Familia") as family_name'),
                 DB::raw('SUM(sale_products.quantity * sale_products.price) as total_family_sales')
@@ -214,6 +220,7 @@ class SalesAnalysisController extends Controller
             ->groupBy('family_name')
             ->orderBy('total_family_sales', 'desc');
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         $data = $query->get();
@@ -230,28 +237,33 @@ class SalesAnalysisController extends Controller
         return response()->json($results);
     }
 
+    /**
+     * Get the top sellers by sales amount.
+     */
     public function getTopSellers(Request $request)
     {
         $query = Sale::query()
-            ->where('type', 'venta')
             ->join('users', 'sales.user_id', '=', 'users.id')
             ->select('users.id', 'users.name', DB::raw('SUM(sales.total_amount) as total_sold'))
             ->groupBy('users.id', 'users.name')
             ->orderBy('total_sold', 'desc')
             ->limit(20);
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
         return response()->json($query->get());
     }
 
+    /**
+     * Get sales details for a specific seller, broken down by product family.
+     */
     public function getSellerSalesDetails(Request $request, User $user)
     {
         $query = SaleProduct::query()
             ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
             ->join('products', 'sale_products.product_id', '=', 'products.id')
             ->leftJoin('product_families', 'products.product_family_id', '=', 'product_families.id')
-            ->where('sales.type', 'venta')
             ->where('sales.user_id', $user->id)
             ->select(
                 DB::raw('COALESCE(product_families.name, "Sin Familia") as family_name'),
@@ -259,6 +271,7 @@ class SalesAnalysisController extends Controller
             )
             ->groupBy('family_name');
 
+        $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request, 'sales.created_at');
 
         $data = $query->get();
@@ -275,4 +288,3 @@ class SalesAnalysisController extends Controller
         return response()->json($results);
     }
 }
-

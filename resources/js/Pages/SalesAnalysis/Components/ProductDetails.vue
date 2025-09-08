@@ -6,7 +6,7 @@
             <button @click="$emit('close')" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
         </div>
         <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <img :src="selectedProduct.image_url || 'https://placehold.co/128x128/1f2937/9ca3af?text=N/A'" class="w-32 h-32 rounded-lg object-cover bg-gray-700">
+            <img @click="openProductDetail" :src="selectedProduct.image_url || 'https://placehold.co/128x128/1f2937/9ca3af?text=N/A'" class="size-32 cursor-pointer rounded-lg object-cover bg-gray-700">
             <div class="flex-1">
                 <h3 class="text-2xl font-bold dark:text-white">{{ selectedProduct.name }}</h3>
                 <p class="text-sm text-gray-400 font-mono mb-4">{{ selectedProduct.code }}</p>
@@ -24,7 +24,7 @@
         </div>
     </div>
     <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-        <h2 class="text-lg font-semibold dark:text-white mb-4">Historial de Ventas</h2>
+        <h2 class="text-lg font-semibold dark:text-white mb-4">Historial de Ventas ({{ currency }})</h2>
         <LoadingIsoLogo v-if="isLoading" class="my-3" />
         <div v-else-if="productSales.length" class="overflow-x-auto max-h-56 overflow-y-auto">
             <table class="w-full text-sm">
@@ -65,6 +65,13 @@ export default {
     isLoading: Boolean,
     formatCurrency: Function,
     formatDate: Function,
+    currency: String,
+  },
+  methods:{
+    openProductDetail() {
+        const url = route('catalog-products.show', this.selectedProduct.id)
+        window.open(url, 'blanck')
+    }
   },
   emits: ['close'],
 }

@@ -1,6 +1,6 @@
 <template>
   <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
-    <h2 class="text-lg font-semibold dark:text-white mb-6">Ventas por Familia de Productos</h2>
+    <h2 class="text-lg font-semibold dark:text-white mb-6">Ventas por Familia de Productos ({{ currency }})</h2>
     <LoadingIsoLogo v-if="isLoading" class="my-3" />
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       <div v-for="family in productFamiliesSales" :key="family.name" class="flex flex-col items-center">
@@ -28,6 +28,7 @@ export default {
     isLoading: Boolean,
     getFamilyDonutOptions: Function,
     formatCurrency: Function,
+    currency: String,
   }
 }
 </script>

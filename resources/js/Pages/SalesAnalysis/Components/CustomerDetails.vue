@@ -11,7 +11,7 @@
           <LoadingIsoLogo v-if="isLoading" class="my-3" />
           <div v-else-if="customerAmountSeries.length">
               <div class="mb-6">
-                  <h4 class="text-md font-semibold dark:text-white mb-2">Ventas por Monto ($) por Familia</h4>
+                  <h4 class="text-md font-semibold dark:text-white mb-2">Ventas por Monto ({{ currency }}) por Familia</h4>
                   <apexchart type="area" height="300" :options="customerChartOptions" :series="customerAmountSeries"></apexchart>
               </div>
               <div>
@@ -40,6 +40,7 @@ export default {
     customerAmountSeries: Array,
     customerQuantitySeries: Array,
     isLoading: Boolean,
+    currency: String,
   },
   emits: ['close'],
 }
