@@ -4,12 +4,10 @@
         <div class="bg-gray-100 dark:bg-zinc-800 h-full rounded-2xl flex flex-col p-2 relative mx-1">
             <div class="">
                 <figure class="size-16 mb-3 mx-auto relative p-2">
-                    <img class="w-full h-full object-contain rounded-full" 
-                         src="/images/isoLogoEmblems.png" 
-                         alt="Logo de la Empresa" />
-                    
-                    <div v-if="loading" 
-                         class="absolute inset-0 rounded-full animate-spin
+                    <img class="w-full h-full object-contain rounded-full" src="/images/isoLogoEmblems.png"
+                        alt="Logo de la Empresa" />
+
+                    <div v-if="loading" class="absolute inset-0 rounded-full animate-spin
                                 border-2 border-blue-500 border-t-red-500">
                     </div>
                 </figure>
@@ -19,12 +17,13 @@
                     class="cursor-pointer hover:underline mb-4 p-2 items-center font-semibold text-xs text-[#0355B5] flex flex-col text-center">
                     <span>Horas / semana</span>
                     <span>{{ '$page.props.week_time.formatted' }} / {{
-                       ' $page.props.auth.user?.employee_properties?.hours_per_week_formatted' ?? '0 h' }}</span>
+                        ' $page.props.auth.user?.employee_properties?.hours_per_week_formatted' ?? '0 h' }}</span>
                 </div>
 
                 <div class="space-y-1 mx-auto">
                     <template v-for="(menu, index) in topMenus" :key="'top-' + index">
-                        <SideNavLink class="relative" v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown" :label="menu.label">
+                        <SideNavLink class="relative" v-if="menu.show" :href="menu.route" :active="menu.active"
+                            :dropdown="menu.dropdown" :label="menu.label">
                             <template #trigger>
                                 <div v-if="menu.active" class="absolute left-0 h-7 w-1 rounded-r-md bg-blue-700 dark:bg-blue-300
                                     dark:shadow-[0_0_8px_5px_rgba(50,50,255,0.9)] 
@@ -34,27 +33,29 @@
                                     ">
                                 </div>
                                 <span v-html="menu.icon"></span>
-                                <div v-if="menu.notifications"
-                                    class="absolute top-2 right-2">
+                                <div v-if="menu.notifications" class="absolute top-2 right-2">
                                     <span class="relative flex h-2.5 w-2.5">
-                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span
+                                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
                                     </span>
                                 </div>
                             </template>
                             <template #content>
-                                <div class="px-3 py-2 text-sm font-semibold bg-[#EAEAEA] dark:bg-zinc-800 text-gray-900 dark:text-white">{{ menu.label }}</div>
+                                <div
+                                    class="px-3 py-2 text-sm font-semibold bg-[#EAEAEA] dark:bg-zinc-800 text-gray-900 dark:text-white">
+                                    {{ menu.label }}</div>
                                 <div class="border-t border-gray-300 dark:border-zinc-500"></div>
                                 <div class="p-1 space-y-1 bg-[#f2f2f2] dark:bg-zinc-800">
                                     <div v-for="option in menu.options" :key="option.label">
                                         <template v-if="option.show">
-                                            <DropdownNavLink v-if="option.route" :href="route(option.route)" :active="option.active"
-                                                :notifications="option.notifications">
+                                            <DropdownNavLink v-if="option.route" :href="route(option.route)"
+                                                :active="option.active" :notifications="option.notifications">
                                                 {{ option.label }}
                                             </DropdownNavLink>
                                             <!-- Handle actions that are not routes, like opening a modal -->
-                                            <div v-else-if="option.action" @click="option.action" 
-                                                 class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
+                                            <div v-else-if="option.action" @click="option.action"
+                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
                                                 {{ option.label }}
                                             </div>
                                         </template>
@@ -67,23 +68,26 @@
 
                 <div class="mt-auto space-y-2 pt-4 mx-auto">
                     <template v-for="(menu, index) in bottomMenus" :key="'bottom-' + index">
-                        <SideNavLink v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown" :label="menu.label">
+                        <SideNavLink v-if="menu.show" :href="menu.route" :active="menu.active" :dropdown="menu.dropdown"
+                            :label="menu.label">
                             <template #trigger>
                                 <span v-html="menu.icon"></span>
-                                <i v-if="menu.notifications" class="fa-solid fa-circle fa-flip text-primary text-[10px] absolute top-1 right-1"></i>
+                                <i v-if="menu.notifications"
+                                    class="fa-solid fa-circle fa-flip text-primary text-[10px] absolute top-1 right-1"></i>
                             </template>
                             <template #content>
-                                <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label }}</div>
+                                <div class="px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white">{{ menu.label
+                                    }}</div>
                                 <div class="border-t border-gray-200 dark:border-zinc-700"></div>
                                 <div class="p-1 space-y-1">
-                                     <div v-for="option in menu.options" :key="option.label">
+                                    <div v-for="option in menu.options" :key="option.label">
                                         <template v-if="option.show">
-                                            <DropdownNavLink v-if="option.route" :href="route(option.route)" :active="option.active"
-                                                :notifications="option.notifications">
+                                            <DropdownNavLink v-if="option.route" :href="route(option.route)"
+                                                :active="option.active" :notifications="option.notifications">
                                                 {{ option.label }}
                                             </DropdownNavLink>
-                                            <div v-else-if="option.action" @click="option.action" 
-                                                 class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
+                                            <div v-else-if="option.action" @click="option.action"
+                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out cursor-pointer rounded-md">
                                                 {{ option.label }}
                                             </div>
                                         </template>
@@ -92,19 +96,21 @@
                             </template>
                         </SideNavLink>
                     </template>
-                    
+
                     <!-- Avatar de usuario -->
-                    <div class="text-center w-full flex justify-center mb-4 border-t-2 border-gray-300 dark:border-zinc-700 pt-4">
+                    <div
+                        class="text-center w-full flex justify-center mb-4 border-t-2 border-gray-300 dark:border-zinc-700 pt-4">
                         <button v-if="$page.props.jetstream.managesProfilePhotos"
                             @click="showProfileCard = !showProfileCard"
                             class="flex items-center space-x-2 text-sm border-2 rounded-full focus:outline-none transition"
                             :class="{ 'border-primary': showProfileCard || route().current('profile.*'), 'border-transparent': !showProfileCard && !route().current('profile.*') }">
                             <div class="flex items-center p-1">
-                                <img class="size-14 rounded-full object-cover" :src="$page.props.auth.user.profile_photo_url"
-                                    :alt="$page.props.auth.user.name">
+                                <img class="size-14 rounded-full object-cover"
+                                    :src="$page.props.auth.user.profile_photo_url" :alt="$page.props.auth.user.name">
                             </div>
                         </button>
-                        <ProfileCard v-if="showProfileCard" @close="showProfileCard = false" class="bottom-0 left-[calc(100%+0.3rem)]" />
+                        <ProfileCard v-if="showProfileCard" @close="showProfileCard = false"
+                            class="bottom-0 left-[calc(100%+0.3rem)]" />
                     </div>
                 </div>
             </nav>
@@ -135,8 +141,10 @@
         <template #title>
             <div class="flex items-center space-x-3">
                 <span class="bg-blue-100 dark:bg-blue-900 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-blue-600 dark:text-blue-300">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="size-6 text-blue-600 dark:text-blue-300">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
                     </svg>
                 </span>
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Cotizador de Alfombras</h2>
@@ -144,47 +152,59 @@
         </template>
         <template #content>
             <div class="space-y-6 p-4">
-                <div class="bg-gray-50 dark:bg-zinc-800 p-3 rounded-lg border border-gray-200 dark:border-zinc-700 flex justify-between items-center">
+                <div
+                    class="bg-gray-50 dark:bg-zinc-800 p-3 rounded-lg border border-gray-200 dark:border-zinc-700 flex justify-between items-center">
                     <div>
                         <p class="text-sm text-gray-600 dark:text-gray-300">
-                            El precio se calcula con base en: 
-                            <strong class="text-gray-900 dark:text-white">{{ formatCurrency(basePriceConfig.price) }}</strong>
-                            por una alfombra de 
-                            <strong class="text-gray-900 dark:text-white">{{ basePriceConfig.length }}cm x {{ basePriceConfig.width }}cm</strong>.
+                            El precio se calcula con base en:
+                            <strong class="text-gray-900 dark:text-white">{{ formatCurrency(basePriceConfig.price)
+                                }}</strong>
+                            por una alfombra de
+                            <strong class="text-gray-900 dark:text-white">{{ basePriceConfig.length }}cm x {{
+                                basePriceConfig.width }}cm</strong>.
                         </p>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             Precio por cm²: {{ formatCurrency(carpetPricePerCm2) }}
                         </p>
                     </div>
-                    <button @click="resetBaseConfig" title="Reiniciar configuración" class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    <button @click="resetBaseConfig" title="Reiniciar configuración"
+                        class="text-gray-400 hover:text-red-500 dark:hover:text-red-400 transition-colors duration-200 p-2 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                         </svg>
                     </button>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label for="carpet-length" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo (cm)</label>
+                        <label for="carpet-length"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo (cm)</label>
                         <input type="number" id="carpet-length" v-model="carpetQuote.length" placeholder="e.g., 200"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
-                        <label for="carpet-width" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho (cm)</label>
+                        <label for="carpet-width"
+                            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho (cm)</label>
                         <input type="number" id="carpet-width" v-model="carpetQuote.width" placeholder="e.g., 150"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
 
                 <div>
-                    <label for="carpet-discount" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento (%) <span class="text-gray-500">(Opcional)</span></label>
-                    <input type="number" id="carpet-discount" v-model="carpetQuote.discount" placeholder="e.g., 10" min="0" max="100"
+                    <label for="carpet-discount"
+                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento (%) <span
+                            class="text-gray-500">(Opcional)</span></label>
+                    <input type="number" id="carpet-discount" v-model="carpetQuote.discount" placeholder="e.g., 10"
+                        min="0" max="100"
                         class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                 </div>
 
                 <div v-if="totalCarpetPrice > 0" class="mt-6 text-center bg-blue-50 dark:bg-blue-900/50 p-4 rounded-lg">
                     <p class="text-lg font-medium text-gray-600 dark:text-gray-300">Precio Total Estimado</p>
-                    <p class="text-4xl font-extrabold text-blue-600 dark:text-blue-300 tracking-tight">{{ formatCurrency(totalCarpetPrice) }}</p>
+                    <p class="text-4xl font-extrabold text-blue-600 dark:text-blue-300 tracking-tight">{{
+                        formatCurrency(totalCarpetPrice) }}</p>
                     <p v-if="carpetQuote.discount > 0" class="text-sm text-green-600 dark:text-green-400 mt-1">
                         Con {{ carpetQuote.discount }}% de descuento aplicado.
                     </p>
@@ -201,9 +221,11 @@
         <template #title>
             <div class="flex items-center space-x-3">
                 <span class="bg-orange-100 dark:bg-orange-900 rounded-full p-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-orange-600 dark:text-orange-300">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.78.93l-.15.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.149-.894c-.07-.424-.384-.764-.78-.93-.398-.164-.855-.142-1.205.108l-.737.527a1.125 1.125 0 0 1-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894Z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="size-6 text-orange-600 dark:text-orange-300">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.78.93l-.15.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.149-.894c-.07-.424-.384-.764-.78-.93-.398-.164-.855-.142-1.205.108l-.737.527a1.125 1.125 0 0 1-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     </svg>
                 </span>
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Configuración Inicial</h2>
@@ -212,21 +234,25 @@
         <template #content>
             <div class="p-4 space-y-4">
                 <p class="text-sm text-gray-600 dark:text-gray-300">
-                    Es la primera vez que usas el cotizador. Por favor, define los valores base que se usarán para los cálculos. Esta información se guardará en tu navegador.
+                    Es la primera vez que usas el cotizador. Por favor, define los valores base que se usarán para los
+                    cálculos. Esta información se guardará en tu navegador.
                 </p>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Base (MXN)</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Precio Base
+                        (MXN)</label>
                     <input type="number" v-model="basePriceConfig.price" placeholder="7500"
                         class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo Base (cm)</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo Base
+                            (cm)</label>
                         <input type="number" v-model="basePriceConfig.length" placeholder="120"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho Base (cm)</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho Base
+                            (cm)</label>
                         <input type="number" v-model="basePriceConfig.width" placeholder="60"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500">
                     </div>
@@ -235,8 +261,8 @@
         </template>
         <template #footer>
             <CancelButton @click="showBasePriceModal = false">Cancelar</CancelButton>
-            <button @click="saveBasePriceConfig" 
-                    class="ml-2 inline-flex items-center justify-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 focus:outline-none focus:border-orange-700 focus:ring focus:ring-orange-200 disabled:opacity-25 transition">
+            <button @click="saveBasePriceConfig"
+                class="ml-2 inline-flex items-center justify-center px-4 py-2 bg-orange-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-orange-500 active:bg-orange-700 focus:outline-none focus:border-orange-700 focus:ring focus:ring-orange-200 disabled:opacity-25 transition">
                 Guardar y Continuar
             </button>
         </template>
@@ -291,9 +317,9 @@ export default {
                 {
                     label: 'CRM',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" /></svg>',
-                    active: 
-                        route().current('crm.*') 
-                        || route().current('quotes.*') 
+                    active:
+                        route().current('crm.*')
+                        || route().current('quotes.*')
                         || route().current('branches.*')
                         || route().current('sales.*')
                         || route().current('sales-analysis.*'),
@@ -326,17 +352,17 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: 
-                     this.$page.props.auth.user.permissions.includes('Ver clientes') 
-                    || this.$page.props.auth.user.permissions.includes('Ver cotizaciones') 
-                    || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta') 
-                    || this.$page.props.auth.user.permissions.includes('Ver analisis de ventas') 
+                    show:
+                        this.$page.props.auth.user.permissions.includes('Ver clientes')
+                        || this.$page.props.auth.user.permissions.includes('Ver cotizaciones')
+                        || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta')
+                        || this.$page.props.auth.user.permissions.includes('Ver analisis de ventas')
                 },
                 {
                     label: 'Compras',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg>',
-                    active: 
-                        route().current('suppliers.*') 
+                    active:
+                        route().current('suppliers.*')
                         || route().current('purchases.*'),
                     options: [
                         {
@@ -355,19 +381,19 @@ export default {
 
                     ],
                     dropdown: true,
-                    show: this.$page.props.auth.user.permissions.includes('Ver proveedores') 
-                    || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra') 
+                    show: this.$page.props.auth.user.permissions.includes('Ver proveedores')
+                        || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
                 },
                 {
                     label: 'Logistica',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>',
                     active: route().current('shipments.*'),
-                        // || route().current('boxes.*') 
-                        // || route().current('shipping-rates.*'),
+                    // || route().current('boxes.*') 
+                    // || route().current('shipping-rates.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                     //     return notification.data.module === 'shipments';
                     // }),
-                     options: [
+                    options: [
                         {
                             label: 'Envíos',
                             route: 'shipments.index',
@@ -403,16 +429,24 @@ export default {
                 {
                     label: 'Recursos Humanos',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>',
-                    active: 
-                         route().current('users.*')
+                    active:
+                        route().current('users.*')
                         || route().current('role-permissions.*')
                         || route().current('bonuses.*')
                         || route().current('holidays.*')
-                        || route().current('discounts.*'),
+                        || route().current('discounts.*')
+                        || route().current('payrolls.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                     //     return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
                     // }),
                     options: [
+                        {
+                            label: 'Nóminas',
+                            route: 'payrolls.index',
+                            active: route().current('payrolls.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver nominas'),
+                            notifications: false,
+                        },
                         {
                             label: 'Personal',
                             route: 'users.index',
@@ -451,9 +485,9 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: 
-                        this.$page.props.auth.user.permissions.includes('Ver roles y permisos') 
-                        || this.$page.props.auth.user.permissions.includes('Ver bonos') 
+                    show:
+                        this.$page.props.auth.user.permissions.includes('Ver roles y permisos')
+                        || this.$page.props.auth.user.permissions.includes('Ver bonos')
                         || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                 },
                 {
@@ -469,7 +503,7 @@ export default {
                 {
                     label: 'Más',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
-                    active: 
+                    active:
                         route().current('machines.*') ||
                         route().current('production-costs.*') ||
                         route().current('manuals.*') ||
@@ -513,8 +547,8 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: this.$page.props.auth.user.permissions.includes('Ver maquinas') 
-                        || this.$page.props.auth.user.permissions.includes('Ver historial de acciones') 
+                    show: this.$page.props.auth.user.permissions.includes('Ver maquinas')
+                        || this.$page.props.auth.user.permissions.includes('Ver historial de acciones')
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
                 },
             ],
@@ -616,4 +650,3 @@ export default {
     }
 }
 </script>
-
