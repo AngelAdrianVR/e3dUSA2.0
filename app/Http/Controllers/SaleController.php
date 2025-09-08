@@ -83,6 +83,7 @@ class SaleController extends Controller
             'type' => ['required', Rule::in(['venta', 'stock'])],
             'oce_name' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
@@ -133,6 +134,7 @@ class SaleController extends Controller
                 'status' => 'Pendiente',
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
+                'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
                 'promise_date' => $firstPromiseDate, // Se asigna la fecha del primer envío
                 
@@ -341,6 +343,7 @@ class SaleController extends Controller
         $rules = [
             'oce_name' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
@@ -395,6 +398,7 @@ class SaleController extends Controller
             $sale->update([
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
+                'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
