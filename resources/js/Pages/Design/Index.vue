@@ -1,16 +1,16 @@
 <template>
-    <AppLayout title="Órdenes de Compra">
+    <AppLayout title="Órdenes de Diseño">
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            Órdenes de Compra
+            Órdenes de Diseño
         </h2>
 
         <div class="py-7">
             <div class="max-w-[95rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <!-- Botón para crear nueva compra -->
-                        <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de compra')"
-                            :href="route('purchases.create')">
+                        <!-- Botón para crear nueva orden de diseño -->
+                        <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')"
+                            :href="route('design-orders.create')">
                             <SecondaryButton>
                                 <i class="fa-solid fa-plus mr-2"></i>
                                 Nueva Orden
@@ -19,9 +19,9 @@
 
                         <div class="flex items-center space-x-2">
                              <!-- Botón para eliminar seleccionados -->
-                            <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de compra')"
+                            <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de diseño')"
                                 confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
-                                title="¿Estás seguro de eliminar las compras seleccionadas?" @confirm="deleteSelections">
+                                title="¿Estás seguro de eliminar las órdenes seleccionadas?" @confirm="deleteSelections">
                                 <template #reference>
                                     <el-button type="danger" plain :disabled="!selectedItems.length">
                                         Eliminar selección
@@ -29,14 +29,14 @@
                                 </template>
                             </el-popconfirm>
                             
-                            <!-- Switch para ver todas las compras / mis compras -->
+                            <!-- Switch para ver todas las órdenes / mis órdenes -->
                             <div
-                                v-if="$page.props.auth.user.permissions.includes('Ver todas las compras')"
+                                v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')"
                                 class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700"
                             >
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
                                 <el-switch
-                                    v-model="showAllPurchases"
+                                    v-model="showAllDesigns"
                                     @change="toggleView"
                                     style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;"
                                 />
@@ -55,7 +55,7 @@
                             <LoadingIsoLogo />
                         </div>
                         
-                        <!-- Tabla de Compras -->
+                        <!-- Tabla de Órdenes de Diseño -->
                         <el-table 
                             max-height="550" 
                             :data="tableData"
@@ -69,130 +69,64 @@
                             <el-table-column prop="id" label="Folio" width="120">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
-                                         <el-tooltip content="Orden de Compra" placement="top">
-                                            <i class="fa-solid fa-cart-arrow-down text-blue-500"></i>
+                                         <el-tooltip content="Orden de Diseño" placement="top">
+                                            <i class="fa-solid fa-palette text-blue-500"></i>
                                         </el-tooltip>
-                                        <span>{{ 'OC-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        <span>{{ 'OD-' + scope.row.id.toString().padStart(4, '0') }}</span>
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Proveedor" width="140">
+                            <el-table-column prop="order_title" label="Título" width="200" />
+                            <el-table-column label="Categoría" width="140">
                                 <template #default="scope">
-                                    {{ scope.row.supplier?.name ?? 'N/A' }}
+                                    {{ scope.row.design_category?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <!-- COLUMNA DE PRODUCTOS -->
-                            <el-table-column label="Productos" width="130">
+                            <el-table-column label="Solicitante" width="140">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.items?.length" placement="right" effect="light">
-                                        <template #content>
-                                            <div class="max-h-64 overflow-y-auto pr-2">
-                                            <ul class="list-disc list-inside text-xs space-y-3">
-                                                <li
-                                                v-for="item in scope.row.items"
-                                                :key="item.id"
-                                                class="flex items-start space-x-3"
-                                                >
-                                                <img
-                                                    draggable="false"
-                                                    :src="item.product.media[0]?.original_url"
-                                                    :alt="item.product.name"
-                                                    class="size-12 rounded-md object-cover flex-shrink-0"
-                                                />
-                                                <div class="leading-relaxed">
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Tipo: <span class="text-white ml-1">{{ item.type }}</span>
-                                                    </p>
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Nombre: <span class="text-white ml-1">{{ item.product.name }}</span>
-                                                    </p>
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Cantidad:
-                                                    <span class="text-white ml-1">
-                                                        {{ item.quantity }} {{ item.product.measure_unit }}
-                                                    </span>
-                                                    </p>
-
-                                                    <div v-if="scope.row.type === 'Venta'" class="mt-2">
-                                                    <h2 class="mb-1 text-center font-bold text-blue-300 text-xs">
-                                                        DISTRIBUCIÓN
-                                                    </h2>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        A favor:
-                                                        <span class="text-white ml-1">
-                                                        {{ item.additional_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        En avión:
-                                                        <span class="text-white ml-1">
-                                                        {{ item.plane_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        En barco:
-                                                        <span class="text-white ml-1">
-                                                        {{ item.ship_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    </div>
-                                                </div>
-                                                </li>
-                                            </ul>
-                                            </div>
-                                        </template>
-
-                                        <span
-                                            class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
-                                        >
-                                            {{ scope.row.items?.length }} producto(s)
-                                        </span>
-                                    </el-tooltip>
-
-                                    <span v-else class="text-xs text-gray-400">N/A</span>
+                                    {{ scope.row.requester?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Creado por" width="120">
+                            <el-table-column label="Diseñador Asignado" width="140">
                                 <template #default="scope">
-                                    {{ scope.row.user?.name ?? 'N/A' }}
+                                    {{ scope.row.designer?.name ?? 'Sin asignar' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Creado el" width="180">
+                            <el-table-column label="Fecha de Solicitud" width="180">
                                 <template #default="scope">
                                     {{ formatDate(scope.row.created_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
                             <el-table-column prop="status" label="Estatus" width="130">
                                 <template #default="scope">
-                                    <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
-                                        {{ scope.row.status }}
-                                    </el-tag>
+                                    <div class="flex items-center space-x-2">
+                                        <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
+                                            {{ scope.row.status }}
+                                        </el-tag>
+                                        <el-tooltip v-if="scope.row.is_hight_priority" content="Prioridad Alta" placement="top">
+                                            <i class="fa-solid fa-fire text-red-500"></i>
+                                        </el-tooltip>
+                                    </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Autorizado" width="120" align="center">
+                            <el-table-column label="Autorizado" width="100" align="center">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.authorized_at" placement="top">
                                         <template #content>
-                                            Autorizado por: {{ scope.row.authorizer?.name ?? 'N/A' }} <br>
+                                            Autorizado por: {{ scope.row.authorized_user_name }} <br>
                                             Fecha: {{ formatDate(scope.row.authorized_at) }}
                                         </template>
                                         <i class="fa-solid fa-check-double text-green-500 text-lg"></i>
                                     </el-tooltip>
-                                    <p v-else class="text-xs">No autorizada</p>
+                                    <p v-else>No autorizada</p>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Monto Total" width="110">
-                                 <template #default="scope">
-                                    {{ formatCurrency(scope.row.total) }}
+                             <el-table-column label="Terminado el" width="140">
+                                <template #default="scope">
+                                    {{ formatDate(scope.row.finished_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <!-- <el-table-column label="Factura">
-                                 <template #default="scope">
-                                    <p v-if="scope.row.invoice_folio">{{ scope.row.invoice_folio }}</p>
-                                    <span v-else class="text-gray-400">N/A</span>
-                                </template>
-                            </el-table-column> -->
-
+                          
                             <!-- Menú de acciones por fila -->
                             <el-table-column align="right">
                                 <template #default="scope">
@@ -210,23 +144,28 @@
                                                     </svg>Ver
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de compra')"
+                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de diseño')"
                                                     :command="'edit-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>Editar
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de compra') && !scope.row.authorized_at"
+                                                    v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de diseño') && !scope.row.authorized_at"
+                                                    :disabled="!scope.row.designer_id"
                                                     :command="`authorize-${scope.row.id}`">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                                    </svg>Autorizar
+                                                    </svg>
+                                                    Autorizar
                                                 </el-dropdown-item>
-                                                <el-dropdown-item :command="'print-' + scope.row.id">
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Asignar diseños') && !scope.row.designer_id"
+                                                    :command="`assign-${scope.row.id}`">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
-                                                    </svg>Imprimir
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
+                                                    </svg>
+                                                    Asignar
                                                 </el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
@@ -237,9 +176,9 @@
                     </div>
 
                     <!-- Paginación -->
-                    <div v-if="purchases.total > 0 && !search" class="flex justify-center mt-6">
-                        <el-pagination v-model:current-page="purchases.current_page"
-                            :page-size="purchases.per_page" :total="purchases.total"
+                    <div v-if="designOrders.total > 0 && !search" class="flex justify-center mt-6">
+                        <el-pagination v-model:current-page="designOrders.current_page"
+                            :page-size="designOrders.per_page" :total="designOrders.total"
                             layout="prev, pager, next" background @current-change="handlePageChange" />
                     </div>
                 </div>
@@ -260,15 +199,14 @@ import { Link, router } from "@inertiajs/vue3";
 import axios from 'axios';
 
 export default {
-    // Definición del componente en Options API
     data() {
         return {
             loading: false,
             search: '',
             selectedItems: [],
-            tableData: this.purchases.data,
-            showAllPurchases: this.filters.view === 'all',
-            SearchProps: ['ID', 'Proveedor', 'Creador', 'Estatus'],
+            tableData: this.designOrders.data,
+            showAllDesigns: this.filters.view === 'all',
+            SearchProps: ['Folio', 'Título', 'Solicitante', 'Diseñador', 'Estatus'],
         };
     },
     components: {
@@ -279,7 +217,7 @@ export default {
         SecondaryButton,
     },
     props: {
-        purchases: Object,
+        designOrders: Object,
         filters: Object,
     },
     methods: {
@@ -287,14 +225,14 @@ export default {
             this.loading = true;
             try {
                 if (!this.search) {
-                    this.tableData = this.purchases.data;
-                    this.$inertia.get(this.route('purchases.index'), {}, {
+                    this.tableData = this.designOrders.data;
+                    this.$inertia.get(this.route('design-orders.index'), {}, {
                         preserveState: true,
                         replace: true,
                     });
                     return;
                 }
-                const response = await axios.post(route('purchases.get-matches', { query: this.search }));
+                const response = await axios.post(route('design-orders.get-matches', { query: this.search }));
                 this.tableData = response.data.items;
             } catch (error) {
                 console.error(error);
@@ -312,89 +250,85 @@ export default {
             this.selectedItems = selection;
         },
         handleRowClick(row) {
-            router.get(route('purchases.show', row.id));
+            router.get(route('design-orders.show', row.id));
         },
         handleCommand(command) {
             const [action, id] = command.split('-');
             
-            if (action === 'authorize') {
+            // Aquí puedes agregar lógica para comandos específicos como 'assign'
+            if (action === 'assign'){
+                console.log('asignar');
+            }
+            else if (action === 'authorize') {
                 this.authorize(id);
-            } else if ( action === 'print' ) {
-                window.open(route('purchases.print', id), '_blank');
+            } else {
+                router.get(route(`design-orders.${action}`, id));
             }
-            else {
-                router.get(route(`purchases.${action}`, id));
-            }
+            
         },
-        async authorize(purchaseId) {
+        // --- Método para autorizar ---
+        async authorize(dsignOrderId) {
             try {
-                const response = await axios.put(route('purchases.authorize', purchaseId));
+                const response = await axios.get(route('design-orders.authorize', dsignOrderId));
                 if (response.status === 200) {
+                    // refresca parametros
                     router.reload({ 
                         preserveScroll: true,
                         preserveState: true 
-                    });
-                    ElMessage.success('Compra autorizada');
+                    })                    
+                    ElMessage.success(response.data.message);
                 }
             } catch (err) {
-                ElMessage.error('Ocurrió un error al autorizar la compra');
+                ElMessage.error('Ocurrió un error al autorizar la venta');
                 console.error(err);
             }
         },
         deleteSelections() {
             const ids = this.selectedItems.map(item => item.id);
-            router.post(route('purchases.massive-delete'), { ids }, {
+            router.post(route('design-orders.massive-delete'), { ids }, {
                 onSuccess: () => {
-                    ElMessage.success('Compras eliminadas correctamente');
+                    ElMessage.success('Órdenes eliminadas correctamente');
                 },
                 onError: () => {
-                    ElMessage.error('Ocurrió un error al eliminar las compras');
+                    ElMessage.error('Ocurrió un error al eliminar las órdenes');
                 }
             });
         },
         handlePageChange(page) {
             const params = { page };
-            if (this.showAllPurchases) {
+            if (this.showAllDesigns) {
                 params.view = 'all';
             }
-            router.get(route('purchases.index', params), {
+            router.get(route('design-orders.index', params), {
                 preserveState: true,
                 replace: true,
             });
         },
         toggleView() {
             const params = {};
-            if (this.showAllPurchases) {
+            if (this.showAllDesigns) {
                 params.view = 'all';
             }
-            router.get(route('purchases.index', params), {
+            router.get(route('design-orders.index', params), {
                 preserveState: true,
                 replace: true,
                 onStart: () => this.loading = true,
                 onFinish: () => this.loading = false,
             });
         },
-        formatCurrency(value) {
-            if (value === null || value === undefined) return '$0.00';
-            const num = Number(value);
-            return num.toLocaleString('es-MX', {
-                style: 'currency',
-                currency: 'MXN',
-            });
-        },
         getStatusTagType(status) {
             const statusMap = {
                 'Pendiente': 'info',
-                'Autorizada': 'primary',
-                'Compra realizada': 'warning',
-                'Compra recibida': 'success',
+                'Autorizada': 'primary', // default color
+                'En proceso': 'warning',
+                'Terminada': 'success',
                 'Cancelada': 'danger',
             };
             return statusMap[status] || 'default';
         }
     },
     watch: {
-        'purchases.data': {
+        'designOrders.data': {
             handler(newData) {
                 this.tableData = newData;
             },

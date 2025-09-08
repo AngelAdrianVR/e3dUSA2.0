@@ -173,4 +173,11 @@ class User extends Authenticatable implements Auditable
             $this->update(['active_alerts' => $alerts]);
         }
     }
+
+    public function isDesigner(): bool
+    {
+        // O la lógica que uses para definir a un diseñador, 
+        // ej. return $this->hasRole('designer');
+        return !is_null($this->designer_level); 
+    }
 }
