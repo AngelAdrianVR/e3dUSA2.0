@@ -5,7 +5,7 @@ import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import { useForm } from "@inertiajs/vue3";
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 
 export default {
     components: {
@@ -16,26 +16,27 @@ export default {
         SecondaryButton,
     },
     props: {
+        user: Object,
         roles: Array,
         bonuses: Array,
         discounts: Array,
     },
-    setup() {
+    setup(props) {
         const form = useForm({
             // User data
-            name: '',
-            email: '',
+            name: props.user.name,
+            email: props.user.email,
             password: '',
             password_confirmation: '',
-            role: null,
+            role: props.user.roles[0]?.name, // Asume que el usuario tiene un solo rol
             // EmployeeDetail data
-            department: '',
-            job_position: '',
-            week_salary: null,
-            birthdate: null,
-            join_date: null,
-            selected_bonuses: [],
-            selected_discounts: [],
+            department: props.user.employee_detail?.department || '',
+            job_position: props.user.employee_detail?.job_position || '',
+            week_salary: props.user.employee_detail?.week_salary || null,
+            birthdate: props.user.employee_detail?.birthdate,
+            join_date: props.user.employee_detail?.join_date,
+            selected_bonuses: props.user.employee_detail?.bonuses.map(b => b.id) || [],
+            selected_discounts: props.user.employee_detail?.discounts.map(d => d.id) || [],
             work_schedule: [
                 { day: 'Lunes', works: false, start_time: null, end_time: null, break_minutes: 0 },
                 { day: 'Martes', works: false, start_time: null, end_time: null, break_minutes: 0 },
@@ -47,8 +48,24 @@ export default {
             ]
         });
 
-        const store = () => {
-            form.post(route("users.store"));
+        // Poblar el horario con los datos guardados
+        onMounted(() => {
+            const savedSchedule = props.user.employee_detail?.work_days || [];
+            if (Array.isArray(savedSchedule)) {
+                 form.work_schedule.forEach(daySchedule => {
+                    const savedDay = savedSchedule.find(d => d.day === daySchedule.day);
+                    if (savedDay) {
+                        daySchedule.works = savedDay.works;
+                        daySchedule.start_time = savedDay.start_time;
+                        daySchedule.end_time = savedDay.end_time;
+                        daySchedule.break_minutes = savedDay.break_minutes;
+                    }
+                });
+            }
+        });
+
+        const update = () => {
+            form.put(route("users.update", props.user.id));
         };
 
         const totalWeeklyMinutes = computed(() => {
@@ -70,26 +87,26 @@ export default {
             return `${hours}h ${minutes}m`;
         });
 
-        return { form, store, formattedTotalHours };
+        return { form, update, formattedTotalHours };
     }
 }
 </script>
 
 <template>
-    <AppLayout title="Crear Usuario">
-        <div class="px-4 sm:px-0">
+    <AppLayout title="Editar Usuario">
+         <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
                 <Back :href="route('users.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    Crear nuevo usuario
+                    Editar usuario: {{ user.name }}
                 </h2>
             </div>
         </div>
-
+        
         <div class="py-7">
             <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
-                    <form @submit.prevent="store">
+                    <form @submit.prevent="update">
                         <!-- SECCIÓN DE DATOS DE ACCESO -->
                         <section class="mb-8">
                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Datos de Acceso</h3>
@@ -105,12 +122,13 @@ export default {
                                     <InputError :message="form.errors.email" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Contraseña*</label>
+                                    <label class="text-sm ml-1">Nueva Contraseña</label>
                                     <TextInput v-model="form.password" type="password" class="w-full" />
+                                    <p class="text-xs text-gray-500">Dejar en blanco las contraseñas para no cambiar</p>
                                     <InputError :message="form.errors.password" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Confirmar contraseña*</label>
+                                    <label class="text-sm ml-1">Confirmar nueva contraseña</label>
                                     <TextInput v-model="form.password_confirmation" type="password" class="w-full" />
                                 </div>
                                 <div>
@@ -123,7 +141,7 @@ export default {
                             </div>
                         </section>
 
-                        <!-- SECCIÓN DE INFORMACIÓN DEL EMPLEADO -->
+                         <!-- SECCIÓN DE INFORMACIÓN DEL EMPLEADO -->
                         <section class="mb-8">
                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Información del Empleado</h3>
                              <div class="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
@@ -139,7 +157,7 @@ export default {
                                 </div>
                                 <div>
                                     <label class="text-sm ml-1">Salario semanal*</label>
-                                    <TextInput v-model="form.week_salary" type="number" :step="0.01" class="w-full" placeholder="0.00">
+                                    <TextInput v-model="form.week_salary" type="number" step="0.01" class="w-full" placeholder="0.00">
                                        <template #icon-left>$</template>
                                     </TextInput>
                                     <InputError :message="form.errors.week_salary" />
@@ -197,7 +215,7 @@ export default {
                                         <div v-if="day.works" class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <el-time-picker v-model="day.start_time" placeholder="Entrada" format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
                                             <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
-                                            <el-input-number v-model="day.break_minutes" :min="0" ::step="15" placeholder="Minutos" class="!w-full" />
+                                            <el-input-number v-model="day.break_minutes" :min="0" :step="15" placeholder="Minutos" class="!w-full" />
                                         </div>
                                         <div v-else class="col-span-full md:col-span-3 text-center text-gray-400">
                                            No laborable
@@ -210,10 +228,10 @@ export default {
                                  <InputError :message="form.errors.work_schedule" />
                             </div>
                         </section>
-                        
+
                         <div class="flex justify-end mt-8">
                             <SecondaryButton :loading="form.processing" :disabled="form.processing">
-                                Guardar Usuario
+                                Actualizar Usuario
                             </SecondaryButton>
                         </div>
                     </form>
