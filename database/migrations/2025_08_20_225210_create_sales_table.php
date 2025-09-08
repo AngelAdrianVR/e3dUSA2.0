@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
             // Columnas de la tabla
+            $table->char('currency', 3)->default('MXN');
             $table->enum('type', ['venta', 'stock'])->default('venta');
             $table->string('status')->default('Pendiente'); // Pendiente, Autorizada, En Proceso, Completada, Enviada
             $table->string('oce_name')->nullable();

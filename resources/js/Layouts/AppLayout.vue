@@ -8,6 +8,7 @@ import DropdownLink from '@/Components/DropdownLink.vue';
 import SideNav from "@/Components/MyComponents/SideNav.vue";
 import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
+import ThemeToggleSwitch from "@/Components/MyComponents/ThemeToggleSwitch.vue";
 import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue";
 import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
 // 1. IMPORTAR EL COMPONENTE DE ALERTA
@@ -105,7 +106,7 @@ onMounted(() => {
                             <div class="hidden sm:flex sm:items-center sm:ms-6 transition duration-300 space-x-1">
                                 <!-- Dark mode toggle -->
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
-                                    <ThemeToggleSwitch2 v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
+                                    <ThemeToggleSwitch v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
                                 </div>
 
                                  <!-- calendario -->
@@ -194,7 +195,7 @@ onMounted(() => {
 
                                 <!-- Dark mode toggle -->
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition duration-300">
-                                    <ThemeToggleSwitch2 v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
+                                    <ThemeToggleSwitch v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
                                 </div>
 
                                 <button class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out" @click="showingNavigationDropdown = ! showingNavigationDropdown">

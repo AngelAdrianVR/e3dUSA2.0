@@ -125,11 +125,26 @@ Route::prefix('branch-notes')->name('branch-notes.')->group(function () {
 
 
 // --- Grupo de rutas para el Módulo de Análisis de Ventas ---
-Route::get('/sales-analysis', [SalesAnalysisController::class, 'index'])->middleware('auth')->name('sales-analysis.index');
-Route::get('/api/sales-analysis/top-products', [SalesAnalysisController::class, 'getTopProducts'])->middleware('auth')->name('api.sales-analysis.top-products');
-Route::get('/api/sales-analysis/product-sales/{product}', [SalesAnalysisController::class, 'getProductSales'])->middleware('auth')->name('api.sales-analysis.product-sales');
-Route::get('/top-customers', [SalesAnalysisController::class, 'getTopCustomers'])->middleware('auth')->name('api.sales-analysis.top-customers');
-Route::get('/sales-metrics', [SalesAnalysisController::class, 'getSalesMetrics'])->middleware('auth')->name('api.sales-analysis.sales-metrics'); 
+// Ruta para la vista principal del dashboard (Inertia)
+Route::get('/sales-analysis', [SalesAnalysisController::class, 'index'])
+    ->middleware('auth')
+    ->name('sales-analysis.index');
+
+// --- Grupo de rutas para la API del dashboard ---
+Route::middleware(['auth'])->prefix('api/sales-analysis')->as('api.sales-analysis.')->group(function () {
+    // Rutas que ya tenías (con URI corregida)
+    Route::get('/top-products', [SalesAnalysisController::class, 'getTopProducts'])->name('top-products');
+    Route::get('/product-sales/{product}', [SalesAnalysisController::class, 'getProductSales'])->name('product-sales');
+    Route::get('/top-customers', [SalesAnalysisController::class, 'getTopCustomers'])->name('top-customers');
+    Route::get('/sales-metrics', [SalesAnalysisController::class, 'getSalesMetrics'])->name('sales-metrics');
+    // Para obtener los detalles de ventas de un cliente específico
+    Route::get('/customer-sales/{branch}', [SalesAnalysisController::class, 'getCustomerSalesDetails'])->name('customer-sales');
+    // Para obtener el resumen de ventas por familia de producto
+    Route::get('/product-families-sales', [SalesAnalysisController::class, 'getProductFamiliesSales'])->name('product-families-sales');
+    Route::get('/top-sellers', [SalesAnalysisController::class, 'getTopSellers'])->name('top-sellers');
+    Route::get('/seller-sales/{user}', [SalesAnalysisController::class, 'getSellerSalesDetails'])->name('seller-sales');
+});
+
 
 
 // ------- (rutas de contactos de clientes)  ---------
