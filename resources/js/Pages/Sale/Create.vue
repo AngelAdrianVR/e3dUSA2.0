@@ -68,8 +68,11 @@
                             </template>
                         </div>
 
+                        <!-- Estado de carga -->
+                        <LoadingIsoLogo class="my-5" v-if="loadingClientProducts" />
+
                         <!-- COMPONENTE HIJO PARA PRODUCTOS -->
-                        <SaleProductManager 
+                        <SaleProductManager v-else
                             v-model="form.products"
                             :branch-id="form.branch_id"
                             :sale-type="form.type"
@@ -195,6 +198,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
                             <TextInput v-if="form.type === 'venta'" label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
                             
+                            <div>
+                                <InputLabel value="Moneda general*" />
+                                <el-select v-model="form.currency" placeholder="Selecciona la moneda" class="!w-full">
+                                    <el-option label="MXN (Peso Mexicano)" value="MXN" />
+                                    <el-option label="USD (Dólar Americano)" value="USD" />
+                                </el-select>
+                                <InputError :message="form.errors.currency" />
+                            </div>
+
                             <div v-if="form.type === 'venta'">
                                 <InputLabel value="Medio de petición" />
                                 <el-select v-model="form.order_via" placeholder="Selecciona el medio">
@@ -245,6 +257,7 @@
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
@@ -271,6 +284,7 @@ export default {
         BranchNotes,
         FileUploader,
         PrimaryButton,
+        LoadingIsoLogo,
         SecondaryButton,
         SaleProductManager,
         ClientProductsDrawer,
@@ -293,6 +307,7 @@ export default {
                 freight_option: 'Por cuenta del cliente',
                 freight_cost: 0,
                 notes: '',
+                currency: 'MXN',
                 is_high_priority: false,
                 products: [],
                 oce_media: null,
@@ -304,6 +319,7 @@ export default {
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
+            loadingClientProducts: false,
             orderVias: [
                 'Correo electrónico',
                 'WhatsApp',
@@ -493,12 +509,15 @@ export default {
         async fetchClientProducts() {
             if (!this.form.branch_id) return;
             this.clientProducts = [];
+            this.loadingClientProducts = true;
             try {
                 const response = await axios.get(route('branches.fetch-products', this.form.branch_id));
                 this.clientProducts = response.data;
             } catch (error) {
                 console.error("Error fetching client products:", error);
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
+            } finally {
+                this.loadingClientProducts = false;
             }
         },
         async fetchQuoteDetails(quoteId) {

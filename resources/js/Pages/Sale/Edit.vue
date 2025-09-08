@@ -193,6 +193,15 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
                             <TextInput v-if="form.type === 'venta'" label="OCE (Orden Compra Externa)" :error="form.errors.oce_name" v-model="form.oce_name" />
                             
+                            <div>
+                                <InputLabel value="Moneda general*" />
+                                <el-select v-model="form.currency" placeholder="Selecciona la moneda" class="!w-full">
+                                    <el-option label="MXN (Peso Mexicano)" value="MXN" />
+                                    <el-option label="USD (Dólar Americano)" value="USD" />
+                                </el-select>
+                                <InputError :message="form.errors.currency" />
+                            </div>
+
                             <div v-if="form.type === 'venta'">
                                 <InputLabel value="Medio de petición" />
                                 <el-select v-model="form.order_via" placeholder="Selecciona el medio">
@@ -301,6 +310,7 @@ export default {
                 freight_option: this.sale.freight_option,
                 freight_cost: this.sale.freight_cost,
                 notes: this.sale.notes,
+                currency: this.sale.currency,
                 // promise_date: this.sale.promise_date,
                 is_high_priority: this.sale.is_high_priority,
                 products: this.sale.sale_products.map(p => ({

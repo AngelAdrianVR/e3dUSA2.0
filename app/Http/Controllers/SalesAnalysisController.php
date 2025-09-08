@@ -47,7 +47,7 @@ class SalesAnalysisController extends Controller
     private function applyBaseFiltersToQuery($query, Request $request)
     {
         // Always filter for 'venta' type as requested.
-        $query->where('sales.type', 'venta');
+        $query->where('sales.type', 'venta')->whereIn('sales.status', ['En Producción', 'Preparando Envío', 'Enviada']);
 
         // Filter by currency if provided.
         if ($request->filled('currency')) {
