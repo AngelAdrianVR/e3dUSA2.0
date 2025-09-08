@@ -137,13 +137,12 @@ Route::middleware(['auth'])->prefix('api/sales-analysis')->as('api.sales-analysi
     Route::get('/product-sales/{product}', [SalesAnalysisController::class, 'getProductSales'])->name('product-sales');
     Route::get('/top-customers', [SalesAnalysisController::class, 'getTopCustomers'])->name('top-customers');
     Route::get('/sales-metrics', [SalesAnalysisController::class, 'getSalesMetrics'])->name('sales-metrics');
-    
-    // --- NUEVAS RUTAS ---
     // Para obtener los detalles de ventas de un cliente específico
     Route::get('/customer-sales/{branch}', [SalesAnalysisController::class, 'getCustomerSalesDetails'])->name('customer-sales');
-    
     // Para obtener el resumen de ventas por familia de producto
     Route::get('/product-families-sales', [SalesAnalysisController::class, 'getProductFamiliesSales'])->name('product-families-sales');
+    Route::get('/top-sellers', [SalesAnalysisController::class, 'getTopSellers'])->name('top-sellers');
+    Route::get('/seller-sales/{user}', [SalesAnalysisController::class, 'getSellerSalesDetails'])->name('seller-sales');
 });
 
 
