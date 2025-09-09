@@ -1,5 +1,5 @@
 <template>
-    <AppLayout title="Solicitar Diseño">
+    <AppLayout :title="'Editar Orden OD-' + designOrder.id.toString().padStart(4, '0')">
         <!-- componente de carga de trabajo de diseñadores -->
         <DesignersWorkload v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')" />
 
@@ -7,7 +7,7 @@
             <div class="flex items-center space-x-2">
                 <Back />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    Solicitar nuevo diseño
+                    Editar Orden de Diseño <span class="text-indigo-500">OD-{{ designOrder.id.toString().padStart(4, '0') }}</span>
                 </h2>
             </div>
         </div>
@@ -16,7 +16,7 @@
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     
-                    <form @submit.prevent="checkSimilarAndStore" class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <form @submit.prevent="updateDesignOrder" class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <InputLabel value="Cliente (opcional)" />
                             <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
@@ -91,11 +91,19 @@
                             <InputError :message="form.errors.due_date" />
                         </div>
 
-                        <div class="col-span-2 mt-5">
-                            <InputLabel value="Archivos (max: 3)" />
-                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="3" />
+                        <div v-if="designOrder.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
+                            <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
+                            <FileView v-for="file in designOrder.media" :key="file" :file="file" :deletable="true"
+                                @delete-file="deleteFile($event)" />
+                        </div>
+
+                        <div v-if="designOrder.media?.length < 3" class="col-span-2 mt-5">
+                            <InputLabel :value="`Archivos (max: 3). ${designOrder.media?.length ?? 0} archivos actuales`" />
+                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="todo" :max-files="3 - designOrder.media?.length" />
                             <InputError :message="form.errors.media" class="mt-2" />
                         </div>
+
+                        <p class="text-amber-600 text-sm mt-4 col-span-full" v-else>*Has alcanzado el límite de imágenes elimina alguna para poder agregar más</p>
                         
                         <div class="flex items-center justify-start mt-3">
                              <label class="text-gray-700 dark:text-gray-100 text-sm mr-5">¿Es prioridad alta?</label>
@@ -104,7 +112,7 @@
 
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing" :disabled="form.processing">
-                                Crear Orden
+                                Guardar Cambios
                             </SecondaryButton>
                         </div>
                     </form>
@@ -112,7 +120,7 @@
             </div>
         </div>
 
-        <!-- MODAL PARA CREAR CATEGORÍA -->
+        <!-- MODAL PARA CREAR CATEGORÍA (Se mantiene igual) -->
         <DialogModal :show="showCategoryModal" @close="showCategoryModal = false">
             <template #title>
                 Crear nueva categoría de diseño
@@ -152,55 +160,13 @@
             </template>
         </DialogModal>
 
-        <!-- ========= NUEVO MODAL PARA ÓRDENES SIMILARES ========= -->
-        <DialogModal :show="showSimilarOrdersModal" @close="showSimilarOrdersModal = false">
-            <template #title>
-                Se encontraron órdenes similares
-            </template>
-            <template #content>
-                <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                    Hemos encontrado algunas órdenes que podrían ser similares a la que estás creando.
-                    Por favor, revísalas para evitar duplicados. Puedes hacer clic en el folio para ver los detalles en una nueva pestaña.
-                </p>
-                <div class="border rounded-md dark:border-gray-700 max-h-60 overflow-y-auto">
-                    <ul class="divide-y dark:divide-gray-700">
-                        <li v-for="order in similarOrders" :key="order.id" class="p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200">
-                            <p class="font-semibold text-gray-800 dark:text-gray-200">
-                                <a :href="route('design-orders.show', order.id)" target="_blank" class="text-indigo-600 dark:text-indigo-400 hover:underline">
-                                    Folio: OD-{{ order.id.toString().padStart(4, '0') }}
-                                </a>
-                                - {{ order.order_title }}
-                            </p>
-                            <p class="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                                Estado: <span class="font-medium">{{ order.status }}</span> | Solicitado por: {{ order.requester?.name ?? 'N/A' }} el {{ new Date(order.created_at).toLocaleDateString() }}
-                            </p>
-                        </li>
-                    </ul>
-                </div>
-            </template>
-            <template #footer>
-                <div class="flex items-center justify-between w-full">
-                    <p class="text-sm text-gray-500">
-                        {{ similarOrders.length }} coincidencia(s) encontrada(s).
-                    </p>
-                    <div class="flex items-center space-x-3">
-                        <CancelButton @click="showSimilarOrdersModal = false" :disabled="form.processing">
-                            Cancelar
-                        </CancelButton>
-                        <SecondaryButton @click="confirmCreation" :loading="form.processing" :disabled="form.processing">
-                            Crear de todos modos
-                        </SecondaryButton>
-                    </div>
-                </div>
-            </template>
-        </DialogModal>
-
     </AppLayout>
 </template>
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import FileView from "@/Components/MyComponents/FileView.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
@@ -216,16 +182,18 @@ import { nextTick } from 'vue';
 
 export default {
     data() {
+        // Inicializamos el formulario con los datos de la orden que se pasa como prop
         const form = useForm({
-            order_title: null,
-            specifications: null,
-            design_category_id: null,
-            is_hight_priority: false,
-            branch_id: null,
-            contact_id: null,
-            due_date: null,
-            designer_id: null,
-            media: null,
+            _method: 'PUT', // Campo para indicar que es una petición PUT
+            order_title: this.designOrder.order_title,
+            specifications: this.designOrder.specifications,
+            design_category_id: this.designOrder.design_category_id,
+            is_hight_priority: Boolean(this.designOrder.is_hight_priority),
+            branch_id: this.designOrder.branch_id,
+            contact_id: this.designOrder.contact_id,
+            due_date: this.designOrder.due_date,
+            designer_id: this.designOrder.designer_id,
+            media: null, // Los archivos se manejan por separado
         });
 
         const categoryForm = useForm({
@@ -238,12 +206,11 @@ export default {
             categoryForm,
             showCategoryModal: false,
             availableContacts: [],
-            similarOrders: [],
-            showSimilarOrdersModal: false,
         };
     },
     components: {
         Back,
+        FileView,
         TextInput,
         AppLayout,
         InputError,
@@ -256,70 +223,27 @@ export default {
         DesignersWorkload,
     },
     props: {
+        designOrder: Object, // Prop para recibir la orden de diseño a editar
         designCategories: Array,
         designers: Array,
         branches: Array,
     },
     methods: {
-        // Método que envía el formulario al backend
-        proceedWithStore() {
-            this.form.post(route("design-orders.store"), {
+        updateDesignOrder() {
+            // Usamos 'post' porque las peticiones PUT no soportan 'multipart/form-data' de forma nativa.
+            // Inertia se encarga de convertirlo a una petición PUT real gracias al campo _method.
+            this.form.post(route("design-orders.update", this.designOrder.id), {
                 onSuccess: () => {
                     ElMessage({
                         type: 'success',
-                        message: 'Solicitud de diseño enviada',
+                        message: 'Orden de diseño actualizada',
                     });
                 },
                 onError: () => {
+                    // Desplazarse al contenedor del formulario si hay errores de validación
                     this.$refs.formContainer.scrollIntoView({ behavior: 'smooth' });
                 }
             });
-        },
-        // Nuevo método principal que se ejecuta al enviar el formulario
-        async checkSimilarAndStore() {
-            // Validación básica para no hacer una petición innecesaria
-            if (!this.form.order_title || !this.form.design_category_id) {
-                ElMessage({
-                    type: 'warning',
-                    message: 'El título y la categoría son necesarios para crear la orden.',
-                });
-                // Procedemos para que la validación del backend muestre los errores específicos
-                this.proceedWithStore();
-                return;
-            }
-
-            try {
-                this.form.processing = true;
-                const response = await axios.post(route('design-orders.check-similar'), {
-                    order_title: this.form.order_title,
-                    design_category_id: this.form.design_category_id,
-                    branch_id: this.form.branch_id,
-                });
-
-                if (response.data && response.data.length > 0) {
-                    // Si se encuentran órdenes, las guardamos y mostramos el modal
-                    this.similarOrders = response.data;
-                    this.showSimilarOrdersModal = true;
-                } else {
-                    // Si no hay similitudes, creamos la orden directamente
-                    this.proceedWithStore();
-                }
-            } catch (error) {
-                console.error("Error al verificar órdenes similares:", error);
-                ElMessage({
-                    type: 'error',
-                    message: 'No se pudo verificar si existen órdenes similares. Se intentará crear la orden.',
-                });
-                // En caso de error en la verificación, permitimos la creación
-                this.proceedWithStore();
-            } finally {
-                 this.form.processing = false;
-            }
-        },
-        // Se llama cuando el usuario confirma la creación desde el modal
-        confirmCreation() {
-            this.showSimilarOrdersModal = false;
-            this.proceedWithStore();
         },
         storeCategory() {
             this.categoryForm.post(route('design-categories.store'), {
@@ -328,7 +252,6 @@ export default {
                     this.showCategoryModal = false;
                     this.categoryForm.reset();
                     ElMessage({ type: 'success', message: 'Categoría creada' });
-                    // Forzar a Inertia a recargar las props para actualizar el select
                     router.reload({ only: ['designCategories'] });
                 },
                 onError: () => {
@@ -336,17 +259,29 @@ export default {
                 }
             });
         },
-        async handleBranchChange(branchId) {
+        handleBranchChange(branchId) {
             this.form.contact_id = null;
-            
             const selectedBranch = this.branches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
+        },
+        deleteFile(fileId) {
+            this.designOrder.media = this.designOrder.media.filter(m => m.id !== fileId);
         },
         disabledDate(time) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             return time.getTime() < today.getTime();
         },
+        // Método para inicializar los contactos si ya hay una sucursal seleccionada
+        initializeContacts() {
+            if (this.form.branch_id) {
+                const selectedBranch = this.branches.find(b => b.id === this.form.branch_id);
+                this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
+            }
+        }
+    },
+    mounted() {
+        this.initializeContacts();
     },
     watch: {
         showCategoryModal(value) {
@@ -357,4 +292,3 @@ export default {
     }
 };
 </script>
-

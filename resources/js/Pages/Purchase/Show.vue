@@ -43,7 +43,20 @@
                 </el-tooltip>
                 
                 <Dropdown align="right" width="48">
-                    <!-- ... resto del Dropdown ... -->
+                    <template #trigger>
+                        <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
+                            Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
+                        </button>
+                    </template>
+                    <template #content>
+                        <DropdownLink :href="route('purchases.create')">
+                            <i class="fa-solid fa-plus w-4 mr-2"></i> Nueva Orden
+                        </DropdownLink>
+                        <div class="border-t border-gray-200 dark:border-gray-600" />
+                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                            <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Orden
+                        </DropdownLink>
+                    </template>
                 </Dropdown>
 
                 <Link :href="route('purchases.index')"

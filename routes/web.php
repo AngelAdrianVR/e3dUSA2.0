@@ -231,11 +231,12 @@ Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateSt
 // ------- (Rutas de diseño)  ---------
 Route::resource('design-orders', DesignOrderController::class)->middleware('auth');
 Route::put('design-orders/{designOrder}/start-work', [DesignOrderController::class, 'startWork'])->middleware('auth')->name('design-orders.start-work');
-Route::put('design-orders/{designOrder}/finish-work', [DesignOrderController::class, 'finishWork'])->middleware('auth')->name('design-orders.finish-work');
-Route::post('design-orders/{designOrder}/upload', [DesignOrderController::class, 'upload'])->middleware('auth')->name('design-orders.upload');
-Route::delete('design-orders/{designOrder}/media/{media}', [DesignOrderController::class, 'deleteMedia'])->middleware('auth')->name('design-orders.media.delete');
+Route::post('design-orders/{designOrder}/finish-work', [DesignOrderController::class, 'finishWork'])->middleware('auth')->name('design-orders.finish-work');
 Route::post('design-orders-get-matches', [DesignOrderController::class, 'getMatches'])->middleware('auth')->name('design-orders.get-matches');
 Route::get('design-orders/authorize/{designOrder}', [DesignOrderController::class, 'authorizeDesignOrder'])->middleware('auth')->name('design-orders.authorize');
+Route::get('design-orders-get-designers', [DesignOrderController::class, 'getDesigners'])->middleware('auth')->name('design-orders.get-designers');
+Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController::class, 'assignDesigner'])->middleware('auth')->name('design-orders.assign-designer');
+Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
 
 
 // ------- (Rutas de diseño)  ---------
