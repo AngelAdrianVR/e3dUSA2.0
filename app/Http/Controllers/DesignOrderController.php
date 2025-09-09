@@ -23,16 +23,23 @@ class DesignOrderController extends Controller
         $user = Auth::user();
         $query = DesignOrder::with(['requester:id,name', 'designer:id,name', 'designCategory:id,name']);
 
+        // Contar órdenes sin asignar para el indicador numérico.
+        // Este conteo se realiza antes de aplicar los filtros de vista.
+        $unassignedOrdersCount = DesignOrder::whereNull('designer_id')->count();
+
         // Lógica de visibilidad
         if ($request->input('view') === 'all') {
-            // No se aplica ningún filtro de usuario, muestra todos
+            // Muestra todas las órdenes, sin filtro de usuario.
         } 
+        else if ($request->input('view') === 'unassigned') {
+            // Nuevo: Filtra para mostrar solo órdenes sin diseñador asignado.
+            $query->whereNull('designer_id');
+        }
         // Si el usuario es un diseñador (asumiendo que tiene un rol o permiso específico)
-        // Aquí podrías usar: $user->hasRole('Diseñador')
         else if ($user->isDesigner()) { // Deberás crear este método en tu modelo User
             $query->where('designer_id', $user->id);
         }
-        // Para cualquier otro caso (solicitantes o gerentes en vista "Míos")
+        // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
         else {
             $query->where('requester_id', $user->id);
         }
@@ -42,6 +49,7 @@ class DesignOrderController extends Controller
         return Inertia::render('Design/Index', [
             'designOrders' => $designOrders,
             'filters' => $request->only(['view']),
+            'unassignedOrdersCount' => $unassignedOrdersCount, // Pasamos el contador a la vista
         ]);
     }
 
@@ -264,6 +272,14 @@ class DesignOrderController extends Controller
     public function destroy(DesignOrder $designOrder)
     {
         $designOrder->delete();
+    }
+
+    public function massiveDelete(Request $request)
+    {
+        foreach ($request->ids as $id) {
+            $designOrder = DesignOrder::find($id);
+            $designOrder?->delete();
+        }
     }
 
     /**

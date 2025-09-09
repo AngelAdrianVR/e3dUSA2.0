@@ -29,7 +29,7 @@
 
                 <!-- Botones de acciones -->
                 <el-tooltip v-if="!designOrder.designer_id && $page.props.auth.user.permissions.includes('Asignar diseños')" content="Asignar diseñador" placement="top">
-                    <button @click="openAssignModal" class="size-9 flex items-center justify-center rounded-lg bg-slate-300 hover:bg-slate-400 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                    <button @click="openAssignModal" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
                         </svg>
@@ -146,7 +146,7 @@
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Diseñador:</span>
                             <span v-if="designOrder.designer_id">{{ designOrder.designer?.name }}</span>
-                            <span class="" v-else>No asignado</span>
+                            <span class="text-amber-500" v-else>No asignado</span>
                         </li>
                          <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Categoría:</span>
@@ -238,6 +238,7 @@
 
             <template #content>
                 <div>
+                    <p class="text-amber-500">Revisa la carga de trabajo para equilibrar el trabajo de tus diseñadores</p>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
                         {{ 'OD-' + designOrder.id.toString().padStart(4, '0') }}: {{ designOrder.order_title }}
                     </h3>
