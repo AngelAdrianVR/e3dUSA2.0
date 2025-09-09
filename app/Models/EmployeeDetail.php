@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EmployeeDetail extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
+        'user_id',
         'week_salary',
         'birthdate',
         'join_date',
@@ -34,11 +38,23 @@ class EmployeeDetail extends Model
 
     public function bonuses()
     {
-        return $this->belongsToMany(Bonus::class, 'employee_bonuses');
+        // Asumo que tienes los modelos Bonus y Discount
+        return $this->belongsToMany(Bonus::class);
     }
 
     public function discounts()
     {
-        return $this->belongsToMany(Discount::class, 'employee_discounts');
+        return $this->belongsToMany(Discount::class);
+    }
+    
+    // --- NUEVAS RELACIONES ---
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function incidents()
+    {
+        return $this->hasMany(Incident::class);
     }
 }

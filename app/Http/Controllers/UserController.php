@@ -2,10 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Bonus;
 use App\Models\Branch;
 use App\Models\ChMessage;
+use App\Models\Discount;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Inertia\Inertia;
+use Spatie\Permission\Models\Role;
+use Illuminate\Validation\Rules;
 
 class UserController extends Controller
 {
@@ -19,7 +27,7 @@ class UserController extends Controller
             ->when($request->input('search'), function ($query, $search) {
                 $query->where(function ($subQuery) use ($search) {
                     $subQuery->where('name', 'like', "%{$search}%")
-                             ->orWhere('id', 'like', "%{$search}%");
+                        ->orWhere('id', 'like', "%{$search}%");
 
                     // Permite buscar por "activo" o "inactivo"
                     if (strtolower($search) === 'activo') {
@@ -32,7 +40,7 @@ class UserController extends Controller
             ->latest() // Opcional: ordenar por los más recientes
             ->paginate(30)
             // Importante: mantiene los parámetros de búsqueda en los enlaces de paginación
-            ->withQueryString(); 
+            ->withQueryString();
 
         return inertia('User/Index', [
             'users' => $users,
@@ -42,12 +50,158 @@ class UserController extends Controller
 
     public function create()
     {
-        $employee_number = User::orderBy('id', 'desc')->first()->id + 1;
-        // $bonuses = Bonus::where('is_active', 1)->get();
-        // $discounts = Discount::where('is_active', 1)->get();
-        // $roles = Role::all();
+        return Inertia::render('User/Create', [
+            'roles' => Role::all(),
+            'bonuses' => Bonus::all(),
+            'discounts' => Discount::all(),
+        ]);
+    }
 
-        return inertia('User/Create', compact('employee_number'));
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'role' => 'required|string|exists:roles,name',
+            'job_position' => 'required|string|max:255',
+            'department' => 'required|string|max:255',
+            'week_salary' => 'required|numeric|min:0',
+            'birthdate' => 'required|date',
+            'join_date' => 'required|date',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+            ]);
+
+            $user->assignRole($request->role);
+
+            // Calculamos el total de horas semanales
+            $totalHours = $this->calculateWeeklyHours($request->work_schedule ?? []);
+
+            $employeeDetail = $user->employeeDetail()->create([
+                'job_position' => $request->job_position,
+                'department' => $request->department,
+                'week_salary' => $request->week_salary,
+                'birthdate' => $request->birthdate,
+                'join_date' => $request->join_date,
+                'work_days' => $request->work_schedule, // Guardamos el JSON del horario
+                'hours_per_week' => $totalHours, // Guardamos las horas calculadas
+            ]);
+
+            // Sincronizar bonos y descuentos
+            $employeeDetail->bonuses()->sync($request->selected_bonuses);
+            $employeeDetail->discounts()->sync($request->selected_discounts);
+        });
+
+        return redirect()->route('users.index');
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(User $user)
+    {
+        // Cargar las relaciones para pasarlas como props
+        $user->load('roles', 'employeeDetail.bonuses', 'employeeDetail.discounts');
+
+        return Inertia::render('User/Edit', [
+            'user' => $user,
+            'roles' => Role::all(),
+            'bonuses' => Bonus::all(),
+            'discounts' => Discount::all(),
+        ]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     */
+    public function update(Request $request, User $user)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'role' => 'required|string|exists:roles,name',
+            'job_position' => 'required|string|max:255',
+            'department' => 'required|string|max:255',
+            'week_salary' => 'required|numeric|min:0',
+            'birthdate' => 'required|date',
+            'join_date' => 'required|date',
+        ]);
+
+        DB::transaction(function () use ($request, $user) {
+            $user->update([
+                'name' => $request->name,
+                'email' => $request->email,
+            ]);
+
+            if ($request->filled('password')) {
+                $user->update(['password' => Hash::make($request->password)]);
+            }
+
+            $user->syncRoles([$request->role]);
+
+            // Calculamos el total de horas semanales
+            $totalHours = $this->calculateWeeklyHours($request->work_schedule ?? []);
+
+            $user->employeeDetail()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'job_position' => $request->job_position,
+                    'department' => $request->department,
+                    'week_salary' => $request->week_salary,
+                    'birthdate' => $request->birthdate,
+                    'join_date' => $request->join_date,
+                    'work_days' => $request->work_schedule,
+                    'hours_per_week' => $totalHours, // Actualizamos las horas calculadas
+                ]
+            );
+
+            $user->employeeDetail->bonuses()->sync($request->selected_bonuses);
+            $user->employeeDetail->discounts()->sync($request->selected_discounts);
+        });
+
+        return redirect()->route('users.index');
+    }
+
+    /**
+     * Calculate total weekly hours from a work schedule array.
+     */
+    private function calculateWeeklyHours(array $workSchedule): float
+    {
+        $totalMinutes = 0;
+
+        foreach ($workSchedule as $day) {
+            if (isset($day['works']) && $day['works'] && !empty($day['start_time']) && !empty($day['end_time'])) {
+                // Create Carbon instances from time strings for a consistent base date.
+                $startTime = Carbon::createFromTimeString($day['start_time']);
+                $endTime = Carbon::createFromTimeString($day['end_time']);
+
+                // If end time is earlier than start time, it's an overnight shift.
+                // We add a day to the end time to calculate the duration correctly across midnight.
+                if ($endTime->lt($startTime)) {
+                    $endTime->addDay();
+                }
+
+                // Calculate the difference directly from timestamps to avoid potential issues with diffInMinutes.
+                // This ensures the duration is always a positive value.
+                $diffInMinutes = ($endTime->getTimestamp() - $startTime->getTimestamp()) / 60;
+
+                $breakMinutes = isset($day['break_minutes']) ? (int)$day['break_minutes'] : 0;
+
+                $totalMinutes += ($diffInMinutes - $breakMinutes);
+            }
+        }
+
+        return round($totalMinutes / 60, 2); // Returns the total in hours with two decimals
     }
 
     public function changeStatus(Request $request, User $user)

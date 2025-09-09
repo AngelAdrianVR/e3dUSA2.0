@@ -67,6 +67,12 @@ Route::middleware([
     })->name('dashboard');
 });
 
+// importar archivos de ruta
+Route::middleware('auth')->group(function () {
+    require __DIR__ . '/web/payrolls.php';
+});
+
+
 // Rutas de Notificaciones
 Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
