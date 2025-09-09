@@ -28,11 +28,14 @@ class DesignOrder extends Model implements HasMedia
         'design_category_id',
         'design_id',
         'reuse_justification',
-        'branch_name',
+        'branch_id',
+        'contact_id',
         'assigned_at',
         'started_at',
         'finished_at',
         'due_date',
+        'authorized_user_name',
+        'authorized_at',
     ];
 
     /**
@@ -46,6 +49,7 @@ class DesignOrder extends Model implements HasMedia
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
         'due_date' => 'datetime',
+        'authorized_at' => 'datetime',
     ];
 
     /**
@@ -62,6 +66,12 @@ class DesignOrder extends Model implements HasMedia
     public function designer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'designer_id');
+    }
+
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class, 'branch_id');
     }
 
     /**
@@ -86,5 +96,12 @@ class DesignOrder extends Model implements HasMedia
     public function assignmentLogs(): HasMany
     {
         return $this->hasMany(DesignAssignmentLog::class);
+    }
+
+    // ====================================================
+    // ================= metodos ==========================
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('design_order_files');
     }
 }

@@ -10,6 +10,13 @@ class DesignAssignmentLog extends Model
 {
     use HasFactory;
 
+    /**
+     * Indica que el modelo no debe ser sellado con marcas de tiempo.
+     *
+     * @var bool
+     */
+    public $timestamps = false;
+    
     // Los logs son solo de creación, no de actualización.
     const UPDATED_AT = null;
 
