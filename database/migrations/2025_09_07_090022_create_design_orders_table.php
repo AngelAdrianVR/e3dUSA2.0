@@ -21,6 +21,10 @@ return new class extends Migration
             $table->foreignId('designer_id')->nullable()->comment('ID del diseñador asignado')->constrained('users');
             $table->foreignId('design_category_id')->constrained('design_categories');
             $table->foreignId('design_id')->nullable()->constrained('designs');
+            // Este campo guardará el ID del diseño que se está modificando.
+            // Es nullable porque las órdenes nuevas no modifican nada.
+            // Lo ponemos después de 'design_id' para mantener el orden lógico.
+            $table->foreignId('modifies_design_id')->nullable()->constrained('designs')->onDelete('set null'); // Si se borra el diseño original, no borramos la orden.
             $table->foreignId('branch_id')->nullable()->constrained('branches');
             $table->foreignId('contact_id')->nullable()->constrained('contacts');
             $table->string('authorized_user_name')->nullable();

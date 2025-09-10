@@ -44,6 +44,7 @@ class PermissionSeeder extends Seeder
             'Proveedores' => ['Ver proveedores', 'Crear proveedores', 'Editar proveedores', 'Eliminar proveedores'],
             'Compras' => ['Ver ordenes de compra', 'Crear ordenes de compra', 'Editar ordenes de compra', 'Eliminar ordenes de compra', 'Autorizar ordenes de compra', 'Ver todas las compras'],
             'Diseño' => ['Ver ordenes de diseño', 'Crear ordenes de diseño', 'Editar ordenes de diseño', 'Eliminar ordenes de diseño', 'Ver todas las ordenes de diseño', 'Asignar diseños', 'Autorizar ordenes de diseño'],
+            'Autorización de diseño' => ['Ver formatos de autorizacion de diseño', 'Crear formatos de autorizacion de diseño', 'Editar formatos de autorizacion de diseño', 'Eliminar formatos de autorizacion de diseño', 'Autorizar ormatos de autorizacion de diseño'],
             'Análisis de ventas' => ['Ver analisis de ventas'],
         ];
 

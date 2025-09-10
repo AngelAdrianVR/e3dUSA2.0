@@ -413,13 +413,18 @@ class DesignOrderController extends Controller
     public function getDesigners()
     {
         $designers = User::with([
-            'assignedDesignOrders:id,order_title,status,designer_id,branch_id,contact_id,design_category_id', 
+            // Aplicar restricción a la relación 'assignedDesignOrders'
+            'assignedDesignOrders' => function ($query) {
+                // Seleccionar solo las órdenes que NO tengan estos estatus
+                $query->whereNotIn('status', ['Terminada', 'Cancelada']);
+            },
+            // Cargar relaciones anidadas de las órdenes ya filtradas
             'assignedDesignOrders.branch:id,name',
             'assignedDesignOrders.designCategory:id,name,complexity',
-            ])
-            ->where('is_active', true) // O el criterio que uses para identificar diseñadores
-            ->select('id', 'name')
-            ->get();
+        ])
+        ->where('is_active', true) // O el criterio que uses para identificar diseñadores
+        ->select('id', 'name')
+        ->get();
 
         return response()->json($designers);
     }

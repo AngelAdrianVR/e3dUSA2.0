@@ -27,6 +27,7 @@ class DesignOrder extends Model implements HasMedia
         'designer_id',
         'design_category_id',
         'design_id',
+        'modifies_design_id', // id del diseño original que se va a modificar
         'reuse_justification',
         'branch_id',
         'contact_id',

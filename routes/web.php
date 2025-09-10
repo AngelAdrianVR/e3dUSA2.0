@@ -246,9 +246,12 @@ Route::post('/design-orders/check-similar', [DesignOrderController::class, 'chec
 Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
 
 
-// ------- (Rutas de diseño)  ---------
 // Ruta para almacenar las categorías de diseño creadas desde el modal
 Route::post('design-categories', [DesignCategoryController::class, 'store'])->name('design-categories.store');
+
+
+// ------- (Rutas de autorizacion de diseño)  ---------
+Route::resource('design-authorizations', DesignOrderController::class)->middleware('auth');
 
 
 // ------- (Tareas de produccion Routes)  ---------
