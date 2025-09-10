@@ -1,0 +1,219 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Branch;
+use App\Models\Contact;
+use App\Models\DesignAuthorization;
+use App\Models\DesignOrder;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
+
+class DesignAuthorizationController extends Controller
+{
+    public function index(Request $request)
+    {
+        $filters = $request->only(['search']);
+        
+        $authorizations = DesignAuthorization::query()
+            // Cargar relaciones para evitar N+1 queries en la vista
+            ->with(['contact:id,name', 'seller:id,name'])
+            // Aplicar filtro de búsqueda si existe
+            ->when($request->input('search'), function ($query, $search) {
+                $query->where('product_name', 'like', "%{$search}%")
+                    ->orWhereHas('contact', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('seller', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
+            })
+            ->latest() // Ordenar por los más recientes primero
+            ->paginate(15)
+            ->withQueryString(); // Para que la paginación conserve los filtros
+
+        return Inertia::render('DesignAuthorization/Index', [
+            'authorizations' => $authorizations,
+            'filters' => $filters,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        // Solo se obtienen los datos básicos de las órdenes de diseño.
+        $designOrders = DesignOrder::whereDoesntHave('designAuthorization')
+            ->select('id', 'order_title')
+            ->get();
+
+        $design_order_id = null;
+        if ($request->has('design_order_id')) {
+            $design_order_id = intval($request->input('design_order_id'));
+        }
+        
+        // Asumiendo que todos los usuarios pueden ser vendedores.
+        // Podrías filtrar por un rol si lo tuvieras.
+        $sellers = User::select('id', 'name')->get(); 
+        $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
+
+        return Inertia::render('DesignAuthorization/Create', [
+            'designOrders' => $designOrders,
+            'sellers' => $sellers,
+            'branches' => $branches,
+            'design_order_id' => $design_order_id, // id de la orden de diseño 
+        ]);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'design_order_id' => 'required|exists:design_orders,id|unique:design_authorizations,design_order_id',
+            'product_name' => 'required|string|max:255',
+            'material' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:255',
+            'production_methods' => 'nullable|array',
+            'specifications' => 'nullable|string',
+            'seller_id' => 'required|exists:users,id',
+            'branch_id' => 'required|exists:branches,id',
+            'contact_id' => 'required|exists:contacts,id',
+            'cover_media_id' => 'required|exists:media,id', // Validar que el ID del medio exista
+            'media' => 'nullable|array',
+            'media.*' => 'file|mimes:jpg,jpeg,png,pdf|max:10240', // 10MB max per file
+        ]);
+
+        $authorization = DesignAuthorization::create($validated);
+
+        // --- Copiar la imagen de portada seleccionada ---
+        $mediaToCopy = Media::find($validated['cover_media_id']);
+        if ($mediaToCopy) {
+            // Copia el medio a la nueva autorización, en una colección llamada 'cover'
+            $mediaToCopy->copy($authorization, 'cover');
+        }
+
+        // --- Adjuntar archivos adicionales si existen ---
+        if ($request->hasFile('media')) {
+            foreach ($request->file('media') as $file) {
+                // Se guardan en la colección por defecto 'default'
+                $authorization->addMedia($file)->toMediaCollection();
+            }
+        }
+
+        return to_route('design-authorizations.index')
+            ->with('message', 'Autorización creada correctamente.');
+    }
+
+    public function show(DesignAuthorization $designAuthorization)
+    {
+        // Cargar todas las relaciones necesarias para la vista
+        $designAuthorization->load(['designOrder:id,order_title', 'seller:id,name', 'branch:id,name', 'contact:id,name']);
+
+        // Obtener la imagen de portada (de la colección 'cover')
+        $cover = $designAuthorization->getFirstMedia('cover');
+        // Obtener los archivos adicionales (de la colección 'default')
+        $additionalFiles = $designAuthorization->getMedia('default');
+
+        return Inertia::render('DesignAuthorization/Show', [
+            'authorization' => $designAuthorization,
+            // Pasamos la URL de la portada y los demás archivos de forma explícita
+            'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'additional_files' => $additionalFiles->map(fn ($file) => [
+                'id' => $file->id,
+                'name' => $file->file_name,
+                'url' => $file->getFullUrl(),
+                'mime_type' => $file->mime_type,
+            ]),
+        ]);
+    }
+
+    public function edit(DesignAuthorization $designAuthorization)
+    {
+        //
+    }
+
+    public function update(Request $request, DesignAuthorization $designAuthorization)
+    {
+        //
+    }
+
+    public function destroy(DesignAuthorization $designAuthorization)
+    {
+        //
+    }
+
+    /**
+     * Obtiene los archivos del diseño final asociado a una orden de diseño.
+     */
+    public function getDesignOrderFiles(DesignOrder $designOrder)
+    {
+        // Cargar la relación 'design' para acceder al diseño final de la orden.
+        $design = $designOrder->design;
+
+        // Verificar si la orden tiene un diseño asociado.
+        if (!$design) {
+            return response()->json([]);
+        }
+
+        // Accedemos a la propiedad del accesor 'media' directamente.
+        // Esta es la misma propiedad que ves cuando retornas el modelo Design completo.
+        $mediaItems = $design->media;
+
+        // Mapeamos la colección de medios al formato que necesita el frontend.
+        $files = $mediaItems->map(function ($media) {
+            return [
+                'id' => $media->id,
+                'name' => $media->name,
+                'file_name' => $media->file_name,
+                'mime_type' => $media->mime_type,
+                'original_url' => $media->getFullUrl(),
+            ];
+        });
+
+        return response()->json($files);
+    }
+
+    /**
+     * Update the client's response for the authorization.
+     */
+    public function updateClientResponse(Request $request, DesignAuthorization $designAuthorization)
+    {
+        $validated = $request->validate([
+            'is_accepted' => 'required|boolean',
+            'rejection_reason' => 'nullable|string|required_if:is_accepted,false',
+        ]);
+
+        $designAuthorization->update([
+            'is_accepted' => $validated['is_accepted'],
+            'rejection_reason' => $validated['is_accepted'] ? null : $validated['rejection_reason'],
+            'responded_at' => now(),
+        ]);
+
+        return back()->with('message', 'Respuesta del cliente actualizada correctamente.');
+    }
+
+    /**
+     * Mark the authorization as internally approved with the authorizer's name.
+     */
+    public function authorizeInternal(DesignAuthorization $designAuthorization)
+    {
+        $designAuthorization->update([
+            'authorizer_name' => auth()->user()->name,
+        ]);
+
+        return back()->with('message', 'El formato ha sido autorizado internamente.');
+    }
+
+    public function print(DesignAuthorization $designAuthorization)
+    {
+        // Cargar todas las relaciones necesarias para la vista
+        $designAuthorization->load(['designOrder:id,order_title', 'seller:id,name', 'branch:id,name', 'contact:id,name']);
+
+        // return $sale;
+        return Inertia::render('DesignAuthorization/Print', [
+            'designAuthorization' => $designAuthorization
+        ]);
+    }
+}

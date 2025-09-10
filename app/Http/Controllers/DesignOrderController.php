@@ -161,7 +161,7 @@ class DesignOrderController extends Controller
     {
         $designOrders = DesignOrder::select('id', 'order_title')->get();
 
-        $designOrder->load(['requester:id,name', 'designer:id,name', 'branch', 'contact', 'designCategory:id,name,complexity', 'media', 'design.media']);
+        $designOrder->load(['designAuthorization', 'requester:id,name', 'designer:id,name', 'branch', 'contact', 'designCategory:id,name,complexity', 'media', 'design.media']);
 
         // --- Logic to get all design versions ---
         $designVersions = collect([]);
