@@ -12,6 +12,12 @@
             </div>
         </div>
 
+        <!-- === Modification Notice === -->
+        <div v-if="originalDesign" class="p-4 my-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400 max-w-4xl mx-auto sm:px-6 lg:px-8" role="alert">
+            Estás solicitando una modificación para el diseño: <span class="font-medium">{{ originalDesign.name }}</span>. Los detalles se han precargado.
+        </div>
+        <!-- === END === -->
+
         <div ref="formContainer" class="py-7">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
@@ -217,15 +223,16 @@ import { nextTick } from 'vue';
 export default {
     data() {
         const form = useForm({
-            order_title: null,
-            specifications: null,
-            design_category_id: null,
+            order_title: this.originalDesign ? `Modificación de: ${this.originalDesign.name}` : null,
+            specifications: this.originalDesign ? `Basado en el diseño: ${this.originalDesign.name}.\n---NUEVOS CAMBIOS---\n` : null,
+            design_category_id: this.originalDesign ? this.originalDesign.design_category_id : null,
             is_hight_priority: false,
             branch_id: null,
             contact_id: null,
             due_date: null,
             designer_id: null,
             media: null,
+            modifies_design_id: this.originalDesign ? this.originalDesign.id : null,
         });
 
         const categoryForm = useForm({
@@ -259,6 +266,7 @@ export default {
         designCategories: Array,
         designers: Array,
         branches: Array,
+        originalDesign: Object,
     },
     methods: {
         // Método que envía el formulario al backend

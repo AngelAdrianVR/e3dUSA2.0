@@ -508,14 +508,15 @@ export default {
                             //     return notification.data.module === 'design';
                             // }),
                         },
-                        // {
-                        //     label: 'Formatos de autorización de diseño',
-                        //     route: 'design-authorizations.index',
-                        //     show: true,
-                        //     notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //         return notification.data.module === 'design-authorization';
-                        //     }),
-                        // },
+                        {
+                            label: 'Formatos de autorización de diseño',
+                            route: 'design-authorizations.index',
+                            active: route().current('design-authorizations.*'),
+                            show: true,
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'design-authorization';
+                            // }),
+                        },
                     ],
                     dropdown: true,
                     show: true

@@ -8,6 +8,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchNoteController;
 use App\Http\Controllers\BranchPriceHistoryController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\DesignAuthorizationController;
 use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignController;
 use App\Http\Controllers\DesignOrderController;
@@ -244,18 +245,24 @@ Route::get('design-orders/authorize/{designOrder}', [DesignOrderController::clas
 Route::get('design-orders-get-designers', [DesignOrderController::class, 'getDesigners'])->middleware('auth')->name('design-orders.get-designers');
 Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController::class, 'assignDesigner'])->middleware('auth')->name('design-orders.assign-designer');
 Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
+Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
 
 
-// ------- (Rutas de diseño)  ---------
 // Ruta para almacenar las categorías de diseño creadas desde el modal
 Route::post('design-categories', [DesignCategoryController::class, 'store'])->name('design-categories.store');
 
 
+// ------- (Rutas de autorizacion de diseño)  ---------
+Route::resource('design-authorizations', DesignAuthorizationController::class)->middleware('auth');
+Route::get('design-authorizations/get-files/{designOrder}', [DesignAuthorizationController::class, 'getDesignOrderFiles'])->middleware('auth')->name('design-authorizations.get-files');
+Route::put('design-authorizations/{designAuthorization}/client-response', [DesignAuthorizationController::class, 'updateClientResponse'])->middleware('auth')->name('design-authorizations.client-response');
+Route::post('design-authorizations/{designAuthorization}/authorize-internal', [DesignAuthorizationController::class, 'authorizeInternal'])->middleware('auth')->name('design-authorizations.authorize-internal');
+Route::get('design-authorizations/print/{designAuthorization}', [DesignAuthorizationController::class, 'print'])->middleware('auth')->name('design-authorizations.print');
+
+
 // ------- (Tareas de produccion Routes)  ---------
-Route::put('/production-tasks/{production_task}/status', [ProductionTaskController::class, 'updateStatus'])->name('production-tasks.updateStatus');
-Route::get('/production-tasks/{task}/details', [ProductionTaskController::class, 'getTaskDetails'])
-    ->name('production-tasks.details')
-    ->middleware('auth');
+Route::put('/production-tasks/{production_task}/status', [ProductionTaskController::class, 'updateStatus'])->middleware('auth')->name('production-tasks.updateStatus');
+Route::get('/production-tasks/{task}/details', [ProductionTaskController::class, 'getTaskDetails'])->name('production-tasks.details')->middleware('auth');
 
 
 // ------- Recursos humanos(users routes)  ---------
