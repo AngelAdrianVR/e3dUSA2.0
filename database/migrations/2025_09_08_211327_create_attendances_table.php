@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('attendances', function (Blueprint $table) {
+        Schema::create('attendances', function (Blueprint $table) {
             $table->id();
             $table->foreignId('employee_detail_id')->constrained()->onDelete('cascade');
             $table->timestamp('timestamp');
             $table->enum('type', ['entry', 'exit', 'start_break', 'end_break']);
+            $table->integer('late_minutes')->nullable();
+            $table->boolean('ignore_late')->default(false);
             $table->timestamps();
         });
     }

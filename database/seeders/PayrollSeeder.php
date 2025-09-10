@@ -10,27 +10,31 @@ class PayrollSeeder extends Seeder
 {
     /**
      * Run the database seeds.
+     *
+     * @return void
      */
-    public function run(): void
+    public function run()
     {
-        // Crear la nómina de la semana actual
-        $this->createPayrollForDate(Carbon::now());
-        // Crear las 4 nóminas de semanas pasadas
-        for ($i = 1; $i <= 4; $i++) {
-            $this->createPayrollForDate(Carbon::now()->subWeeks($i));
+        $this->command->info('Generando periodos de nómina (Viernes - Jueves)...');
+
+        // Buscamos el primer viernes del mes actual para empezar
+        $startDate = Carbon::now()->startOfMonth()->next(Carbon::FRIDAY);
+
+        // Creamos 4 periodos de nómina hacia atrás desde esa fecha
+        for ($i = 0; $i < 4; $i++) {
+            $endDate = $startDate->copy()->addDays(6); // Jueves
+
+            Payroll::create([
+                'week_number' => $startDate->weekOfYear,
+                'start_date' => $startDate->toDateString(),
+                'end_date' => $endDate->toDateString(),
+                'status' => $i == 0 ? 'Abierta' : 'Cerrada', // Dejamos la más reciente como abierta
+            ]);
+
+            // Retrocedemos al viernes anterior para el siguiente ciclo
+            $startDate->subWeek();
         }
-    }
 
-    private function createPayrollForDate(Carbon $date)
-    {
-        $startOfWeek = $date->startOfWeek(Carbon::MONDAY)->format('Y-m-d');
-        $endOfWeek = $date->endOfWeek(Carbon::SUNDAY)->format('Y-m-d');
-
-        Payroll::create([
-            'week_number' => $date->weekOfYear,
-            'start_date' => $startOfWeek,
-            'end_date' => $endOfWeek,
-            'status' => 'Abierta',
-        ]);
+        $this->command->info('4 periodos de nómina generados exitosamente.');
     }
 }

@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('incidents', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('useemployee_detail_id_id')->constrained()->onDelete('cascade');
+            $table->unsignedBigInteger('employee_detail_id');
             $table->foreignId('payroll_id')->constrained()->onDelete('cascade');
             $table->foreignId('incident_type_id')->constrained()->onDelete('cascade');
             $table->date('date');
