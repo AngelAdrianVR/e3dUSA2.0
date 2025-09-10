@@ -58,6 +58,14 @@
                     </button>
                 </el-tooltip>
 
+                <el-tooltip content="Solicitar una modificación sobre este diseño" placement="top">
+                    <Link :href="route('design-orders.create', { modifies_design: designOrder.design_id })"
+                        v-if="designOrder.status === 'Terminada' && designOrder.design_id"
+                        class="size-9 flex items-center justify-center rounded-lg bg-blue-200 hover:bg-blue-300 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                    </Link>
+                </el-tooltip>
+
                 <!-- Opciones para Admin/Vendedor -->
                 <Dropdown align="right" width="48">
                     <template #trigger>
@@ -221,17 +229,31 @@
                             </div>
                         </el-tab-pane>
                         <el-tab-pane label="Terminados" name="finished">
-                            <!-- === INICIO: SECCIÓN DE ARCHIVOS FINALES (SI ESTÁ TERMINADA) === -->
-                            <div v-if="designOrder.status === 'Terminada' && designOrder.design?.media?.length" class="col-span-full mt-7">
-                                <h3 class="text-lg font-semibold text-green-600 dark:text-green-400 border-b dark:border-gray-600 pb-2 mb-3">Diseño Terminado y Entregado</h3>
-                                <InputLabel value="Archivos Finales" />
-                                <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-                                    <!-- Usamos FileView, pero sin la opción de borrar (deletable=false) -->
-                                    <FileView v-for="file in designOrder.design.media" :key="file.id" :file="file" :deletable="false" />
+                            <!-- === NEW: Display all design versions === -->
+                            <div class="h-[60vh] overflow-y-auto" v-if="designVersions.length > 0">
+                                <div v-for="(version, index) in designVersions" :key="version.id" class="mb-6 pb-6 border-b dark:border-gray-700 last:border-b-0">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="font-semibold text-lg" :class="{'text-green-600 dark:text-green-400': designOrder.design_id === version.id}">
+                                            <i class="fa-solid fa-paint-brush mr-2"></i>
+                                            {{ version.name }}
+                                            <span class="text-xs font-normal text-gray-500 ml-2">(Versión {{ index + 1 }})</span>
+                                        </h3>
+                                        <el-tag v-if="index === 0" size="small" type="info">Original</el-tag>
+                                        <el-tag v-else size="small">Modificación</el-tag>
+                                    </div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ version.description }}</p>
+
+                                    <div v-if="version.media?.length > 0">
+                                        <InputLabel value="Archivos Finales" />
+                                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                                            <FileView v-for="file in version.media" :key="file.id" :file="file" :deletable="false" />
+                                        </div>
+                                    </div>
+                                    <p v-else class="text-xs text-gray-500 italic">No hay archivos adjuntos para esta versión.</p>
                                 </div>
                             </div>
-                            <!-- === FIN: SECCIÓN DE ARCHIVOS FINALES === -->
-                            <p class="text-gray-500 text-center italic mt-5" v-if="designOrder.status !== 'Terminada'">La orden aún no está terminada. No hay archivos finales</p>
+                            <p v-else class="text-gray-500 text-center italic mt-5">La orden aún no está terminada. No hay archivos finales.</p>
+                             <!-- === END NEW === -->
                         </el-tab-pane>
                     </el-tabs>
                 </div>
@@ -383,6 +405,7 @@ export default {
         designOrder: Object,
         designOrders: Array,
         auth: Object,
+        designVersions: Array, //versiones de diseño (modificaciones)
     },
     computed: {
         isAssignedDesigner() {

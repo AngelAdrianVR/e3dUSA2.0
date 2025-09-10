@@ -53,28 +53,30 @@ class DesignOrderController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        // Se obtienen las categorías de diseño para el selector.
         $designCategories = DesignCategory::select('id', 'name')->get();
+        $designers = User::where('is_active', true)->select('id', 'name')->get();
+        $branches = Branch::select('id', 'name')->with('contacts')->get();
 
         // Se obtienen los usuarios que son diseñadores.
         // Asumiendo que los diseñadores tienen un campo 'designer_level' no nulo como indica el flujo.
         // $designers = User::whereNotNull('designer_level')
         //                  ->where('status', 'active') // O cualquier otro criterio para usuarios activos
         //                  ->select('id', 'name')
-        //                  ->get();
+        //
 
-        $designers = User::where('is_active', true) // O cualquier otro criterio para usuarios activos
-                         ->select('id', 'name')
-                         ->get();
-
-        $branches = Branch::select('id', 'name')->with('contacts')->get();
+        // --- Handle design modification requests ---
+        $originalDesign = null;
+        if ($request->has('modifies_design')) {
+            $originalDesign = Design::find($request->input('modifies_design'));
+        }
 
         return Inertia::render('Design/Create', [
             'designCategories' => $designCategories,
             'designers' => $designers,
             'branches' => $branches,
+            'originalDesign' => $originalDesign, // Pass original design to the view
         ]);
     }
 
@@ -100,7 +102,8 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3', // Valida que sea un array y máximo 3 archivos
-            'media.*' => 'file|max:10240' // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
+            'media.*' => 'file|max:10240', // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
+            'modifies_design_id' => 'nullable|exists:designs,id', // --- Validation for modification
         ]);
 
         // Añadir el ID del usuario que solicita el diseño.
@@ -156,17 +159,34 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        // Cargar todas las órdenes para el selector de búsqueda
         $designOrders = DesignOrder::select('id', 'order_title')->get();
 
-        // Cargar las relaciones necesarias para la vista
-        $designOrder->load(['requester:id,name', 'designer:id,name', 'branch', 'contact', 'designCategory:id,name,complexity', 'media', 'design.media' // Archivos finales (completed_files)
-        ]);
+        $designOrder->load(['requester:id,name', 'designer:id,name', 'branch', 'contact', 'designCategory:id,name,complexity', 'media', 'design.media']);
 
-        // return $designOrder;
+        // --- Logic to get all design versions ---
+        $designVersions = collect([]);
+        if ($designOrder->design) {
+            $originalDesign = $designOrder->design;
+            // Traverse up to find the absolute original design
+            while ($originalDesign->original_design_id) {
+                $originalDesign = Design::find($originalDesign->original_design_id);
+                if (!$originalDesign) break; // Break if something is wrong with the chain
+            }
+
+            if ($originalDesign) {
+                // Get the original and all designs that reference it
+                $designVersions = Design::with('media')
+                    ->where('id', $originalDesign->id)
+                    ->orWhere('original_design_id', $originalDesign->id)
+                    ->orderBy('created_at')
+                    ->get();
+            }
+        }
+
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
+            'designVersions' => $designVersions, // Pass versions to the view
         ]);
     }
 
@@ -338,6 +358,7 @@ class DesignOrderController extends Controller
                 'name' => $designOrder->order_title,
                 'description' => $designOrder->specifications,
                 'design_category_id' => $designOrder->design_category_id,
+                'original_design_id' => $designOrder->modifies_design_id,
             ]);
 
             // --- INICIO: NUEVA LÓGICA DE ARCHIVOS ---
