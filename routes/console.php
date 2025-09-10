@@ -16,3 +16,6 @@ Schedule::command('app:send-calendar-reminders')->dailyAt('06:00');
 
 // revisa cotizaciones que no han tenido respuesta 3 dias o mas despues de haberse creado
 Schedule::command('quotations:check-pending')->dailyAt('06:00');
+
+// Cierra la nómina semanal actual y abre la siguiente cada jueves a las 11:55 PM
+Schedule::command('app:manage-weekly-payroll')->thursdays()->at('23:55');
