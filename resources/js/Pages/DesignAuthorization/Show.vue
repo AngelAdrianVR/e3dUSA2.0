@@ -2,7 +2,7 @@
     <AppLayout title="Detalle de Autorización">
         <div class="max-w-7xl mx-auto p-4">
             <!-- Encabezado con título y estado -->
-            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
                 <div>
                     <div class="flex items-center gap-3">
                         <Back />
@@ -22,7 +22,7 @@
             </header>
 
             <!-- Contenido Principal en Grid -->
-            <main class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <main class="grid grid-cols-1 lg:grid-cols-5 gap-5">
                 <!-- Columna Izquierda (Visuales) -->
                 <div class="lg:col-span-3 flex flex-col gap-8">
                     <!-- Imagen de Portada -->
@@ -57,7 +57,7 @@
                 </div>
 
                 <!-- Columna Derecha (Información y Acciones) -->
-                <div class="lg:col-span-2 flex flex-col gap-8">
+                <div class="lg:col-span-2 flex flex-col gap-4">
                     <!-- Acciones -->
                     <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg p-5 border border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">

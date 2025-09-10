@@ -211,9 +211,21 @@ class DesignAuthorizationController extends Controller
         // Cargar todas las relaciones necesarias para la vista
         $designAuthorization->load(['designOrder:id,order_title', 'seller:id,name', 'branch:id,name', 'contact:id,name']);
 
-        // return $sale;
+        // Obtener la imagen de portada (de la colección 'cover')
+        $cover = $designAuthorization->getFirstMedia('cover');
+        // Obtener los archivos adicionales (de la colección 'default')
+        $additionalFiles = $designAuthorization->getMedia('default');
+
         return Inertia::render('DesignAuthorization/Print', [
-            'designAuthorization' => $designAuthorization
-        ]);
+            'authorization' => $designAuthorization,
+            // Pasamos la URL de la portada y los demás archivos de forma explícita
+            'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'additional_files' => $additionalFiles->map(fn ($file) => [
+                'id' => $file->id,
+                'name' => $file->file_name,
+                'url' => $file->getFullUrl(),
+                'mime_type' => $file->mime_type,
+            ]),
+        ]);;
     }
 }

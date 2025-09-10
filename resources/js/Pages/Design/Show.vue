@@ -261,6 +261,46 @@
                             <p v-else class="text-gray-500 text-center italic mt-5">La orden aún no está terminada. No hay archivos finales.</p>
                              <!-- === END NEW === -->
                         </el-tab-pane>
+                        <el-tab-pane label="Asignaciones" name="assigments">
+                            <div v-if="designOrder.assignment_logs?.length" class="mt-5 space-y-4">
+                                <div 
+                                v-for="log in designOrder.assignment_logs" 
+                                :key="log.id" 
+                                class="p-4 rounded-2xl shadow-md border border-gray-200 bg-gray-100 hover:shadow-lg transition dark:bg-gray-800 dark:border-gray-700"
+                                >
+                                <div class="flex justify-between items-center">
+                                    <h3 class="font-semibold text-gray-800 dark:text-gray-200">
+                                    Asignación de diseñador
+                                    </h3>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ new Date(log.changed_at).toLocaleString() }}
+                                    </span>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">
+                                    {{ log.reason }}
+                                </p>
+                                <div class="mt-3 text-sm">
+                                    <p v-if="log.previous_designer" class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Diseñador previo:</span> 
+                                    {{ log.previous_designer?.name ?? 'N/A' }}
+                                    </p>
+                                    <p class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Nuevo diseñador:</span> 
+                                    {{ log.new_designer?.name }}
+                                    </p>
+                                    <p class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Cambiado por usuario:</span> 
+                                    {{ log.changed_by_user?.name }}
+                                    </p>
+                                </div>
+                                </div>
+                            </div>
+
+                            <p v-else class="text-gray-500 text-center italic mt-5 dark:text-gray-400">
+                                Historial de asignaciones vacío
+                            </p>
+                            </el-tab-pane>
+
                     </el-tabs>
                 </div>
             </div>
