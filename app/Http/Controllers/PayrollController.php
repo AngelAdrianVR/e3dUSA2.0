@@ -8,6 +8,7 @@ use App\Models\Incident;
 use App\Models\IncidentType;
 use App\Models\Payroll;
 use App\Models\User;
+use App\Services\BonusService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -34,7 +35,8 @@ class PayrollController extends Controller
 
     public function show(Payroll $payroll)
     {
-        $employees = EmployeeDetail::with('user', 'bonuses', 'discounts')->get();
+        // Eager load all necessary relationships, including the bonus rules.
+        $employees = EmployeeDetail::with('user', 'bonuses.rules', 'discounts')->get();
         $payrollData = $this->calculatePayrollData($payroll, $employees);
 
         $grandTotal = $payrollData->sum(function ($data) {
@@ -71,8 +73,9 @@ class PayrollController extends Controller
     {
         $unjustifiedAbsenceType = IncidentType::where('name', 'Falta injustificada')->first();
         $dayOffType = IncidentType::where('name', 'Descanso')->first();
+        $bonusService = new BonusService(); // Instanciar el motor de reglas de bonos.
 
-        return $employees->map(function ($employee) use ($payroll, $unjustifiedAbsenceType, $dayOffType) {
+        return $employees->map(function ($employee) use ($payroll, $unjustifiedAbsenceType, $dayOffType, $bonusService) {
             $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
             $totalWorkedSeconds = 0;
             $vacationPremium = 0;
@@ -109,22 +112,16 @@ class PayrollController extends Controller
                     'breaks_details' => []
                 ];
 
-                // Detección automática de incidencias SÓLO para nóminas abiertas
                 if ($payroll->status === 'Abierta' && !$incident && !$dayAttendances->count()) {
                     $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
                     $detectedIncidentType = null;
-
                     if ($date->isPast() && !$date->isToday()) {
-                        // Detectar Falta Injustificada
                         if ($workDayConfig && $workDayConfig['works']) {
                             $detectedIncidentType = $unjustifiedAbsenceType;
-                        }
-                        // Detectar Descanso
-                        elseif ($workDayConfig && !$workDayConfig['works']) {
+                        } elseif ($workDayConfig && !$workDayConfig['works']) {
                             $detectedIncidentType = $dayOffType;
                         }
                     }
-
                     if ($detectedIncidentType) {
                         $dayData['incident'] = new Incident(['date' => $dayString]);
                         $dayData['incident']->setRelation('incidentType', $detectedIncidentType);
@@ -156,14 +153,36 @@ class PayrollController extends Controller
                 }
                 if ($breakSeconds > 0) $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
 
-                if ($entry && $exit) {
-                    $worked = Carbon::parse($entry->timestamp)->diffInSeconds(Carbon::parse($exit->timestamp));
-                    $dayWorkedSeconds = max(0, $worked - $breakSeconds);
-                    $totalWorkedSeconds += $dayWorkedSeconds;
-                    $dayData['total_time'] = gmdate('G\h i\m', $dayWorkedSeconds);
+                // El tiempo trabajado solo se calcula si NO hay una incidencia para el día.
+                if (!$dayData['incident']) {
+                    if ($entry && $exit) {
+                        $worked = Carbon::parse($entry->timestamp)->diffInSeconds(Carbon::parse($exit->timestamp));
+                        $dayWorkedSeconds = max(0, $worked - $breakSeconds);
+                        $totalWorkedSeconds += $dayWorkedSeconds;
+                        $dayData['total_time'] = gmdate('G\h i\m', $dayWorkedSeconds);
+                    }
                 }
 
                 $daysData[] = $dayData;
+            }
+
+            // Estructura de datos que el BonusService necesita para evaluar las reglas.
+            $payrollPeriodData = [
+                'week_details' => $daysData,
+                'summary' => [
+                    'total_worked_seconds' => $totalWorkedSeconds,
+                ]
+            ];
+            
+            // Calcular el monto ganado para cada bono asignado al empleado.
+            $earnedBonuses = collect();
+            foreach ($employee->bonuses as $bonus) {
+                if ($bonus->is_active) {
+                    $earnedAmount = $bonusService->calculateBonusAmount($bonus, $employee, $payrollPeriodData);
+                    if ($earnedAmount > 0) {
+                        $earnedBonuses->push(['name' => $bonus->name, 'amount' => $earnedAmount]);
+                    }
+                }
             }
 
             $baseSalary = $employee->week_salary;
@@ -182,9 +201,7 @@ class PayrollController extends Controller
                         case 'Incapacidad general':
                             $totalToPay += $dailySalary * 0.60;
                             break;
-                        case 'Incapacidad por trabajo':
-                        case 'Permiso con goce':
-                        case 'Día festivo':
+                        case 'Incapacidad por trabajo': case 'Permiso con goce': case 'Día festivo':
                             $totalToPay += $dailySalary;
                             break;
                         case 'Vacaciones':
@@ -195,11 +212,10 @@ class PayrollController extends Controller
                 }
             }
             $totalToPay += $vacationPremium;
-
-            $bonuses = $employee->bonuses->map(fn($bonus) => ['name' => $bonus->name, 'amount' => $bonus->amount]);
+            
             $discounts = $employee->discounts->map(fn($discount) => ['name' => $discount->name, 'amount' => $discount->amount]);
-
-            $totalToPay += $bonuses->sum('amount');
+            
+            $totalToPay += $earnedBonuses->sum('amount');
             $totalToPay -= $discounts->sum('amount');
 
             return [
@@ -213,7 +229,7 @@ class PayrollController extends Controller
                 'summary' => [
                     'total_worked_seconds' => $totalWorkedSeconds,
                     'base_salary' => $workedTimeSalary,
-                    'bonuses' => $bonuses,
+                    'bonuses' => $earnedBonuses,
                     'discounts' => $discounts,
                     'vacation_premium' => $vacationPremium > 0 ? $vacationPremium : null,
                     'total_to_pay' => max(0, $totalToPay),

@@ -11,11 +11,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
      */
 
     // Obtiene los registros de asistencia de un empleado para un día específico.
-    Route::get('attendances/{employee}/{date}', [AttendanceController::class, 'getForDay'])->name('attendances.getForDay');
+    Route::get('attendances/{employee}/{date}', [AttendanceController::class, 'getForDay'])->name('attendances.get-for-day');
 
     // Actualiza todos los registros de asistencia de un día para un empleado.
     Route::put('attendances/{employee}/{date}', [AttendanceController::class, 'update'])->name('attendances.update');
 
     // Alterna el estado de "ignorar retardo" para un registro de entrada
-    Route::post('attendances/toggle-ignore-late/{attendance}', [AttendanceController::class, 'toggleIgnoreLate'])->name('attendances.toggleIgnoreLate');
+    Route::post('attendances/toggle-ignore-late/{attendance}', [AttendanceController::class, 'toggleIgnoreLate'])->name('attendances.toggle-ignore-late');
 });

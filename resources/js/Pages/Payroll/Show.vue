@@ -61,7 +61,14 @@
                                         <el-table-column prop="day_name" label="Día" width="130" />
                                         <el-table-column prop="entry" label="Entrada" align="center" width="120">
                                             <template #default="{ row }">
-                                                <div v-if="row.entry" class="flex items-center justify-center space-x-2">
+                                                <!-- Condición para mostrar incidencia -->
+                                                <div v-if="row.incident" class="px-1">
+                                                    <el-tag :type="getIncidentTagType(row.incident.incident_type.name)" class="w-full justify-center" disable-transitions>
+                                                        {{ row.incident.incident_type.name }}
+                                                    </el-tag>
+                                                </div>
+                                                <!-- Condición para mostrar entrada normal -->
+                                                <div v-else-if="row.entry" class="flex items-center justify-center space-x-2">
                                                     <span>{{ format12HourTime(row.entry) }}</span>
                                                     <el-tooltip :content="getLateTooltip(row)" placement="top">
                                                         <i :class="getLateIcon(row)"></i>
@@ -91,7 +98,42 @@
                                         <el-table-column prop="total_time" label="T. Total" align="center" width="90" />
                                         <el-table-column label="Opciones" align="right" width="80">
                                             <template #default="{ row }">
-                                                
+                                                <el-dropdown trigger="click" @command="handleCommand">
+                                                    <button @click.stop class="el-dropdown-link justify-center items-center size-7 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all">
+                                                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                                                    </button>
+                                                    <template #dropdown>
+                                                        <el-dropdown-menu>
+                                                             <!-- Opciones si NO hay incidencia -->
+                                                            <template v-if="!row.incident">
+                                                                <el-dropdown-item :command="{ action: 'edit', employeeId: employeeData.employee.id, date: row.date }">
+                                                                    <i class="fa-solid fa-clock w-5"></i> Modificar Registro
+                                                                </el-dropdown-item>
+                                                                <el-dropdown-item v-for="incidentType in incidentTypes" :key="incidentType.id" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
+                                                                    <i class="fa-solid fa-person-walking-arrow-right w-5"></i> {{ incidentType.name }}
+                                                                </el-dropdown-item>
+                                                            </template>
+                                                            <!-- Opciones si HAY incidencia -->
+                                                            <template v-else>
+                                                                <!-- Solo mostrar si la incidencia está en la BD (tiene ID) -->
+                                                                <el-dropdown-item v-if="row.incident.id" :command="{ action: 'remove_incident', incidentId: row.incident.id }" class="text-red-500">
+                                                                    <i class="fa-solid fa-xmark w-5"></i> Quitar Incidencia
+                                                                </el-dropdown-item>
+                                                                <!-- Siempre mostrar estas opciones si hay una incidencia (detectada o real) -->
+                                                                <el-dropdown-item :command="{ action: 'edit', employeeId: employeeData.employee.id, date: row.date }">
+                                                                    <i class="fa-solid fa-clock w-5"></i> Modificar Registro
+                                                                </el-dropdown-item>
+                                                                 <el-dropdown-item v-for="incidentType in incidentTypes" :key="incidentType.id" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
+                                                                    {{ incidentType.name }}
+                                                                </el-dropdown-item>
+                                                            </template>
+
+                                                            <el-dropdown-item v-if="row.late_minutes > 0" divided :command="{ action: 'toggle_late', attendanceId: row.entry_id }">
+                                                                <i class="fa-solid fa-shield-halved w-5"></i> {{ row.ignore_late ? 'No Ignorar Retardo' : 'Ignorar Retardo' }}
+                                                            </el-dropdown-item>
+                                                        </el-dropdown-menu>
+                                                    </template>
+                                                </el-dropdown>
                                             </template>
                                         </el-table-column>
                                     </el-table>
@@ -161,6 +203,15 @@
 
         <!-- Modal para Impresión de Nóminas -->
         <el-dialog v-model="showPrintModal" title="Seleccionar Empleados para Imprimir" width="600px">
+            <div class="mb-4">
+                <el-checkbox
+                    v-model="isAllSelected"
+                    :indeterminate="isIndeterminate"
+                    @change="handleSelectAll"
+                >
+                    Seleccionar Todos / Deseleccionar Todos
+                </el-checkbox>
+            </div>
             <el-select-v2
                 v-model="printForm.employees"
                 :options="employeeOptions"
@@ -240,9 +291,9 @@ const formatTime = (totalSeconds) => {
 // --- Lógica de Incidencias ---
 const incidentSpanMethod = ({ row, columnIndex }) => {
     if (row.incident) {
-        if (columnIndex >= 1 && columnIndex <= 4) { // De Entrada a T.Total
+        if (columnIndex === 1) { // Aplicar span SÓLO a la columna 'Entrada'
             return { rowspan: 1, colspan: 4 };
-        } else if (columnIndex > 1 && columnIndex <= 4) {
+        } else if (columnIndex >= 2 && columnIndex <= 4) { // Ocultar 'Salida', 'Descansos', 'T. Total'
             return { rowspan: 0, colspan: 0 };
         }
     }
@@ -274,7 +325,12 @@ const getLateTooltip = (day) => {
 };
 
 // --- Lógica del Menú de Acciones ---
-const incidentForm = useForm({});
+const incidentForm = useForm({
+    employee_detail_id: null,
+    date: null,
+    incident_type_id: null,
+    payroll_id: null,
+});
 const toggleLateForm = useForm({});
 
 const handleCommand = (command) => {
@@ -296,15 +352,16 @@ const handleCommand = (command) => {
 };
 
 const addIncident = (employeeId, date, incidentTypeId) => {
-    const payload = {
-        employee_detail_id: employeeId,
-        date: date,
-        incident_type_id: incidentTypeId,
-        payroll_id: props.payroll.id,
-    };
+    incidentForm.employee_detail_id = employeeId;
+    incidentForm.date = date;
+    incidentForm.incident_type_id = incidentTypeId;
+    incidentForm.payroll_id = props.payroll.id;
+
     incidentForm.post(route('incidents.store'), {
-        data: payload,
-        onSuccess: () => ElMessage.success('Incidencia registrada'),
+        onSuccess: () => {
+            ElMessage.success('Incidencia registrada');
+            incidentForm.reset();
+        },
         preserveScroll: true,
     });
 };
@@ -386,6 +443,22 @@ const printForm = useForm({
     employees: [],
 });
 
+const isAllSelected = computed(() => {
+    return props.payrollData.length > 0 && printForm.employees.length === props.payrollData.length;
+});
+
+const isIndeterminate = computed(() => {
+    return printForm.employees.length > 0 && printForm.employees.length < props.payrollData.length;
+});
+
+const handleSelectAll = (val) => {
+    if (val) {
+        printForm.employees = props.payrollData.map(emp => emp.employee.id);
+    } else {
+        printForm.employees = [];
+    }
+};
+
 const submitPrintForm = () => {
     printForm.get(route('payrolls.print', { payroll: props.payroll.id }), {
         preserveState: false, // Forzar recarga de página a la vista de impresión
@@ -393,4 +466,3 @@ const submitPrintForm = () => {
 };
 
 </script>
-

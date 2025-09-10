@@ -4,47 +4,49 @@ namespace App\Http\Controllers;
 
 use App\Models\Incident;
 use Illuminate\Http\Request;
-use App\Models\EmployeeDetail;
-use App\Models\Payroll;
+use Illuminate\Support\Facades\DB;
 
 class IncidentController extends Controller
 {
     /**
-     * Almacena una nueva incidencia en la base de datos.
-     * Evita duplicados para un mismo empleado en la misma fecha.
+     * Store a newly created incident in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validatedData = $request->validate([
             'employee_detail_id' => 'required|exists:employee_details,id',
             'payroll_id' => 'required|exists:payrolls,id',
             'incident_type_id' => 'required|exists:incident_types,id',
             'date' => 'required|date',
         ]);
 
-        // Evita duplicados: si ya existe una incidencia para ese empleado en esa fecha, no hace nada.
-        Incident::firstOrCreate(
-            [
-                'employee_detail_id' => $request->employee_detail_id,
-                'date' => $request->date,
-            ],
-            [
-                'payroll_id' => $request->payroll_id,
-                'incident_type_id' => $request->incident_type_id,
-            ]
-        );
+        // Usar una transacción para asegurar que la eliminación y creación sean atómicas.
+        DB::transaction(function () use ($validatedData) {
+            // Primero, eliminar cualquier incidencia existente para ese empleado en esa fecha.
+            Incident::where('employee_detail_id', $validatedData['employee_detail_id'])
+                ->where('date', $validatedData['date'])
+                ->delete();
 
-        return redirect()->back()->with('success', 'Incidencia asignada correctamente.');
+            // Luego, crear la nueva incidencia.
+            Incident::create($validatedData);
+        });
+
+        return back()->with('success', 'Incidencia registrada correctamente.');
     }
 
     /**
-     * Elimina una incidencia específica de la base de datos.
+     * Remove the specified incident from storage.
+     *
+     * @param  \App\Models\Incident  $incident
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Incident $incident)
     {
         $incident->delete();
 
-        // Redirecciona a la página anterior con un mensaje de éxito. Inertia se encargará de recargar los datos.
-        return redirect()->back()->with('success', 'Incidencia eliminada correctamente.');
+        return back()->with('success', 'Incidencia removida correctamente.');
     }
 }
