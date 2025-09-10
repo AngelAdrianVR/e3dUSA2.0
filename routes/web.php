@@ -70,6 +70,7 @@ Route::middleware([
 // importar archivos de ruta
 Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/payrolls.php';
+    require __DIR__ . '/web/attendances.php';
 });
 
 

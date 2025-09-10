@@ -13,7 +13,13 @@ class Attendance extends Model
         'employee_detail_id',
         'timestamp',
         'type',
+        'late_minutes',
+        'ignore_late',
         'source',
+    ];
+
+    protected $casts = [
+        'timestamp' => 'datetime',
     ];
 
     public function employeeDetail()

@@ -18,6 +18,14 @@ class DatabaseSeeder extends Seeder
         
         $this->call([
             UserSeeder::class,
+        ]);
+
+        User::factory(4)->create()->each(function ($user) {
+            $user->employeeDetail()->save(\App\Models\EmployeeDetail::factory()->make());
+        });
+
+        $this->call([
+            UserSeeder::class,
             PermissionSeeder::class,
             ProductFamilySeeder::class,
             IncidentTypeSeeder::class,
@@ -25,10 +33,5 @@ class DatabaseSeeder extends Seeder
             AttendanceSeeder::class,
             IncidentSeeder::class,
         ]);
-
-        User::factory(4)->create()->each(function ($user) {
-            $user->employeeDetail()->save(\App\Models\EmployeeDetail::factory()->make());
-        });
-
     }
 }
