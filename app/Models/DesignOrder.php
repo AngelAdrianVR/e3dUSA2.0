@@ -74,6 +74,12 @@ class DesignOrder extends Model implements HasMedia
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
+    
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'contact_id');
+    }
+
     /**
      * Get the category for the design order.
      */
