@@ -130,7 +130,7 @@ export default {
         <button
             v-if="!isActive"
             @click="openSearch"
-            class="z-50 absolute top-0 left-0 flex items-center justify-center h-10 w-10 rounded-full text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-slate-700 transition-opacity"
+            class=" absolute top-0 left-0 flex items-center justify-center h-10 w-10 rounded-full text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-slate-700 transition-opacity"
         >
             <i class="fa-solid fa-magnifying-glass"></i>
         </button>

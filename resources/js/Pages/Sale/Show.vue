@@ -63,7 +63,7 @@
                     </template>
                     <template #content>
                         <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
-                            Crear nueva Órden
+                           <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
                         <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM')) || true" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
