@@ -29,7 +29,7 @@
 
                 <!-- Botones de acciones -->
                 <el-tooltip v-if="!designOrder.designer_id && $page.props.auth.user.permissions.includes('Asignar diseños')" content="Asignar diseñador" placement="top">
-                    <button @click="openAssignModal" class="size-9 flex items-center justify-center rounded-lg bg-slate-300 hover:bg-slate-400 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                    <button @click="openAssignModal" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
                         </svg>
@@ -42,12 +42,28 @@
                     </button>
                 </el-tooltip>
 
+                <el-tooltip v-if="designOrder.status === 'Terminada' && $page.props.auth.user.permissions.includes('Crear formatos de autorizacion de diseño') && !designOrder.design_authorization" content="Crear formato de autorizacion de diseño" placement="top">
+                    <button @click="$inertia.visit(route('design-authorizations.create', { design_order_id: designOrder.id }))" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4.098 19.902a3.75 3.75 0 0 0 5.304 0l6.401-6.402M6.75 21A3.75 3.75 0 0 1 3 17.25V4.125C3 3.504 3.504 3 4.125 3h5.25c.621 0 1.125.504 1.125 1.125v4.072M6.75 21a3.75 3.75 0 0 0 3.75-3.75V8.197M6.75 21h13.125c.621 0 1.125-.504 1.125-1.125v-5.25c0-.621-.504-1.125-1.125-1.125h-4.072M10.5 8.197l2.88-2.88c.438-.439 1.15-.439 1.59 0l3.712 3.713c.44.44.44 1.152 0 1.59l-2.879 2.88M6.75 17.25h.008v.008H6.75v-.008Z" />
+                        </svg>
+                    </button>
+                </el-tooltip>
+
                 <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de diseño')" :content="(designOrder.status === 'En proceso' || designOrder.status === 'Terminada') ? 'No puedes editarla una vez iniciado el trabajo o ya esté terminada' : 'Editar Órden'" placement="top">
                     <button @click="$inertia.visit(route('design-orders.edit', designOrder.id))"
                         :disabled="designOrder.status === 'En proceso' || designOrder.status === 'Terminada'" 
                         class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                         <i class="fa-solid fa-pencil text-sm"></i>
                     </button>
+                </el-tooltip>
+
+                <el-tooltip content="Solicitar una modificación sobre este diseño" placement="top">
+                    <Link :href="route('design-orders.create', { modifies_design: designOrder.design_id })"
+                        v-if="designOrder.status === 'Terminada' && designOrder.design_id"
+                        class="size-9 flex items-center justify-center rounded-lg bg-blue-200 hover:bg-blue-300 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                    </Link>
                 </el-tooltip>
 
                 <!-- Opciones para Admin/Vendedor -->
@@ -89,13 +105,19 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
                             <el-tag :type="getStatusTagType(designOrder.status)" size="small">{{ designOrder.status }}</el-tag>
                         </li>
-                         <li class="flex justify-between">
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Prioridad:</span>
                             <el-tag :type="designOrder.is_hight_priority ? 'danger' : 'primary'" size="small">
                                 {{ designOrder.is_hight_priority ? 'Alta' : 'Normal' }}
                             </el-tag>
                         </li>
-                        <li class="flex justify-between items-center">
+                        <li v-if="designOrder.design_authorization" class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Formato de autorización:</span>
+                            <span @click="$inertia.visit(route('design-authorizations.show', designOrder.design_authorization.id))" class="text-blue-500 hover:underline cursor-pointer">
+                                FA-{{ designOrder.design_authorization.id.toString().padStart(4, '0') }}
+                            </span>
+                        </li>
+                        <li v-if="designOrder.branch" class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
 
                             <!-- Tooltip Moderno -->
@@ -146,7 +168,7 @@
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Diseñador:</span>
                             <span v-if="designOrder.designer_id">{{ designOrder.designer?.name }}</span>
-                            <span class="" v-else>No asignado</span>
+                            <span class="text-amber-500" v-else>No asignado</span>
                         </li>
                          <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Categoría:</span>
@@ -211,20 +233,74 @@
                                         @delete-file="deleteFile($event)" />
                                 </div>
                             </div>
+                        </el-tab-pane>
+                        <el-tab-pane label="Terminados" name="finished">
+                            <!-- === NEW: Display all design versions === -->
+                            <div class="h-[60vh] overflow-y-auto" v-if="designVersions.length > 0">
+                                <div v-for="(version, index) in designVersions" :key="version.id" class="mb-6 pb-6 border-b dark:border-gray-700 last:border-b-0">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h3 class="font-semibold text-lg" :class="{'text-green-600 dark:text-green-400': designOrder.design_id === version.id}">
+                                            <i class="fa-solid fa-paint-brush mr-2"></i>
+                                            {{ version.name }}
+                                            <span class="text-xs font-normal text-gray-500 ml-2">(Versión {{ index + 1 }})</span>
+                                        </h3>
+                                        <el-tag v-if="index === 0" size="small" type="info">Original</el-tag>
+                                        <el-tag v-else size="small">Modificación</el-tag>
+                                    </div>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">{{ version.description }}</p>
 
-                            <!-- === INICIO: SECCIÓN DE ARCHIVOS FINALES (SI ESTÁ TERMINADA) === -->
-                            <div v-if="designOrder.status === 'Terminada' && designOrder.design?.media?.length" class="col-span-full mt-7">
-                                <h3 class="text-lg font-semibold text-green-600 dark:text-green-400 border-b dark:border-gray-600 pb-2 mb-3">Diseño Terminado y Entregado</h3>
-                                <InputLabel value="Archivos Finales" />
-                                <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
-                                    <!-- Usamos FileView, pero sin la opción de borrar (deletable=false) -->
-                                    <FileView v-for="file in designOrder.design.media" :key="file.id" :file="file" :deletable="false" />
+                                    <div v-if="version.media?.length > 0">
+                                        <InputLabel value="Archivos Finales" />
+                                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mt-2">
+                                            <FileView v-for="file in version.media" :key="file.id" :file="file" :deletable="false" />
+                                        </div>
+                                    </div>
+                                    <p v-else class="text-xs text-gray-500 italic">No hay archivos adjuntos para esta versión.</p>
                                 </div>
                             </div>
-                            <!-- === FIN: SECCIÓN DE ARCHIVOS FINALES === -->
-                            
+                            <p v-else class="text-gray-500 text-center italic mt-5">La orden aún no está terminada. No hay archivos finales.</p>
+                             <!-- === END NEW === -->
+                        </el-tab-pane>
+                        <el-tab-pane label="Asignaciones" name="assigments">
+                            <div v-if="designOrder.assignment_logs?.length" class="mt-5 space-y-4">
+                                <div 
+                                v-for="log in designOrder.assignment_logs" 
+                                :key="log.id" 
+                                class="p-4 rounded-2xl shadow-md border border-gray-200 bg-gray-100 hover:shadow-lg transition dark:bg-gray-800 dark:border-gray-700"
+                                >
+                                <div class="flex justify-between items-center">
+                                    <h3 class="font-semibold text-gray-800 dark:text-gray-200">
+                                    Asignación de diseñador
+                                    </h3>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ new Date(log.changed_at).toLocaleString() }}
+                                    </span>
+                                </div>
+                                <p class="mt-2 text-sm text-gray-600 dark:text-gray-300 italic">
+                                    {{ log.reason }}
+                                </p>
+                                <div class="mt-3 text-sm">
+                                    <p v-if="log.previous_designer" class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Diseñador previo:</span> 
+                                    {{ log.previous_designer?.name ?? 'N/A' }}
+                                    </p>
+                                    <p class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Nuevo diseñador:</span> 
+                                    {{ log.new_designer?.name }}
+                                    </p>
+                                    <p class="text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Cambiado por usuario:</span> 
+                                    {{ log.changed_by_user?.name }}
+                                    </p>
+                                </div>
+                                </div>
+                            </div>
 
-                             </el-tab-pane>
+                            <p v-else class="text-gray-500 text-center italic mt-5 dark:text-gray-400">
+                                Historial de asignaciones vacío
+                            </p>
+                            </el-tab-pane>
+
                     </el-tabs>
                 </div>
             </div>
@@ -238,6 +314,7 @@
 
             <template #content>
                 <div>
+                    <p class="text-amber-500">Revisa la carga de trabajo para equilibrar el trabajo de tus diseñadores</p>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
                         {{ 'OD-' + designOrder.id.toString().padStart(4, '0') }}: {{ designOrder.order_title }}
                     </h3>
@@ -374,6 +451,7 @@ export default {
         designOrder: Object,
         designOrders: Array,
         auth: Object,
+        designVersions: Array, //versiones de diseño (modificaciones)
     },
     computed: {
         isAssignedDesigner() {

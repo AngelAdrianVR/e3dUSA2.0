@@ -105,7 +105,7 @@ onMounted(() => {
                         <div class="flex justify-end h-14">
                             <div class="hidden sm:flex sm:items-center sm:ms-6 transition duration-300 space-x-1">
                                 <!-- Dark mode toggle -->
-                                <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700">
+                                <div class="rounded-lg">
                                     <ThemeToggleSwitch v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
                                 </div>
 

@@ -70,6 +70,14 @@ class Product extends Model implements HasMedia, Auditable
         return $this->belongsToMany(branch::class);
     }
 
+    /**
+     * Un producto de catálogo puede estar en muchos seguimientos de muestras.
+     */
+    public function sampleItems(): MorphMany
+    {
+        return $this->morphMany(SampleTrackingItem::class, 'itemable');
+    }
+
     public function components(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'product_components', 'catalog_product_id', 'component_product_id')
