@@ -31,6 +31,23 @@
                     </div>
                 </header>
 
+                <!-- Resumen de Horas -->
+                <section class="my-4 flex text-sm text-center rounded-md overflow-hidden">
+                    <div class="flex-1 p-2 bg-blue-50 dark:bg-blue-900/40">
+                        <p class="font-bold text-sm text-blue-800 dark:text-blue-200">{{ formatTime(employeeData.summary.total_worked_seconds ?? 0) }}</p>
+                        <p class="text-[11px] text-blue-600 dark:text-blue-300">Tiempo trabajado</p>
+                    </div>
+                    <div v-if="employeeData.summary.total_approved_overtime_seconds > 0" class="flex-1 p-2 bg-indigo-50 dark:bg-indigo-900/40 border-x border-white/50 dark:border-slate-800/50">
+                        <p class="font-bold text-sm text-indigo-800 dark:text-indigo-200">{{ formatTime(employeeData.summary.total_approved_overtime_seconds) }}</p>
+                        <p class="text-[11px] text-indigo-600 dark:text-indigo-300">T. Adicional Aprobado</p>
+                    </div>
+                    <div class="flex-1 p-2 bg-amber-50 dark:bg-amber-900/40">
+                        <p class="font-bold text-sm text-amber-800 dark:text-amber-200">{{ formatTime( (employeeData.employee.hours_per_week * 3600) - (employeeData.summary.total_worked_seconds ?? 0)) }}</p>
+                        <p class="text-[11px] text-amber-600 dark:text-amber-300">Tiempo por completar</p>
+                    </div>
+                </section>
+
+
                 <!-- Tabla de asistencias -->
                 <section class="my-4">
                     <h2 class="font-semibold text-sm mb-2 dark:text-gray-300">Detalle de Asistencias</h2>
@@ -42,23 +59,36 @@
                                     <th class="p-2 text-center">Entrada</th>
                                     <th class="p-2 text-center">Salida</th>
                                     <th class="p-2 text-center">Descansos</th>
+                                    <th class="p-2 text-center">T. Adicional</th>
                                     <th class="p-2 text-center">Tiempo Total</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="day in employeeData.week_details" :key="day.date" class="border-b dark:border-slate-700">
                                     <td class="p-2 font-semibold">{{ day.day_name }} <span class="font-normal text-gray-500 text-[11px]">{{ formatDate(day.date) }}</span></td>
-                                    <td v-if="day.incident" colspan="4" class="p-2 text-center bg-amber-50 dark:bg-amber-900/50">{{ day.incident.incident_type.name }}</td>
+                                    <td v-if="day.incident" colspan="5" class="p-2 text-center bg-amber-50 dark:bg-amber-900/50">{{ day.incident.incident_type.name }}</td>
                                     <template v-else>
                                         <td class="p-2 text-center font-mono">
                                             <div class="flex items-center justify-center space-x-2">
                                                 <span>{{ format12HourTime(day.entry) }}</span>
                                                 <i v-if="day.entry" :class="getLateIcon(day)"></i>
+                                                 <i v-if="day.worked_on_holiday" class="fa-solid fa-star text-amber-400" title="Trabajó en día festivo"></i>
                                             </div>
                                         </td>
                                         <td class="p-2 text-center font-mono">{{ format12HourTime(day.exit) }}</td>
                                         <td class="p-2 text-center font-mono">{{ day.total_break_time ?? '0h 0m' }}</td>
-                                        <td class="p-2 text-center font-mono font-bold">{{ day.total_time ?? '0h 0m' }}</td>
+                                        <td class="p-2 text-center font-mono">
+                                             <span v-if="day.approved_overtime_day_seconds > 0" class="text-indigo-600 dark:text-indigo-400 font-semibold">
+                                                {{ formatTime(day.approved_overtime_day_seconds) }}
+                                            </span>
+                                            <span v-else>--:--</span>
+                                        </td>
+                                        <td class="p-2 text-center font-mono font-bold">
+                                            <span v-if="day.unauthorized_overtime_seconds > 0" class="text-red-500" :title="`Tiempo adicional no autorizado: ${formatTime(day.unauthorized_overtime_seconds)}`">
+                                                {{ day.total_time ?? '0h 0m' }}
+                                            </span>
+                                            <span v-else>{{ day.total_time ?? '0h 0m' }}</span>
+                                        </td>
                                     </template>
                                 </tr>
                             </tbody>
@@ -71,7 +101,9 @@
                      <div class="w-full max-w-xs space-y-1 dark:text-gray-300 text-xs">
                         <h2 class="font-semibold text-sm mb-2">Resumen de Pago</h2>
                         <div class="flex justify-between"><span>Salario base (calculado):</span> <span>{{ formatCurrency(employeeData.summary.base_salary) }}</span></div>
+                        <div v-if="employeeData.summary.extra_holiday_pay" class="flex justify-between"><span>Pago Extra Festivo:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.extra_holiday_pay) }}</span></div>
                         <div v-for="bonus in employeeData.summary.bonuses" :key="bonus.name" class="flex justify-between"><span>Bono: {{ bonus.name }}</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(bonus.amount) }}</span></div>
+                        <div v-if="employeeData.summary.vacation_premium" class="flex justify-between"><span>Prima Vacacional:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.vacation_premium) }}</span></div>
                         <div v-for="discount in employeeData.summary.discounts" :key="discount.name" class="flex justify-between"><span>Descuento: {{ discount.name }}</span> <span class="text-red-600 dark:text-red-400">- {{ formatCurrency(discount.amount) }}</span></div>
                         <div class="mt-2 pt-2 border-t dark:border-slate-700 flex justify-between items-baseline text-sm">
                             <span class="font-bold">Total a Pagar:</span>
@@ -110,6 +142,13 @@ const format12HourTime = (timeString) => {
     return date.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
+const formatTime = (totalSeconds) => {
+    if (totalSeconds < 0) totalSeconds = 0;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+};
+
 const getLateIcon = (day) => {
     if (!day) return '';
     if (day.ignore_late) return 'fa-solid fa-face-smile-wink text-green-500';
@@ -144,3 +183,4 @@ const triggerPrint = () => {
     page-break-inside: avoid;
 }
 </style>
+
