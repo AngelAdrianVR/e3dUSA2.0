@@ -73,6 +73,8 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/payrolls.php';
     require __DIR__ . '/web/attendances.php';
     require __DIR__ . '/web/overtime_requests.php';
+    require __DIR__ . '/web/users.php';
+    require __DIR__ . '/web/vacation-logs.php';
 });
 
 
@@ -267,9 +269,6 @@ Route::get('/production-tasks/{task}/details', [ProductionTaskController::class,
 
 
 // ------- Recursos humanos(users routes)  ---------
-Route::resource('users', UserController::class)->middleware('auth');
-Route::post('users-get-unseen-messages', [UserController::class, 'getUnseenMessages'])->middleware('auth')->name('users.get-unseen-messages');
-Route::put('users-change-status/{user}', [UserController::class, 'changeStatus'])->middleware('auth')->name('users.change-status');
 // Route::get('users-get-next-attendance', [UserController::class, 'getNextAttendance'])->middleware('auth')->name('users.get-next-attendance');
 // Route::get('users-get-pause-status', [UserController::class, 'getPauseStatus'])->middleware('auth')->name('users.get-pause-status');
 // Route::get('users-set-attendance', [UserController::class, 'setAttendance'])->middleware('auth')->name('users.set-attendance');

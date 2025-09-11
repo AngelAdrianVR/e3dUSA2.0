@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\ChMessage;
 use App\Models\Discount;
 use App\Models\User;
+use App\Models\VacationLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,47 @@ class UserController extends Controller
             'roles' => Role::all(),
             'bonuses' => Bonus::all(),
             'discounts' => Discount::all(),
+        ]);
+    }
+
+    public function show(User $user)
+    {
+        $user->load('employeeDetail.bonuses', 'employeeDetail.discounts', 'roles');
+
+        $vacationLogs = collect();
+        $age = null;
+        $seniority = null;
+
+        if ($user->employeeDetail) {
+            $vacationLogs = VacationLog::with('creator:id,name')
+                ->where('employee_detail_id', $user->employeeDetail->id)
+                ->latest('date')
+                ->get();
+
+            // Calcular edad si la fecha de nacimiento existe
+            if ($user->employeeDetail->birthdate) {
+                $age = Carbon::parse($user->employeeDetail->birthdate)->age;
+            }
+
+            // Calcular antigüedad si la fecha de contratación existe
+            if ($user->employeeDetail->join_date) {
+                $seniority = Carbon::parse($user->employeeDetail->join_date)->diffInYears(Carbon::now());
+            }
+        }
+
+        // Calcular el balance total de vacaciones
+        $totalVacations = $vacationLogs->sum('days');
+        $takenVacations = $vacationLogs->where('type', 'taken')->sum('days');
+
+        return inertia('User/Show', [
+            'user' => $user,
+            'vacation_logs' => $vacationLogs,
+            'vacation_summary' => [
+                'available' => $totalVacations,
+                'taken' => abs($takenVacations),
+            ],
+            'age' => $age, // Pasar la edad a la vista
+            'seniority' => number_format($seniority, 2), // Pasar la antigüedad a la vista
         ]);
     }
 
