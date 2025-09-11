@@ -71,6 +71,7 @@ Route::middleware([
 Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/payrolls.php';
     require __DIR__ . '/web/attendances.php';
+    require __DIR__ . '/web/overtime_requests.php';
 });
 
 

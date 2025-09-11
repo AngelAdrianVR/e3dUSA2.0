@@ -36,6 +36,11 @@ class EmployeeDetail extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function overtimeRequests()
+    {
+        return $this->hasMany(OvertimeRequest::class);
+    }
+
     public function bonuses()
     {
         // Asumo que tienes los modelos Bonus y Discount
@@ -46,7 +51,7 @@ class EmployeeDetail extends Model
     {
         return $this->belongsToMany(Discount::class);
     }
-    
+
     // --- NUEVAS RELACIONES ---
     public function attendances()
     {

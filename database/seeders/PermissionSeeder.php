@@ -21,7 +21,7 @@ class PermissionSeeder extends Seeder
             'Usuarios' => ['Ver personal', 'Crear personal', 'Editar personal', 'Eliminar personal'],
             'Bonos' => ['Ver bonos', 'Crear bonos', 'Editar bonos', 'Eliminar bonos'],
             'Descuentos' => ['Ver descuentos', 'Crear descuentos', 'Editar descuentos', 'Eliminar descuentos'],
-            'Nóminas' => ['Ver nominas', 'Crear nominas', 'Editar nominas', 'Eliminar nominas'],
+            'Nóminas' => ['Ver nominas', 'Crear nominas', 'Editar nominas', 'Eliminar nominas', 'Ver solicitudes de tiempo adicional', 'Crear solicitudes de tiempo adicional', 'Gestionar solicitudes de tiempo adicional'],
             'Historial de acciones' => ['Ver historial de acciones'],
             'Roles' => ['Ver roles y permisos', 'Crear roles y permisos', 'Editar roles y permisos', 'Eliminar roles y permisos'],
             'Tutoriales y manuales' => ['Ver tutoriales y manuales', 'Crear tutoriales y manuales', 'Editar tutoriales y manuales', 'Eliminar tutoriales y manuales'],

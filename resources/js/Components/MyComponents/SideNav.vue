@@ -448,6 +448,13 @@ export default {
                             notifications: false,
                         },
                         {
+                            label: 'Solicitudes de tiempo adicional',
+                            route: 'overtime-requests.index',
+                            active: route().current('overtime-requests.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver solicitudes de tiempo adicional'),
+                            notifications: false,
+                        },
+                        {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),

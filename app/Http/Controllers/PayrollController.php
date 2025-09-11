@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
 use App\Models\EmployeeDetail;
+use App\Models\Holiday;
+use App\Models\Incident;
 use App\Models\IncidentType;
+use App\Models\OvertimeRequest;
 use App\Models\Payroll;
 use App\Models\User;
+use App\Services\BonusService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
@@ -30,36 +35,20 @@ class PayrollController extends Controller
         ]);
     }
 
-    public function show(Request $request, Payroll $payroll)
+    public function show(Payroll $payroll)
     {
-        $employees = EmployeeDetail::with([
-            'user',
-            'bonuses',
-            'discounts',
-            'incidents' => function ($query) use ($payroll) {
-                $query->where('payroll_id', $payroll->id)->with('incidentType');
-            },
-            'attendances' => function ($query) use ($payroll) {
-                $query->whereBetween('timestamp', [
-                    Carbon::parse($payroll->start_date)->startOfDay(),
-                    Carbon::parse($payroll->end_date)->endOfDay()
-                ]);
-            }
-        ])->whereHas('user', function ($query) {
-            $query->where('is_active', true);
-        })->get();
+        // Eager load all necessary relationships, including the bonus rules.
+        $employees = EmployeeDetail::with('user', 'bonuses.rules', 'discounts')->get();
+        $payrollData = $this->calculatePayrollData($payroll, $employees);
 
-        $incidentTypes = IncidentType::all();
-        $paidIncidentTypes = ['Permiso con goce', 'Vacaciones', 'Día festivo', 'Incapacidad por trabajo'];
-        $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
-
-        $payrollData = $this->calculatePayrollData($employees, $period, $paidIncidentTypes);
-        $grandTotal = $payrollData->sum('summary.total_to_pay');
+        $grandTotal = $payrollData->sum(function ($data) {
+            return $data['summary']['total_to_pay'] ?? 0;
+        });
 
         return Inertia::render('Payroll/Show', [
             'payroll' => $payroll,
             'payrollData' => $payrollData,
-            'incidentTypes' => $incidentTypes,
+            'incidentTypes' => IncidentType::all(),
             'grandTotal' => $grandTotal,
         ]);
     }
@@ -69,110 +58,206 @@ class PayrollController extends Controller
      */
     public function print(Request $request, Payroll $payroll)
     {
-        $request->validate([
-            'employees' => 'required|array',
-            'employees.*' => 'exists:employee_details,id'
-        ]);
-
-        $employeeIds = $request->input('employees');
-
-        $employees = EmployeeDetail::with(['user', 'bonuses', 'discounts', 'incidents', 'attendances'])
-            ->whereIn('id', $employeeIds)
-            ->get();
-
-        $paidIncidentTypes = ['Permiso con goce', 'Vacaciones', 'Día festivo', 'Incapacidad por trabajo'];
-        $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
-
-        $employeesToPrint = $this->calculatePayrollData($employees, $period, $paidIncidentTypes);
+        $employeeIds = $request->input('employees', []);
+        $employees = EmployeeDetail::whereIn('id', $employeeIds)->with('user', 'bonuses', 'discounts')->get();
+        $payrollData = $this->calculatePayrollData($payroll, $employees);
 
         return Inertia::render('Payroll/Print', [
             'payroll' => $payroll,
-            'employeesToPrint' => $employeesToPrint,
+            'employeesToPrint' => $payrollData,
         ]);
     }
 
     /**
      * Lógica centralizada para calcular los datos de la nómina.
      */
-    private function calculatePayrollData($employees, $period, $paidIncidentTypes)
+   private function calculatePayrollData(Payroll $payroll, $employees)
     {
-        return $employees->map(function ($employee) use ($period, $paidIncidentTypes) {
-            $hourlyRate = ($employee->hours_per_week > 0) ? ($employee->week_salary / $employee->hours_per_week) : 0;
-            $workDaysArray = array_filter($employee->work_days ?? [], fn($day) => $day['works']);
-            $dailyHours = ($employee->hours_per_week > 0 && count($workDaysArray) > 0) ? ($employee->hours_per_week / count($workDaysArray)) : 0;
-            
+        $unjustifiedAbsenceType = IncidentType::where('name', 'Falta injustificada')->first();
+        $dayOffType = IncidentType::where('name', 'Descanso')->first();
+        $holidayType = IncidentType::where('name', 'Día festivo')->first();
+        $bonusService = new BonusService();
+
+        $holidays = Holiday::where('is_active', true)->get()->keyBy(fn ($holiday) => Carbon::parse($holiday->date)->format('m-d'));
+
+        return $employees->map(function ($employee) use ($payroll, $unjustifiedAbsenceType, $dayOffType, $holidayType, $holidays, $bonusService) {
+            $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
             $totalWorkedSeconds = 0;
-            $totalPayableSeconds = 0;
+            $vacationPremium = 0;
+            $extraHolidayPay = 0;
+            $daysData = [];
 
-            $daysData = collect($period->toArray())->map(function ($date) use ($employee, &$totalWorkedSeconds, &$totalPayableSeconds, $paidIncidentTypes, $dailyHours) {
+            // Pre-cargar datos para optimizar
+            $allAttendances = Attendance::where('employee_detail_id', $employee->id)->whereBetween('timestamp', [$payroll->start_date, Carbon::parse($payroll->end_date)->endOfDay()])->orderBy('timestamp')->get();
+            $allIncidents = Incident::where('employee_detail_id', $employee->id)->whereBetween('date', [$payroll->start_date, $payroll->end_date])->with('incidentType')->get();
+            $approvedOvertime = OvertimeRequest::where('employee_detail_id', $employee->id)
+                                ->where('status', 'approved')
+                                ->whereBetween('date', [$payroll->start_date, $payroll->end_date])
+                                ->get()->keyBy('date');
+
+            foreach ($period as $date) {
+                Carbon::setLocale('es');
                 $dayString = $date->format('Y-m-d');
-                $incident = $employee->incidents->firstWhere('date', $dayString);
-                
-                $attendances = $employee->attendances
-                    ->filter(fn($att) => Carbon::parse($att->timestamp)->isSameDay($date))
-                    ->sortBy('timestamp');
+                $dayName = ucfirst($date->isoFormat('dddd'));
+                $monthDay = $date->format('m-d');
+                $isHoliday = $holidays->has($monthDay);
+                $dayAttendances = $allAttendances->where('timestamp', '>=', $dayString . ' 00:00:00')->where('timestamp', '<=', $dayString . ' 23:59:59');
+                $incident = $allIncidents->firstWhere('date', $dayString);
 
-                $entry = $attendances->firstWhere('type', 'entry');
-                $exit = $attendances->where('type', 'exit')->last();
-                
-                $dayWorkedSeconds = 0;
-                $totalBreakSeconds = 0;
-                $breaksBreakdown = [];
+                $dayData = [
+                    'date' => $dayString,
+                    'day_name' => $dayName,
+                    'incident' => $incident,
+                    'worked_on_holiday' => false,
+                    'entry' => null, 'exit' => null, 'total_break_time' => '0h 0m',
+                    'total_time' => '0h 0m', 'late_minutes' => 0, 'ignore_late' => false, 'entry_id' => null,
+                    'breaks_details' => []
+                ];
 
-                if ($incident) {
-                    if (in_array($incident->incidentType->name, $paidIncidentTypes)) {
-                        $totalPayableSeconds += $dailyHours * 3600;
-                    }
-                } elseif ($entry && $exit) {
-                    $dayWorkedSeconds = Carbon::parse($exit->timestamp)->getTimestamp() - Carbon::parse($entry->timestamp)->getTimestamp();
-                    
-                    $breaks = $attendances->whereIn('type', ['start_break', 'end_break'])->values();
-                    for ($i = 0; $i < $breaks->count(); $i += 2) {
-                        if (isset($breaks[$i]) && $breaks[$i]->type === 'start_break' && isset($breaks[$i+1]) && $breaks[$i+1]->type === 'end_break') {
-                            $breakStart = Carbon::parse($breaks[$i]->timestamp);
-                            $breakEnd = Carbon::parse($breaks[$i+1]->timestamp);
-                            $breakDuration = $breakEnd->getTimestamp() - $breakStart->getTimestamp();
-                            $totalBreakSeconds += $breakDuration;
-                            $breaksBreakdown[] = ['start' => $breakStart->toTimeString(), 'end' => $breakEnd->toTimeString()];
+                if ($payroll->status === 'Abierta' && !$incident && !$dayAttendances->count()) {
+                    $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
+                    $detectedIncidentType = null;
+                    if ($isHoliday) {
+                        $detectedIncidentType = $holidayType;
+                    } elseif ($date->isPast() && !$date->isToday()) {
+                        if ($workDayConfig && $workDayConfig['works']) {
+                            $detectedIncidentType = $unjustifiedAbsenceType;
+                        } elseif ($workDayConfig && !$workDayConfig['works']) {
+                            $detectedIncidentType = $dayOffType;
                         }
                     }
-                    $dayWorkedSeconds -= $totalBreakSeconds;
-
-                    $totalWorkedSeconds += $dayWorkedSeconds;
-                    $totalPayableSeconds += $dayWorkedSeconds;
+                    if ($detectedIncidentType) {
+                        $dayData['incident'] = new Incident(['date' => $dayString]);
+                        $dayData['incident']->setRelation('incidentType', $detectedIncidentType);
+                    }
                 }
 
-                return [
-                    'date' => $dayString,
-                    'day_name' => ucfirst(Carbon::parse($date)->isoFormat('dddd')),
-                    'entry' => $entry ? $entry->timestamp->format('H:i:s') : null,
-                    'entry_id' => $entry->id ?? null,
-                    'late_minutes' => $entry->late_minutes ?? 0,
-                    'ignore_late' => $entry->ignore_late ?? false,
-                    'exit' => $exit ? $exit->timestamp->format('H:i:s') : null,
-                    'total_time' => $dayWorkedSeconds > 0 ? gmdate('H\h i\m', $dayWorkedSeconds) : '0h 0m',
-                    'total_break_time' => $totalBreakSeconds > 0 ? gmdate('H\h i\m', $totalBreakSeconds) : '0h 0m',
-                    'breaks_breakdown' => $breaksBreakdown,
-                    'incident' => $incident,
-                ];
-            });
+                $entry = $dayAttendances->firstWhere('type', 'entry');
+                $exit = $dayAttendances->where('type', 'exit')->last();
+                
+                if ($entry) {
+                    $dayData['entry'] = $entry->timestamp->format('H:i:s');
+                    $dayData['late_minutes'] = $entry->late_minutes ?? 0;
+                    $dayData['ignore_late'] = $entry->ignore_late ?? false;
+                    $dayData['entry_id'] = $entry->id;
+                }
+                if ($exit) $dayData['exit'] = $exit->timestamp->format('H:i:s');
 
-            $baseSalary = ($totalPayableSeconds / 3600) * $hourlyRate;
-            $bonusesTotal = $employee->bonuses->sum('amount');
-            $discountsTotal = $employee->discounts->sum('amount');
-            $totalToPay = $baseSalary + $bonusesTotal - $discountsTotal;
+                $breakSeconds = 0;
+                $breakStarts = $dayAttendances->where('type', 'start_break')->values();
+                $breakEnds = $dayAttendances->where('type', 'end_break')->values();
+                for ($i = 0; $i < $breakStarts->count(); $i++) {
+                    if (isset($breakEnds[$i])) {
+                        $start = Carbon::parse($breakStarts[$i]->timestamp);
+                        $end = Carbon::parse($breakEnds[$i]->timestamp);
+                        $diff = $start->diffInSeconds($end);
+                        $breakSeconds += $diff;
+                        $dayData['breaks_details'][] = ['start' => $start->format('H:i'), 'end' => $end->format('H:i'), 'total' => floor($diff / 60) . 'm'];
+                    }
+                }
+                if ($breakSeconds > 0) $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
+
+                $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
+                
+                if ($dayData['incident']) {
+                    if ($dayData['incident']->incidentType->name === 'Día festivo') {
+                        $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
+                        if ($workDayConfig && $workDayConfig['works']) {
+                            $startTime = Carbon::parse($workDayConfig['start_time']);
+                            $endTime = Carbon::parse($workDayConfig['end_time']);
+                            $breakMinutes = $workDayConfig['break_time'] ?? 0;
+                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
+                            $totalWorkedSeconds += max(0, $scheduledSeconds);
+                        }
+                    }
+                } else {
+                    if ($entry && $exit) {
+                        $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
+                        
+                        $scheduledSeconds = 0;
+                        if ($workDayConfig && $workDayConfig['works']) {
+                            $startTime = Carbon::parse($workDayConfig['start_time']);
+                            $endTime = Carbon::parse($workDayConfig['end_time']);
+                            $breakMinutes = $workDayConfig['break_time'] ?? 0;
+                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
+                        }
+
+                        $rawWorkedSeconds = Carbon::parse($entry->timestamp)->diffInSeconds(Carbon::parse($exit->timestamp)) - $breakSeconds;
+                        $dayWorkedSeconds = max(0, $rawWorkedSeconds);
+
+                        $approvedOvertimeSeconds = 0;
+                        if (isset($approvedOvertime[$dayString])) {
+                            $approvedOvertimeSeconds = $approvedOvertime[$dayString]->requested_minutes * 60;
+                        }
+
+                        $payableSeconds = min($dayWorkedSeconds, $scheduledSeconds + $approvedOvertimeSeconds);
+                        
+                        $totalWorkedSeconds += $payableSeconds;
+                        $dayData['total_time'] = gmdate('G\h i\m', $dayWorkedSeconds);
+
+                        if ($isHoliday) {
+                            $dayData['worked_on_holiday'] = true;
+                            $extraHolidayPay += ($payableSeconds / 3600) * $salaryPerHour;
+                        }
+                    }
+                }
+                $daysData[] = $dayData;
+            }
+
+            $payrollPeriodData = ['week_details' => $daysData, 'summary' => ['total_worked_seconds' => $totalWorkedSeconds]];
+            $earnedBonuses = collect();
+            foreach ($employee->bonuses as $bonus) {
+                if ($bonus->is_active) {
+                    $earnedAmount = $bonusService->calculateBonusAmount($bonus, $employee, $payrollPeriodData);
+                    if ($earnedAmount > 0) {
+                        $earnedBonuses->push(['name' => $bonus->name, 'amount' => $earnedAmount]);
+                    }
+                }
+            }
+
+            $baseSalary = $employee->week_salary;
+            $workingDays = array_filter($employee->work_days, fn($day) => $day['works']);
+            $dailySalary = count($workingDays) > 0 ? $baseSalary / count($workingDays) : 0;
+            
+            $workedTimeSalary = ($totalWorkedSeconds / 3600) * $salaryPerHour;
+            $totalToPay = $workedTimeSalary + $extraHolidayPay;
+
+            foreach ($daysData as $day) {
+                if ($day['incident']) {
+                    $incidentName = $day['incident']->incidentType->name;
+                    switch ($incidentName) {
+                        case 'Incapacidad general': $totalToPay += $dailySalary * 0.60; break;
+                        case 'Incapacidad por trabajo':
+                        case 'Permiso con goce':
+                        case 'Día festivo': $totalToPay += $dailySalary; break;
+                        case 'Vacaciones':
+                            $totalToPay += $dailySalary;
+                            $vacationPremium += $dailySalary * 0.25;
+                            break;
+                    }
+                }
+            }
+            $totalToPay += $vacationPremium;
+            $totalToPay += $earnedBonuses->sum('amount');
+            $discounts = $employee->discounts->map(fn($discount) => ['name' => $discount->name, 'amount' => $discount->amount]);
+            $totalToPay -= $discounts->sum('amount');
 
             return [
-                'employee' => $employee->toArray() + [
+                'employee' => [
+                    'id' => $employee->id,
                     'name' => $employee->user->name,
-                    'total_worked_seconds' => $totalWorkedSeconds // <-- FIX: Adding this value back
+                    'job_position' => $employee->job_position,
+                    'hours_per_week' => $employee->hours_per_week,
                 ],
                 'week_details' => $daysData,
                 'summary' => [
-                    'base_salary' => $baseSalary,
-                    'bonuses' => $employee->bonuses,
-                    'discounts' => $employee->discounts,
-                    'total_to_pay' => $totalToPay,
+                    'total_worked_seconds' => $totalWorkedSeconds,
+                    'base_salary' => $workedTimeSalary,
+                    'extra_holiday_pay' => $extraHolidayPay > 0 ? $extraHolidayPay : null,
+                    'bonuses' => $earnedBonuses,
+                    'discounts' => $discounts,
+                    'vacation_premium' => $vacationPremium > 0 ? $vacationPremium : null,
+                    'total_to_pay' => max(0, $totalToPay),
                 ],
             ];
         });
