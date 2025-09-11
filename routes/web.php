@@ -8,6 +8,7 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchNoteController;
 use App\Http\Controllers\BranchPriceHistoryController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignAuthorizationController;
 use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
@@ -64,10 +65,9 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
+Route::get('/dashboard/production-stats', [DashboardController::class, 'getProductionStats'])->name('dashboard.production-stats')->middleware('auth');
 
 // importar archivos de ruta
 Route::middleware('auth')->group(function () {
