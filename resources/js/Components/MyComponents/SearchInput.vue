@@ -64,7 +64,7 @@ export default {
             class="relative transition-all duration-500 ease-in-out flex items-center group"
             :class="isActive ? 'w-64' : 'w-10'"
         >
-            <div class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400 z-10">
+            <div @click="openSearch" class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400 z-10">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </div>
 

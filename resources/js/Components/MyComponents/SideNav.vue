@@ -545,6 +545,7 @@ export default {
                         route().current('machines.*') ||
                         route().current('production-costs.*') ||
                         route().current('manuals.*') ||
+                        route().current('sample-trackings.*') ||
                         route().current('audits.*'),
                     options: [
                         {
@@ -573,6 +574,15 @@ export default {
                             notifications: false,
                         },
                         {
+                            label: 'Seguimiento de muestras',
+                            route: 'sample-trackings.index',
+                            active: route().current('sample-trackings.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver muestras'),
+                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
+                            //     return notification.data.module === 'samples';
+                            // }),
+                        },
+                        {
                             label: 'Historial de acciones',
                             route: 'audits.index',
                             active: route().current('audits.*'),
@@ -588,6 +598,7 @@ export default {
                     show: this.$page.props.auth.user.permissions.includes('Ver maquinas')
                         || this.$page.props.auth.user.permissions.includes('Ver historial de acciones')
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
+                        || this.$page.props.auth.user.permissions.includes('Ver muestras')
                 },
             ],
             showModal: false,

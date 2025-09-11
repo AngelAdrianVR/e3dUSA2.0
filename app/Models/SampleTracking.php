@@ -16,7 +16,7 @@ class SampleTracking extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
-        'status',
+        'status', // 'Pendiente', 'Autorizado', 'Enviado', 'Aprobado', 'Rechazado', 'Devuelto', 'Completado', 'Modificación'
         'branch_id',
         'contact_id',
         'requester_user_id',
@@ -27,6 +27,7 @@ class SampleTracking extends Model implements HasMedia, Auditable
         'comments',
         'authorized_at',
         'denied_at',
+        'approved_at',
         'sent_at',
         'returned_at',
         'completed_at',
@@ -37,6 +38,7 @@ class SampleTracking extends Model implements HasMedia, Auditable
         'expected_devolution_date' => 'date',
         'authorized_at' => 'datetime',
         'denied_at' => 'datetime',
+        'approved_at' => 'datetime',
         'sent_at' => 'datetime',
         'returned_at' => 'datetime',
         'completed_at' => 'datetime',

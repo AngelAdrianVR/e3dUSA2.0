@@ -13,11 +13,11 @@
               <ApplicationLogo />
             <div>
               <div class="flex items-center gap-3">
-                  <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  <h1 class="text-3xl font-bold text-gray-900">
                       Autorización de Diseño
                   </h1>
               </div>
-              <p class="mt-1 text-md text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-md text-gray-500">
                   Folio FA-{{ authorization.id.toString().padStart(4, '0') }} &mdash; Versión {{ authorization.version }}
               </p>
             </div>
@@ -28,15 +28,15 @@
             <!-- Columna Izquierda (Visuales) -->
             <div class="lg:col-span-3 flex flex-col gap-8">
                 <!-- Imagen de Portada -->
-                <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Visualización Principal</h3>
+                <div class="bg-white shadow-xl rounded-lg overflow-hidden border border-gray-200">
+                    <div class="p-5 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">Visualización Principal</h3>
                     </div>
-                    <div class="p-5 bg-gray-50 dark:bg-slate-800/50 flex justify-center items-center">
+                    <div class="p-5 bg-gray-50 flex justify-center items-center">
                         <div v-if="cover_image_url" class="flex justify-center items-center aspect-video h-72">
                               <img :src="cover_image_url" alt="Imagen de portada" class="h-full w-auto object-contain rounded-md">
                         </div>
-                        <div v-else class="flex flex-col items-center justify-center h-80 bg-gray-100 dark:bg-slate-800 rounded-md">
+                        <div v-else class="flex flex-col items-center justify-center h-80 bg-gray-100 rounded-md">
                             <PhotoIcon class="h-16 w-16 text-gray-400" />
                             <p class="mt-2 text-sm font-semibold text-gray-500">No hay imagen de portada</p>
                         </div>
@@ -44,15 +44,15 @@
                 </div>
 
                 <!-- Archivos Adicionales -->
-                <div v-if="additional_files.length" class="bg-white dark:bg-slate-900 shadow-xl rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                      <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Archivos Adicionales</h3>
+                <div v-if="additional_files.length" class="bg-white shadow-xl rounded-lg overflow-hidden border border-gray-200">
+                      <div class="p-5 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">Archivos Adicionales</h3>
                     </div>
                     <div class="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         <a v-for="file in additional_files" :key="file.id" :href="file.url" target="_blank" 
-                            class="group border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-center hover:bg-gray-100 dark:hover:bg-slate-800 hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center aspect-square">
+                            class="group border border-gray-200 rounded-lg p-3 text-center hover:bg-gray-100 hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center aspect-square">
                             <component :is="file.mime_type.includes('pdf') ? 'DocumentTextIcon' : 'PhotoIcon'" class="h-10 w-10 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                            <p class="text-xs font-semibold break-all mt-3 text-gray-600 dark:text-gray-300">{{ file.name }}</p>
+                            <p class="text-xs font-semibold break-all mt-3 text-gray-600">{{ file.name }}</p>
                         </a>
                     </div>
                 </div>
@@ -61,20 +61,20 @@
             <!-- Columna Derecha (Información y Acciones) -->
             <div class="lg:col-span-2 flex flex-col gap-8">
                 <!-- Detalles -->
-                  <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg p-5 border border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 text-gray-800 dark:text-gray-200">Información General</h3>
-                    <ul class="text-sm space-y-2 text-gray-700 dark:text-gray-300">
+                  <div class="bg-white shadow-xl rounded-lg p-5 border border-gray-200">
+                    <h3 class="text-lg font-semibold border-b border-gray-200 pb-3 mb-4 text-gray-800">Información General</h3>
+                    <ul class="text-sm space-y-2 text-gray-700">
                         <!-- Detalles del Producto -->
                         <li class="flex items-start gap-3"><CubeIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Producto:</strong> {{ authorization.product_name }}</span></li>
                         <li class="flex items-start gap-3"><Squares2X2Icon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Material:</strong> {{ authorization.material || 'N/A' }}</span></li>
                         <li class="flex items-start gap-3"><SwatchIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Color:</strong> {{ authorization.color || 'N/A' }}</span></li>
                         <li class="flex items-start gap-3"><CogIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Métodos Prod.:</strong> {{ authorization.production_methods?.join(', ') || 'N/A' }}</span></li>
-                        <li class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><DocumentTextIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Especificaciones:</strong> {{ authorization.specifications || 'Ninguna' }}</span></li>
+                        <li class="flex items-start gap-3 pt-3 border-t border-gray-200"><DocumentTextIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Especificaciones:</strong> {{ authorization.specifications || 'Ninguna' }}</span></li>
                         <!-- Información de Contacto -->
-                        <li class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><BriefcaseIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Cliente:</strong> {{ authorization.branch.name }}</span></li>
+                        <li class="flex items-start gap-3 pt-3 border-t border-gray-200"><BriefcaseIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Cliente:</strong> {{ authorization.branch.name }}</span></li>
                         <li class="flex items-start gap-3"><UserIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Contacto:</strong> {{ authorization.contact.name }}</span></li>
                         <li class="flex items-start gap-3"><UserIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Vendedor:</strong> {{ authorization.seller.name }}</span></li>
-                        <li v-if="authorization.responded_at" class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><CalendarDaysIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Respuesta Cliente:</strong> {{ formatDate(authorization.responded_at) }}</span></li>
+                        <li v-if="authorization.responded_at" class="flex items-start gap-3 pt-3 border-t border-gray-200"><CalendarDaysIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Respuesta Cliente:</strong> {{ formatDate(authorization.responded_at) }}</span></li>
                     </ul>
                     <div class="w-96 relative">
                         <p class="text-[#9A9A9A] mt-16">Firma de autorización: __________________________</p>
