@@ -18,4 +18,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Alterna el estado de "ignorar retardo" para un registro de entrada
     Route::post('attendances/toggle-ignore-late/{attendance}', [AttendanceController::class, 'toggleIgnoreLate'])->name('attendances.toggle-ignore-late');
+    
+    Route::post('attendances/punch', [AttendanceController::class, 'punchClock'])->name('attendances.punch');
 });

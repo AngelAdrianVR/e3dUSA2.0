@@ -277,4 +277,21 @@ class PayrollController extends Controller
             ];
         });
     }
+
+    /**
+     * Obtiene los datos de nómina calculados para el usuario autenticado en un periodo específico.
+     */
+    public function getEmployeePayrollDetails(Payroll $payroll)
+    {
+        $employee = auth()->user()->employeeDetail;
+
+        if (!$employee) {
+            return response()->json(['error' => 'Empleado no encontrado'], 404);
+        }
+
+        // Reutilizamos la lógica de cálculo para un solo empleado.
+        $payrollData = $this->calculatePayrollData($payroll, collect([$employee]));
+
+        return response()->json($payrollData->first());
+    }
 }

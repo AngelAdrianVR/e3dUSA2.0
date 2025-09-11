@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/overtime_requests.php';
     require __DIR__ . '/web/users.php';
     require __DIR__ . '/web/vacation-logs.php';
+    require __DIR__ . '/web/authorized-devices.php';
 });
 
 

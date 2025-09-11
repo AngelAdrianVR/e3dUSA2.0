@@ -175,6 +175,29 @@
                             <el-table-column prop="creator.name" label="Registrado por" />
                         </el-table>
                     </div>
+
+                    <!-- Historial de Bajas -->
+                <div class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                    <h3 class="font-bold text-lg dark:text-gray-200 border-b dark:border-slate-700 pb-2 mb-4">Historial de Bajas y Reactivaciones</h3>
+                    <div v-if="termination_logs.length">
+                        <el-table :data="termination_logs" max-height="300" stripe size="small" class="dark:!bg-slate-900">
+                             <el-table-column prop="termination_date" label="Fecha de Baja">
+                                <template #default="{row}">{{ formatDate(row.termination_date) }}</template>
+                            </el-table-column>
+                            <el-table-column prop="reason" label="Motivo de Baja" />
+                            <el-table-column prop="terminator.name" label="Dado de baja por" />
+                             <el-table-column prop="reinstated_at" label="Fecha de Reactivación">
+                                <template #default="{row}">
+                                    <span v-if="row.reinstated_at">{{ formatDateTime(row.reinstated_at) }}</span>
+                                    <el-tag v-else type="info" size="small">Actualmente de baja</el-tag>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                    </div>
+                    <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
+                        <p>El empleado no tiene registros de bajas.</p>
+                    </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -217,6 +240,45 @@
                 </SecondaryButton>
             </template>
         </DialogModal>
+
+         <!-- NUEVO: Modal para Dar de Baja -->
+        <DialogModal :show="showChangeStatusModal" @close="showChangeStatusModal = false">
+            <template #title>
+                <span v-if="user.is_active">Dar de baja a "{{ user.name }}"</span>
+                <span v-else>Reactivar a "{{ user.name }}"</span>
+            </template>
+            <template #content>
+                <div v-if="user.is_active" class="mb-28">
+                    <p class="dark:text-gray-300">
+                        Se registrará la baja del empleado y se desvinculará de cualquier cliente que tenga asignado.
+                    </p>
+                    <form @submit.prevent="submitTermination" class="mt-4 space-y-4">
+                         <div>
+                            <InputLabel value="Fecha de baja*" />
+                            <el-date-picker :teleported="false" v-model="statusForm.disabled_at" type="date" class="!w-full" placeholder="Selecciona una fecha" format="DD MMMM, YYYY" value-format="YYYY-MM-DD" />
+                            <InputError :message="statusForm.errors.disabled_at" />
+                        </div>
+                        <div>
+                            <TextInput v-model="statusForm.reason" label="Motivo de la baja (opcional)" :isTextarea="true" :error="statusForm.errors.reason" />
+                        </div>
+                    </form>
+                </div>
+                <div v-else class="mb-28">
+                    <p class="dark:text-gray-300">
+                        ¿Estás seguro de que deseas reactivar a este usuario? Se registrará la fecha de reactivación y el usuario podrá acceder de nuevo al sistema.
+                    </p>
+                </div>
+            </template>
+            <template #footer>
+                <CancelButton @click="showChangeStatusModal = false" :disabled="statusForm.processing">Cancelar</CancelButton>
+                <SecondaryButton v-if="user.is_active" @click="submitTermination" :loading="statusForm.processing" class="!bg-red-600 hover:!bg-red-700 text-white">
+                    Confirmar Baja
+                </SecondaryButton>
+                <SecondaryButton v-else @click="submitTermination" :loading="statusForm.processing" class="!bg-green-600 hover:!bg-green-700 text-white">
+                    Confirmar Reactivación
+                </SecondaryButton>
+            </template>
+        </DialogModal>
     </AppLayout>
 </template>
 
@@ -236,6 +298,7 @@ import { ElMessage } from 'element-plus';
 const props = defineProps({
     user: Object,
     vacation_logs: Array,
+    termination_logs: Array,
     vacation_summary: Object,
     age: Number,
     seniority: Number,
@@ -252,8 +315,14 @@ const vacationForm = useForm({
     date: new Date(),
 });
 
+const statusForm = useForm({
+    disabled_at: new Date().toISOString().slice(0, 10), // Fecha de hoy en formato YYYY-MM-DD
+    reason: '',
+});
+
 const formatCurrency = (value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 const formatDate = (dateString) => new Date(dateString.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
+const formatDateTime = (dateString) => new Date(dateString).toLocaleString('es-MX', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 const formatVacationType = (type) => {
     const types = {
@@ -271,6 +340,18 @@ const submitVacationLog = () => {
             showVacationModal.value = false;
             vacationForm.reset();
             ElMessage.success('Movimiento registrado');
+        },
+        preserveScroll: true,
+    });
+};
+
+const submitTermination = () => {
+    statusForm.put(route('users.change-status', props.user), {
+        onSuccess: () => {
+            showChangeStatusModal.value = false;
+            statusForm.reset();
+            const message = props.user.is_active ? 'Usuario dado de baja' : 'Usuario reactivado';
+            ElMessage.success(message);
         },
         preserveScroll: true,
     });

@@ -138,4 +138,65 @@ class AttendanceController extends Controller
         }
         return back()->with('error', 'Operación no válida.');
     }
+
+    /**
+     * Registra una nueva acción de asistencia (entrada, descanso, etc.).
+     */
+    public function punchClock()
+    {
+        $user = auth()->user();
+        if (!$user->employeeDetail) {
+            return back()->with('error', 'No tienes un perfil de empleado.');
+        }
+
+        $employeeId = $user->employeeDetail->id;
+
+        $latestAttendance = Attendance::where('employee_detail_id', $employeeId)
+            ->whereDate('timestamp', Carbon::today())
+            ->latest('timestamp')
+            ->first();
+
+        $lastType = $latestAttendance->type ?? null;
+
+        $nextType = match ($lastType) {
+            null => 'entry',
+            'entry', 'end_break' => 'start_break',
+            'start_break' => 'end_break',
+            'exit' => null, // No se puede hacer nada después de la salida
+        };
+
+        // Lógica para el botón "Registrar Salida" que está disponible en varios estados
+        if (request('action') === 'exit') {
+             if (in_array($lastType, ['entry', 'end_break', 'start_break'])) {
+                $nextType = 'exit';
+            } else {
+                return back()->with('error', 'Acción no válida.');
+            }
+        }
+        
+        if (!$nextType) {
+            return back()->with('error', 'Ya has registrado tu salida por hoy.');
+        }
+        
+        $newAttendance = [
+            'employee_detail_id' => $employeeId,
+            'timestamp' => now(),
+            'type' => $nextType,
+        ];
+        
+        if ($nextType === 'entry') {
+            // Reutilizar la lógica de cálculo de retardos
+            $workDayConfig = collect($user->employeeDetail->work_days)->firstWhere('day', ucfirst(now()->isoFormat('dddd')));
+            if ($workDayConfig && $workDayConfig['works']) {
+                $scheduledStartTime = Carbon::today()->setTimeFromTimeString($workDayConfig['start_time']);
+                if (now()->isAfter($scheduledStartTime)) {
+                    $newAttendance['late_minutes'] = $scheduledStartTime->diffInMinutes(now());
+                }
+            }
+        }
+        
+        Attendance::create($newAttendance);
+
+        return back()->with('success', 'Asistencia registrada correctamente.');
+    }
 }
