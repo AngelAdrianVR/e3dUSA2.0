@@ -29,6 +29,7 @@ use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SalesAnalysisController;
+use App\Http\Controllers\SampleTrackingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\SupplierBankAccountController;
@@ -258,6 +259,8 @@ Route::get('design-authorizations/get-files/{designOrder}', [DesignAuthorization
 Route::put('design-authorizations/{designAuthorization}/client-response', [DesignAuthorizationController::class, 'updateClientResponse'])->middleware('auth')->name('design-authorizations.client-response');
 Route::post('design-authorizations/{designAuthorization}/authorize-internal', [DesignAuthorizationController::class, 'authorizeInternal'])->middleware('auth')->name('design-authorizations.authorize-internal');
 Route::get('design-authorizations/print/{designAuthorization}', [DesignAuthorizationController::class, 'print'])->middleware('auth')->name('design-authorizations.print');
+Route::post('design-authorizations/massive-delete', [DesignAuthorizationController::class, 'massiveDelete'])->middleware('auth')->name('design-authorizations.massive-delete');
+Route::post('design-authorizations-get-matches', [DesignAuthorizationController::class, 'getMatches'])->middleware('auth')->name('design-authorizations.get-matches');
 
 
 // ------- (Tareas de produccion Routes)  ---------
@@ -327,6 +330,14 @@ Route::resource('machines', MachineController::class)->middleware('auth');
 Route::post('machines/massive-delete', [MachineController::class, 'massiveDelete'])->middleware('auth')->name('machines.massive-delete');
 Route::post('machines/upload-files/{machine}', [MachineController::class, 'uploadFiles'])->middleware('auth')->name('machines.upload-files');
 // Route::post('machines/QR-search-machine', [MachineController::class, 'QRSearchMachine'])->name('machines.QR-search-machine');
+
+
+// ------- Rutas de seguimiento de muestras  ---------
+Route::resource('sample-trackings', SampleTrackingController::class)->middleware('auth');
+Route::post('sample-trackings/massive-delete', [SampleTrackingController::class, 'massiveDelete'])->middleware('auth')->name('sample-trackings.massive-delete');
+Route::post('sample-trackings-get-matches', [SampleTrackingController::class, 'getMatches'])->middleware('auth')->name('sample-trackings.get-matches');
+Route::put('sample-trackings/authorize/{sampleTracking}', [SampleTrackingController::class, 'authorizeSample'])->middleware('auth')->name('sample-trackings.authorize');
+Route::put('sample-trackings-update-status/{sampleTracking}', [SampleTrackingController::class, 'updateStatus'])->middleware('auth')->name('sample-trackings.update-status');
 
 
 // ------- Maintenances routes  -------------

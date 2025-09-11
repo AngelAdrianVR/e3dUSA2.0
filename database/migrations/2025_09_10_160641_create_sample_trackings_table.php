@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('sample_trackings', function (Blueprint $table) {
             $table->id();
-            $table->enum('status', ['Pendiente', 'Autorizado', 'Enviado', 'Aprobado', 'Rechazado', 'Regresado', 'Completado'])->default('Pendiente');
+            $table->enum('status', ['Pendiente', 'Autorizado', 'Enviado', 'Aprobado', 'Rechazado', 'Devuelto', 'Completado', 'Modificación'])->default('Pendiente');
             
             // Foreign Keys for relationships
             $table->foreignId('branch_id')->constrained()->cascadeOnDelete();
@@ -31,6 +31,7 @@ return new class extends Migration
 
             // Timestamps for tracking the process
             $table->timestamp('authorized_at')->nullable();
+            $table->timestamp('approved_at')->nullable();
             $table->timestamp('denied_at')->nullable();
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('returned_at')->nullable();

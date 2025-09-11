@@ -143,8 +143,7 @@
             <!-- Carga de Archivos (Evidencia) -->
             <div>
               <InputLabel value="Imágenes de evidencia (máx. 3)" />
-              <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" :maxFiles="3" class="mt-1" />
-              <p class="text-xs text-gray-500 mt-1">Puedes subir imágenes como JPG, PNG, GIF. Máx 4MB.</p>
+              <FileUploader @files-selected="form.media = $event" format="Imagen" :multiple="true" :maxFiles="3" class="mt-1" />
               <InputError :message="form.errors.media" class="mt-2" />
             </div>
 
