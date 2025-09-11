@@ -23,16 +23,23 @@ class DesignOrderController extends Controller
         $user = Auth::user();
         $query = DesignOrder::with(['requester:id,name', 'designer:id,name', 'designCategory:id,name']);
 
+        // Contar órdenes sin asignar para el indicador numérico.
+        // Este conteo se realiza antes de aplicar los filtros de vista.
+        $unassignedOrdersCount = DesignOrder::whereNull('designer_id')->count();
+
         // Lógica de visibilidad
         if ($request->input('view') === 'all') {
-            // No se aplica ningún filtro de usuario, muestra todos
+            // Muestra todas las órdenes, sin filtro de usuario.
         } 
+        else if ($request->input('view') === 'unassigned') {
+            // Nuevo: Filtra para mostrar solo órdenes sin diseñador asignado.
+            $query->whereNull('designer_id');
+        }
         // Si el usuario es un diseñador (asumiendo que tiene un rol o permiso específico)
-        // Aquí podrías usar: $user->hasRole('Diseñador')
         else if ($user->isDesigner()) { // Deberás crear este método en tu modelo User
             $query->where('designer_id', $user->id);
         }
-        // Para cualquier otro caso (solicitantes o gerentes en vista "Míos")
+        // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
         else {
             $query->where('requester_id', $user->id);
         }
@@ -42,31 +49,34 @@ class DesignOrderController extends Controller
         return Inertia::render('Design/Index', [
             'designOrders' => $designOrders,
             'filters' => $request->only(['view']),
+            'unassignedOrdersCount' => $unassignedOrdersCount, // Pasamos el contador a la vista
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        // Se obtienen las categorías de diseño para el selector.
         $designCategories = DesignCategory::select('id', 'name')->get();
+        $designers = User::where('is_active', true)->select('id', 'name')->get();
+        $branches = Branch::select('id', 'name')->with('contacts')->get();
 
         // Se obtienen los usuarios que son diseñadores.
         // Asumiendo que los diseñadores tienen un campo 'designer_level' no nulo como indica el flujo.
         // $designers = User::whereNotNull('designer_level')
         //                  ->where('status', 'active') // O cualquier otro criterio para usuarios activos
         //                  ->select('id', 'name')
-        //                  ->get();
+        //
 
-        $designers = User::where('is_active', true) // O cualquier otro criterio para usuarios activos
-                         ->select('id', 'name')
-                         ->get();
-
-        $branches = Branch::select('id', 'name')->with('contacts')->get();
+        // --- Handle design modification requests ---
+        $originalDesign = null;
+        if ($request->has('modifies_design')) {
+            $originalDesign = Design::find($request->input('modifies_design'));
+        }
 
         return Inertia::render('Design/Create', [
             'designCategories' => $designCategories,
             'designers' => $designers,
             'branches' => $branches,
+            'originalDesign' => $originalDesign, // Pass original design to the view
         ]);
     }
 
@@ -92,7 +102,8 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3', // Valida que sea un array y máximo 3 archivos
-            'media.*' => 'file|max:10240' // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
+            'media.*' => 'file|max:10240', // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
+            'modifies_design_id' => 'nullable|exists:designs,id', // --- Validation for modification
         ]);
 
         // Añadir el ID del usuario que solicita el diseño.
@@ -148,17 +159,46 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        // Cargar todas las órdenes para el selector de búsqueda
         $designOrders = DesignOrder::select('id', 'order_title')->get();
 
-        // Cargar las relaciones necesarias para la vista
-        $designOrder->load(['requester:id,name', 'designer:id,name', 'branch', 'contact', 'designCategory:id,name,complexity', 'media', 'design.media' // Archivos finales (completed_files)
+        $designOrder->load([
+            'designAuthorization', 
+            'assignmentLogs.newDesigner:id,name', 
+            'assignmentLogs.previousDesigner:id,name', 
+            'assignmentLogs.changedByUser:id,name', 
+            'requester:id,name', 
+            'designer:id,name', 
+            'branch', 
+            'contact', 
+            'designCategory:id,name,complexity', 
+            'design.media',
+            'media', 
         ]);
 
-        // return $designOrder;
+        // --- Logic to get all design versions ---
+        $designVersions = collect([]);
+        if ($designOrder->design) {
+            $originalDesign = $designOrder->design;
+            // Traverse up to find the absolute original design
+            while ($originalDesign->original_design_id) {
+                $originalDesign = Design::find($originalDesign->original_design_id);
+                if (!$originalDesign) break; // Break if something is wrong with the chain
+            }
+
+            if ($originalDesign) {
+                // Get the original and all designs that reference it
+                $designVersions = Design::with('media')
+                    ->where('id', $originalDesign->id)
+                    ->orWhere('original_design_id', $originalDesign->id)
+                    ->orderBy('created_at')
+                    ->get();
+            }
+        }
+
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
+            'designVersions' => $designVersions, // Pass versions to the view
         ]);
     }
 
@@ -266,6 +306,14 @@ class DesignOrderController extends Controller
         $designOrder->delete();
     }
 
+    public function massiveDelete(Request $request)
+    {
+        foreach ($request->ids as $id) {
+            $designOrder = DesignOrder::find($id);
+            $designOrder?->delete();
+        }
+    }
+
     /**
      * Mark the design order as started by the designer.
      *
@@ -322,6 +370,7 @@ class DesignOrderController extends Controller
                 'name' => $designOrder->order_title,
                 'description' => $designOrder->specifications,
                 'design_category_id' => $designOrder->design_category_id,
+                'original_design_id' => $designOrder->modifies_design_id,
             ]);
 
             // --- INICIO: NUEVA LÓGICA DE ARCHIVOS ---
@@ -397,13 +446,18 @@ class DesignOrderController extends Controller
     public function getDesigners()
     {
         $designers = User::with([
-            'assignedDesignOrders:id,order_title,status,designer_id,branch_id,contact_id,design_category_id', 
+            // Aplicar restricción a la relación 'assignedDesignOrders'
+            'assignedDesignOrders' => function ($query) {
+                // Seleccionar solo las órdenes que NO tengan estos estatus
+                $query->whereNotIn('status', ['Terminada', 'Cancelada']);
+            },
+            // Cargar relaciones anidadas de las órdenes ya filtradas
             'assignedDesignOrders.branch:id,name',
             'assignedDesignOrders.designCategory:id,name,complexity',
-            ])
-            ->where('is_active', true) // O el criterio que uses para identificar diseñadores
-            ->select('id', 'name')
-            ->get();
+        ])
+        ->where('is_active', true) // O el criterio que uses para identificar diseñadores
+        ->select('id', 'name')
+        ->get();
 
         return response()->json($designers);
     }
