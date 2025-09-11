@@ -58,7 +58,14 @@
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 <div class="lg:col-span-2 overflow-x-auto">
                                     <el-table :data="employeeData.week_details" stripe class="dark:!bg-slate-800" size="small" :span-method="incidentSpanMethod">
-                                        <el-table-column prop="day_name" label="Día" width="130" />
+                                        <el-table-column prop="day_name" label="Día" width="130">
+                                            <template #default="{ row }">
+                                                {{ row.day_name }}
+                                                <el-tooltip v-if="row.worked_on_holiday" content="Trabajó en día festivo (pago extra)" placement="top">
+                                                        <i class="fa-solid fa-star text-amber-400"></i>
+                                                    </el-tooltip>
+                                            </template>
+                                        </el-table-column>
                                         <el-table-column prop="entry" label="Entrada" align="center" width="120">
                                             <template #default="{ row }">
                                                 <!-- Condición para mostrar incidencia -->
@@ -142,6 +149,9 @@
                                     <h4 class="font-semibold text-md mb-2 dark:text-gray-200">Resumen Semanal</h4>
                                     <div class="w-full max-w-md space-y-2 dark:text-gray-300">
                                         <div class="flex justify-between"><span>Salario base (calculado):</span> <span>{{ formatCurrency(employeeData.summary.base_salary) }}</span></div>
+                                        <div v-if="employeeData.summary.extra_holiday_pay" class="flex justify-between">
+                                            <span>Pago Extra Festivo:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.extra_holiday_pay) }}</span>
+                                        </div>
                                         <div v-for="bonus in employeeData.summary.bonuses" :key="bonus.name" class="flex justify-between"><span>Bono: {{ bonus.name }}</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(bonus.amount) }}</span></div>
                                         <div v-if="employeeData.summary.vacation_premium" class="flex justify-between"><span>Prima Vacacional:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.vacation_premium) }}</span></div>
                                         <div v-for="discount in employeeData.summary.discounts" :key="discount.name" class="flex justify-between"><span>Descuento: {{ discount.name }}</span> <span class="text-red-600 dark:text-red-400">- {{ formatCurrency(discount.amount) }}</span></div>
