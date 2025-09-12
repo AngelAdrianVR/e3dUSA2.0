@@ -19,3 +19,6 @@ Schedule::command('quotations:check-pending')->dailyAt('06:00');
 
 // Cierra la nómina semanal actual y abre la siguiente cada jueves a las 11:55 PM
 Schedule::command('app:manage-weekly-payroll')->thursdays()->at('23:55');
+
+// Otorga las vacaciones proporcionales a cada empleado activo.
+Schedule::command('app:grant-weekly-vacations')->weeklyOn(5, '01:00'); // Cada viernes a la 1:00 AM

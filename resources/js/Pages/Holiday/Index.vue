@@ -12,14 +12,16 @@
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
                         <!-- Botón para abrir el modal de creación -->
-                        <SecondaryButton @click="openCreateModal">
+                        <SecondaryButton v-if="hasPermission('Crear dias festivos')" @click="openCreateModal">
                             <i class="fa-solid fa-plus mr-2"></i>
                             Nuevo Día Festivo
                         </SecondaryButton>
-                        
+
                         <!-- Botón de eliminación masiva -->
-                        <el-popconfirm confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
-                            title="¿Estás seguro de eliminar los días festivos seleccionados?" @confirm="deleteSelections">
+                        <el-popconfirm v-if="hasPermission('Eliminar dias festivos')" confirm-button-text="Sí, eliminar"
+                            cancel-button-text="No" icon-color="#EF4444"
+                            title="¿Estás seguro de eliminar los días festivos seleccionados?"
+                            @confirm="deleteSelections">
                             <template #reference>
                                 <el-button type="danger" plain :disabled="!selectedItems.length">
                                     Eliminar seleccionados
@@ -29,20 +31,15 @@
                     </div>
 
                     <!-- Tabla de Días Festivos -->
-                    <el-table
-                        max-height="550"
-                        :data="holidays.data" 
-                        style="width: 100%" 
-                        stripe
-                        @selection-change="handleSelectionChange"
-                        @row-click="handleRowClick"
-                        class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300"
-                    >
+                    <el-table max-height="550" :data="holidays.data" style="width: 100%" stripe
+                        @selection-change="handleSelectionChange" @row-click="handleRowClick"
+                        class="dark:!bg-slate-900 dark:!text-gray-300"
+                        :class="hasPermission('Editar dias festivos') ? 'cursor-pointer' : null">
                         <el-table-column type="selection" width="45" />
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
                         <el-table-column prop="date" label="Fecha" sortable>
-                        <template #default="scope">
+                            <template #default="scope">
                                 <span class="text-gray-600 dark:text-gray-400">{{ formatDate(scope.row.date) }}</span>
                             </template>
                         </el-table-column>
@@ -57,14 +54,9 @@
 
                     <!-- Paginación -->
                     <div v-if="holidays.total > 0" class="flex justify-center mt-6">
-                        <el-pagination
-                            v-model:current-page="holidays.current_page"
-                            :page-size="holidays.per_page"
-                            :total="holidays.total"
-                            layout="prev, pager, next"
-                            background
-                            @current-change="handlePageChange"
-                        />
+                        <el-pagination v-model:current-page="holidays.current_page" :page-size="holidays.per_page"
+                            :total="holidays.total" layout="prev, pager, next" background
+                            @current-change="handlePageChange" />
                     </div>
                 </div>
             </div>
@@ -77,13 +69,14 @@
                 <form @submit.prevent="submit" class="grid grid-cols-2 gap-4">
                     <!-- Campo Nombre -->
                     <div class="col-span-2">
-                        <TextInput v-model="form.name" label="Nombre de la festividad*" :error="form.errors.name" class="w-full" />
+                        <TextInput v-model="form.name" label="Nombre de la festividad*" :error="form.errors.name"
+                            class="w-full" />
                     </div>
 
                     <!-- Selector de Día -->
                     <div>
-                         <InputLabel value="Día*" />
-                         <el-select v-model="form.day" clearable placeholder="Día" class="w-full" :teleported="false">
+                        <InputLabel value="Día*" />
+                        <el-select v-model="form.day" clearable placeholder="Día" class="w-full" :teleported="false">
                             <el-option v-for="item in 31" :key="item" :label="item" :value="item" />
                         </el-select>
                         <InputError :message="form.errors.day" />
@@ -93,7 +86,8 @@
                     <div>
                         <InputLabel value="Mes*" />
                         <el-select v-model="form.month" clearable placeholder="Mes" class="w-full" :teleported="false">
-                            <el-option v-for="(item, index) in months" :key="index" :label="item.label" :value="item.value" />
+                            <el-option v-for="(item, index) in months" :key="index" :label="item.label"
+                                :value="item.value" />
                         </el-select>
                         <InputError :message="form.errors.month" />
                     </div>
@@ -178,6 +172,10 @@ export default {
         }
     },
     methods: {
+        hasPermission(permission) {
+            const permissions = this.$page.props.auth.user.permissions;
+            return permissions.includes(permission);
+        },
         // Abre el modal para crear un nuevo día festivo
         openCreateModal() {
             this.isEditing = false;
@@ -196,7 +194,7 @@ export default {
         },
         // Maneja el clic en una fila para editar
         handleRowClick(row) {
-            console.log(row) 
+            if (!this.hasPermission('Editar dias festivos')) return;
             // return;
             this.isEditing = true;
             // Llena el formulario con los datos de la fila seleccionada
@@ -204,7 +202,7 @@ export default {
             this.form.name = row.name;
             this.form.day = row.date.split('-')[2].split('T')[0];
             this.form.month = row.date.split('-')[1];
-            this.form.is_active = !! row.is_active; // Convierte 1/0 a true/false
+            this.form.is_active = !!row.is_active; // Convierte 1/0 a true/false
             this.showModal = true;
         },
         // Cierra el modal y resetea el formulario

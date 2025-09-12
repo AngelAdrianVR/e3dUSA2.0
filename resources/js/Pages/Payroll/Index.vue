@@ -17,6 +17,9 @@ export default {
         },
     },
     methods: {
+        handleRowClick(row) {
+            this.$inertia.get(route('payrolls.show', row.id));
+        },
         // Maneja los comandos del menú desplegable de acciones.
         handleCommand(command) {
             const [action, payrollId] = command.split('-');
@@ -44,20 +47,12 @@ export default {
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                            Periodos Registrados
+                            Periodos registrados
                         </h3>
-                        <!-- Asumo que tendrás una ruta 'payrolls.create' en el futuro -->
-                        <Link :href="route('payrolls.index')">
-                            <SecondaryButton>
-                                <i class="fa-solid fa-plus mr-2"></i>
-                                Nuevo Periodo
-                            </SecondaryButton>
-                        </Link>
                     </div>
 
-                    <!-- Tabla de Element Plus con el nuevo estilo -->
-                    <el-table :data="payrolls" stripe style="width: 100%" max-height="550"
-                        class="dark:!bg-slate-900 dark:!text-gray-300">
+                    <el-table :data="payrolls" stripe style="width: 100%" max-height="550" @row-click="handleRowClick"
+                        class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
                         <el-table-column prop="id" label="ID" width="80" />
                         <el-table-column prop="week_number" label="Semana #" width="120" align="center" />
                         <el-table-column prop="start_date" label="Fecha de Inicio" />
@@ -69,7 +64,7 @@ export default {
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="Acciones" width="120" align="right">
+                        <!-- <el-table-column label="Acciones" width="120" align="right">
                             <template #default="scope">
                                 <el-dropdown trigger="click" @command="handleCommand">
                                     <button @click.stop
@@ -79,15 +74,14 @@ export default {
                                     <template #dropdown>
                                         <el-dropdown-menu>
                                             <el-dropdown-item :command="'manage-' + scope.row.id">
-                                                <i class="fa-solid fa-folder-open mr-2"></i>
-                                                Gestionar
+                                                <i class="fa-solid fa-eye mr-2"></i>
+                                                Ver
                                             </el-dropdown-item>
-                                            <!-- Aquí puedes agregar más opciones en el futuro -->
                                         </el-dropdown-menu>
                                     </template>
                                 </el-dropdown>
                             </template>
-                        </el-table-column>
+                        </el-table-column> -->
                     </el-table>
                 </div>
             </div>

@@ -12,13 +12,14 @@
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
                         <!-- Botón para abrir el modal de creación -->
-                        <SecondaryButton @click="openCreateModal">
+                        <SecondaryButton v-if="hasPermission('Crear descuentos')" @click="openCreateModal">
                             <i class="fa-solid fa-plus mr-2"></i>
                             Nuevo Descuento
                         </SecondaryButton>
-                        
+
                         <!-- Botón de eliminación masiva -->
-                        <el-popconfirm confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
+                        <el-popconfirm v-if="hasPermission('Crear descuentos')" confirm-button-text="Sí, eliminar"
+                            cancel-button-text="No" icon-color="#EF4444"
                             title="¿Estás seguro de eliminar los bonos seleccionados?" @confirm="deleteSelections">
                             <template #reference>
                                 <el-button type="danger" plain :disabled="!selectedItems.length">
@@ -29,15 +30,10 @@
                     </div>
 
                     <!-- Tabla de Bonos -->
-                    <el-table
-                        max-height="550"
-                        :data="discounts.data" 
-                        style="width: 100%" 
-                        stripe
-                        @selection-change="handleSelectionChange"
-                        @row-click="handleRowClick"
-                        class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300"
-                    >
+                    <el-table max-height="550" :data="discounts.data" style="width: 100%" stripe
+                        @selection-change="handleSelectionChange" @row-click="handleRowClick"
+                        class="dark:!bg-slate-900 dark:!text-gray-300"
+                        :class="hasPermission('Editar descuentos') ? 'cursor-pointer' : null">
                         <el-table-column type="selection" width="45" />
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
@@ -56,14 +52,9 @@
 
                     <!-- Paginación -->
                     <div v-if="discounts.total > 0" class="flex justify-center mt-6">
-                        <el-pagination
-                            v-model:current-page="discounts.current_page"
-                            :page-size="discounts.per_page"
-                            :total="discounts.total"
-                            layout="prev, pager, next"
-                            background
-                            @current-change="handlePageChange"
-                        />
+                        <el-pagination v-model:current-page="discounts.current_page" :page-size="discounts.per_page"
+                            :total="discounts.total" layout="prev, pager, next" background
+                            @current-change="handlePageChange" />
                     </div>
                 </div>
             </div>
@@ -76,14 +67,15 @@
                 <form @submit.prevent="submit" class="grid grid-cols-2 gap-2">
                     <!-- Campo Nombre -->
                     <div class="col-span-2">
-                        <TextInput v-model="form.name" label="Nombre del descuento*" :error="form.errors.name" class="w-full" />
+                        <TextInput v-model="form.name" label="Nombre del descuento*" :error="form.errors.name"
+                            class="w-full" />
                     </div>
 
                     <!-- Campo Descripción -->
                     <div class="col-span-2">
-                        <TextInput v-model="form.description"
-                            label="Descripción (opcional)" :error="form.errors.description"
-                            class="w-full" :isTextarea="true" :withMaxLength="true" :maxLength="255" />
+                        <TextInput v-model="form.description" label="Descripción (opcional)"
+                            :error="form.errors.description" class="w-full" :isTextarea="true" :withMaxLength="true"
+                            :maxLength="255" />
                     </div>
 
                     <!-- Campo monto -->
@@ -161,6 +153,10 @@ export default {
         }
     },
     methods: {
+        hasPermission(permission) {
+            const permissions = this.$page.props.auth.user.permissions;
+            return permissions.includes(permission);
+        },
         // Abre el modal para crear un nuevo descuento
         openCreateModal() {
             this.isEditing = false;
@@ -170,13 +166,14 @@ export default {
         },
         // Maneja el clic en una fila para editar
         handleRowClick(row) {
+            if (!this.hasPermission('Editar descuentos')) return;
             this.isEditing = true;
             // Llena el formulario con los datos de la fila seleccionada
             this.form.id = row.id;
             this.form.name = row.name;
             this.form.description = row.description;
             this.form.amount = row.amount;
-            this.form.is_active = !! row.is_active; // Convierte 1/0 a true/false
+            this.form.is_active = !!row.is_active; // Convierte 1/0 a true/false
             this.showModal = true;
         },
         // Cierra el modal y resetea el formulario

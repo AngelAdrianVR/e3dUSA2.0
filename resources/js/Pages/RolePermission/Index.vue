@@ -12,19 +12,23 @@
                         <div class="md:col-span-1 border-r border-gray-200 dark:border-slate-700 p-5">
                             <div class="flex justify-between items-center mb-4">
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">Roles</h3>
-                                <SecondaryButton @click="openCreateRoleModal">Nuevo Rol</SecondaryButton>
+                                <SecondaryButton v-if="hasPermission('Crear roles y permisos')"
+                                    @click="openCreateRoleModal">Nuevo Rol</SecondaryButton>
                             </div>
                             <div class="space-y-2 max-h-[65vh] overflow-auto">
-                                <div v-for="role in roles" :key="role.id"
-                                    @click="selectRole(role)"
+                                <div v-for="role in roles" :key="role.id" @click="selectRole(role)"
                                     :class="selectedRole && selectedRole.id === role.id ? 'bg-blue-100 dark:bg-blue-900/50' : 'hover:bg-gray-100 dark:hover:bg-slate-800'"
                                     class="p-3 rounded-lg cursor-pointer transition-colors duration-200 flex justify-between items-center group">
                                     <span class="font-medium text-gray-700 dark:text-gray-300">{{ role.name }}</span>
-                                    <div v-if="role.name !== 'Super Administrador'" class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button @click.stop="openEditRoleModal(role)" class="text-gray-400 hover:text-blue-500"><i class="fa-solid fa-pencil"></i></button>
-                                        <el-popconfirm title="¿Eliminar este rol?" @confirm="deleteRole(role)">
+                                    <div v-if="role.name !== 'Super Administrador'"
+                                        class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button v-if="hasPermission('Editar roles y permisos')" @click.stop="openEditRoleModal(role)"
+                                            class="text-gray-400 hover:text-blue-500"><i
+                                                class="fa-solid fa-pencil"></i></button>
+                                        <el-popconfirm v-if="hasPermission('Eliminar roles y permisos')" title="¿Eliminar este rol?" @confirm="deleteRole(role)">
                                             <template #reference>
-                                                <button @click.stop class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-trash-can"></i></button>
+                                                <button @click.stop class="text-gray-400 hover:text-red-500"><i
+                                                        class="fa-solid fa-trash-can"></i></button>
                                             </template>
                                         </el-popconfirm>
                                     </div>
@@ -36,31 +40,40 @@
                         <div class="md:col-span-2 p-5">
                             <div v-if="selectedRole">
                                 <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                                    Permisos para: <span class="text-blue-600 dark:text-blue-400">{{ selectedRole.name }}</span>
+                                    Permisos para: <span class="text-blue-600 dark:text-blue-400">{{ selectedRole.name
+                                        }}</span>
                                 </h3>
                                 <div class="space-y-6 max-h-[65vh] overflow-auto pr-2">
                                     <div v-for="(permissionGroup, module) in permissions" :key="module">
-                                        <div class="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-2 mb-3">
-                                            <h4 class="font-bold capitalize text-gray-700 dark:text-gray-100">{{ module }}</h4>
-                                            <button @click="openCreatePermissionModal(module)" class="text-blue-500 hover:text-blue-700 text-sm font-medium">
+                                        <div
+                                            class="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-2 mb-3">
+                                            <h4 class="font-bold capitalize text-gray-700 dark:text-gray-100">{{ module
+                                                }}</h4>
+                                            <button v-if="hasPermission('Crear roles y permisos')" @click="openCreatePermissionModal(module)"
+                                                class="text-blue-500 hover:text-blue-700 text-sm font-medium">
                                                 <i class="fa-solid fa-plus mr-1"></i> Nuevo Permiso
                                             </button>
                                         </div>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2">
-                                            <div v-for="permission in permissionGroup" :key="permission.id" class="group flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-800">
+                                            <div v-for="permission in permissionGroup" :key="permission.id"
+                                                class="group flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-800">
                                                 <label class="flex items-center space-x-3 cursor-pointer">
-                                                    <el-checkbox 
-                                                        :model-value="hasPermission(permission.name)"
+                                                    <el-checkbox :model-value="hasPermission(permission.name)"
                                                         @change="togglePermission(permission.name)"
                                                         :label="permission.name"
-                                                        :disabled="selectedRole.name === 'Super Administrador'"
-                                                    />
+                                                        :disabled="selectedRole.name === 'Super Administrador'" />
                                                 </label>
-                                                <div class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button @click.stop="openEditPermissionModal(permission)" class="text-gray-400 hover:text-blue-500 text-xs"><i class="fa-solid fa-pencil"></i></button>
-                                                    <el-popconfirm title="¿Eliminar este permiso de forma permanente?" @confirm="deletePermission(permission)">
+                                                <div
+                                                    class="flex items-center space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button v-if="hasPermission('Editar roles y permisos')" @click.stop="openEditPermissionModal(permission)"
+                                                        class="text-gray-400 hover:text-blue-500 text-xs"><i
+                                                            class="fa-solid fa-pencil"></i></button>
+                                                    <el-popconfirm v-if="hasPermission('Eliminar roles y permisos')" title="¿Eliminar este permiso de forma permanente?"
+                                                        @confirm="deletePermission(permission)">
                                                         <template #reference>
-                                                            <button @click.stop class="text-gray-400 hover:text-red-500 text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                                                            <button @click.stop
+                                                                class="text-gray-400 hover:text-red-500 text-xs"><i
+                                                                    class="fa-solid fa-trash-can"></i></button>
                                                         </template>
                                                     </el-popconfirm>
                                                 </div>
@@ -69,12 +82,14 @@
                                     </div>
                                 </div>
                                 <div class="mt-8 flex justify-end">
-                                    <SecondaryButton @click="updateRolePermissions" :disabled="form.processing || selectedRole.name === 'Super Administrador'">
+                                    <SecondaryButton @click="updateRolePermissions"
+                                        :disabled="form.processing || selectedRole.name === 'Super Administrador'">
                                         Guardar Cambios
                                     </SecondaryButton>
                                 </div>
                             </div>
-                            <div v-else class="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
+                            <div v-else
+                                class="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400">
                                 <i class="fa-solid fa-hand-pointer text-5xl mb-4 -rotate-90"></i>
                                 <p>Selecciona un rol para ver y asignar permisos.</p>
                             </div>
@@ -90,7 +105,8 @@
             <template #content>
                 <form @submit.prevent="submitRole">
                     <InputLabel for="roleName" value="Nombre del Rol" />
-                    <TextInput id="roleName" v-model="roleForm.name" required class="w-full mt-1" @keydown.enter.prevent="submitRole" />
+                    <TextInput id="roleName" v-model="roleForm.name" required class="w-full mt-1"
+                        @keydown.enter.prevent="submitRole" />
                     <InputError :message="roleForm.errors.name" class="mt-2" />
                 </form>
             </template>
@@ -103,7 +119,7 @@
                 </div>
             </template>
         </DialogModal>
-        
+
         <!-- Modal para Crear/Editar Permiso -->
         <DialogModal :show="showPermissionModal" @close="closePermissionModal">
             <template #title>{{ isEditingPermission ? 'Editar Permiso' : 'Crear Nuevo Permiso' }}</template>
@@ -160,7 +176,7 @@ export default {
             roleForm: useForm({ id: null, name: '' }),
             showRoleModal: false,
             isEditingRole: false,
-            
+
             // State for Permissions
             permissionForm: useForm({ id: null, name: '', module: '' }),
             showPermissionModal: false,
@@ -168,6 +184,10 @@ export default {
         };
     },
     methods: {
+        hasPermission(permission) {
+            const permissions = this.$page.props.auth.user.permissions;
+            return permissions.includes(permission);
+        },
         // --- Role Methods ---
         selectRole(role) {
             this.selectedRole = role;
@@ -247,9 +267,9 @@ export default {
         },
 
         // --- Common Methods ---
-        hasPermission(permissionName) {
-            return this.assignedPermissions.includes(permissionName);
-        },
+        // hasPermission(permissionName) {
+        //     return this.assignedPermissions.includes(permissionName);
+        // },
         togglePermission(permissionName) {
             const index = this.assignedPermissions.indexOf(permissionName);
             if (index > -1) {

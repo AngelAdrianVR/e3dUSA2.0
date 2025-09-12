@@ -9,7 +9,6 @@ use App\Models\Incident;
 use App\Models\IncidentType;
 use App\Models\OvertimeRequest;
 use App\Models\Payroll;
-use App\Models\User;
 use App\Services\BonusService;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -71,14 +70,14 @@ class PayrollController extends Controller
     /**
      * Lógica centralizada para calcular los datos de la nómina.
      */
-   private function calculatePayrollData(Payroll $payroll, $employees)
+    private function calculatePayrollData(Payroll $payroll, $employees)
     {
         $unjustifiedAbsenceType = IncidentType::where('name', 'Falta injustificada')->first();
         $dayOffType = IncidentType::where('name', 'Descanso')->first();
         $holidayType = IncidentType::where('name', 'Día festivo')->first();
         $bonusService = new BonusService();
 
-        $holidays = Holiday::where('is_active', true)->get()->keyBy(fn ($holiday) => Carbon::parse($holiday->date)->format('m-d'));
+        $holidays = Holiday::where('is_active', true)->get()->keyBy(fn($holiday) => Carbon::parse($holiday->date)->format('m-d'));
 
         return $employees->map(function ($employee) use ($payroll, $unjustifiedAbsenceType, $dayOffType, $holidayType, $holidays, $bonusService) {
             $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
@@ -90,10 +89,12 @@ class PayrollController extends Controller
             // Pre-cargar datos para optimizar
             $allAttendances = Attendance::where('employee_detail_id', $employee->id)->whereBetween('timestamp', [$payroll->start_date, Carbon::parse($payroll->end_date)->endOfDay()])->orderBy('timestamp')->get();
             $allIncidents = Incident::where('employee_detail_id', $employee->id)->whereBetween('date', [$payroll->start_date, $payroll->end_date])->with('incidentType')->get();
+
             $approvedOvertime = OvertimeRequest::where('employee_detail_id', $employee->id)
-                                ->where('status', 'approved')
-                                ->whereBetween('date', [$payroll->start_date, $payroll->end_date])
-                                ->get()->keyBy('date');
+                ->where('status', 'approved')
+                ->whereBetween('date', [$payroll->start_date, $payroll->end_date])
+                ->get()->keyBy(fn($request) => $request->date->format('Y-m-d'));
+            $totalApprovedOvertimeSeconds = $approvedOvertime->sum('requested_minutes') * 60;
 
             foreach ($period as $date) {
                 Carbon::setLocale('es');
@@ -109,9 +110,16 @@ class PayrollController extends Controller
                     'day_name' => $dayName,
                     'incident' => $incident,
                     'worked_on_holiday' => false,
-                    'entry' => null, 'exit' => null, 'total_break_time' => '0h 0m',
-                    'total_time' => '0h 0m', 'late_minutes' => 0, 'ignore_late' => false, 'entry_id' => null,
-                    'breaks_details' => []
+                    'entry' => null,
+                    'exit' => null,
+                    'total_break_time' => '0h 0m',
+                    'total_time' => '0h 0m',
+                    'late_minutes' => 0,
+                    'ignore_late' => false,
+                    'entry_id' => null,
+                    'breaks_details' => [],
+                    'unauthorized_overtime_seconds' => 0,
+                    'approved_overtime_day_seconds' => 0,
                 ];
 
                 if ($payroll->status === 'Abierta' && !$incident && !$dayAttendances->count()) {
@@ -134,7 +142,7 @@ class PayrollController extends Controller
 
                 $entry = $dayAttendances->firstWhere('type', 'entry');
                 $exit = $dayAttendances->where('type', 'exit')->last();
-                
+
                 if ($entry) {
                     $dayData['entry'] = $entry->timestamp->format('H:i:s');
                     $dayData['late_minutes'] = $entry->late_minutes ?? 0;
@@ -158,14 +166,14 @@ class PayrollController extends Controller
                 if ($breakSeconds > 0) $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
 
                 $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
-                
+
                 if ($dayData['incident']) {
                     if ($dayData['incident']->incidentType->name === 'Día festivo') {
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
                         if ($workDayConfig && $workDayConfig['works']) {
                             $startTime = Carbon::parse($workDayConfig['start_time']);
                             $endTime = Carbon::parse($workDayConfig['end_time']);
-                            $breakMinutes = $workDayConfig['break_time'] ?? 0;
+                            $breakMinutes = $workDayConfig['break_minutes'] ?? 0;
                             $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
                             $totalWorkedSeconds += max(0, $scheduledSeconds);
                         }
@@ -173,25 +181,27 @@ class PayrollController extends Controller
                 } else {
                     if ($entry && $exit) {
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
-                        
+
                         $scheduledSeconds = 0;
                         if ($workDayConfig && $workDayConfig['works']) {
                             $startTime = Carbon::parse($workDayConfig['start_time']);
                             $endTime = Carbon::parse($workDayConfig['end_time']);
-                            $breakMinutes = $workDayConfig['break_time'] ?? 0;
+                            $breakMinutes = $workDayConfig['break_minutes'] ?? 0;
                             $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
                         }
 
                         $rawWorkedSeconds = Carbon::parse($entry->timestamp)->diffInSeconds(Carbon::parse($exit->timestamp)) - $breakSeconds;
                         $dayWorkedSeconds = max(0, $rawWorkedSeconds);
 
-                        $approvedOvertimeSeconds = 0;
+                        $approvedOvertimeDaySeconds = 0;
                         if (isset($approvedOvertime[$dayString])) {
-                            $approvedOvertimeSeconds = $approvedOvertime[$dayString]->requested_minutes * 60;
+                            $approvedOvertimeDaySeconds = $approvedOvertime[$dayString]->requested_minutes * 60;
+                            $dayData['approved_overtime_day_seconds'] = $approvedOvertimeDaySeconds;
                         }
 
-                        $payableSeconds = min($dayWorkedSeconds, $scheduledSeconds + $approvedOvertimeSeconds);
-                        
+                        $payableSeconds = min($dayWorkedSeconds, $scheduledSeconds + $approvedOvertimeDaySeconds);
+                        $dayData['unauthorized_overtime_seconds'] = max(0, $dayWorkedSeconds - ($scheduledSeconds + $approvedOvertimeDaySeconds));
+
                         $totalWorkedSeconds += $payableSeconds;
                         $dayData['total_time'] = gmdate('G\h i\m', $dayWorkedSeconds);
 
@@ -218,7 +228,7 @@ class PayrollController extends Controller
             $baseSalary = $employee->week_salary;
             $workingDays = array_filter($employee->work_days, fn($day) => $day['works']);
             $dailySalary = count($workingDays) > 0 ? $baseSalary / count($workingDays) : 0;
-            
+
             $workedTimeSalary = ($totalWorkedSeconds / 3600) * $salaryPerHour;
             $totalToPay = $workedTimeSalary + $extraHolidayPay;
 
@@ -226,10 +236,14 @@ class PayrollController extends Controller
                 if ($day['incident']) {
                     $incidentName = $day['incident']->incidentType->name;
                     switch ($incidentName) {
-                        case 'Incapacidad general': $totalToPay += $dailySalary * 0.60; break;
+                        case 'Incapacidad general':
+                            $totalToPay += $dailySalary * 0.60;
+                            break;
                         case 'Incapacidad por trabajo':
                         case 'Permiso con goce':
-                        case 'Día festivo': $totalToPay += $dailySalary; break;
+                        case 'Día festivo':
+                            $totalToPay += $dailySalary;
+                            break;
                         case 'Vacaciones':
                             $totalToPay += $dailySalary;
                             $vacationPremium += $dailySalary * 0.25;
@@ -252,6 +266,7 @@ class PayrollController extends Controller
                 'week_details' => $daysData,
                 'summary' => [
                     'total_worked_seconds' => $totalWorkedSeconds,
+                    'total_approved_overtime_seconds' => $totalApprovedOvertimeSeconds,
                     'base_salary' => $workedTimeSalary,
                     'extra_holiday_pay' => $extraHolidayPay > 0 ? $extraHolidayPay : null,
                     'bonuses' => $earnedBonuses,
@@ -261,5 +276,22 @@ class PayrollController extends Controller
                 ],
             ];
         });
+    }
+
+    /**
+     * Obtiene los datos de nómina calculados para el usuario autenticado en un periodo específico.
+     */
+    public function getEmployeePayrollDetails(Payroll $payroll)
+    {
+        $employee = auth()->user()->employeeDetail;
+
+        if (!$employee) {
+            return response()->json(['error' => 'Empleado no encontrado'], 404);
+        }
+
+        // Reutilizamos la lógica de cálculo para un solo empleado.
+        $payrollData = $this->calculatePayrollData($payroll, collect([$employee]));
+
+        return response()->json($payrollData->first());
     }
 }

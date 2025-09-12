@@ -22,6 +22,11 @@ class Incident extends Model
         return $this->belongsTo(EmployeeDetail::class);
     }
 
+    public function vacationLog()
+    {
+        return $this->hasOne(VacationLog::class);
+    }
+
     public function payroll()
     {
         return $this->belongsTo(Payroll::class);

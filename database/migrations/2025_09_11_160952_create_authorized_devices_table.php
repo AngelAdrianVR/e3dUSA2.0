@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_bonus', function (Blueprint $table) {
+        Schema::create('authorized_devices', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('identifier')->unique();
+            $table->boolean('is_active')->default(true);
+            $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });
     }
@@ -22,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('user_bonus');
+        Schema::dropIfExists('authorized_devices');
     }
 };

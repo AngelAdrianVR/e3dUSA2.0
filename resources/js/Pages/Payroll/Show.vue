@@ -35,19 +35,23 @@
 
                     <!-- Lista de Empleados -->
                     <div class="space-y-6">
-                        <div v-for="employeeData in filteredEmployees" :key="employeeData.employee.id" class="bg-gray-50/50 dark:bg-slate-800/50 p-4 rounded-lg">
+                        <div v-for="employeeData in filteredEmployees" :key="employeeData.employee.id" class="bg-gray-100/50 dark:bg-slate-800/50 p-4 rounded-lg">
                             <!-- Cabecera del Empleado -->
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
                                 <div class="mb-2 md:mb-0">
                                     <h3 class="font-bold text-lg dark:text-gray-200">{{ employeeData.employee.name }}</h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ employeeData.employee.job_position }}</p>
                                 </div>
-                                <div class="w-full md:w-auto grid grid-cols-2 md:flex md:space-x-4 text-sm text-center">
-                                    <div class="p-2 bg-blue-100/60 dark:bg-blue-900/40 rounded-l-md">
+                                <div class="w-full md:w-auto grid grid-cols-2 md:flex md:space-x-2 text-sm text-center">
+                                    <div class="p-2 bg-blue-100/60 dark:bg-blue-900/40 rounded-l-lg">
                                         <p class="font-bold text-blue-800 dark:text-blue-200">{{ formatTime(employeeData.summary.total_worked_seconds ?? 0) }}</p>
                                         <p class="text-xs text-blue-600 dark:text-blue-300">Tiempo trabajado</p>
                                     </div>
-                                    <div class="p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-r-md md:rounded-l-md">
+                                    <div v-if="employeeData.summary.total_approved_overtime_seconds > 0" class="flex-1 p-2 bg-indigo-100/60 dark:bg-indigo-900/40 border-x border-white/50 dark:border-slate-800/50">
+                                        <p class="font-bold text-indigo-800 dark:text-indigo-200">{{ formatTime(employeeData.summary.total_approved_overtime_seconds) }}</p>
+                                        <p class="text-xs text-indigo-600 dark:text-indigo-300">T. Adicional aprobado</p>
+                                    </div>
+                                    <div class="p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-r-md md:rounded-l-lg">
                                         <p class="font-bold text-amber-800 dark:text-amber-200">{{ formatTime( (employeeData.employee.hours_per_week * 3600) - employeeData.summary.total_worked_seconds) }}</p>
                                         <p class="text-xs text-amber-600 dark:text-amber-300">Tiempo a completar</p>
                                     </div>
@@ -60,10 +64,13 @@
                                     <el-table :data="employeeData.week_details" stripe class="dark:!bg-slate-800" size="small" :span-method="incidentSpanMethod">
                                         <el-table-column prop="day_name" label="Día" width="130">
                                             <template #default="{ row }">
-                                                {{ row.day_name }}
-                                                <el-tooltip v-if="row.worked_on_holiday" content="Trabajó en día festivo (pago extra)" placement="top">
-                                                        <i class="fa-solid fa-star text-amber-400"></i>
+                                                <div>
+                                                    <span class="font-semibold">{{ row.day_name }}</span>
+                                                    <el-tooltip v-if="row.worked_on_holiday" content="Trabajó en día festivo (pago extra)" placement="top">
+                                                        <i class="fa-solid fa-star text-amber-400 ml-1"></i>
                                                     </el-tooltip>
+                                                </div>
+                                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ formatDateShort(row.date) }}</span>
                                             </template>
                                         </el-table-column>
                                         <el-table-column prop="entry" label="Entrada" align="center" width="120">
@@ -97,13 +104,30 @@
                                                             <span>{{ br.start }} - {{ br.end }} ({{ br.total }})</span>
                                                         </div>
                                                     </template>
-                                                    <span class="cursor-pointer underline decoration-dotted">{{ row.total_break_time }}</span>
+                                                    <span class="border-b border-dashed border-black cursor-help">{{ row.total_break_time }}</span>
                                                 </el-tooltip>
                                                 <span v-else>Sin descansos</span>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column prop="total_time" label="T. Total" align="center" width="90" />
-                                        <el-table-column label="Opciones" align="right" width="80">
+                                        <el-table-column label="T. Adicional" align="center" width="90">
+                                            <template #default="{ row }">
+                                                <span v-if="row.approved_overtime_day_seconds > 0" class="dark:text-white font-semibold">
+                                                    {{ formatTime(row.approved_overtime_day_seconds) }}
+                                                </span>
+                                                <span v-else>--:--</span>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column prop="total_time" label="T. Total" align="center" width="90">
+                                            <template #default="{ row }">
+                                                <el-tooltip v-if="row.unauthorized_overtime_seconds > 0"
+                                                    :content="`Tiempo adicional no autorizado: ${formatTime(row.unauthorized_overtime_seconds)}`"
+                                                    placement="top">
+                                                    <span class="text-red-500 font-bold border-b border-dashed border-red-500 cursor-help">{{ row.total_time }}</span>
+                                                </el-tooltip>
+                                                <span v-else>{{ row.total_time }}</span>
+                                            </template>
+                                        </el-table-column>
+                                        <el-table-column v-if="hasPermission('Editar nominas')" label="Opciones" align="right" width="80">
                                             <template #default="{ row }">
                                                 <el-dropdown trigger="click" @command="handleCommand">
                                                     <button @click.stop class="el-dropdown-link justify-center items-center size-7 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all">
@@ -111,13 +135,16 @@
                                                     </button>
                                                     <template #dropdown>
                                                         <el-dropdown-menu>
+                                                            <el-dropdown-item v-if="row.late_minutes > 0" :command="{ action: 'toggle_late', attendanceId: row.entry_id }">
+                                                                <i class="fa-solid fa-shield-halved w-5"></i> {{ row.ignore_late ? 'No Ignorar Retardo' : 'Ignorar Retardo' }}
+                                                            </el-dropdown-item>
                                                              <!-- Opciones si NO hay incidencia -->
                                                             <template v-if="!row.incident">
                                                                 <el-dropdown-item :command="{ action: 'edit', employeeId: employeeData.employee.id, date: row.date }">
                                                                     <i class="fa-solid fa-clock w-5"></i> Modificar Registro
                                                                 </el-dropdown-item>
-                                                                <el-dropdown-item v-for="incidentType in incidentTypes" :key="incidentType.id" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
-                                                                    <i class="fa-solid fa-person-walking-arrow-right w-5"></i> {{ incidentType.name }}
+                                                                <el-dropdown-item v-for="(incidentType, index) in incidentTypes" :key="incidentType.id" :divided="index == 0" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
+                                                                    {{ incidentType.name }}
                                                                 </el-dropdown-item>
                                                             </template>
                                                             <!-- Opciones si HAY incidencia -->
@@ -130,14 +157,10 @@
                                                                 <el-dropdown-item :command="{ action: 'edit', employeeId: employeeData.employee.id, date: row.date }">
                                                                     <i class="fa-solid fa-clock w-5"></i> Modificar Registro
                                                                 </el-dropdown-item>
-                                                                 <el-dropdown-item v-for="incidentType in incidentTypes" :key="incidentType.id" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
+                                                                 <el-dropdown-item v-for="(incidentType, index) in incidentTypes" :key="incidentType.id" :divided="index == 0" :command="{ action: 'add_incident', employeeId: employeeData.employee.id, date: row.date, incidentTypeId: incidentType.id }">
                                                                     {{ incidentType.name }}
                                                                 </el-dropdown-item>
                                                             </template>
-
-                                                            <el-dropdown-item v-if="row.late_minutes > 0" divided :command="{ action: 'toggle_late', attendanceId: row.entry_id }">
-                                                                <i class="fa-solid fa-shield-halved w-5"></i> {{ row.ignore_late ? 'No Ignorar Retardo' : 'Ignorar Retardo' }}
-                                                            </el-dropdown-item>
                                                         </el-dropdown-menu>
                                                     </template>
                                                 </el-dropdown>
@@ -146,8 +169,8 @@
                                     </el-table>
                                 </div>
                                 <div class="lg:col-span-1 bg-white dark:bg-slate-900 p-3 rounded-md">
-                                    <h4 class="font-semibold text-md mb-2 dark:text-gray-200">Resumen Semanal</h4>
-                                    <div class="w-full max-w-md space-y-2 dark:text-gray-300">
+                                    <h4 class="font-semibold text-md mb-2 dark:text-gray-200">Resumen semanal</h4>
+                                    <div class="w-full max-w-md space-y-1 dark:text-gray-300 text-sm">
                                         <div class="flex justify-between"><span>Salario base (calculado):</span> <span>{{ formatCurrency(employeeData.summary.base_salary) }}</span></div>
                                         <div v-if="employeeData.summary.extra_holiday_pay" class="flex justify-between">
                                             <span>Pago Extra Festivo:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.extra_holiday_pay) }}</span>
@@ -157,7 +180,7 @@
                                         <div v-for="discount in employeeData.summary.discounts" :key="discount.name" class="flex justify-between"><span>Descuento: {{ discount.name }}</span> <span class="text-red-600 dark:text-red-400">- {{ formatCurrency(discount.amount) }}</span></div>
                                         <div class="mt-2 pt-2 border-t dark:border-slate-700 flex justify-between items-baseline">
                                             <span class="font-bold">Total a Pagar:</span>
-                                            <span class="font-bold text-lg">{{ formatCurrency(employeeData.summary.total_to_pay) }}</span>
+                                            <span class="font-bold text-base">{{ formatCurrency(employeeData.summary.total_to_pay) }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -246,7 +269,7 @@ import Back from '@/Components/MyComponents/Back.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import InputError from '@/Components/InputError.vue';
 import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import axios from 'axios';
@@ -280,10 +303,16 @@ const employeeOptions = computed(() => {
     }));
 });
 
+const permissions = usePage().props.auth.user.permissions || [];
+const hasPermission = (permission) => {
+    return permissions.includes(permission);
+};
+
 
 // --- Lógica de Formateo ---
 const formatCurrency = (value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 const formatDate = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'long' });
+const formatDateShort = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).replace('.', '');
 const format12HourTime = (timeString) => {
     if (!timeString) return null;
     const [hours, minutes] = timeString.split(':');
@@ -384,7 +413,7 @@ const removeIncident = (incidentId) => {
 };
 
 const toggleIgnoreLate = (attendanceId) => {
-    toggleLateForm.put(route('attendances.toggle-ignore-late', attendanceId), {
+    toggleLateForm.post(route('attendances.toggle-ignore-late', attendanceId), {
         onSuccess: () => ElMessage.success('Estado de retardo actualizado'),
         preserveScroll: true,
     });

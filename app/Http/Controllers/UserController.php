@@ -6,7 +6,9 @@ use App\Models\Bonus;
 use App\Models\Branch;
 use App\Models\ChMessage;
 use App\Models\Discount;
+use App\Models\TerminationLog;
 use App\Models\User;
+use App\Models\VacationLog;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +56,50 @@ class UserController extends Controller
             'roles' => Role::all(),
             'bonuses' => Bonus::all(),
             'discounts' => Discount::all(),
+        ]);
+    }
+
+    public function show(User $user)
+    {
+        $user->load('employeeDetail.bonuses', 'employeeDetail.discounts', 'roles');
+        
+        $vacationLogs = collect();
+        $age = null;
+        $seniority = null;
+
+        if ($user->employeeDetail) {
+            $vacationLogs = VacationLog::with('creator:id,name')
+                ->where('employee_detail_id', $user->employeeDetail->id)
+                ->latest('date')
+                ->get();
+            
+            if ($user->employeeDetail->birthdate) {
+                $age = Carbon::parse($user->employeeDetail->birthdate)->age;
+            }
+            if ($user->employeeDetail->join_date) {
+                $seniority = Carbon::parse($user->employeeDetail->join_date)->diffInYears(Carbon::now());
+            }
+        }
+        
+        // Cargar el historial de bajas
+        $terminationLogs = TerminationLog::with('terminator:id,name')
+            ->where('user_id', $user->id)
+            ->latest('termination_date')
+            ->get();
+
+        $totalVacations = $vacationLogs->sum('days');
+        $takenVacations = $vacationLogs->where('type', 'taken')->sum('days');
+
+        return inertia('User/Show', [
+            'user' => $user,
+            'vacation_logs' => $vacationLogs,
+            'termination_logs' => $terminationLogs,
+            'vacation_summary' => [
+                'available' => $totalVacations,
+                'taken' => abs($takenVacations),
+            ],
+            'age' => $age,
+            'seniority' => $seniority,
         ]);
     }
 
@@ -207,25 +253,50 @@ class UserController extends Controller
     public function changeStatus(Request $request, User $user)
     {
         if ($user->is_active) {
-            // Antes de desactivar, busca todos los clientes (branches) asignados
-            // a este usuario y elimina la asignación (pone el ID en null).
-            Branch::where('account_manager_id', $user->id)->update(['account_manager_id' => null]);
-
-            // Ahora, procede a desactivar al usuario
-            $user->update([
-                'is_active' => false,
-                'disabled_at' => $request->disabled_at,
+            // Lógica para dar de baja
+            $request->validate([
+                'disabled_at' => 'required|date',
+                'reason' => 'nullable|string|max:1000',
             ]);
+
+            DB::transaction(function () use ($request, $user) {
+                // Desvincular clientes
+                Branch::where('account_manager_id', $user->id)->update(['account_manager_id' => null]);
+                
+                // Crear el log de baja
+                TerminationLog::create([
+                    'user_id' => $user->id,
+                    'termination_date' => $request->disabled_at,
+                    'reason' => $request->reason,
+                    'terminated_by' => auth()->id(),
+                ]);
+
+                // Desactivar al usuario
+                $user->update([
+                    'is_active' => false,
+                    'disabled_at' => $request->disabled_at,
+                ]);
+            });
         } else {
-            // Lógica para reactivar al usuario (sin cambios aquí)
-            $user->update([
-                'is_active' => true,
-                'disabled_at' => null,
-            ]);
-        }
+            // Lógica para reactivar
+            DB::transaction(function () use ($user) {
+                 // Buscar el último log de baja que no haya sido reactivado
+                $lastLog = TerminationLog::where('user_id', $user->id)
+                    ->whereNull('reinstated_at')
+                    ->latest('termination_date')
+                    ->first();
 
-        // Puedes agregar un return con un mensaje de éxito si lo deseas
-        // return back()->with('success', 'Estado del usuario actualizado correctamente.');
+                if ($lastLog) {
+                    $lastLog->update(['reinstated_at' => now()]);
+                }
+
+                // Reactivar al usuario
+                $user->update([
+                    'is_active' => true,
+                    'disabled_at' => null,
+                ]);
+            });
+        }
     }
 
     public function getUnseenMessages()

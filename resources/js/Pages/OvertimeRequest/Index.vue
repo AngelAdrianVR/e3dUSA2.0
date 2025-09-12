@@ -20,8 +20,9 @@
                         <el-table-column prop="id" label="ID" width="70" />
                         <el-table-column prop="employee_detail.user.name" label="Empleado" />
                         <el-table-column prop="date" label="Fecha">
-                             <template #default="scope">
-                                {{ formatDate(scope.row.date) }}
+                            <template #default="scope">
+                                {{ scope.row.date.split('T')[0] }}
+                                <!-- {{ formatDate(scope.row.date) }} -->
                             </template>
                         </el-table-column>
                         <el-table-column prop="requested_minutes" label="Minutos Solicitados" align="center" />
@@ -36,15 +37,20 @@
                         <el-table-column label="Acciones" align="right" width="150">
                             <template #default="scope">
                                 <!-- Acciones visibles si tiene permiso de gestionar -->
-                                <div v-if="can.manage_requests && scope.row.status === 'pending'" class="flex items-center justify-end space-x-2">
-                                    <el-popconfirm title="¿Aprobar solicitud?" @confirm="updateStatus(scope.row.id, 'approved')">
+                                <div v-if="can.manage_requests && scope.row.status === 'pending'"
+                                    class="flex items-center justify-end space-x-2">
+                                    <el-popconfirm title="¿Aprobar solicitud?"
+                                        @confirm="updateStatus(scope.row.id, 'approved')">
                                         <template #reference>
-                                             <el-button type="success" circle><i class="fa-solid fa-check"></i></el-button>
+                                            <el-button type="success" circle><i
+                                                    class="fa-solid fa-check"></i></el-button>
                                         </template>
                                     </el-popconfirm>
-                                    <el-popconfirm title="¿Rechazar solicitud?" @confirm="updateStatus(scope.row.id, 'rejected')">
+                                    <el-popconfirm title="¿Rechazar solicitud?"
+                                        @confirm="updateStatus(scope.row.id, 'rejected')">
                                         <template #reference>
-                                            <el-button type="danger" circle><i class="fa-solid fa-xmark"></i></el-button>
+                                            <el-button type="danger" circle><i
+                                                    class="fa-solid fa-xmark"></i></el-button>
                                         </template>
                                     </el-popconfirm>
                                 </div>
@@ -55,7 +61,7 @@
                         </el-table-column>
                     </el-table>
 
-                     <div v-if="requests.total > 0" class="flex justify-center mt-6">
+                    <div v-if="requests.total > 0" class="flex justify-center mt-6">
                         <el-pagination v-model:current-page="requests.current_page" :page-size="requests.per_page"
                             :total="requests.total" layout="prev, pager, next" background
                             @current-change="handlePageChange" />
@@ -72,28 +78,37 @@
                     <!-- Selector de Empleado (solo para admins) -->
                     <div v-if="can.manage_requests">
                         <InputLabel value="Empleado*" />
-                        <el-select :teleported="false" v-model="createForm.employee_detail_id" filterable placeholder="Selecciona un empleado" class="w-full">
-                            <el-option v-for="employee in employeeOptions" :key="employee.value" :label="employee.label" :value="employee.value" />
+                        <el-select :teleported="false" v-model="createForm.employee_detail_id" filterable
+                            placeholder="Selecciona un empleado" class="w-full">
+                            <el-option v-for="employee in employeeOptions" :key="employee.value" :label="employee.label"
+                                :value="employee.value" />
                         </el-select>
                         <InputError :message="createForm.errors.employee_detail_id" />
                     </div>
 
                     <div>
                         <InputLabel value="Fecha*" />
-                        <el-date-picker :teleported="false" v-model="createForm.date" type="date" placeholder="Selecciona una fecha" format="DD MMMM, YYYY" value-format="YYYY-MM-DD" class="w-full" />
+                        <el-date-picker :teleported="false" v-model="createForm.date" type="date"
+                            placeholder="Selecciona una fecha" format="DD MMMM, YYYY" value-format="YYYY-MM-DD"
+                            class="w-full" />
                         <InputError :message="createForm.errors.date" />
                     </div>
                     <div>
-                        <TextInput v-model="createForm.requested_minutes" label="Minutos Adicionales Solicitados*" type="number" :error="createForm.errors.requested_minutes" />
+                        <TextInput v-model="createForm.requested_minutes" label="Minutos Adicionales Solicitados*"
+                            type="number" :error="createForm.errors.requested_minutes" />
                     </div>
                     <div>
-                         <TextInput v-model="createForm.reason" label="Motivo de la solicitud*" :isTextarea="true" :error="createForm.errors.reason" />
+                        <TextInput v-model="createForm.reason" label="Motivo de la solicitud*" :isTextarea="true"
+                            :error="createForm.errors.reason" />
                     </div>
                 </form>
             </template>
             <template #footer>
-                 <CancelButton @click="showCreateModal = false" :disabled="createForm.processing">Cancelar</CancelButton>
-                 <SecondaryButton @click="submitCreateForm" :loading="createForm.processing">Enviar Solicitud</SecondaryButton>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showCreateModal = false" :disabled="createForm.processing">Cancelar</CancelButton>
+                    <SecondaryButton @click="submitCreateForm" :loading="createForm.processing">Enviar Solicitud
+                    </SecondaryButton>
+                </div>
             </template>
         </DialogModal>
 
@@ -111,6 +126,8 @@ import InputError from '@/Components/InputError.vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const props = defineProps({
     requests: Object,
@@ -126,6 +143,12 @@ const createForm = useForm({
     requested_minutes: null,
     reason: '',
 });
+
+const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return format(dateString, "d 'de' MMMM, yyyy", { locale: es });
+};
 
 const updateForm = useForm({
     status: '',
@@ -145,8 +168,6 @@ const getStatusTag = (status) => {
     if (status === 'rejected') return 'danger';
     return 'warning';
 };
-
-const formatDate = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });
 
 const updateStatus = (id, newStatus) => {
     updateForm.status = newStatus;

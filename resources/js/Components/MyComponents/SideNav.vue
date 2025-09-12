@@ -435,6 +435,8 @@ export default {
                         || route().current('bonuses.*')
                         || route().current('holidays.*')
                         || route().current('discounts.*')
+                        || route().current('overtime-requests.*')
+                        || route().current('authorized-devices.*')
                         || route().current('payrolls.*'),
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                     //     return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
@@ -455,13 +457,18 @@ export default {
                             notifications: false,
                         },
                         {
+                            label: 'Quioscos',
+                            route: 'authorized-devices.index',
+                            active: route().current('authorized-devices.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Gestionar quioscos'),
+                            notifications: false,
+                        },
+                        {
                             label: 'Personal',
                             route: 'users.index',
                             active: route().current('users.*'),
                             show: this.$page.props.auth.user.permissions?.includes('Ver personal'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'user';
-                            // }),
+                            notifications: false,
                         },
                         {
                             label: 'Roles y permisos',
