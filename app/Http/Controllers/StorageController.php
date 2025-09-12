@@ -2,62 +2,79 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Storage;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class StorageController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Muestra la vista principal del almacén, filtrando los productos
+     * según el tipo seleccionado por el usuario.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $productType = $request->input('product_type', 'Catálogo'); // 'Catálogo' como valor por defecto
+        $searchTerm = $request->input('search');
+
+        // Iniciar la consulta base, incluyendo siempre las relaciones y campos necesarios
+        $query = Product::query()
+            ->with(['storages:id,storable_id,storable_type,quantity,location', 'brand:id,name', 'media']);
+
+        // Aplicar filtro por tipo de producto
+        if ($productType === 'Obsoleto') {
+            $query->obsolete(); // Usa el scope para productos archivados
+        } else {
+            $query->active()->ofType($productType); // Usa scopes para activos y por tipo
+        }
+
+        // Aplicar filtro de búsqueda si existe
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('code', 'LIKE', "%{$searchTerm}%")
+                  ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                      $brandQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                  });
+            });
+        }
+
+        // Paginar los resultados
+        $products = $query->latest('id')->paginate(15)->withQueryString();
+
+        // Devolver la vista de Inertia con los datos
+        return Inertia::render('Warehouse/Index', [
+            'products' => $products,
+            'filters' => $request->only(['product_type', 'search']),
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
         //
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
         //
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Storage $storage)
     {
         //
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Storage $storage)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Storage $storage)
     {
         //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Storage $storage)
     {
         //

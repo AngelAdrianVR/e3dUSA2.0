@@ -8,9 +8,9 @@ use App\Http\Controllers\BranchController;
 use App\Http\Controllers\BranchNoteController;
 use App\Http\Controllers\BranchPriceHistoryController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignAuthorizationController;
 use App\Http\Controllers\DesignCategoryController;
-use App\Http\Controllers\DesignController;
 use App\Http\Controllers\DesignOrderController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
@@ -32,6 +32,7 @@ use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\SampleTrackingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
+use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SupplierBankAccountController;
 use App\Http\Controllers\SupplierContactController;
 use App\Http\Controllers\SupplierController;
@@ -64,10 +65,9 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
+Route::get('/dashboard/production-stats', [DashboardController::class, 'getProductionStats'])->name('dashboard.production-stats')->middleware('auth');
 
 // importar archivos de ruta
 Route::middleware('auth')->group(function () {
@@ -98,11 +98,7 @@ Route::post('products/{product}/stock-movement', [ProductController::class, 'han
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
-// Route::get('catalog-products/{catalog_product}/get-data', [ProductController::class, 'getCatalogProductData'])->name('catalog-products.get-data');
-// Route::get('catalog-products-fetch-shipping-rates/{catalog_product}', [ProductController::class, 'fetchShippingRates'])->name('catalog-products.fetch-shipping-rates');
 // Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
-// Route::post('catalog-products-get-by-ids', [ProductController::class, 'getByIds'])->name('catalog-products.get-by-ids');
-// Route::get('catalog-products/{catalog_product}/get-info', [ProductController::class, 'getInfo'])->name('catalog-products.get-info');
 // Route::get('export-catalog-products', [ProductController::class, 'exportExcel']);
 
 
@@ -126,9 +122,6 @@ Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
-// Route::put('branches/store-important-notes/{branch}', [BranchController::class, 'storeImportantNotes'])->name('branches.store-important-notes')->middleware('auth');
-// Route::put('branches/update-product-price/{product_company}', [BranchController::class, 'updateProductPrice'])->name('branches.update-product-price')->middleware('auth');
-// Route::get('branches/fetch-design-info/{branch}', [BranchController::class, 'fetchDesignInfo'])->name('branches.fetch-design-info')->middleware('auth');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
@@ -350,7 +343,10 @@ Route::put('maintenances/validate/{maintenance}', [MaintenanceController::class,
 // ---------- spare parts routes  ---------------
 Route::resource('spare-parts', SparePartController::class)->except(['index', 'create', 'show'])->middleware('auth');
 Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 'create'])->name('spare-parts.create')->middleware('auth');
-// Route::post('spare-parts/update-with-media/{spare_part}', [SparePartController::class, 'updateWithMedia'])->name('spare-parts.update-with-media')->middleware('auth');
+
+
+// --------------------- Rutas de almacen -----------------------------
+Route::get('/storages', [StorageController::class, 'index'])->name('storages.index');
 
 
 // ---------- calendar (events/tasks) routes  ---------------
