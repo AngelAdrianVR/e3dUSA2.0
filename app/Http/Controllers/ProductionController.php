@@ -211,6 +211,7 @@ class ProductionController extends Controller
             // Datos del cliente y la venta
             'branch:id,name,address,rfc,post_code,status',
             'contact:id,name',
+            'contact.details',
             'user:id,name', // Usuario que creó la venta
 
             // Productos de la venta

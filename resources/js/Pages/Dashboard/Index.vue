@@ -1,10 +1,10 @@
 <template>
     <AppLayout title="Dashboard">
-        <div>
-            <h1 class="text-lg font-bold dark:text-white">Panel de inicio</h1>
-            <div class="min-h-screen p-4 font-sans text-gray-800 transition-colors duration-300 sm:p-6 lg:p-8 dark:text-gray-200">
+        <div class="max-w-[90rem] mx-auto">
+            <h1 class="mb-4 text-lg font-bold dark:text-white">Panel de inicio</h1>
+            <div class="font-sans text-gray-800 transition-colors duration-300 dark:text-gray-200">
                 <!-- Dashboard Grid -->
-                <div class="grid grid-cols-1 gap-7 lg:grid-cols-3 xl:grid-cols-4">
+                <div class="grid grid-cols-1 gap-5 lg:grid-cols-3 xl:grid-cols-4">
                     <!-- Production Orders Chart -->
                     <div class="lg:col-span-2 xl:col-span-3">
                         <ProductionOrdersChart :theme="theme" />
@@ -21,13 +21,24 @@
                     </div>
 
                     <!-- Required Actions -->
-                    <div class="lg:col-span-2">
+                    <div class="lg:col-span-3">
                         <RequiredActions :actions="requiredActions" />
                     </div>
 
                     <!-- Employee Performance -->
-                    <div class="lg:col-span-1">
+                    <div class="lg:col-span-2">
                         <EmployeePerformance :employees="employeePerformance" />
+                    </div>
+
+                    <!-- Personal Panels Column -->
+                    <div class="flex flex-col lg:col-span-2 gap-5">
+                       <MySalesOrders :orders="mySalesOrders" />
+                       <UpcomingBirthdays :contacts="upcomingBirthdays" />
+                    </div>
+
+                    <!-- NEW: My Pending Tasks -->
+                    <div class="lg:col-span-3 xl:col-span-4">
+                        <MyPendingTasks :tasks="myPendingTasks" :user-name="authUserName" />
                     </div>
                 </div>
             </div>
@@ -42,6 +53,9 @@ import CalendarWidget from './Components/CalendarWidget.vue';
 import WarehouseStatusChart from './Components/WarehouseStatusChart.vue';
 import RequiredActions from './Components/RequiredActions.vue';
 import EmployeePerformance from './Components/EmployeePerformance.vue';
+import UpcomingBirthdays from './Components/UpcomingBirthdays.vue';
+import MySalesOrders from './Components/MySalesOrders.vue';
+import MyPendingTasks from './Components/MyPendingTasks.vue';
 
 export default {
     components: {
@@ -51,13 +65,19 @@ export default {
         WarehouseStatusChart,
         RequiredActions,
         EmployeePerformance,
+        UpcomingBirthdays,
+        MySalesOrders,
+        MyPendingTasks,
     },
     props: {
-        // productionStats ya no es un prop aquí
         calendarEvents: Array,
-        warehouseStats: Array,
+        warehouseStats: Object,
         requiredActions: Object,
         employeePerformance: Array,
+        upcomingBirthdays: Array,
+        mySalesOrders: Array,
+        myPendingTasks: Array,
+        authUserName: String,
     },
     data() {
         return {

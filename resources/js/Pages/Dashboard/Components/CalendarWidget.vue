@@ -29,7 +29,7 @@
                 <p class="text-gray-500 dark:text-gray-400">No hay eventos próximos.</p>
             </div>
         </div>
-        <button class="mt-auto w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-300">
+        <button @click="$inertia.visit(route('calendar.create'))" class="mt-auto w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-300">
             Agendar
         </button>
     </div>
@@ -80,7 +80,23 @@ export default {
             return 'Recordatorio';
         },
         formatTime(datetime) {
-            return new Date(datetime).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const date = new Date(datetime);
+
+            // Fecha en formato 11-Sep-25
+            const formattedDate = date.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: 'short',
+                year: '2-digit'
+            }).replace('.', '').replace(/\b\w/g, c => c.toUpperCase());
+
+            // Hora en formato 12h con AM/PM en mayúsculas
+            const formattedTime = date.toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            }).replace(/\./g, '').toUpperCase();
+
+            return `${formattedDate} ${formattedTime}`;
         }
     }
 }
