@@ -91,10 +91,10 @@
                             <div class="space-y-2 mt-2">
                                 <div v-for="(rule, index) in form.rules" :key="index" class="grid grid-cols-12 gap-2 items-center">
                                     <span class="col-span-1 text-center font-bold dark:text-gray-300">Si</span>
-                                    <el-select v-model="rule.metric" placeholder="Métrica" class="col-span-4">
+                                    <el-select :teleported="false" v-model="rule.metric" placeholder="Métrica" class="col-span-4">
                                         <el-option v-for="metric in filteredMetrics" :key="metric.value" :label="metric.label" :value="metric.value" />
                                     </el-select>
-                                    <el-select v-model="rule.operator" placeholder="Operador" class="col-span-3">
+                                    <el-select :teleported="false" v-model="rule.operator" placeholder="Operador" class="col-span-3">
                                         <el-option v-for="operator in rule_definitions.operators" :key="operator.value" :label="operator.label" :value="operator.value" />
                                     </el-select>
                                     

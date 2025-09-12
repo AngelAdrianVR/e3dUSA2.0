@@ -27,7 +27,6 @@ export default {
             name: props.user.name,
             email: props.user.email,
             password: '',
-            password_confirmation: '',
             role: props.user.roles[0]?.name, // Asume que el usuario tiene un solo rol
             // EmployeeDetail data
             department: props.user.employee_detail?.department || '',
@@ -52,7 +51,7 @@ export default {
         onMounted(() => {
             const savedSchedule = props.user.employee_detail?.work_days || [];
             if (Array.isArray(savedSchedule)) {
-                 form.work_schedule.forEach(daySchedule => {
+                form.work_schedule.forEach(daySchedule => {
                     const savedDay = savedSchedule.find(d => d.day === daySchedule.day);
                     if (savedDay) {
                         daySchedule.works = savedDay.works;
@@ -94,7 +93,7 @@ export default {
 
 <template>
     <AppLayout title="Editar Usuario">
-         <div class="px-4 sm:px-0">
+        <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
                 <Back :href="route('users.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
@@ -102,74 +101,48 @@ export default {
                 </h2>
             </div>
         </div>
-        
+
         <div class="py-7">
             <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     <form @submit.prevent="update">
-                        <!-- SECCIÓN DE DATOS DE ACCESO -->
+                        <!-- SECCIÓN DE INFORMACIÓN DEL EMPLEADO -->
                         <section class="mb-8">
-                            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Datos de Acceso</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
+                                Información del Empleado</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-1">
                                 <div>
                                     <label class="text-sm ml-1">Nombre completo*</label>
-                                    <TextInput v-model="form.name" type="text" class="w-full" placeholder="John Doe" />
-                                    <InputError :message="form.errors.name" />
+                                    <TextInput v-model="form.name" type="text" class="w-full" :error="form.errors.name"
+                                        placeholder="John Doe" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Correo electrónico*</label>
-                                    <TextInput v-model="form.email" type="email" class="w-full" placeholder="john.doe@example.com" />
-                                    <InputError :message="form.errors.email" />
-                                </div>
-                                <div>
-                                    <label class="text-sm ml-1">Nueva Contraseña</label>
-                                    <TextInput v-model="form.password" type="password" class="w-full" />
-                                    <p class="text-xs text-gray-500">Dejar en blanco las contraseñas para no cambiar</p>
-                                    <InputError :message="form.errors.password" />
-                                </div>
-                                <div>
-                                    <label class="text-sm ml-1">Confirmar nueva contraseña</label>
-                                    <TextInput v-model="form.password_confirmation" type="password" class="w-full" />
-                                </div>
-                                <div>
-                                    <label class="text-sm ml-1">Rol del sistema*</label>
-                                    <el-select v-model="form.role" placeholder="Selecciona un rol" class="!w-full">
-                                        <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.name" />
-                                    </el-select>
-                                    <InputError :message="form.errors.role" />
-                                </div>
-                            </div>
-                        </section>
-
-                         <!-- SECCIÓN DE INFORMACIÓN DEL EMPLEADO -->
-                        <section class="mb-8">
-                            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Información del Empleado</h3>
-                             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
-                                 <div>
                                     <label class="text-sm ml-1">Puesto*</label>
-                                    <TextInput v-model="form.job_position" type="text" class="w-full" placeholder="Ej. Gerente de ventas" />
-                                    <InputError :message="form.errors.job_position" />
+                                    <TextInput v-model="form.job_position" type="text" :error="form.errors.job_position"
+                                        class="w-full" placeholder="Ej. Gerente de ventas" />
                                 </div>
-                                 <div>
+                                <div>
                                     <label class="text-sm ml-1">Departamento*</label>
-                                    <TextInput v-model="form.department" type="text" class="w-full" placeholder="Ej. Ventas" />
-                                    <InputError :message="form.errors.department" />
+                                    <TextInput v-model="form.department" :error="form.errors.department" type="text"
+                                        class="w-full" placeholder="Ej. Ventas" />
                                 </div>
                                 <div>
                                     <label class="text-sm ml-1">Salario semanal*</label>
-                                    <TextInput v-model="form.week_salary" type="number" step="0.01" class="w-full" placeholder="0.00">
-                                       <template #icon-left>$</template>
+                                    <TextInput v-model="form.week_salary" type="number" :step="0.01" class="w-full"
+                                        placeholder="0.00" :error="form.errors.week_salary">
+                                        <template #icon-left>$</template>
                                     </TextInput>
-                                    <InputError :message="form.errors.week_salary" />
                                 </div>
                                 <div>
                                     <label class="text-sm ml-1">Fecha de nacimiento*</label>
-                                    <el-date-picker v-model="form.birthdate" type="date" placeholder="Selecciona" format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
+                                    <el-date-picker v-model="form.birthdate" type="date" placeholder="Selecciona"
+                                        format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
                                     <InputError :message="form.errors.birthdate" />
                                 </div>
-                                 <div>
+                                <div>
                                     <label class="text-sm ml-1">Fecha de ingreso*</label>
-                                    <el-date-picker v-model="form.join_date" type="date" placeholder="Selecciona" format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
+                                    <el-date-picker v-model="form.join_date" type="date" placeholder="Selecciona"
+                                        format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
                                     <InputError :message="form.errors.join_date" />
                                 </div>
                             </div>
@@ -177,29 +150,35 @@ export default {
 
                         <!-- SECCIÓN DE ASIGNACIONES Y HORARIO -->
                         <section class="mb-8">
-                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Asignaciones y Horario</h3>
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
+                                Asignaciones y Horario</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
                                 <div>
                                     <label class="text-sm ml-1">Bonos aplicables</label>
-                                    <el-select v-model="form.selected_bonuses" multiple placeholder="Selecciona uno o más bonos" class="!w-full">
-                                         <el-option v-for="bonus in bonuses" :key="bonus.id" :label="bonus.name" :value="bonus.id" />
+                                    <el-select v-model="form.selected_bonuses" multiple
+                                        placeholder="Selecciona uno o más bonos" class="!w-full">
+                                        <el-option v-for="bonus in bonuses" :key="bonus.id" :label="bonus.name"
+                                            :value="bonus.id" />
                                     </el-select>
                                     <InputError :message="form.errors.selected_bonuses" />
                                 </div>
-                                 <div>
+                                <div>
                                     <label class="text-sm ml-1">Descuentos aplicables</label>
-                                    <el-select v-model="form.selected_discounts" multiple placeholder="Selecciona uno o más descuentos" class="!w-full">
-                                         <el-option v-for="discount in discounts" :key="discount.id" :label="discount.name" :value="discount.id" />
+                                    <el-select v-model="form.selected_discounts" multiple
+                                        placeholder="Selecciona uno o más descuentos" class="!w-full">
+                                        <el-option v-for="discount in discounts" :key="discount.id"
+                                            :label="discount.name" :value="discount.id" />
                                     </el-select>
                                     <InputError :message="form.errors.selected_discounts" />
                                 </div>
-                             </div>
+                            </div>
 
                             <div class="mt-6">
                                 <label class="text-sm font-bold ml-1">Horario Semanal</label>
                                 <div class="border dark:border-slate-700 rounded-lg mt-2 overflow-hidden">
                                     <!-- Header para Desktop -->
-                                    <div class="hidden md:grid md:grid-cols-5 bg-gray-100 dark:bg-slate-800 p-2 text-sm font-semibold">
+                                    <div
+                                        class="hidden md:grid md:grid-cols-5 bg-gray-100 dark:bg-slate-800 p-2 text-sm font-semibold">
                                         <span>Día</span>
                                         <span class="text-center">Trabaja</span>
                                         <span class="text-center">Entrada</span>
@@ -207,25 +186,63 @@ export default {
                                         <span class="text-center">Comida (min)</span>
                                     </div>
                                     <!-- Filas de días -->
-                                    <div v-for="(day, index) in form.work_schedule" :key="index" class="grid grid-cols-2 md:grid-cols-5 items-center p-3 gap-4 border-b dark:border-slate-700 last:border-b-0">
+                                    <div v-for="(day, index) in form.work_schedule" :key="index"
+                                        class="grid grid-cols-2 md:grid-cols-5 items-center p-3 gap-4 border-b dark:border-slate-700 last:border-b-0">
                                         <div class="font-semibold col-span-2 md:col-span-1">{{ day.day }}</div>
                                         <div class="text-center">
-                                             <el-checkbox v-model="day.works" size="large" />
+                                            <el-checkbox v-model="day.works" size="large" />
                                         </div>
-                                        <div v-if="day.works" class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <el-time-picker v-model="day.start_time" placeholder="Entrada" format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
-                                            <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
-                                            <el-input-number v-model="day.break_minutes" :min="0" :step="15" placeholder="Minutos" class="!w-full" />
+                                        <div v-if="day.works"
+                                            class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            <el-time-picker v-model="day.start_time" placeholder="Entrada"
+                                                format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.start_time`]"
+                                                class="mt-1" />
+                                            <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A"
+                                                value-format="HH:mm:ss" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.end_time`]"
+                                                class="mt-1" />
+                                            <el-input-number v-model="day.break_minutes" :min="0" ::step="15"
+                                                placeholder="Minutos" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.break_minutes`]"
+                                                class="mt-1" />
                                         </div>
-                                        <div v-else class="col-span-full md:col-span-3 text-center text-gray-400">
-                                           No laborable
+                                        <div v-else
+                                            class="col-span-full md:col-span-3 text-center text-gray-400 italic">
+                                            No laborable
                                         </div>
                                     </div>
                                 </div>
-                                 <div class="text-right mt-2 font-bold text-lg text-green-600">
+                                <div class="text-right mt-2 font-semibold text-base text-[#373737]">
                                     Total semanal: {{ formattedTotalHours }}
-                                 </div>
-                                 <InputError :message="form.errors.work_schedule" />
+                                </div>
+                                <InputError :message="form.errors.work_schedule" />
+                            </div>
+                        </section>
+
+                        <!-- SECCIÓN DE DATOS DE ACCESO -->
+                        <section class="mb-8">
+                            <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">Datos de
+                                acceso al sistema</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+                                <div>
+                                    <label class="text-sm ml-1">Correo electrónico* </label>
+                                    <TextInput v-model="form.email" type="email" class="w-full"
+                                        placeholder="Personal, empresarial o inventado" :error="form.errors.email" />
+                                </div>
+                                <div>
+                                    <label class="text-sm ml-1">Contraseña*</label>
+                                    <TextInput v-model="form.password" type="text" :error="form.errors.password"
+                                        class="w-full" />
+                                </div>
+                                <div>
+                                    <label class="text-sm ml-1">Rol del sistema*</label>
+                                    <el-select v-model="form.role" placeholder="Selecciona un rol" class="!w-full">
+                                        <el-option v-for="role in roles" :key="role.id" :label="role.name"
+                                            :value="role.name" />
+                                    </el-select>
+                                    <InputError :message="form.errors.role" />
+                                </div>
                             </div>
                         </section>
 

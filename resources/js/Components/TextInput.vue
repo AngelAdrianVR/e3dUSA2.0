@@ -193,14 +193,14 @@ const baseClasses = computed(() => [
     'bg-gray-50 dark:bg-gray-700',
     'border transition-colors duration-300',
     'placeholder-gray-400 dark:placeholder-gray-500',
-    'focus:outline-none focus:ring-2',
+    'focus:outline-none focus:ring-0',
     'text-gray-800 dark:text-gray-100',
     'caret-blue-400',
     'disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed disabled:text-gray-500',
     slots['icon-left'] ? 'pl-9' : 'px-3',
     props.error
         ? 'border-red-500 dark:border-red-600 focus:border-red-500 focus:ring-red-500/50'
-        : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/50',
+        : 'border-gray-300 dark:border-gray-600 focus:border-primary',
 ]);
 
 // Clases para el contenedor del stepper, incluyendo el estado de error.

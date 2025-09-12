@@ -62,7 +62,7 @@ class UserController extends Controller
     public function show(User $user)
     {
         $user->load('employeeDetail.bonuses', 'employeeDetail.discounts', 'roles');
-        
+
         $vacationLogs = collect();
         $age = null;
         $seniority = null;
@@ -72,7 +72,7 @@ class UserController extends Controller
                 ->where('employee_detail_id', $user->employeeDetail->id)
                 ->latest('date')
                 ->get();
-            
+
             if ($user->employeeDetail->birthdate) {
                 $age = Carbon::parse($user->employeeDetail->birthdate)->age;
             }
@@ -80,7 +80,7 @@ class UserController extends Controller
                 $seniority = Carbon::parse($user->employeeDetail->join_date)->diffInYears(Carbon::now());
             }
         }
-        
+
         // Cargar el historial de bajas
         $terminationLogs = TerminationLog::with('terminator:id,name')
             ->where('user_id', $user->id)
@@ -98,8 +98,8 @@ class UserController extends Controller
                 'available' => $totalVacations,
                 'taken' => abs($takenVacations),
             ],
-            'age' => $age,
-            'seniority' => $seniority,
+            'age' => number_format($age, 0),
+            'seniority' => number_format($seniority, 2),
         ]);
     }
 
@@ -118,6 +118,18 @@ class UserController extends Controller
             'week_salary' => 'required|numeric|min:0',
             'birthdate' => 'required|date',
             'join_date' => 'required|date',
+            // Validación para el horario de trabajo
+            'work_schedule' => 'present|array|size:7',
+            'work_schedule.*.works' => 'required|boolean',
+            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i',
+            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i|after:work_schedule.*.start_time',
+            'work_schedule.*.break_time' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
+        ], [
+            // Mensajes de error personalizados
+            'work_schedule.*.start_time.required_if' => 'La hora de entrada es obligatoria para días laborales.',
+            'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
+            'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
+            'work_schedule.*.break_time.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
         ]);
 
         DB::transaction(function () use ($request) {
@@ -129,7 +141,6 @@ class UserController extends Controller
 
             $user->assignRole($request->role);
 
-            // Calculamos el total de horas semanales
             $totalHours = $this->calculateWeeklyHours($request->work_schedule ?? []);
 
             $employeeDetail = $user->employeeDetail()->create([
@@ -138,11 +149,10 @@ class UserController extends Controller
                 'week_salary' => $request->week_salary,
                 'birthdate' => $request->birthdate,
                 'join_date' => $request->join_date,
-                'work_days' => $request->work_schedule, // Guardamos el JSON del horario
-                'hours_per_week' => $totalHours, // Guardamos las horas calculadas
+                'work_days' => $request->work_schedule,
+                'hours_per_week' => $totalHours,
             ]);
 
-            // Sincronizar bonos y descuentos
             $employeeDetail->bonuses()->sync($request->selected_bonuses);
             $employeeDetail->discounts()->sync($request->selected_discounts);
         });
@@ -181,6 +191,18 @@ class UserController extends Controller
             'week_salary' => 'required|numeric|min:0',
             'birthdate' => 'required|date',
             'join_date' => 'required|date',
+            // Validación para el horario de trabajo
+            'work_schedule' => 'present|array|size:7',
+            'work_schedule.*.works' => 'required|boolean',
+            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i',
+            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i|after:work_schedule.*.start_time',
+            'work_schedule.*.break_time' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
+        ], [
+            // Mensajes de error personalizados
+            'work_schedule.*.start_time.required_if' => 'La hora de entrada es obligatoria para días laborales.',
+            'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
+            'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
+            'work_schedule.*.break_time.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
         ]);
 
         DB::transaction(function () use ($request, $user) {
@@ -195,7 +217,6 @@ class UserController extends Controller
 
             $user->syncRoles([$request->role]);
 
-            // Calculamos el total de horas semanales
             $totalHours = $this->calculateWeeklyHours($request->work_schedule ?? []);
 
             $user->employeeDetail()->updateOrCreate(
@@ -207,7 +228,7 @@ class UserController extends Controller
                     'birthdate' => $request->birthdate,
                     'join_date' => $request->join_date,
                     'work_days' => $request->work_schedule,
-                    'hours_per_week' => $totalHours, // Actualizamos las horas calculadas
+                    'hours_per_week' => $totalHours,
                 ]
             );
 
@@ -262,7 +283,7 @@ class UserController extends Controller
             DB::transaction(function () use ($request, $user) {
                 // Desvincular clientes
                 Branch::where('account_manager_id', $user->id)->update(['account_manager_id' => null]);
-                
+
                 // Crear el log de baja
                 TerminationLog::create([
                     'user_id' => $user->id,
@@ -280,7 +301,7 @@ class UserController extends Controller
         } else {
             // Lógica para reactivar
             DB::transaction(function () use ($user) {
-                 // Buscar el último log de baja que no haya sido reactivado
+                // Buscar el último log de baja que no haya sido reactivado
                 $lastLog = TerminationLog::where('user_id', $user->id)
                     ->whereNull('reinstated_at')
                     ->latest('termination_date')
