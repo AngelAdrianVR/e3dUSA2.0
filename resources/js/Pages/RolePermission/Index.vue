@@ -43,7 +43,7 @@
                                     Permisos para: <span class="text-blue-600 dark:text-blue-400">{{ selectedRole.name
                                         }}</span>
                                 </h3>
-                                <div class="space-y-6 max-h-[65vh] overflow-auto pr-2">
+                                <div class="space-y-5 max-h-[65vh] overflow-auto pr-2">
                                     <div v-for="(permissionGroup, module) in permissions" :key="module">
                                         <div
                                             class="flex justify-between items-center border-b border-gray-200 dark:border-slate-700 pb-2 mb-3">
@@ -54,11 +54,11 @@
                                                 <i class="fa-solid fa-plus mr-1"></i> Nuevo Permiso
                                             </button>
                                         </div>
-                                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-2">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
                                             <div v-for="permission in permissionGroup" :key="permission.id"
                                                 class="group flex items-center justify-between p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-800">
                                                 <label class="flex items-center space-x-3 cursor-pointer">
-                                                    <el-checkbox :model-value="hasPermission(permission.name)"
+                                                    <el-checkbox :model-value="roleHasPermission(permission.name)"
                                                         @change="togglePermission(permission.name)"
                                                         :label="permission.name"
                                                         :disabled="selectedRole.name === 'Super Administrador'" />
@@ -157,8 +157,9 @@ import DialogModal from '@/Components/DialogModal.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { ElMessage } from 'element-plus';
+import { computed } from 'vue';
 
 export default {
     name: 'RolePermissionIndex',
@@ -166,6 +167,15 @@ export default {
     props: {
         roles: Array,
         permissions: Object,
+    },
+    setup() {
+        // Lógica de permisos del usuario logueado
+        const userPermissions = computed(() => usePage().props.auth.user.permissions);
+        const hasPermission = (permission) => {
+            return userPermissions.value.includes(permission);
+        };
+
+        return { hasPermission };
     },
     data() {
         return {
@@ -184,10 +194,6 @@ export default {
         };
     },
     methods: {
-        hasPermission(permission) {
-            const permissions = this.$page.props.auth.user.permissions;
-            return permissions.includes(permission);
-        },
         // --- Role Methods ---
         selectRole(role) {
             this.selectedRole = role;
@@ -209,19 +215,22 @@ export default {
         },
         submitRole() {
             if (this.isEditingRole) {
-                this.roleForm.put(route('roles-permissions.update', this.roleForm.id), {
+                // CORREGIDO: 'roles-permissions' a 'role-permissions'
+                this.roleForm.put(route('role-permissions.update', this.roleForm.id), {
                     onSuccess: () => { this.closeRoleModal(); ElMessage.success('Rol actualizado.'); },
                     preserveState: false,
                 });
             } else {
-                this.roleForm.post(route('roles-permissions.store'), {
+                // CORREGIDO: 'roles-permissions' a 'role-permissions'
+                this.roleForm.post(route('role-permissions.store'), {
                     onSuccess: () => { this.closeRoleModal(); ElMessage.success('Rol creado.'); },
                     preserveState: false,
                 });
             }
         },
         deleteRole(role) {
-            this.$inertia.delete(route('roles-permissions.destroy', role.id), {
+            // CORREGIDO: 'roles-permissions' a 'role-permissions'
+            this.$inertia.delete(route('role-permissions.destroy', role.id), {
                 onSuccess: () => ElMessage.success('Rol eliminado.'),
                 onFinish: () => { if (this.selectedRole && this.selectedRole.id === role.id) { this.selectedRole = null; } },
                 preserveState: false,
@@ -251,7 +260,7 @@ export default {
                     this.closePermissionModal();
                     ElMessage.success(`Permiso ${this.isEditingPermission ? 'actualizado' : 'creado'}.`);
                 },
-                preserveState: true,
+                preserveState: false, // Cambiado a false para recargar permisos
             };
             if (this.isEditingPermission) {
                 this.permissionForm.put(route('permissions.update', this.permissionForm.id), options);
@@ -262,14 +271,14 @@ export default {
         deletePermission(permission) {
             this.$inertia.delete(route('permissions.destroy', permission.id), {
                 onSuccess: () => ElMessage.success('Permiso eliminado.'),
-                preserveState: true,
+                preserveState: false, // Cambiado a false para recargar permisos
             });
         },
 
         // --- Common Methods ---
-        // hasPermission(permissionName) {
-        //     return this.assignedPermissions.includes(permissionName);
-        // },
+        roleHasPermission(permissionName) {
+            return this.assignedPermissions.includes(permissionName);
+        },
         togglePermission(permissionName) {
             const index = this.assignedPermissions.indexOf(permissionName);
             if (index > -1) {
@@ -281,9 +290,11 @@ export default {
         updateRolePermissions() {
             if (!this.selectedRole) return;
             this.form.permissions = this.assignedPermissions;
-            this.form.put(route('roles-permissions.update', this.selectedRole.id), {
+            // CORREGIDO: 'roles-permissions' a 'role-permissions'
+            this.form.put(route('role-permissions.update', this.selectedRole.id), {
                 onSuccess: () => ElMessage.success('Permisos actualizados.'),
-                preserveState: true,
+                preserveState: true, // Se mantiene true para no perder el foco
+                preserveScroll: true,
             });
         },
     }
