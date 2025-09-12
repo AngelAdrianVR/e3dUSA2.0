@@ -15,14 +15,17 @@
                     </SecondaryButton>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item v-if="hasPermission('Editar personal')" @click="$inertia.get(route('users.edit', user))">
+                            <el-dropdown-item v-if="hasPermission('Editar personal')"
+                                @click="$inertia.get(route('users.edit', user))">
                                 <i class="fa-solid fa-pen-to-square mr-2"></i>Editar
                             </el-dropdown-item>
-                            <el-dropdown-item v-if="hasPermission('Editar personal')" @click="showChangeStatusModal = true">
+                            <el-dropdown-item v-if="hasPermission('Editar personal')"
+                                @click="showChangeStatusModal = true">
                                 <i class="fa-solid fa-user-slash mr-2"></i>{{ user.is_active ? 'Dar de baja' :
-                                'Reactivar' }}
+                                    'Reactivar' }}
                             </el-dropdown-item>
-                            <el-dropdown-item v-if="hasPermission('Crear personal')" @click="$inertia.get(route('users.create'))" divided>
+                            <el-dropdown-item v-if="hasPermission('Crear personal')"
+                                @click="$inertia.get(route('users.create'))" divided>
                                 <i class="fa-solid fa-plus mr-2"></i>Crear nuevo
                             </el-dropdown-item>
                         </el-dropdown-menu>
@@ -49,13 +52,13 @@
                         </div>
                         <p class="text-gray-600 dark:text-gray-400">{{ user.email }}</p>
                         <p class="text-sm text-gray-500 mt-1">Rol: <span class="font-semibold">{{ user.roles[0]?.name ??
-                                'N/A'
-                                }}</span></p>
+                            'N/A'
+                        }}</span></p>
                         <!-- Fecha de Nacimiento -->
                         <p v-if="age !== null" class="text-sm text-gray-500 mt-1">
-                            <i class="fa-solid fa-cake-candles mr-2"></i> {{ formatDate(user.employee_detail.birthdate)
-                            }} ({{
-                            age }} años)
+                            <i class="fa-solid fa-cake-candles mr-2"></i>
+                            {{ user.employee_detail?.birthdate ? formatDate(user.employee_detail.birthdate) : 'N/A' }}
+                            ({{ age }} años)
                         </p>
                     </div>
                 </div>
@@ -81,12 +84,12 @@
                                     Contratación:</span>
                                 <span class="dark:text-gray-300">{{ formatDate(user.employee_detail.join_date) }} ({{
                                     seniority
-                                    }} años)</span>
+                                }} años)</span>
                             </div>
                             <div class="grid grid-cols-2">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Salario Semanal:</span>
                                 <span class="dark:text-gray-300">{{ formatCurrency(user.employee_detail.week_salary)
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="grid grid-cols-2">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Horas por Semana:</span>
@@ -113,14 +116,14 @@
                                                 <td class="px-2 py-1">
                                                     <el-tag :type="day.works ? 'success' : 'info'" size="small">{{
                                                         day.works ?
-                                                        'Laboral' : 'Descanso' }}</el-tag>
+                                                            'Laboral' : 'Descanso' }}</el-tag>
                                                 </td>
                                                 <td class="px-2 py-1 dark:text-gray-400">{{ day.works ? day.start_time :
                                                     '--:--'
-                                                    }}</td>
+                                                }}</td>
                                                 <td class="px-2 py-1 dark:text-gray-400">{{ day.works ? day.end_time :
                                                     '--:--'
-                                                    }}</td>
+                                                }}</td>
                                                 <td class="px-2 py-1 dark:text-gray-400">{{ day.works ?
                                                     `${day.break_minutes}
                                                     min` : 'N/A' }}</td>
@@ -136,7 +139,8 @@
                     </div>
 
                     <!-- Columna de Historial de Vacaciones -->
-                    <div v-if="user.employee_detail" class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                    <div v-if="user.employee_detail"
+                        class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                         <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
                             <h3 class="font-bold text-lg dark:text-gray-200">Historial de Vacaciones</h3>
                             <SecondaryButton v-if="hasPermission('Editar personal')" @click="showVacationModal = true">
@@ -147,7 +151,7 @@
                             <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
                                 <p class="text-2xl font-bold text-green-700 dark:text-green-200">{{
                                     vacation_summary.available
-                                    }}</p>
+                                }}</p>
                                 <p class="text-sm text-green-600 dark:text-green-300">Días Disponibles</p>
                             </div>
                             <div class="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-lg">
@@ -177,27 +181,31 @@
                     </div>
 
                     <!-- Historial de Bajas -->
-                <div v-if="user.employee_detail" class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <h3 class="font-bold text-lg dark:text-gray-200 border-b dark:border-slate-700 pb-2 mb-4">Historial de Bajas y Reactivaciones</h3>
-                    <div v-if="termination_logs.length">
-                        <el-table :data="termination_logs" max-height="300" stripe size="small" class="dark:!bg-slate-900">
-                             <el-table-column prop="termination_date" label="Fecha de Baja">
-                                <template #default="{row}">{{ formatDate(row.termination_date) }}</template>
-                            </el-table-column>
-                            <el-table-column prop="reason" label="Motivo de Baja" />
-                            <el-table-column prop="terminator.name" label="Dado de baja por" />
-                             <el-table-column prop="reinstated_at" label="Fecha de Reactivación">
-                                <template #default="{row}">
-                                    <span v-if="row.reinstated_at">{{ formatDateTime(row.reinstated_at) }}</span>
-                                    <el-tag v-else type="info" size="small">Actualmente de baja</el-tag>
-                                </template>
-                            </el-table-column>
-                        </el-table>
+                    <div v-if="user.employee_detail"
+                        class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                        <h3 class="font-bold text-lg dark:text-gray-200 border-b dark:border-slate-700 pb-2 mb-4">
+                            Historial de
+                            Bajas y Reactivaciones</h3>
+                        <div v-if="termination_logs.length">
+                            <el-table :data="termination_logs" max-height="300" stripe size="small"
+                                class="dark:!bg-slate-900">
+                                <el-table-column prop="termination_date" label="Fecha de Baja">
+                                    <template #default="{ row }">{{ formatDate(row.termination_date) }}</template>
+                                </el-table-column>
+                                <el-table-column prop="reason" label="Motivo de Baja" />
+                                <el-table-column prop="terminator.name" label="Dado de baja por" />
+                                <el-table-column prop="reinstated_at" label="Fecha de Reactivación">
+                                    <template #default="{ row }">
+                                        <span v-if="row.reinstated_at">{{ formatDateTime(row.reinstated_at) }}</span>
+                                        <el-tag v-else type="info" size="small">Actualmente de baja</el-tag>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                        <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
+                            <p>El empleado no tiene registros de bajas.</p>
+                        </div>
                     </div>
-                    <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
-                        <p>El empleado no tiene registros de bajas.</p>
-                    </div>
-                </div>
                 </div>
             </div>
         </div>
@@ -234,14 +242,16 @@
                 </form>
             </template>
             <template #footer>
-                <CancelButton @click="showVacationModal = false" :disabled="vacationForm.processing">Cancelar
-                </CancelButton>
-                <SecondaryButton @click="submitVacationLog" :loading="vacationForm.processing">Guardar Movimiento
-                </SecondaryButton>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showVacationModal = false" :disabled="vacationForm.processing">Cancelar
+                    </CancelButton>
+                    <SecondaryButton @click="submitVacationLog" :loading="vacationForm.processing">Guardar Movimiento
+                    </SecondaryButton>
+                </div>
             </template>
         </DialogModal>
 
-         <!-- NUEVO: Modal para Dar de Baja -->
+        <!-- NUEVO: Modal para Dar de Baja -->
         <DialogModal :show="showChangeStatusModal" @close="showChangeStatusModal = false">
             <template #title>
                 <span v-if="user.is_active">Dar de baja a "{{ user.name }}"</span>
@@ -253,28 +263,35 @@
                         Se registrará la baja del empleado y se desvinculará de cualquier cliente que tenga asignado.
                     </p>
                     <form @submit.prevent="submitTermination" class="mt-4 space-y-4">
-                         <div>
+                        <div>
                             <InputLabel value="Fecha de baja*" />
-                            <el-date-picker :teleported="false" v-model="statusForm.disabled_at" type="date" class="!w-full" placeholder="Selecciona una fecha" format="DD MMMM, YYYY" value-format="YYYY-MM-DD" />
+                            <el-date-picker :teleported="false" v-model="statusForm.disabled_at" type="date"
+                                class="!w-full" placeholder="Selecciona una fecha" format="DD MMMM, YYYY"
+                                value-format="YYYY-MM-DD" />
                             <InputError :message="statusForm.errors.disabled_at" />
                         </div>
                         <div>
-                            <TextInput v-model="statusForm.reason" label="Motivo de la baja (opcional)" :isTextarea="true" :error="statusForm.errors.reason" />
+                            <TextInput v-model="statusForm.reason" label="Motivo de la baja (opcional)"
+                                :isTextarea="true" :error="statusForm.errors.reason" />
                         </div>
                     </form>
                 </div>
                 <div v-else class="mb-28">
                     <p class="dark:text-gray-300">
-                        ¿Estás seguro de que deseas reactivar a este usuario? Se registrará la fecha de reactivación y el usuario podrá acceder de nuevo al sistema.
+                        ¿Estás seguro de que deseas reactivar a este usuario? Se registrará la fecha de reactivación y
+                        el usuario podrá acceder de nuevo al sistema.
                     </p>
                 </div>
             </template>
             <template #footer>
-                <CancelButton @click="showChangeStatusModal = false" :disabled="statusForm.processing">Cancelar</CancelButton>
-                <SecondaryButton v-if="user.is_active" @click="submitTermination" :loading="statusForm.processing" class="!bg-red-600 hover:!bg-red-700 text-white">
+                <CancelButton @click="showChangeStatusModal = false" :disabled="statusForm.processing">Cancelar
+                </CancelButton>
+                <SecondaryButton v-if="user.is_active" @click="submitTermination" :loading="statusForm.processing"
+                    class="!bg-red-600 hover:!bg-red-700 text-white">
                     Confirmar Baja
                 </SecondaryButton>
-                <SecondaryButton v-else @click="submitTermination" :loading="statusForm.processing" class="!bg-green-600 hover:!bg-green-700 text-white">
+                <SecondaryButton v-else @click="submitTermination" :loading="statusForm.processing"
+                    class="!bg-green-600 hover:!bg-green-700 text-white">
                     Confirmar Reactivación
                 </SecondaryButton>
             </template>

@@ -196,12 +196,19 @@ export default {
                                             class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <el-time-picker v-model="day.start_time" placeholder="Entrada"
                                                 format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.start_time`]"
+                                                class="mt-1" />
                                             <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A"
                                                 value-format="HH:mm:ss" class="!w-full" />
-                                            <el-input-number v-model="day.break_minutes" :min="0" :step="15"
+                                            <InputError :message="form.errors[`work_schedule.${index}.end_time`]"
+                                                class="mt-1" />
+                                            <el-input-number v-model="day.break_minutes" :min="0" ::step="15"
                                                 placeholder="Minutos" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.break_minutes`]"
+                                                class="mt-1" />
                                         </div>
-                                        <div v-else class="col-span-full md:col-span-3 text-center text-gray-400">
+                                        <div v-else
+                                            class="col-span-full md:col-span-3 text-center text-gray-400 italic">
                                             No laborable
                                         </div>
                                     </div>

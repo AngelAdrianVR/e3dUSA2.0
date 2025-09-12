@@ -20,18 +20,18 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
         ]);
 
-        User::factory(4)->create()->each(function ($user) {
-            $user->employeeDetail()->save(\App\Models\EmployeeDetail::factory()->make());
-        });
+        // User::factory(4)->create()->each(function ($user) {
+        //     $user->employeeDetail()->save(\App\Models\EmployeeDetail::factory()->make());
+        // });
 
         $this->call([
-            UserSeeder::class,
+            // UserSeeder::class,
             PermissionSeeder::class,
             ProductFamilySeeder::class,
             IncidentTypeSeeder::class,
             PayrollSeeder::class,
-            AttendanceSeeder::class,
-            IncidentSeeder::class,
+            // AttendanceSeeder::class,
+            // IncidentSeeder::class,
         ]);
     }
 }

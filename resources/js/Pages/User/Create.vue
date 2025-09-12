@@ -6,6 +6,7 @@ import TextInput from "@/Components/TextInput.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import { useForm } from "@inertiajs/vue3";
 import { computed } from 'vue';
+import { format } from "date-fns";
 
 export default {
     components: {
@@ -32,7 +33,7 @@ export default {
             job_position: '',
             week_salary: null,
             birthdate: null,
-            join_date: null,
+            join_date: format(new Date(), "yyyy-MM-dd"),
             selected_bonuses: [],
             selected_discounts: [],
             work_schedule: [
@@ -47,7 +48,9 @@ export default {
         });
 
         const store = () => {
-            form.post(route("users.store"));
+            form.post(route("users.store"), {
+                onError: (err) => console.log(err)
+            });
         };
 
         const totalWeeklyMinutes = computed(() => {
@@ -120,7 +123,7 @@ export default {
                                     <label class="text-sm ml-1">Fecha de nacimiento*</label>
                                     <el-date-picker v-model="form.birthdate" type="date" placeholder="Selecciona"
                                         format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
-                                    <InputError :message="form.errors.birthdate" />
+                                    <InputError :message="form.errors.birthdate" class="mt-3" />
                                 </div>
                                 <div>
                                     <label class="text-sm ml-1">Fecha de ingreso*</label>
@@ -179,12 +182,19 @@ export default {
                                             class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                             <el-time-picker v-model="day.start_time" placeholder="Entrada"
                                                 format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.start_time`]"
+                                                class="mt-1" />
                                             <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A"
                                                 value-format="HH:mm:ss" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.end_time`]"
+                                                class="mt-1" />
                                             <el-input-number v-model="day.break_minutes" :min="0" ::step="15"
                                                 placeholder="Minutos" class="!w-full" />
+                                            <InputError :message="form.errors[`work_schedule.${index}.break_minutes`]"
+                                                class="mt-1" />
                                         </div>
-                                        <div v-else class="col-span-full md:col-span-3 text-center text-gray-400">
+                                        <div v-else
+                                            class="col-span-full md:col-span-3 text-center text-gray-400 italic">
                                             No laborable
                                         </div>
                                     </div>
@@ -192,7 +202,6 @@ export default {
                                 <div class="text-right mt-2 font-semibold text-base text-[#373737]">
                                     Total semanal: {{ formattedTotalHours }}
                                 </div>
-                                <InputError :message="form.errors.work_schedule" />
                             </div>
                         </section>
 

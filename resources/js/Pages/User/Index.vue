@@ -68,7 +68,7 @@
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop
-                                            class="el-dropdown-link mr-3 justify-center items-center size-8 rounded-full text-secondary hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out">
+                                            class="el-dropdown-link mr-3 justify-center items-center size-8 rounded-full text-primary hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out">
                                             <i class="fa-solid fa-ellipsis-vertical"></i>
                                         </button>
                                         <template #dropdown>
