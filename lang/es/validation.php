@@ -249,5 +249,10 @@ return [
         'shipments.*.acknowledgement_file' => 'acuse de parcialidad',
         'items.*.itemable_id' => 'producto',
         'items.*.type' => 'tipo de producto',
+        'job_position' => 'puesto',
+        'role' => 'rol',
+        'week_salary' => 'salario semanal',
+        'birthdate' => 'fecha de cumpleaños',
+        'join_date' => 'fecha de ingreso',
     ],
 ];

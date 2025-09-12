@@ -98,8 +98,8 @@ class UserController extends Controller
                 'available' => $totalVacations,
                 'taken' => abs($takenVacations),
             ],
-            'age' => $age,
-            'seniority' => $seniority,
+            'age' => number_format($age, 0),
+            'seniority' => number_format($seniority, 2),
         ]);
     }
 
@@ -111,7 +111,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
             'job_position' => 'required|string|max:255',
             'department' => 'required|string|max:255',
@@ -174,7 +174,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'password' => ['nullable', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
             'job_position' => 'required|string|max:255',
             'department' => 'required|string|max:255',
