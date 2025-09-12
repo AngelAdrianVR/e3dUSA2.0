@@ -159,7 +159,7 @@ export default {
   setup() {
     // Composition API hook to get dark mode reactivity
     // const isDarkMode = useDark();
-    // return { isDarkMode };
+    return { isDarkMode: true };
   },
   data() {
     return {
