@@ -17,7 +17,8 @@ class SampleTrackingItem extends Model
         'itemable_type',
         'quantity',
         'requires_modification',
-        'feedback',
+        'feedback', //retroalimentacion del cliente
+        'notes', //notas que el vendedor agrega al seguimiento
     ];
 
     protected $casts = [

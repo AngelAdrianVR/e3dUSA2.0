@@ -247,5 +247,7 @@ return [
         'early_payment_discount_amount' => 'porcentaje de descuento',
         'freight_option' => 'opción de flete',
         'shipments.*.acknowledgement_file' => 'acuse de parcialidad',
+        'items.*.itemable_id' => 'producto',
+        'items.*.type' => 'tipo de producto',
     ],
 ];
