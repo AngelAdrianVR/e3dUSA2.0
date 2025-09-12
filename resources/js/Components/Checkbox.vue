@@ -40,7 +40,7 @@ const proxyChecked = computed({
                 size-5 flex items-center justify-center 
                 border-2 border-gray-500 rounded 
                 transition-all duration-300
-                peer-checked:bg-red-600 peer-checked:border-red-600
+                peer-checked:bg-primary peer-checked:border-primary
             "
         >
             <!-- El 'check' (marca de verificación) -->
@@ -69,7 +69,7 @@ const proxyChecked = computed({
 @keyframes pulse {
     0% {
         transform: scale(1);
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); /* Rojo-500 con opacidad */
+        box-shadow: 0 0 0 0 rgba(3, 85, 131, 0.7); /* Rojo-500 con opacidad */
     }
     70% {
         transform: scale(1.5);

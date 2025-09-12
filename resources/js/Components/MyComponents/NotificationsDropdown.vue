@@ -3,9 +3,7 @@
     <el-tooltip content="Notificaciones" placement="bottom">
       <button @click.stop="toggleDropdown"
         class="relative flex justify-center items-center size-14 p-3 rounded-lg transition-colors duration-300 hover:bg-gray-100 dark:hover:bg-slate-700">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-gray-600 dark:text-gray-500">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0M3.124 7.5A8.969 8.969 0 0 1 5.292 3m13.416 0a8.969 8.969 0 0 1 2.168 4.5" />
-        </svg>
+        <img src="/images/notification3d.png" alt="" class="w-[80%]">
         <span v-if="unreadNotificationsCount > 0" class="absolute top-3 right-3 flex h-4 w-4 items-center justify-center">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span class="relative inline-flex items-center justify-center rounded-full h-4 w-4 bg-red-500 text-white text-[10px] font-bold">

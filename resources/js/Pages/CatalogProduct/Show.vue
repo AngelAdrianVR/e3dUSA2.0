@@ -455,7 +455,7 @@ import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
 import InputError from "@/Components/InputError.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
-import { Link, useForm } from "@inertiajs/vue3";
+import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 
@@ -639,15 +639,12 @@ export default {
             try {
                 const response = await axios.get(route('catalog-products.obsolet', this.product.id));
                 if (response.status === 200) {
-                    console.log(response.data);
 
-                    if ( response.data?.length ) {
-                        this.product.archived_at = response.data;
-                        ElMessage.success(response.data.message || 'Producto marcado como obsoleto.');
-                    } else {
-                        this.product.archived_at = null;
-                        ElMessage.success(response.data.message || 'Producto reestablecido al catálogo de productos.');
-                    }
+                    router.reload({ 
+                        preserveScroll: true,
+                        preserveState: true 
+                    });
+                    ElMessage.success('Estatus de producto actualizado');
                 }
             } catch (err) {
                 ElMessage.error('Ocurrió un error. Refresca la página e inténtalo de nuevo');

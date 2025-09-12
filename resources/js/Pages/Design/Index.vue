@@ -1,5 +1,8 @@
 <template>
     <AppLayout title="Órdenes de Diseño">
+        <!-- componente de carga de trabajo de diseñadores -->
+        <DesignersWorkload v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')" />
+
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
             Órdenes de Diseño
         </h2>
@@ -17,7 +20,7 @@
                             </SecondaryButton>
                         </Link>
 
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-4">
                              <!-- Botón para eliminar seleccionados -->
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de diseño')"
                                 confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
@@ -29,18 +32,21 @@
                                 </template>
                             </el-popconfirm>
                             
-                            <!-- Switch para ver todas las órdenes / mis órdenes -->
-                            <div
-                                v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')"
-                                class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700"
-                            >
-                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
-                                <el-switch
-                                    v-model="showAllDesigns"
-                                    @change="toggleView"
-                                    style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;"
-                                />
-                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
+                            <!-- Nuevo: Grupo de botones para los filtros de vista -->
+                            <div class="flex items-center p-1 bg-gray-100 dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+                                <button @click="switchView('mine')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'mine', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'mine'}" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
+                                    Mías
+                                </button>
+                                <button v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')" @click="switchView('all')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'all', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'all'}" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
+                                    Todas
+                                </button>
+                                <button v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')" @click="switchView('unassigned')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'unassigned', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'unassigned'}" class="relative px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
+                                    Sin Asignar
+                                    <!-- Nuevo: Indicador numérico de órdenes sin asignar -->
+                                    <span v-if="unassignedOrdersCount > 0" class="absolute -top-2 -right-2 inline-flex items-center justify-center size-5 text-xs font-bold text-white bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800">
+                                        {{ unassignedOrdersCount }}
+                                    </span>
+                                </button>
                             </div>
                         </div>
                         
@@ -89,7 +95,8 @@
                             </el-table-column>
                             <el-table-column label="Diseñador Asignado" width="140">
                                 <template #default="scope">
-                                    {{ scope.row.designer?.name ?? 'Sin asignar' }}
+                                    <span v-if="scope.row.designer?.name">{{ scope.row.designer?.name }}</span>
+                                    <span class="text-amber-500" v-else>Sin asignar</span>
                                 </template>
                             </el-table-column>
                             <el-table-column label="Fecha de Solicitud" width="180">
@@ -144,7 +151,7 @@
                                                     </svg>Ver
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de diseño')"
+                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de diseño') && (scope.row.status === 'Pendiente' || scope.row.status === 'Autorizada')"
                                                     :command="'edit-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -184,12 +191,65 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal para Asignar Diseñador -->
+        <DialogModal :show="showAssignModal" @close="closeAssignModal">
+            <template #title>
+                Asignar Diseñador a Orden
+            </template>
+
+            <template #content>
+                <div v-if="selectedOrder">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                        {{ 'OD-' + selectedOrder.id.toString().padStart(4, '0') }}: {{ selectedOrder.order_title }}
+                    </h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Solicitado por: <span class="font-medium">{{ selectedOrder.requester?.name }}</span>
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        Fecha de Solicitud: <span class="font-medium">{{ formatDate(selectedOrder.created_at) }}</span>
+                    </p>
+
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Seleccionar diseñador
+                        </label>
+                        <el-select v-model="assignmentForm.designer_id" :teleported="false"
+                                placeholder="Selecciona un diseñador"
+                                class="!w-1/2 mt-1"
+                                filterable>
+                            <el-option v-for="designer in designers"
+                                    :key="designer.id"
+                                    :label="designer.name"
+                                    :value="designer.id" />
+                        </el-select>
+                        <div v-if="assignmentForm.errors.designer_id" class="text-red-500 text-xs mt-1">
+                            {{ assignmentForm.errors.designer_id }}
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <template #footer>
+                <CancelButton @click="closeAssignModal">
+                    Cancelar
+                </CancelButton>
+
+                <SecondaryButton @click="submitAssignment" :loading="assignmentForm.processing" class="ml-3">
+                    <span v-if="assignmentForm.processing">Asignando...</span>
+                    <span v-else>Asignar</span>
+                </SecondaryButton>
+            </template>
+        </DialogModal>
     </AppLayout>
 </template>
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import DesignersWorkload from "@/Components/MyComponents/DesignersWorkload.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import DialogModal from '@/Components/DialogModal.vue';
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { format } from 'date-fns';
@@ -205,20 +265,31 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.designOrders.data,
-            showAllDesigns: this.filters.view === 'all',
+            // Nuevo: 'activeView' reemplaza a 'showAllDesigns' para manejar 3 estados
+            activeView: this.filters.view || 'mine', 
             SearchProps: ['Folio', 'Título', 'Solicitante', 'Diseñador', 'Estatus'],
+            showAssignModal: false,
+            designers: [],
+            selectedOrder: null,
+            assignmentForm: this.$inertia.form({
+                designer_id: null,
+            }),
         };
     },
     components: {
         Link,
         AppLayout,
         SearchInput,
+        DialogModal,
+        CancelButton,
         LoadingIsoLogo,
         SecondaryButton,
+        DesignersWorkload,
     },
     props: {
         designOrders: Object,
         filters: Object,
+        unassignedOrdersCount: Number, // Nuevo: prop para el contador
     },
     methods: {
         async handleSearch() {
@@ -255,31 +326,69 @@ export default {
         handleCommand(command) {
             const [action, id] = command.split('-');
             
-            // Aquí puedes agregar lógica para comandos específicos como 'assign'
             if (action === 'assign'){
-                console.log('asignar');
+                this.openAssignModal(id);
             }
             else if (action === 'authorize') {
                 this.authorize(id);
             } else {
                 router.get(route(`design-orders.${action}`, id));
             }
-            
         },
-        // --- Método para autorizar ---
+        async fetchDesigners() {
+            try {
+                const response = await axios.get(route('design-orders.get-designers'));
+                this.designers = response.data;
+            } catch (error) {
+                console.error("Error fetching designers:", error);
+                ElMessage.error('No se pudo cargar la lista de diseñadores.');
+            }
+        },
+        openAssignModal(orderId) {
+            this.selectedOrder = this.tableData.find(order => order.id == orderId);
+            if (this.selectedOrder) {
+                this.fetchDesigners();
+                this.showAssignModal = true;
+            }
+        },
+        closeAssignModal() {
+            this.showAssignModal = false;
+            this.selectedOrder = null;
+            this.assignmentForm.reset();
+        },
+        submitAssignment() {
+            if (!this.assignmentForm.designer_id) {
+                ElMessage.warning('Debes seleccionar un diseñador.');
+                return;
+            }
+
+            this.assignmentForm.put(route('design-orders.assign-designer', this.selectedOrder.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.closeAssignModal();
+                    ElMessage.success('Diseñador asignado correctamente.');
+                    router.reload({ preserveScroll: true });
+                },
+                onError: (errors) => {
+                     let message = 'Ocurrió un error al asignar el diseñador.';
+                     if (errors.designer_id) {
+                         message = errors.designer_id[0];
+                     }
+                     ElMessage.error(message);
+                }
+            });
+        },
         async authorize(dsignOrderId) {
             try {
                 const response = await axios.get(route('design-orders.authorize', dsignOrderId));
                 if (response.status === 200) {
-                    // refresca parametros
                     router.reload({ 
                         preserveScroll: true,
-                        preserveState: true 
                     })                    
                     ElMessage.success(response.data.message);
                 }
             } catch (err) {
-                ElMessage.error('Ocurrió un error al autorizar la venta');
+                ElMessage.error('Ocurrió un error al autorizar la orden');
                 console.error(err);
             }
         },
@@ -296,18 +405,21 @@ export default {
         },
         handlePageChange(page) {
             const params = { page };
-            if (this.showAllDesigns) {
-                params.view = 'all';
+            // Actualizado: usa 'activeView' para la paginación
+            if (this.activeView !== 'mine') {
+                params.view = this.activeView;
             }
             router.get(route('design-orders.index', params), {
                 preserveState: true,
                 replace: true,
             });
         },
-        toggleView() {
+        // Nuevo: Método para cambiar entre vistas, reemplaza a 'toggleView'
+        switchView(view) {
+            this.activeView = view;
             const params = {};
-            if (this.showAllDesigns) {
-                params.view = 'all';
+            if (this.activeView !== 'mine') {
+                params.view = this.activeView;
             }
             router.get(route('design-orders.index', params), {
                 preserveState: true,
@@ -319,7 +431,7 @@ export default {
         getStatusTagType(status) {
             const statusMap = {
                 'Pendiente': 'info',
-                'Autorizada': 'primary', // default color
+                'Autorizada': 'primary',
                 'En proceso': 'warning',
                 'Terminada': 'success',
                 'Cancelada': 'danger',

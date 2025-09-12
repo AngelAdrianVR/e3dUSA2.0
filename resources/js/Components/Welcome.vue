@@ -1,8 +1,9 @@
-<script setup>
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-</script>
-
 <template>
-    <div class="">
-    </div>
+  
 </template>
+
+<script>
+export default {
+
+}
+</script>

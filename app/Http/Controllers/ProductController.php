@@ -561,8 +561,6 @@ class ProductController extends Controller
                 'archived_at' => now()
             ]);
         }
-
-        return response()->json($product->archived_at);
     }
 
     // Actualiza el precio base desde el show de producto de catalogo

@@ -11,8 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_bonus', function (Blueprint $table) {
+        // Tabla pivote para la relación muchos a muchos entre EmployeeDetail y Discount.
+        Schema::create('discount_employee_detail', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('employee_detail_id')->constrained()->onDelete('cascade');
+            $table->foreignId('discount_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }
@@ -22,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('user_bonus');
+        Schema::dropIfExists('discount_employee_detail');
     }
 };

@@ -22,6 +22,7 @@ return new class extends Migration
             $table->json('department_details')->nullable(); // informacion adicional con respecto al departamento de trabajo
             $table->json('work_days')->nullable(); // dias de trabajo
             $table->json('vacations')->nullable(); // vacaciones
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
 
             // falta bonuses y discounts pero eso se pondra un una tabla pivote
             $table->timestamps();

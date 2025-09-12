@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('user_discount', function (Blueprint $table) {
+        Schema::create('payrolls', function (Blueprint $table) {
             $table->id();
+            $table->integer('week_number'); // Número de la semana en el año
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->enum('status', ['Abierta', 'Cerrada'])->default('Abierta');
             $table->timestamps();
         });
     }
@@ -22,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('user_discount');
+        Schema::dropIfExists('payrolls');
     }
 };

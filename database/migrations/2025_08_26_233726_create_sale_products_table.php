@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->cascadeOnDelete();
 
             $table->integer('quantity');
-            $table->integer('quantity_to_produce')->default(0)->after('quantity');
+            $table->integer('quantity_to_produce')->default(0);
             $table->decimal('price', 10, 2);
             $table->boolean('is_new_design')->default(false);
             $table->json('customization_details')->nullable();

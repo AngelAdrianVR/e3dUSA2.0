@@ -58,6 +58,11 @@ export default {
             type: Array,
             required: true
         },
+        // --- AGREGADO: Nueva propiedad para cambiar el comportamiento ---
+        treatCurrentAsCompleted: {
+            type: Boolean,
+            default: false
+        },
     },
     computed: {
         // Devuelve el índice del estado actual en el arreglo de pasos.
@@ -69,27 +74,24 @@ export default {
         completedStepIndex() {
             const currentIndex = this.currentIndex;
 
-            // Si el estado actual es el último, TODOS los pasos están completos.
+            // --- MODIFICADO: Lógica para tratar el paso actual como completado ---
+            if (this.treatCurrentAsCompleted) {
+                return currentIndex;
+            }
+
+            // Lógica original
             if (currentIndex === this.steps.length - 1) {
                 return currentIndex;
             }
-            
-            // Caso especial: Si el estado es el primer paso, se considera completado inmediatamente.
             if (currentIndex === 0) {
                 return 0;
             }
-            
-            // Caso normal: Para cualquier otro estado intermedio, los pasos completados
-            // son todos los que están ANTES del paso actual.
             return currentIndex - 1;
         },
         
         // Devuelve el índice del paso que está actualmente "en progreso".
         activeStepIndex() {
-            // El paso activo es siempre el siguiente al último completado.
             const nextStep = this.completedStepIndex + 1;
-            
-            // Si el siguiente paso está fuera de los límites (ya se completó todo), no hay paso activo.
             return nextStep < this.steps.length ? nextStep : -1;
         }
     },
@@ -97,26 +99,21 @@ export default {
         getNodeClasses(index) {
             const classes = [];
             if (index <= this.completedStepIndex) {
-                // Estilo para pasos completados
                 classes.push('w-8 h-8 bg-gradient-to-br from-sky-400 to-secondary shadow-md');
             } else if (index === this.activeStepIndex) {
-                // Estilo para el paso actual en progreso (con animación)
                 classes.push('w-10 h-10 bg-white dark:bg-slate-800 border-2 border-secondary dark:border-sky-400 text-secondary dark:text-sky-400 shadow-lg');
             } else {
-                // Estilo para pasos pendientes
                 classes.push('w-8 h-8 bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-gray-400');
             }
             return classes.join(' ');
         },
         getLabelClasses(index) {
-            // La etiqueta se resalta si el paso está activo o ya se completó.
             if (index <= this.activeStepIndex) {
                 return 'font-semibold text-gray-700 dark:text-gray-200';
             }
             return 'text-gray-400 dark:text-gray-500';
         },
         getLineWidth(index) {
-            // La línea se rellena si el paso actual ya se completó.
             return this.completedStepIndex >= index ? '100%' : '0%';
         }
     }
