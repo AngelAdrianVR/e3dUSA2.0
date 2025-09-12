@@ -303,8 +303,9 @@ Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->na
 
 // ------- Roles rutas  ---------
 Route::resource('role-permissions', RolePermissionController::class)
-->only(['index', 'store', 'update', 'destroy'])
-->middleware(['auth', 'verified']);
+    ->only(['index', 'store', 'update', 'destroy'])
+    ->middleware(['auth', 'verified'])
+    ->parameter('role-permissions', 'role');
 
 
 // ------- Permisos rutas  ---------
