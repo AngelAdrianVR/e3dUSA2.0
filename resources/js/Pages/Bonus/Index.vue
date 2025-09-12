@@ -10,11 +10,11 @@
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <SecondaryButton @click="openCreateModal">
+                        <SecondaryButton v-if="hasPermission('Crear bonos')" @click="openCreateModal">
                             <i class="fa-solid fa-plus mr-2"></i>
                             Nuevo Bono
                         </SecondaryButton>
-                        <el-popconfirm confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
+                        <el-popconfirm v-if="hasPermission('Eliminar bonos')" confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
                             title="¿Estás seguro de eliminar los bonos seleccionados?" @confirm="deleteSelections">
                             <template #reference>
                                 <el-button type="danger" plain :disabled="!selectedItems.length">
@@ -26,7 +26,7 @@
 
                     <el-table max-height="550" :data="bonuses.data" style="width: 100%" stripe
                         @selection-change="handleSelectionChange" @row-click="handleRowClick"
-                        class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
+                        class="dark:!bg-slate-900 dark:!text-gray-300" :class="hasPermission('Editar bonos') ? 'cursor-pointer' : null">
                         <el-table-column type="selection" width="45" />
                         <el-table-column prop="id" label="ID" width="80" sortable />
                         <el-table-column prop="name" label="Nombre" sortable />
@@ -181,12 +181,17 @@ export default {
         }
     },
     methods: {
+        hasPermission(permission) {
+            const permissions = this.$page.props.auth.user.permissions;
+            return permissions.includes(permission);
+        },
         openCreateModal() {
             this.isEditing = false;
             this.form.reset();
             this.showModal = true;
         },
         handleRowClick(row) {
+            if (!this.hasPermission('Editar bonos')) return;
             this.isEditing = true;
             // Pre-procesar las reglas para configurar la UI del valor dinámico
             const rules = (row.rules || []).map(rule => ({

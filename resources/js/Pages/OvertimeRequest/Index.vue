@@ -104,9 +104,11 @@
                 </form>
             </template>
             <template #footer>
-                <CancelButton @click="showCreateModal = false" :disabled="createForm.processing">Cancelar</CancelButton>
-                <SecondaryButton @click="submitCreateForm" :loading="createForm.processing">Enviar Solicitud
-                </SecondaryButton>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showCreateModal = false" :disabled="createForm.processing">Cancelar</CancelButton>
+                    <SecondaryButton @click="submitCreateForm" :loading="createForm.processing">Enviar Solicitud
+                    </SecondaryButton>
+                </div>
             </template>
         </DialogModal>
 

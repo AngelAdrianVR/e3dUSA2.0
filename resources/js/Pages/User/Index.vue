@@ -13,7 +13,7 @@
                     <div class="flex justify-between items-center mb-6">
 
                         <!-- Componente de búsqueda personalizado -->
-                        <SecondaryButton type="primary" @click="$inertia.get(route('users.create'))">
+                        <SecondaryButton v-if="hasPermission('Crear personal')" type="primary" @click="$inertia.get(route('users.create'))">
                             <i class="fa-solid fa-plus mr-2"></i>
                             Nuevo Usuario
                         </SecondaryButton>
@@ -29,8 +29,8 @@
                             <LoadingIsoLogo />
                         </div>
 
-                        <el-table :data="users.data" style="width: 100%" stripe table-layout="auto" max-height="550"
-                            class="dark:!bg-slate-900 dark:!text-gray-300">
+                        <el-table :data="users.data" style="width: 100%" stripe table-layout="auto" max-height="550" @row-click="handleRowClick"
+                            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
                             <!-- Columna ID -->
                             <el-table-column prop="id" label="ID" width="80" sortable />
 
@@ -83,7 +83,7 @@
                                                             d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                                                     </svg>
                                                     Ver</el-dropdown-item>
-                                                <el-dropdown-item :command="'edit-' + scope.row.id">
+                                                <el-dropdown-item v-if="hasPermission('Editar personal')" :command="'edit-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
                                                         viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                                                         class="size-4 mr-2">
@@ -91,7 +91,7 @@
                                                             d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>
                                                     Editar</el-dropdown-item>
-                                                <el-dropdown-item :command="'changeStatus-' + scope.row.id">
+                                                <el-dropdown-item v-if="hasPermission('Editar personal')" :command="'changeStatus-' + scope.row.id">
                                                     <i class="text-xs pr-1" :class="scope.row.is_active ? 'fa-solid fa-user-slash' :
                                                         'fa-solid fa-user'"></i>
                                                     {{ scope.row.is_active ? 'Dar de baja' : 'Reactivar' }}
@@ -206,6 +206,13 @@ export default {
         filters: Object,
     },
     methods: {
+        hasPermission(permission) {
+            const permissions = this.$page.props.auth.user.permissions;
+            return permissions.includes(permission);
+        },
+        handleRowClick(row) {
+            this.$inertia.get(route('users.show', row.id));
+        },
         searchUsers() {
             this.loading = true;
             this.$inertia.get(this.route('users.index'), {

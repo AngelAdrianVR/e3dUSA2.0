@@ -5,19 +5,17 @@
         </h2>
 
         <div class="py-7">
+            <p class="text-gray-600 dark:text-gray-400 text-sm text-center my-5">
+                Desde aquí puedes autorizar o remover los dispositivos que pueden registrar asistencias.
+            </p>
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <p class="text-gray-600 dark:text-gray-400 text-sm">
-                            Desde aquí puedes autorizar o remover los dispositivos que pueden registrar asistencias.
-                        </p>
-                        <SecondaryButton @click="showAuthModal = true">
-                            <i class="fa-solid fa-plus mr-2"></i>
-                            Autorizar este Dispositivo
-                        </SecondaryButton>
-                    </div>
+                    <SecondaryButton @click="showAuthModal = true">
+                        <i class="fa-solid fa-plus mr-2"></i>
+                        Autorizar este Dispositivo
+                    </SecondaryButton>
 
-                    <el-table :data="devices" stripe class="dark:!bg-slate-900">
+                    <el-table :data="devices" stripe class="dark:!bg-slate-900 mt-6">
                         <el-table-column prop="name" label="Nombre del Dispositivo" />
                         <el-table-column prop="creator.name" label="Autorizado por" />
                         <el-table-column prop="created_at" label="Fecha de Autorización">
@@ -50,8 +48,10 @@
                 </form>
             </template>
             <template #footer>
-                <CancelButton @click="showAuthModal = false">Cancelar</CancelButton>
-                <SecondaryButton @click="authorizeDevice" :loading="authForm.processing">Autorizar</SecondaryButton>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showAuthModal = false">Cancelar</CancelButton>
+                    <SecondaryButton @click="authorizeDevice" :loading="authForm.processing">Autorizar</SecondaryButton>
+                </div>
             </template>
         </DialogModal>
     </AppLayout>
@@ -89,8 +89,8 @@ const authorizeDevice = () => {
             router.reload();
         },
         onError: (errors) => {
-             console.error(errors);
-             ElMessage.error('No se pudo autorizar el dispositivo.');
+            console.error(errors);
+            ElMessage.error('No se pudo autorizar el dispositivo.');
         }
     });
 };

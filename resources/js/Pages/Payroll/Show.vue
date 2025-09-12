@@ -269,7 +269,7 @@ import Back from '@/Components/MyComponents/Back.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import InputError from '@/Components/InputError.vue';
 import { ref, computed } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
 import axios from 'axios';
@@ -302,6 +302,11 @@ const employeeOptions = computed(() => {
         label: emp.employee.name,
     }));
 });
+
+const permissions = usePage().props.auth.user.permissions || [];
+const hasPermission = (permission) => {
+    return permissions.includes(permission);
+};
 
 
 // --- Lógica de Formateo ---

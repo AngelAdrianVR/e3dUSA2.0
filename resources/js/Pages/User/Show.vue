@@ -15,14 +15,14 @@
                     </SecondaryButton>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item @click="$inertia.get(route('users.edit', user))">
+                            <el-dropdown-item v-if="hasPermission('Editar personal')" @click="$inertia.get(route('users.edit', user))">
                                 <i class="fa-solid fa-pen-to-square mr-2"></i>Editar
                             </el-dropdown-item>
-                            <el-dropdown-item @click="showChangeStatusModal = true">
+                            <el-dropdown-item v-if="hasPermission('Editar personal')" @click="showChangeStatusModal = true">
                                 <i class="fa-solid fa-user-slash mr-2"></i>{{ user.is_active ? 'Dar de baja' :
                                 'Reactivar' }}
                             </el-dropdown-item>
-                            <el-dropdown-item @click="$inertia.get(route('users.create'))" divided>
+                            <el-dropdown-item v-if="hasPermission('Crear personal')" @click="$inertia.get(route('users.create'))" divided>
                                 <i class="fa-solid fa-plus mr-2"></i>Crear nuevo
                             </el-dropdown-item>
                         </el-dropdown-menu>
@@ -131,15 +131,15 @@
                             </div>
                         </div>
                         <div v-else class="text-center text-gray-500 dark:text-gray-400 py-8">
-                            <p>No se han registrado los detalles de este empleado.</p>
+                            <p>Este usuario no es un empleado.</p>
                         </div>
                     </div>
 
                     <!-- Columna de Historial de Vacaciones -->
-                    <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                    <div v-if="user.employee_detail" class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                         <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
                             <h3 class="font-bold text-lg dark:text-gray-200">Historial de Vacaciones</h3>
-                            <SecondaryButton @click="showVacationModal = true">
+                            <SecondaryButton v-if="hasPermission('Editar personal')" @click="showVacationModal = true">
                                 <i class="fa-solid fa-plus mr-2"></i>Registrar Movimiento
                             </SecondaryButton>
                         </div>
@@ -177,7 +177,7 @@
                     </div>
 
                     <!-- Historial de Bajas -->
-                <div class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                <div v-if="user.employee_detail" class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <h3 class="font-bold text-lg dark:text-gray-200 border-b dark:border-slate-700 pb-2 mb-4">Historial de Bajas y Reactivaciones</h3>
                     <div v-if="termination_logs.length">
                         <el-table :data="termination_logs" max-height="300" stripe size="small" class="dark:!bg-slate-900">
@@ -291,7 +291,7 @@ import DialogModal from '@/Components/DialogModal.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { ElMessage } from 'element-plus';
 
@@ -306,6 +306,12 @@ const props = defineProps({
 
 const showVacationModal = ref(false);
 const showChangeStatusModal = ref(false);
+
+const permissions = usePage().props.auth.user.permissions || [];
+const hasPermission = (permission) => {
+    return permissions.includes(permission);
+};
+
 
 const vacationForm = useForm({
     employee_detail_id: props.user.employee_detail?.id,
