@@ -29,7 +29,7 @@
                             </template>
                         </el-popconfirm>
 
-                        <SearchInput @keyup.enter="searchItems" v-model="search" @cleanSearch="searchItems" :searchProps="SearchProps" />
+                        <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" :searchProps="SearchProps" />
                     </div>
 
                     <!-- Tabla de Autorizaciones -->
@@ -49,7 +49,8 @@
                             <el-table-column type="selection" width="30" />
                             <el-table-column prop="id" label="ID" width="70" sortable />
                             <el-table-column prop="product_name" label="Producto" />
-                            <el-table-column prop="contact.name" label="Cliente" />
+                            <el-table-column prop="branch.name" label="Cliente" />
+                            <el-table-column prop="contact.name" label="Contacto" />
                             <el-table-column prop="seller.name" label="Vendedor" />
                             <el-table-column prop="responded_at" label="Fecha de Respuesta" width="180">
                                 <template #default="scope">
@@ -132,7 +133,7 @@ export default {
             loading: false,
             search: this.filters.search || '',
             selectedItems: [],
-            SearchProps: ['Producto', 'Cliente', 'Vendedor'],
+            SearchProps: ['ID', 'Producto', 'Cliente', 'Vendedor'],
         };
     },
     components: {
@@ -147,17 +148,32 @@ export default {
         filters: Object,
     },
     methods: {
-        searchItems() {
+        async handleSearch() {
             this.loading = true;
-            this.$inertia.get(this.route('design-authorizations.index'), {
-                search: this.search
-            }, {
-                preserveState: true,
-                replace: true,
-                onFinish: () => {
-                    this.loading = false;
-                },
-            });
+            try {
+                // Si la búsqueda está vacía, volvemos a los datos originales de la paginación
+                if (!this.search) {
+                    this.tableData = this.authorizations.data;
+                    // Forzamos un recharge con inertia para restaurar el estado original con paginación
+                    this.$inertia.get(this.route('design-authorizations.index'), {}, {
+                        preserveState: true,
+                        replace: true,
+                        onFinish: () => { this.loading = false; },
+                    });
+                    return;
+                }
+
+                // Si hay texto, hacemos la petición con axios como en el original
+                const response = await axios.post(route('design-authorizations.get-matches', { query: this.search }));
+                if (response.status === 200) {
+                    this.tableData = response.data.items;
+                }
+            } catch (error) {
+                console.error(error);
+                ElMessage.error('No se pudo realizar la búsqueda');
+            } finally {
+                this.loading = false;
+            }
         },
         formatDate(dateString) {
             if (!dateString) return '';

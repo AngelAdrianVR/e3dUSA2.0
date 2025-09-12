@@ -18,7 +18,8 @@ return new class extends Migration
             // Polymorphic relationship to link to either 'catalog_products' or 'new_product_proposals'
             $table->morphs('itemable'); // This will create `itemable_id` (unsignedBigInteger) and `itemable_type` (string)
 
-            $table->unsignedFloat('quantity');
+            $table->float('quantity')->unsigned();
+            $table->string('notes')->nullable();
             
             // Specific feedback for this item
             $table->boolean('requires_modification')->default(false);

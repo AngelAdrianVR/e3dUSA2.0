@@ -19,7 +19,7 @@ class DesignAuthorizationController extends Controller
         
         $authorizations = DesignAuthorization::query()
             // Cargar relaciones para evitar N+1 queries en la vista
-            ->with(['contact:id,name', 'seller:id,name'])
+            ->with(['contact:id,name', 'seller:id,name', 'branch:id,name'])
             // Aplicar filtro de búsqueda si existe
             ->when($request->input('search'), function ($query, $search) {
                 $query->where('product_name', 'like', "%{$search}%")
@@ -70,6 +70,7 @@ class DesignAuthorizationController extends Controller
      */
     public function store(Request $request)
     {
+        // --- Validación mejorada ---
         $validated = $request->validate([
             'design_order_id' => 'required|exists:design_orders,id|unique:design_authorizations,design_order_id',
             'product_name' => 'required|string|max:255',
@@ -80,28 +81,37 @@ class DesignAuthorizationController extends Controller
             'seller_id' => 'required|exists:users,id',
             'branch_id' => 'required|exists:branches,id',
             'contact_id' => 'required|exists:contacts,id',
-            'cover_media_id' => 'required|exists:media,id', // Validar que el ID del medio exista
-            'media' => 'nullable|array',
+            
+            // 'cover_media_id' es opcional, pero debe existir en la tabla 'media' si se envía.
+            'cover_media_id' => 'nullable|exists:media,id', 
+            
+            // 'media' es requerido solo si 'cover_media_id' no está presente.
+            'media' => 'required_without:cover_media_id|nullable|array', 
             'media.*' => 'file|mimes:jpg,jpeg,png,pdf|max:10240', // 10MB max per file
         ]);
 
+        // --- Creación del registro ---
         $authorization = DesignAuthorization::create($validated);
 
-        // --- Copiar la imagen de portada seleccionada ---
-        $mediaToCopy = Media::find($validated['cover_media_id']);
-        if ($mediaToCopy) {
-            // Copia el medio a la nueva autorización, en una colección llamada 'cover'
-            $mediaToCopy->copy($authorization, 'cover');
-        }
+        // --- Lógica para manejar la imagen de portada ---
 
-        // --- Adjuntar archivos adicionales si existen ---
-        if ($request->hasFile('media')) {
+        // Opción 1: Se proporcionó un ID de un medio existente.
+        if ($request->filled('cover_media_id')) {
+            $mediaToCopy = Media::find($validated['cover_media_id']);
+            if ($mediaToCopy) {
+                // Copia el medio existente a la colección 'cover' de la nueva autorización.
+                $mediaToCopy->copy($authorization, 'cover');
+            }
+        
+        // Opción 2: No se proporcionó un ID, así que se suben nuevos archivos.
+        } elseif ($request->hasFile('media')) {
             foreach ($request->file('media') as $file) {
-                // Se guardan en la colección por defecto 'default'
-                $authorization->addMedia($file)->toMediaCollection();
+                // Agrega los nuevos archivos directamente a la colección 'cover'.
+                $authorization->addMedia($file)->toMediaCollection('cover');
             }
         }
 
+        // --- Redirección ---
         return to_route('design-authorizations.index')
             ->with('message', 'Autorización creada correctamente.');
     }
@@ -131,17 +141,82 @@ class DesignAuthorizationController extends Controller
 
     public function edit(DesignAuthorization $designAuthorization)
     {
-        //
+        // Cargar la portada para obtener su ID
+        $cover = $designAuthorization->getFirstMedia('cover');
+
+        // Obtener las órdenes de diseño que no tienen autorización,
+        // o la que corresponde a la autorización que se está editando.
+        $designOrders = DesignOrder::whereDoesntHave('designAuthorization')
+            ->orWhere('id', $designAuthorization->design_order_id)
+            ->select('id', 'order_title')
+            ->get();
+
+        $sellers = User::select('id', 'name')->get();
+        $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
+
+        return Inertia::render('DesignAuthorization/Edit', [
+            'authorization' => $designAuthorization,
+            'designOrders' => $designOrders,
+            'sellers' => $sellers,
+            'branches' => $branches,
+            'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'current_cover_id' => $cover ? $cover->id : null,
+        ]);
     }
 
     public function update(Request $request, DesignAuthorization $designAuthorization)
     {
-        //
+        // --- Validación para la actualización ---
+        $validated = $request->validate([
+            // design_order_id no se valida porque no se puede cambiar
+            'product_name' => 'required|string|max:255',
+            'material' => 'nullable|string|max:255',
+            'color' => 'nullable|string|max:255',
+            'production_methods' => 'nullable|array',
+            'specifications' => 'nullable|string',
+            'seller_id' => 'required|exists:users,id',
+            'branch_id' => 'required|exists:branches,id',
+            'contact_id' => 'required|exists:contacts,id',
+            'cover_media_id' => 'nullable|exists:media,id',
+        ]);
+
+        // --- Actualización del registro ---
+        $designAuthorization->update($validated);
+
+        // --- Lógica para actualizar la imagen de portada ---
+        // Si se envió un nuevo ID de imagen de portada.
+        if ($request->filled('cover_media_id')) {
+            $currentCover = $designAuthorization->getFirstMedia('cover');
+            
+            // Solo proceder si la nueva imagen es diferente a la actual.
+            if (!$currentCover || $currentCover->id != $validated['cover_media_id']) {
+                // Eliminar la portada anterior.
+                $designAuthorization->clearMediaCollection('cover');
+
+                // Copiar el nuevo medio a la colección 'cover'.
+                $mediaToCopy = Media::find($validated['cover_media_id']);
+                if ($mediaToCopy) {
+                    $mediaToCopy->copy($designAuthorization, 'cover');
+                }
+            }
+        }
+
+        // --- Redirección ---
+        return to_route('design-authorizations.index')
+            ->with('message', 'Autorización actualizada correctamente.');
     }
 
     public function destroy(DesignAuthorization $designAuthorization)
     {
-        //
+        $designAuthorization->delete();
+    }
+
+    public function massiveDelete(Request $request)
+    {
+        foreach ($request->ids as $id) {
+            $designAuthorization = DesignAuthorization::find($id);
+            $designAuthorization?->delete();
+        }
     }
 
     /**
@@ -227,5 +302,28 @@ class DesignAuthorizationController extends Controller
                 'mime_type' => $file->mime_type,
             ]),
         ]);;
+    }
+
+    public function getMatches(Request $request)
+    {
+        $query = $request->input('query');
+
+        // Realiza la búsqueda
+        $purchases = DesignAuthorization::with(['contact:id,name', 'seller:id,name', 'branch:id,name'])
+            ->latest()
+            ->where(function ($q) use ($query) {
+                $q->where('id', 'like', "%{$query}%")
+                ->orWhere('status', 'like', "%{$query}%")
+                ->orWhere('product_name', 'like', "%{$query}%")
+                ->orWhereHas('seller', function ($parentQuery) use ($query) {
+                    $parentQuery->where('name', 'like', "%{$query}%");
+                })
+                ->orWhereHas('branch', function ($userquery) use ($query) {
+                    $userquery->where('name', 'like', "%{$query}%");
+                });
+            })
+            ->get();
+
+        return response()->json(['items' => $purchases], 200);
     }
 }
