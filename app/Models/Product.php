@@ -11,6 +11,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use Illuminate\Database\Eloquent\Builder; // Asegúrate de importar Builder
 
 class Product extends Model implements HasMedia, Auditable
 {
@@ -137,4 +138,42 @@ class Product extends Model implements HasMedia, Auditable
     //         return $media->getUrl(); // también existe getFullUrl() si usas rutas absolutas
     //     });
     // }
+
+
+    // ===================================================
+    // --- SCOPES PARA FACILITAR CONSULTAS DE ALMACÉN ---
+
+    /**
+     * Scope para obtener solo productos de un tipo específico.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $type
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('product_type', $type);
+    }
+
+    /**
+     * Scope para obtener solo productos que no están obsoletos (archivados).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    /**
+     * Scope para obtener solo productos obsoletos (archivados).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeObsolete(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
+    }
 }
