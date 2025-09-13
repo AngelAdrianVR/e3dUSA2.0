@@ -558,7 +558,7 @@ export default {
                                         class: 'w-48 h-48 rounded-lg object-cover border mb-4',
                                         alt: product.name
                                     }),
-                                    h('p', null, `El producto "${product.name}" (P/N: ${product.part_number}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
+                                    h('p', null, `El producto "${product.name}" (codigo: ${product.code}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
                                 ]),
                                 confirmButtonText: 'Sí, asignar y agregar',
                                 cancelButtonText: 'No, omitir',

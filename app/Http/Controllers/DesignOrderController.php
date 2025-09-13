@@ -9,6 +9,7 @@ use App\Models\DesignCategory;
 use App\Models\DesignOrder;
 use App\Models\User;
 use App\Notifications\designOrderAuthorizedNotification;
+use App\Notifications\DesignOrderFinishedNotification;
 use App\Notifications\NewDesignOrderAssignedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -387,6 +388,16 @@ class DesignOrderController extends Controller
                 'design_id' => $design->id,
             ]);
         });
+
+        // --- LÓGICA PARA ENVIAR LA NOTIFICACIÓN ---
+        $designOrder->load('requester');
+        $folio = 'OD-' . str_pad($designOrder->id, 4, "0", STR_PAD_LEFT);
+        $designOrder->requester->notify(new DesignOrderFinishedNotification(
+            'Orden de Diseño',
+            $folio,
+            'design_order_finished', // Un tipo para identificarla en el frontend si es necesario
+            route('design-orders.show', $designOrder->id)
+        ));
 
         return redirect()->route('design-orders.show', $designOrder->id)->with('success', 'Diseño finalizado y archivado correctamente.');
     }
