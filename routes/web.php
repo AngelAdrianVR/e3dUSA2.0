@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AppLayoutController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
@@ -78,6 +79,15 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/vacation-logs.php';
     require __DIR__ . '/web/authorized-devices.php';
 });
+
+/**
+ * =================================================================
+ * RUTA PARA EL BUSCADOR GLOBAL
+ * =================================================================
+ * Esta ruta recibe un término de búsqueda y devuelve una colección
+ * de resultados agrupados por modelo.
+ */
+Route::get('/global-search', [AppLayoutController::class, 'globalSearch'])->middleware('auth')->name('global.search');
 
 
 // Rutas de Notificaciones
