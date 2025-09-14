@@ -91,7 +91,6 @@
                              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
-                                    <!-- ===== SELECT CON PRODUCTOS FILTRADOS Y DESHABILITADOS ===== -->
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
                                         <el-option v-for="item in availableProducts" 
                                             :key="item.id" 
@@ -147,7 +146,6 @@
                                         <span class="text-gray-600 dark:text-gray-400">
                                             Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
                                         </span>
-                                        <!-- ===== NUEVO BOTÓN DE EDITAR ===== -->
                                         <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                                             <i class="fa-solid fa-pencil"></i>
                                         </button>
@@ -159,6 +157,41 @@
                             </ul>
                         </div>
                         
+                        <!-- ================================================== -->
+                        <!-- ============== PRODUCTOS SUGERIDOS =============== -->
+                        <!-- ================================================== -->
+                        <div class="flex justify-between items-center mt-8 mb-4 border-b dark:border-gray-600 pb-2">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Productos Sugeridos (Opcional)</h3>
+                        </div>
+
+                        <div>
+                            <el-tooltip
+                                content="Selecciona productos que podrían interesarle a este cliente en el futuro, aunque no se les asigne un precio especial ahora."
+                                placement="top-start"
+                            >
+                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3 flex items-center space-x-2">
+                                    <span>Sugerencias de productos</span>
+                                    <i class="fa-solid fa-circle-info text-gray-400"></i>
+                                </label>
+                            </el-tooltip>
+                            <el-select
+                                v-model="form.suggested_products"
+                                placeholder="Buscar y seleccionar productos"
+                                class="!w-full mt-1"
+                                filterable
+                                multiple
+                                clearable
+                            >
+                                <el-option
+                                    v-for="item in catalog_products"
+                                    :key="item.id"
+                                    :label="item.name"
+                                    :value="item.id"
+                                />
+                            </el-select>
+                            <InputError :message="form.errors.suggested_products" />
+                        </div>
+
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing">
                                 Guardar Cambios
@@ -196,6 +229,8 @@ export default {
                 meet_way: this.branch.meet_way,
                 contacts: this.formattedContacts,
                 products: this.formattedProducts,
+                // --- NUEVA PROPIEDAD PARA EL FORMULARIO ---
+                suggested_products: this.suggestedProductIds ?? [],
             }),
             currentProduct: {
                 product_id: null,
@@ -231,9 +266,10 @@ export default {
         users: Array,
         branches: Array,
         catalog_products: Array,
+        // --- NUEVA PROP PARA RECIBIR LOS IDs ---
+        suggestedProductIds: Array,
     },
     computed: {
-        // Filtra el catálogo para mostrar solo productos que no están ya asignados permanentemente
         availableProducts() {
             const assignedProductIds = this.formattedProducts.map(p => p.product_id);
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
@@ -266,7 +302,6 @@ export default {
         },
         daysInMonth(month) {
             if (!month) return 31;
-            // Usamos el año 2000 que es bisiesto para que febrero tenga 29 días
             return new Date(2000, month, 0).getDate();
         },
         async getProductMedia() {
@@ -297,7 +332,6 @@ export default {
                 return;
             }
             
-            // Evitar agregar productos duplicados
             if (this.isProductInForm(this.currentProduct.product_id)) {
                 ElMessage.warning('Este producto ya ha sido agregado a la lista.');
                 return;
@@ -309,20 +343,11 @@ export default {
         removeProduct(index) {
             this.form.products.splice(index, 1);
         },
-        // ===== NUEVO MÉTODO PARA EDITAR PRODUCTO DE LA LISTA =====
         editProduct(index) {
-            // 1. Copia el producto a editar al formulario principal
             const productToEdit = this.form.products[index];
             this.currentProduct = { ...productToEdit };
-
-            // 2. Carga sus detalles (media, etc.)
             this.getProductMedia();
-
-            // 3. Remueve el producto de la lista para evitar duplicados
             this.removeProduct(index);
-
-            // Opcional: Scroll hacia el formulario de producto
-            // this.$refs.productFormContainer.scrollIntoView({ behavior: 'smooth' });
         },
         resetCurrentProduct() {
             this.currentProduct = {
@@ -338,7 +363,6 @@ export default {
             const product = this.catalog_products.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
-        // Revisa si un producto ya está en la lista temporal `form.products`
         isProductInForm(productId) {
             return this.form.products.some(p => p.product_id === productId);
         }
