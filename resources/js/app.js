@@ -25,7 +25,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
-            .use(ElementPlus, { es })
+            .use(ElementPlus, { locale: es })
             .use(VueApexCharts)
             .mount(el);
     },

@@ -14,14 +14,24 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // User::factory(10)->create();
-
-        // Llamar al seeder de usuarios
-        $this->call(UserSeeder::class);
+        // Crea 15 usuarios y asigna a cada uno sus detalles de empleado
         
-        // Llamar al seeder de permisos
-        $this->call(PermissionSeeder::class);
+        $this->call([
+            UserSeeder::class,
+        ]);
 
-        // Llamar al seeder de famila de productos
-        $this->call(ProductFamilySeeder::class);
+        // User::factory(4)->create()->each(function ($user) {
+        //     $user->employeeDetail()->save(\App\Models\EmployeeDetail::factory()->make());
+        // });
+
+        $this->call([
+            // UserSeeder::class,
+            PermissionSeeder::class,
+            ProductFamilySeeder::class,
+            IncidentTypeSeeder::class,
+            PayrollSeeder::class,
+            // AttendanceSeeder::class,
+            // IncidentSeeder::class,
+        ]);
     }
 }

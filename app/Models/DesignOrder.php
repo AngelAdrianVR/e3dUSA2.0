@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -27,6 +28,7 @@ class DesignOrder extends Model implements HasMedia
         'designer_id',
         'design_category_id',
         'design_id',
+        'modifies_design_id', // id del diseño original que se va a modificar
         'reuse_justification',
         'branch_id',
         'contact_id',
@@ -53,6 +55,14 @@ class DesignOrder extends Model implements HasMedia
     ];
 
     /**
+     * Relación: Una orden de diseño tiene un formato de autorización.
+     */
+    public function designAuthorization(): HasOne
+    {
+        return $this->hasOne(DesignAuthorization::class);
+    }
+
+    /**
      * Get the user who requested the design order.
      */
     public function requester(): BelongsTo
@@ -72,6 +82,12 @@ class DesignOrder extends Model implements HasMedia
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
+    }
+
+    
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class, 'contact_id');
     }
 
     /**

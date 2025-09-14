@@ -78,8 +78,8 @@ const props = defineProps({
     }
 });
 
-// Se define el evento para que 'v-model' funcione correctamente
-const emit = defineEmits(['update:modelValue']);
+// Se define el evento para que 'v-model' y 'blur' funcionen correctamente
+const emit = defineEmits(['update:modelValue', 'blur']);
 
 const elementRef = ref(null);
 const slots = useSlots();
@@ -164,8 +164,8 @@ const decrement = () => {
     emit('update:modelValue', parseFloat(newValue.toFixed(10)));
 };
 
-// NUEVO: Valida y ajusta el valor del stepper cuando el usuario sale del campo.
-const handleStepperBlur = () => {
+// Valida y ajusta el valor del stepper cuando el usuario sale del campo.
+const handleStepperBlur = (event) => {
     let value = parseFloat(props.modelValue);
     if (isNaN(value) || props.modelValue === '' || props.modelValue === null) {
         value = props.min; // Si está vacío o no es un número, lo establece al mínimo.
@@ -174,6 +174,7 @@ const handleStepperBlur = () => {
     if (clampedValue !== props.modelValue) {
         emit('update:modelValue', clampedValue);
     }
+    emit('blur', event); // Emitir el evento blur
 };
 
 // Mantiene la funcionalidad de autofocus
@@ -192,17 +193,17 @@ const baseClasses = computed(() => [
     'bg-gray-50 dark:bg-gray-700',
     'border transition-colors duration-300',
     'placeholder-gray-400 dark:placeholder-gray-500',
-    'focus:outline-none focus:ring-2',
+    'focus:outline-none focus:ring-0',
     'text-gray-800 dark:text-gray-100',
     'caret-blue-400',
     'disabled:bg-gray-200 dark:disabled:bg-gray-800 disabled:cursor-not-allowed disabled:text-gray-500',
     slots['icon-left'] ? 'pl-9' : 'px-3',
     props.error
         ? 'border-red-500 dark:border-red-600 focus:border-red-500 focus:ring-red-500/50'
-        : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/50',
+        : 'border-gray-300 dark:border-gray-600 focus:border-primary',
 ]);
 
-// NUEVO: Clases para el contenedor del stepper, incluyendo el estado de error.
+// Clases para el contenedor del stepper, incluyendo el estado de error.
 const stepperClasses = computed(() => [
     'flex items-center justify-between bg-gray-100 dark:bg-gray-700 rounded-full p-1 shadow-inner',
     'border-2 transition-colors duration-300',
@@ -257,10 +258,11 @@ const stepperClasses = computed(() => [
                 :disabled="disabled"
                 :maxlength="withMaxLength ? maxLength : undefined"
                 @input="handleInput"
+                @blur="$emit('blur', $event)"
                 rows="3"
             />
             
-            <!-- MODIFICADO: Stepper numérico ahora con input editable y estado de error -->
+            <!-- Stepper numérico ahora con input editable y estado de error -->
             <div v-else-if="type === 'numeric-stepper'" :class="stepperClasses">
                 <button @click="decrement" :disabled="disabled" type="button" class="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-xl font-bold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors hover:bg-gray-300 dark:hover:bg-gray-500 flex-shrink-0">
                     -
@@ -281,7 +283,7 @@ const stepperClasses = computed(() => [
                 </button>
             </div>
 
-            <!-- MODIFICADO: Input estándar ahora condicionalmente numérico -->
+            <!-- Input estándar ahora condicionalmente numérico -->
             <input
                 v-else
                 :id="computedId"
@@ -293,6 +295,7 @@ const stepperClasses = computed(() => [
                 :disabled="disabled"
                 :maxlength="withMaxLength ? maxLength : undefined"
                 @input="handleInput"
+                @blur="$emit('blur', $event)"
                 :inputmode="formatAsNumber ? 'decimal' : undefined"
             >
         </div>

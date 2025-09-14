@@ -40,14 +40,14 @@ class ProductController extends Controller
         $brands = Brand::get();
         $product_families = ProductFamily::get();
         $production_processes = ProductionCost::where('is_active', true)->get(['id', 'name', 'cost', 'estimated_time_seconds']);
-        $raw_materials = Product::where('product_type', 'Materia prima')->get(['id', 'name']);
+        $components = Product::where('is_used_as_component', true)->get(['id', 'name']);
 
         // 3. Renderizar la vista de Vue (Inertia) y pasarle los datos como props.
         return inertia('CatalogProduct/Create', [
             'brands' => $brands,
             'product_families' => $product_families,
             'production_processes' => $production_processes,
-            'raw_materials' => $raw_materials,
+            'components' => $components,
             'consecutive' => $consecutive,
         ]);
     }
@@ -79,6 +79,7 @@ class ProductController extends Controller
             'min_quantity' => 'nullable|integer|min:0',
             'max_quantity' => 'nullable|integer|min:0|gte:min_quantity',
             'is_circular' => 'nullable|boolean',
+            'is_used_as_component' => 'nullable|boolean',
             'width' => 'nullable|numeric|min:0',
             'large' => 'nullable|numeric|min:0',
             'height' => 'nullable|numeric|min:0',
@@ -181,7 +182,11 @@ class ProductController extends Controller
                 if ($request->filled('production_processes')) {
                     $processesToSync = [];
                     foreach ($request->input('production_processes') as $index => $process) {
-                        $processesToSync[$process['process_id']] = ['order' => $index + 1];
+                        // Se agrega el 'cost' del proceso a los datos de la tabla pivote.
+                        $processesToSync[$process['process_id']] = [
+                            'order' => $index + 1,
+                            'cost' => $process['cost'] 
+                        ];
                     }
                     $product->productionCosts()->sync($processesToSync);
                 }
@@ -282,6 +287,7 @@ class ProductController extends Controller
             'min_quantity' => 'nullable|numeric|min:0',
             'max_quantity' => 'nullable|numeric|min:0|gte:min_quantity',
             'is_circular' => 'nullable|boolean',
+            'is_used_as_component' => 'nullable|boolean',
             'width' => 'nullable|numeric|min:0',
             'large' => 'nullable|numeric|min:0',
             'height' => 'nullable|numeric|min:0',
@@ -389,7 +395,10 @@ class ProductController extends Controller
                 $processesToSync = [];
                 if ($request->filled('production_processes')) {
                     foreach ($request->input('production_processes') as $index => $process) {
-                        $processesToSync[$process['process_id']] = ['order' => $index + 1];
+                        $processesToSync[$process['process_id']] = [
+                            'order' => $index + 1,
+                            'cost' => $process['cost'] 
+                        ];
                     }
                 }
                 $catalog_product->productionCosts()->sync($processesToSync);
@@ -561,8 +570,6 @@ class ProductController extends Controller
                 'archived_at' => now()
             ]);
         }
-
-        return response()->json($product->archived_at);
     }
 
     // Actualiza el precio base desde el show de producto de catalogo

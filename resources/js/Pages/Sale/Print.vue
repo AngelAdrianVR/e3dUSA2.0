@@ -1,5 +1,5 @@
 <template>
-    <Head :title="`OV-${sale.id}`" />
+    <Head :title="'OV-' + sale.id.toString().padStart(4, '0')" />
     <div class="bg-gray-100 dark:bg-gray-800 min-h-screen font-sans">
         <!-- Controles de la página (se ocultan al imprimir) -->
         <div class="p-4 bg-white dark:bg-slate-900 shadow-md print:hidden flex justify-between items-center">
@@ -91,7 +91,7 @@
                                 </td>
                                 <td class="p-3 font-mono text-sm text-gray-600 dark:text-gray-300">{{ item.product.code }}</td>
                                 <td class="p-3 font-semibold text-gray-800 dark:text-gray-200">{{ item.product.name }}</td>
-                                <td class="p-3 text-center text-gray-700 dark:text-gray-300">{{ item.quantity }} {{ item.product.measure_unit }}</td>
+                                <td class="p-3 text-center text-gray-700 dark:text-gray-300">{{ item.quantity.toLocaleString() }} {{ item.product.measure_unit }}</td>
                                 <!-- <td class="p-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.price) }}</td>
                                 <td class="p-3 text-right font-semibold text-gray-800 dark:text-gray-200">{{ formatCurrency(item.quantity * item.price) }}</td> -->
                             </tr>

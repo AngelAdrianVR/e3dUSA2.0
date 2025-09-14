@@ -127,6 +127,14 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" class="mt-1" />
                             </div>
+
+                            <div v-if="form.product_type_key === 'C'" class="mt-5">
+                                <label class="flex items-center">
+                                    <Checkbox v-model:checked="form.is_used_as_component" name="is_used_as_component" class="bg-transparent text-indigo-500 border-gray-500" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">¿Se usa como componente?</span>
+                                </label>
+                                <InputError :message="form.errors.is_used_as_component" class="mt-1" />
+                            </div>
                         </div>
 
                         <div class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
@@ -173,7 +181,7 @@
                                             class="w-full"
                                             no-data-text="No hay materias primas registradas"
                                             no-match-text="No se encontraron coincidencias">
-                                            <el-option v-for="item in raw_materials" :key="item.id" :label="item.name" :value="item.id" :disabled="isComponentSelected(item.id)" />
+                                            <el-option v-for="item in components" :key="item.id" :label="item.name" :value="item.id" :disabled="isComponentSelected(item.id)" />
                                         </el-select>
                                     </div>
                                     <TextInput v-model="currentComponent.quantity" label="Cantidad necesaria*" type="number" placeholder="Ej. 1" />
@@ -347,6 +355,7 @@
                             </SecondaryButton>
                         </div>
                     </div>
+                    {{form}}
                 </form>
             </div>
         </div>
@@ -441,7 +450,7 @@ export default {
         product_families: Array,
         consecutive: Number,
         production_processes: Array, // Prop para recibir los procesos de producción
-        raw_materials: Array, // Prop para recibir los componentes (materias primas) de producción
+        components: Array, // Prop para recibir los componentes (materias primas) de producción
     },
     data() {
         return {
@@ -452,6 +461,7 @@ export default {
                 caracteristics: null,
                 brand_id: null,
                 product_family_id: null,
+                is_used_as_component: false,
                 product_type_key: 'C', // 'C' para Catálogo por defecto
                 material: null,
                 measure_unit: 'Pieza(s)',
@@ -514,15 +524,20 @@ export default {
         };
     },
     watch: {
-        'form.product_type_key': 'generatePartNumber',
+        'form.product_type_key'(newVal) {
+            this.generatePartNumber();
+            this.form.is_used_as_component = newVal === 'MP';
+        },
+        'form.hasComponents'(newVal) {
+            if (newVal) {
+                this.form.cost = 0;
+            } else {
+                this.form.cost = null;
+            }
+        },
         'form.product_family_id': 'generatePartNumber',
         'form.material': 'generatePartNumber',
         'form.brand_id': 'generatePartNumber',
-        // 'form.is_circular'(isCircular) {
-        //     this.form.large = isCircular ? null : this.form.large;
-        //     this.form.height = isCircular ? null : this.form.height;
-        //     this.form.diameter = !isCircular ? null : this.form.diameter;
-        // }
     },
     computed: {
         /**
@@ -705,7 +720,7 @@ export default {
             this.editComponentIndex = null;
         },
         getComponentName(productId) {
-            const product = this.raw_materials.find(p => p.id === productId);
+            const product = this.components.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
         // --- Métodos para Procesos de Producción ---

@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -27,7 +28,7 @@ class User extends Authenticatable implements Auditable
     use TwoFactorAuthenticatable;
     use AuditableTrait;
     use HasRoles;
-    
+
 
     /**
      * The attributes that are mass assignable.
@@ -81,9 +82,14 @@ class User extends Authenticatable implements Auditable
 
     // relaciones --------------------------------
 
-    public function detail(): HasOne
+    public function employeeDetail()
     {
         return $this->hasOne(EmployeeDetail::class);
+    }
+
+    public function vacationLogs(): HasManyThrough
+    {
+        return $this->hasManyThrough(VacationLog::class, EmployeeDetail::class);
     }
 
     /**
@@ -92,8 +98,8 @@ class User extends Authenticatable implements Auditable
     public function attendedEvents(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_participants')
-                    ->withPivot('status', 'comment')
-                    ->withTimestamps();
+            ->withPivot('status', 'comment')
+            ->withTimestamps();
     }
 
     /**
@@ -112,7 +118,7 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(Branch::class, 'account_manager_id');
     }
 
-     /**
+    /**
      * Obtiene todas las cotizaciones creadas por este usuario.
      */
     public function quotes(): HasMany
@@ -128,7 +134,7 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(Quote::class, 'authorized_by_user_id');
     }
 
-     /**
+    /**
      * Get the design orders requested by the user.
      */
     public function requestedDesignOrders(): HasMany
@@ -144,7 +150,7 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(DesignOrder::class, 'designer_id');
     }
 
-    
+
     // ==========================================================
     // ========================== metodos =======================
     /**

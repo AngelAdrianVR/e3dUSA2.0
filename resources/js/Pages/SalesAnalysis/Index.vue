@@ -137,7 +137,7 @@ import TopSellersList from './Components/TopSellersList.vue';
 import SellerDetails from './Components/SellerDetails.vue';
 import FamiliesDonutCharts from './Components/FamiliesDonutCharts.vue';
 import axios from 'axios';
-import { useDark } from '@vueuse/core';
+// import { useDark } from '@vueuse/core';
 import { ref, watch } from 'vue';
 
 export default {
@@ -158,8 +158,8 @@ export default {
   },
   setup() {
     // Composition API hook to get dark mode reactivity
-    const isDarkMode = useDark();
-    return { isDarkMode };
+    // const isDarkMode = useDark();
+    return { isDarkMode: true };
   },
   data() {
     return {

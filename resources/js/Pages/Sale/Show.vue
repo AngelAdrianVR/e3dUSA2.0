@@ -9,7 +9,6 @@
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
                 <div class="flex space-x-2 items-center">
-                    <Back :href="route('sales.index')" />
                     <h1 class="dark:text-white font-bold text-2xl my-2">
                         <span class="text-gray-500 dark:text-gray-400">Órden de {{ sale.type === 'venta' ? 'Venta' : 'Stock' }}:</span> {{ sale.type === 'venta' ? 'OV-' : 'OS-' }} {{sale.id.toString().padStart(4, '0')}}
                     </h1>
@@ -63,7 +62,7 @@
                     </template>
                     <template #content>
                         <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
-                            Crear nueva Órden
+                           <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
                         <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM')) || true" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
@@ -100,7 +99,7 @@
                             <li class="flex justify-between items-center">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
 
-                                <!-- Tooltip Moderno -->
+                                <!-- Tooltip de cliente -->
                                 <el-tooltip placement="top-start" effect="light" raw-content>
                                     <template #content>
                                         <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
@@ -135,10 +134,10 @@
                                         </div>
                                     </template>
 
-                                <!-- Nombre clickable -->
-                                <span class="text-blue-500 hover:underline cursor-pointer">
-                                    {{ sale.branch?.name ?? 'N/A' }}
-                                </span>
+                                    <!-- Nombre clickable -->
+                                    <span class="text-blue-500 hover:underline cursor-pointer">
+                                        {{ sale.branch?.name ?? 'N/A' }}
+                                    </span>
                                 </el-tooltip>
                             </li>
 
@@ -343,7 +342,6 @@ import FileView from "@/Components/MyComponents/FileView.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
-import Back from "@/Components/MyComponents/Back.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ProductSaleCard from "@/Components/MyComponents/ProductSaleCard.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
@@ -359,7 +357,6 @@ export default {
     name: 'SaleShow',
     components: {
         Link,
-        Back,
         Empty,
         Stepper,
         FileView,

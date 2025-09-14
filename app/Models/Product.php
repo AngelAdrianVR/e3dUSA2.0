@@ -11,6 +11,7 @@ use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use Illuminate\Database\Eloquent\Builder; // Asegúrate de importar Builder
 
 class Product extends Model implements HasMedia, Auditable
 {
@@ -37,6 +38,7 @@ class Product extends Model implements HasMedia, Auditable
         'caracteristics',
         'is_purchasable',
         'product_family_id',
+        'is_used_as_component', // indica is el producto es usado como componente
         'base_price_updated_at', // fecha de la ultima actualización de precio base (para revision automatica de cada año)
     ];
 
@@ -44,6 +46,7 @@ class Product extends Model implements HasMedia, Auditable
         'archived_at' => 'datetime',
         'is_sellable' => 'boolean',
         'is_purchasable' => 'boolean',
+        'is_used_as_component' => 'boolean',
     ];
 
     // protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes
@@ -68,6 +71,14 @@ class Product extends Model implements HasMedia, Auditable
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(branch::class);
+    }
+
+    /**
+     * Un producto de catálogo puede estar en muchos seguimientos de muestras.
+     */
+    public function sampleItems(): MorphMany
+    {
+        return $this->morphMany(SampleTrackingItem::class, 'itemable');
     }
 
     public function components(): BelongsToMany
@@ -129,4 +140,42 @@ class Product extends Model implements HasMedia, Auditable
     //         return $media->getUrl(); // también existe getFullUrl() si usas rutas absolutas
     //     });
     // }
+
+
+    // ===================================================
+    // --- SCOPES PARA FACILITAR CONSULTAS DE ALMACÉN ---
+
+    /**
+     * Scope para obtener solo productos de un tipo específico.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string  $type
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('product_type', $type);
+    }
+
+    /**
+     * Scope para obtener solo productos que no están obsoletos (archivados).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    /**
+     * Scope para obtener solo productos obsoletos (archivados).
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeObsolete(Builder $query): Builder
+    {
+        return $query->whereNotNull('archived_at');
+    }
 }
