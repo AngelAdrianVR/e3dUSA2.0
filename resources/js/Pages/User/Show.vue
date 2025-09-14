@@ -10,9 +10,9 @@
             </div>
             <div class="flex items-center space-x-2">
                 <el-dropdown trigger="click">
-                    <SecondaryButton>
+                    <PrimaryButton>
                         Opciones <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
-                    </SecondaryButton>
+                    </PrimaryButton>
                     <template #dropdown>
                         <el-dropdown-menu>
                             <el-dropdown-item v-if="hasPermission('Editar personal')"
@@ -99,7 +99,7 @@
                                 <p class="font-semibold text-gray-600 dark:text-gray-400 mb-2">Horario Semanal</p>
                                 <div class="overflow-x-auto">
                                     <table class="w-full text-xs text-left">
-                                        <thead class="bg-gray-100 dark:bg-slate-800">
+                                        <thead class="bg-gray-100 dark:bg-slate-800 dark:text-gray-100">
                                             <tr>
                                                 <th class="px-2 py-1">Día</th>
                                                 <th class="px-2 py-1">Estatus</th>
@@ -143,9 +143,9 @@
                         class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                         <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
                             <h3 class="font-bold text-lg dark:text-gray-200">Historial de Vacaciones</h3>
-                            <SecondaryButton v-if="hasPermission('Editar personal')" @click="showVacationModal = true">
+                            <PrimaryButton v-if="hasPermission('Editar personal')" @click="showVacationModal = true">
                                 <i class="fa-solid fa-plus mr-2"></i>Registrar Movimiento
-                            </SecondaryButton>
+                            </PrimaryButton>
                         </div>
                         <div class="grid grid-cols-2 gap-4 mb-4 text-center">
                             <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
@@ -245,13 +245,13 @@
                 <div class="flex items-center space-x-1">
                     <CancelButton @click="showVacationModal = false" :disabled="vacationForm.processing">Cancelar
                     </CancelButton>
-                    <SecondaryButton @click="submitVacationLog" :loading="vacationForm.processing">Guardar Movimiento
-                    </SecondaryButton>
+                    <PrimaryButton @click="submitVacationLog" :loading="vacationForm.processing">Guardar Movimiento
+                    </PrimaryButton>
                 </div>
             </template>
         </DialogModal>
 
-        <!-- NUEVO: Modal para Dar de Baja -->
+        <!-- Modal para Dar de Baja -->
         <DialogModal :show="showChangeStatusModal" @close="showChangeStatusModal = false">
             <template #title>
                 <span v-if="user.is_active">Dar de baja a "{{ user.name }}"</span>
@@ -284,16 +284,17 @@
                 </div>
             </template>
             <template #footer>
-                <CancelButton @click="showChangeStatusModal = false" :disabled="statusForm.processing">Cancelar
-                </CancelButton>
-                <SecondaryButton v-if="user.is_active" @click="submitTermination" :loading="statusForm.processing"
-                    class="!bg-red-600 hover:!bg-red-700 text-white">
-                    Confirmar Baja
-                </SecondaryButton>
-                <SecondaryButton v-else @click="submitTermination" :loading="statusForm.processing"
-                    class="!bg-green-600 hover:!bg-green-700 text-white">
-                    Confirmar Reactivación
-                </SecondaryButton>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showChangeStatusModal = false" :disabled="statusForm.processing">Cancelar
+                    </CancelButton>
+                    <PrimaryButton v-if="user.is_active" @click="submitTermination" :loading="statusForm.processing">
+                        Confirmar Baja
+                    </PrimaryButton>
+                    <PrimaryButton v-else @click="submitTermination" :loading="statusForm.processing"
+                        class="!bg-green-600 hover:!bg-green-700 text-white">
+                        Confirmar Reactivación
+                    </PrimaryButton>
+                </div>
             </template>
         </DialogModal>
     </AppLayout>
@@ -302,7 +303,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Back from '@/Components/MyComponents/Back.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 import CancelButton from '@/Components/MyComponents/CancelButton.vue';
 import DialogModal from '@/Components/DialogModal.vue';
 import TextInput from '@/Components/TextInput.vue';
