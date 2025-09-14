@@ -26,7 +26,6 @@
 </template>
 
 <script setup>
-import { defineProps } from 'vue';
 // En proyectos modernos de Inertia.js, es común importar el router así.
 // Si usas una configuración global, este import puede no ser necesario.
 import { router } from '@inertiajs/vue3';

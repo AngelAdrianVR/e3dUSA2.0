@@ -3,6 +3,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
+import InputLabel from "@/Components/InputLabel.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import { useForm } from "@inertiajs/vue3";
 import { computed, onMounted } from 'vue';
@@ -13,6 +14,7 @@ export default {
         Back,
         InputError,
         TextInput,
+        InputLabel,
         SecondaryButton,
     },
     props: {
@@ -82,7 +84,7 @@ export default {
         const formattedTotalHours = computed(() => {
             if (totalWeeklyMinutes.value <= 0) return '0h 0m';
             const hours = Math.floor(totalWeeklyMinutes.value / 60);
-            const minutes = totalWeeklyMinutes.value % 60;
+            const minutes = Math.floor(totalWeeklyMinutes.value % 60);
             return `${hours}h ${minutes}m`;
         });
 
@@ -109,38 +111,42 @@ export default {
                         <!-- SECCIÓN DE INFORMACIÓN DEL EMPLEADO -->
                         <section class="mb-8">
                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
-                                Información del Empleado</h3>
+                                Información del empleado</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-1">
                                 <div>
-                                    <label class="text-sm ml-1">Nombre completo*</label>
+                                    <InputLabel value="Nombre completo*" />
                                     <TextInput v-model="form.name" type="text" class="w-full" :error="form.errors.name"
                                         placeholder="John Doe" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Puesto*</label>
+                                    <InputLabel value="Puesto*" />
                                     <TextInput v-model="form.job_position" type="text" :error="form.errors.job_position"
                                         class="w-full" placeholder="Ej. Gerente de ventas" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Departamento*</label>
-                                    <TextInput v-model="form.department" :error="form.errors.department" type="text"
-                                        class="w-full" placeholder="Ej. Ventas" />
+                                    <InputLabel value="Departamento*" />
+                                    <el-select v-model="form.department" placeholder="Selecciona el departamento"
+                                        class="!w-full">
+                                        <el-option v-for="department in departments" :key="department"
+                                            :label="department" :value="department" />
+                                    </el-select>
+                                    <InputError :message="form.errors.department" class="mt-3" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Salario semanal*</label>
+                                    <InputLabel value="Salario semanal*" />
                                     <TextInput v-model="form.week_salary" type="number" :step="0.01" class="w-full"
                                         placeholder="0.00" :error="form.errors.week_salary">
                                         <template #icon-left>$</template>
                                     </TextInput>
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Fecha de nacimiento*</label>
+                                    <InputLabel value="Fecha de nacimiento*" />
                                     <el-date-picker v-model="form.birthdate" type="date" placeholder="Selecciona"
                                         format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
-                                    <InputError :message="form.errors.birthdate" />
+                                    <InputError :message="form.errors.birthdate" class="mt-3" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Fecha de ingreso*</label>
+                                    <InputLabel value="Fecha de ingreso*" />
                                     <el-date-picker v-model="form.join_date" type="date" placeholder="Selecciona"
                                         format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
                                     <InputError :message="form.errors.join_date" />
@@ -151,10 +157,10 @@ export default {
                         <!-- SECCIÓN DE ASIGNACIONES Y HORARIO -->
                         <section class="mb-8">
                             <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200 mb-4 border-b pb-2">
-                                Asignaciones y Horario</h3>
+                                Asignaciones y horario</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
                                 <div>
-                                    <label class="text-sm ml-1">Bonos aplicables</label>
+                                    <InputLabel value="Bonos aplicables" />
                                     <el-select v-model="form.selected_bonuses" multiple
                                         placeholder="Selecciona uno o más bonos" class="!w-full">
                                         <el-option v-for="bonus in bonuses" :key="bonus.id" :label="bonus.name"
@@ -163,7 +169,7 @@ export default {
                                     <InputError :message="form.errors.selected_bonuses" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Descuentos aplicables</label>
+                                    <InputLabel value="Descuentos aplicables" />
                                     <el-select v-model="form.selected_discounts" multiple
                                         placeholder="Selecciona uno o más descuentos" class="!w-full">
                                         <el-option v-for="discount in discounts" :key="discount.id"
@@ -174,11 +180,11 @@ export default {
                             </div>
 
                             <div class="mt-6">
-                                <label class="text-sm font-bold ml-1">Horario Semanal</label>
+                                <InputLabel value="Horario Semanal" />
                                 <div class="border dark:border-slate-700 rounded-lg mt-2 overflow-hidden">
                                     <!-- Header para Desktop -->
                                     <div
-                                        class="hidden md:grid md:grid-cols-5 bg-gray-100 dark:bg-slate-800 p-2 text-sm font-semibold">
+                                        class="hidden md:grid md:grid-cols-5 bg-gray-100 dark:bg-slate-800 dark:text-gray-100 p-2 text-sm font-semibold">
                                         <span>Día</span>
                                         <span class="text-center">Trabaja</span>
                                         <span class="text-center">Entrada</span>
@@ -187,25 +193,32 @@ export default {
                                     </div>
                                     <!-- Filas de días -->
                                     <div v-for="(day, index) in form.work_schedule" :key="index"
-                                        class="grid grid-cols-2 md:grid-cols-5 items-center p-3 gap-4 border-b dark:border-slate-700 last:border-b-0">
+                                        class="grid grid-cols-2 md:grid-cols-5 items-center p-3 gap-4 border-b dark:border-slate-700 dark:text-gray-100 last:border-b-0">
                                         <div class="font-semibold col-span-2 md:col-span-1">{{ day.day }}</div>
                                         <div class="text-center">
                                             <el-checkbox v-model="day.works" size="large" />
                                         </div>
                                         <div v-if="day.works"
                                             class="col-span-full md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                            <el-time-picker v-model="day.start_time" placeholder="Entrada"
-                                                format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
-                                            <InputError :message="form.errors[`work_schedule.${index}.start_time`]"
-                                                class="mt-1" />
-                                            <el-time-picker v-model="day.end_time" placeholder="Salida" format="hh:mm A"
-                                                value-format="HH:mm:ss" class="!w-full" />
-                                            <InputError :message="form.errors[`work_schedule.${index}.end_time`]"
-                                                class="mt-1" />
-                                            <el-input-number v-model="day.break_minutes" :min="0" ::step="15"
-                                                placeholder="Minutos" class="!w-full" />
-                                            <InputError :message="form.errors[`work_schedule.${index}.break_minutes`]"
-                                                class="mt-1" />
+                                            <div>
+                                                <el-time-picker v-model="day.start_time" placeholder="Entrada"
+                                                    format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
+                                                <InputError :message="form.errors[`work_schedule.${index}.start_time`]"
+                                                    class="mt-3" />
+                                            </div>
+                                            <div>
+                                                <el-time-picker v-model="day.end_time" placeholder="Salida"
+                                                    format="hh:mm A" value-format="HH:mm:ss" class="!w-full" />
+                                                <InputError :message="form.errors[`work_schedule.${index}.end_time`]"
+                                                    class="mt-3" />
+                                            </div>
+                                            <div>
+                                                <el-input-number v-model="day.break_minutes" :min="0" ::step="15"
+                                                    placeholder="Minutos" class="!w-full" />
+                                                <InputError
+                                                    :message="form.errors[`work_schedule.${index}.break_minutes`]"
+                                                    class="mt-3" />
+                                            </div>
                                         </div>
                                         <div v-else
                                             class="col-span-full md:col-span-3 text-center text-gray-400 italic">
@@ -213,10 +226,9 @@ export default {
                                         </div>
                                     </div>
                                 </div>
-                                <div class="text-right mt-2 font-semibold text-base text-[#373737]">
+                                <div class="text-right mt-2 font-semibold text-base text-[#373737] dark:text-gray-100">
                                     Total semanal: {{ formattedTotalHours }}
                                 </div>
-                                <InputError :message="form.errors.work_schedule" />
                             </div>
                         </section>
 
@@ -226,17 +238,17 @@ export default {
                                 acceso al sistema</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
                                 <div>
-                                    <label class="text-sm ml-1">Correo electrónico* </label>
+                                    <InputLabel value="Correo electrónico*" />
                                     <TextInput v-model="form.email" type="email" class="w-full"
                                         placeholder="Personal, empresarial o inventado" :error="form.errors.email" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Contraseña*</label>
+                                    <InputLabel value="Contraseña*" />
                                     <TextInput v-model="form.password" type="text" :error="form.errors.password"
                                         class="w-full" />
                                 </div>
                                 <div>
-                                    <label class="text-sm ml-1">Rol del sistema*</label>
+                                    <InputLabel value="Rol del sistema*" />
                                     <el-select v-model="form.role" placeholder="Selecciona un rol" class="!w-full">
                                         <el-option v-for="role in roles" :key="role.id" :label="role.name"
                                             :value="role.name" />
