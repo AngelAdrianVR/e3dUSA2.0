@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue';
+import { ref, onMounted, nextTick, computed, watch } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -11,9 +11,9 @@ import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ThemeToggleSwitch from "@/Components/MyComponents/ThemeToggleSwitch.vue";
 import ThemeToggleSwitch2 from "@/Components/MyComponents/ThemeToggleSwitch2.vue";
 import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
-// 1. IMPORTAR EL COMPONENTE DE ALERTA
 import DraggableAlert from "@/Components/MyComponents/DraggableAlert.vue";
 import AttendanceTracker from "@/Components/MyComponents/AttendanceTracker.vue";
+import axios from 'axios';
 
 defineProps({
     title: String,
@@ -27,6 +27,56 @@ const darkModeSwitch = ref(localStorage.getItem('darkMode') === 'true');
 const isFocused = ref(false);
 const searchInput = ref(null);
 const unseenMessages = ref(null);
+
+// --- LÓGICA DEL BUSCADOR GLOBAL ---
+const searchQuery = ref('');
+const searchResults = ref(null);
+const isSearching = ref(false);
+let searchTimeout = null;
+
+// Observador para el campo de búsqueda con debounce
+watch(searchQuery, (newQuery) => {
+    clearTimeout(searchTimeout);
+    if (newQuery.length > 1) {
+        isSearching.value = true;
+        searchTimeout = setTimeout(() => {
+            performSearch(newQuery);
+        }, 300); // Espera 300ms antes de buscar
+    } else {
+        searchResults.value = null;
+        isSearching.value = false;
+    }
+});
+
+// Función para realizar la llamada a la API
+const performSearch = async (term) => {
+    try {
+        const response = await axios.get(route('global.search', { term }));
+        searchResults.value = response.data;
+    } catch (error) {
+        console.error('Error en la búsqueda global:', error);
+        searchResults.value = null;
+    } finally {
+        isSearching.value = false;
+    }
+};
+
+const openSearch = async () => {
+    isFocused.value = true;
+    await nextTick();
+    searchInput.value.focus();
+};
+
+const closeSearch = () => {
+    // Retrasar el cierre para permitir el clic en los resultados
+    setTimeout(() => {
+        isFocused.value = false;
+        searchQuery.value = '';
+        searchResults.value = null;
+    }, 200);
+};
+
+// --- FIN LÓGICA BUSCADOR ---
 
 // <-- COMPUTED PARA LAS NOTIFICACIONES -->
 const userNotifications = computed(() => page.props.auth.user.notifications || []);
@@ -48,16 +98,6 @@ const switchToTeam = (team) => {
     }, {
         preserveState: false,
     });
-};
-
-const openSearch = async () => {
-    isFocused.value = true;
-    await nextTick();
-    searchInput.value.focus();
-};
-
-const closeSearch = () => {
-    isFocused.value = false;
 };
 
 const logout = () => {
@@ -150,39 +190,65 @@ onMounted(() => {
                                 <NotificationsDropdown :notifications="userNotifications" />
 
                                 <!-- Buscador global -->
-                                <div
-                                    class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
-                                    <div class="relative transition-all duration-500 ease-in-out"
-                                        :class="isFocused ? 'w-64' : 'w-10'">
-                                        <input ref="searchInput" type="text" placeholder="Buscar..." @blur="closeSearch"
-                                            class="
-                                                w-full h-9 pl-10 pr-4 rounded-full border 
-                                                text-sm transition-all duration-300 ease-in-out
-                                                bg-gray-100 dark:bg-slate-700 
-                                                border-gray-200 dark:border-slate-600
-                                                text-gray-700 dark:text-gray-200
-                                                focus:outline-none focus:ring-1 focus:ring-blue-500
-                                            " :class="{ 'opacity-100': isFocused, 'opacity-0': !isFocused }" />
-                                        <div
-                                            class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
-                                                viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
+                                    <div class="relative transition-all duration-500 ease-in-out" :class="isFocused ? 'w-80' : 'w-10'">
+                                        <input 
+                                            ref="searchInput" 
+                                            type="text" 
+                                            placeholder="Buscar en todo el sistema..." 
+                                            @blur="closeSearch"
+                                            @focus="isFocused = true"
+                                            v-model="searchQuery"
+                                            class="w-full h-10 pl-10 pr-4 rounded-full border text-sm transition-all duration-300 ease-in-out bg-gray-100 dark:bg-slate-700 border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                            :class="{ 'opacity-100': isFocused, 'opacity-0': !isFocused }" 
+                                        />
+                                        <div class="absolute top-0 left-0 flex items-center justify-center h-full w-10 text-gray-400">
+                                            <!-- Icono de Búsqueda -->
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                             </svg>
+                                        </div>
+                                        
+                                        <!-- Menú de Resultados -->
+                                        <div v-if="isFocused && searchQuery.length > 1"
+                                            class="absolute top-14 left-0 w-full bg-white dark:bg-zinc-800 rounded-lg shadow-2xl border dark:border-zinc-700 overflow-hidden z-50">
+                                            <div v-if="isSearching" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                Buscando...
+                                            </div>
+                                            <div v-else-if="!Object.keys(searchResults || {}).length" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                No se encontraron resultados para "{{ searchQuery }}"
+                                            </div>
+                                            <div v-else class="max-h-96 overflow-y-auto">
+                                                <div v-for="(results, category) in searchResults" :key="category">
+                                                    <h3 class="text-xs font-semibold text-gray-400 uppercase p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50">{{ category }}</h3>
+                                                    <ul>
+                                                        <li v-for="item in results" :key="item.id">
+                                                            <Link :href="item.url" class="flex items-center p-3 hover:bg-blue-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                                                                <div class="flex-shrink-0 mr-3">
+                                                                    <!-- Iconos para cada categoría -->
+                                                                    <svg v-if="category === 'Usuarios'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                                                                    <svg v-if="category === 'Productos'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                                                    <svg v-if="category === 'Sucursales'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1m-1 4h1"></path></svg>
+                                                                    <svg v-if="category === 'Ventas'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                                                    <svg v-if="category === 'Máquinas'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                                </div>
+                                                                <div class="flex-grow">
+                                                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ item.name || `Venta #${item.id}` }}</p>
+                                                                    <p v-if="item.code || item.email || item.status" class="text-xs text-gray-500 dark:text-gray-400">
+                                                                        {{ item.code || item.email || item.status }}
+                                                                    </p>
+                                                                </div>
+                                                            </Link>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    <button v-if="!isFocused" @click="openSearch" class="
-                                            absolute top-0 left-0 flex items-center justify-center h-9 w-9 rounded-full ml-5
-                                            text-gray-500 dark:text-gray-400 
-                                            bg-gray-200 dark:bg-slate-700
-                                            transition-opacity duration-300
-                                        ">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
-                                            viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    <button v-if="!isFocused" @click="openSearch" class="absolute top-0.5 left-0 flex items-center justify-center h-9 w-9 rounded-full ml-5 text-gray-500 dark:text-gray-400 bg-gray-200 dark:bg-slate-700 transition-opacity duration-300">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                         </svg>
                                     </button>
                                 </div>

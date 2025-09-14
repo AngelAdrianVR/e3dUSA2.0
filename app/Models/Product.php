@@ -38,6 +38,7 @@ class Product extends Model implements HasMedia, Auditable
         'caracteristics',
         'is_purchasable',
         'product_family_id',
+        'is_used_as_component', // indica is el producto es usado como componente
         'base_price_updated_at', // fecha de la ultima actualización de precio base (para revision automatica de cada año)
     ];
 
@@ -45,6 +46,7 @@ class Product extends Model implements HasMedia, Auditable
         'archived_at' => 'datetime',
         'is_sellable' => 'boolean',
         'is_purchasable' => 'boolean',
+        'is_used_as_component' => 'boolean',
     ];
 
     // protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes

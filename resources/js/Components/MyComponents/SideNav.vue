@@ -435,7 +435,7 @@ export default {
                     //     return ['raw-material', 'consumable', 'finished-product', 'scrap'].includes(notification.data.module);
                     // }),
                     dropdown: false,
-                    show: this.$page.props.auth.user.permissions.includes('Ver almacen')
+                    show: this.$page.props.auth.user.permissions.includes('Ver almacenes')
                 },
                 {
                     label: 'Recursos Humanos',

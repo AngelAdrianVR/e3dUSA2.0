@@ -2,7 +2,7 @@
     <div v-if="product" class="border dark:border-slate-700 rounded-lg p-3 flex items-center space-x-4 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors duration-200">
         <!-- Imagen del Producto -->
         <div class="flex-shrink-0">
-            <img class="size-16 rounded-md object-cover" :src="product.media[0]?.original_url" :alt="product.name" 
+            <img @click="$inertia.visit(route('catalog-products.show', product.id))" class="size-16 rounded-md object-cover cursor-pointer" :src="product.media[0]?.original_url" :alt="product.name" 
                  onerror="this.onerror=null; this.src='https://placehold.co/100x100/EBF4FF/3B82F6?text=Producto'">
         </div>
         <!-- Detalles del Producto -->
@@ -12,7 +12,7 @@
         </div>
         <!-- Cantidad -->
         <div class="text-right">
-            <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ shipmentProduct.quantity }}</p>
+            <p class="text-lg font-bold text-blue-600 dark:text-blue-400">{{ shipmentProduct.quantity.toLocaleString() }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400">PZA(S)</p>
         </div>
     </div>

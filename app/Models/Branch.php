@@ -50,6 +50,7 @@ class Branch extends Model implements Auditable
         // por lo que no es necesario especificarla.
         return $this->belongsToMany(Product::class);
     }
+    
 
     /**
      * Obtiene todas las notas asociadas con el cliente.
@@ -121,9 +122,7 @@ class Branch extends Model implements Auditable
      */
     public function suggestedProducts()
     {
-        return $this->belongsToMany(Product::class, 'branch_suggested_products')
-                    ->withPivot('sort_order')
-                    ->orderBy('sort_order');
+        return $this->belongsToMany(Product::class, 'branch_suggested_products');
     }
 
     // ==============

@@ -171,7 +171,10 @@
                                 <div class="mt-4 pt-4 border-t text-xs space-y-2">
                                      <div class="flex justify-between items-center">
                                         <span class="text-gray-500">{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
-                                        <span class="font-semibold text-gray-800">{{ item.pivot.quantity }}</span>
+                                        <span class="font-semibold text-gray-800">
+                                            {{ Number(item.pivot.quantity).toLocaleString() }}
+                                        </span>
+
                                     </div>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-500">{{ quote.is_spanish_template ? 'Precio Unitario' : 'Unit price' }}</span>

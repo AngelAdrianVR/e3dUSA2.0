@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('product_type'); // si es producto de catalogo, materia prima, consumible, etc.
+            $table->boolean('is_used_as_component')->default(false); // indica si el producto es usado como componente.
             $table->string('code')->unique(); // codigo de producto antes "part_number"
             $table->float('base_price')->nullable()->unsigned()->default(0); // precio base o precio de lista homologado
             $table->date('base_price_updated_at')->nullable(); // precio de la ultima actualizacion de precio base
