@@ -320,7 +320,7 @@
                                             :class="movement.type === 'Entrada' ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'">
                                                 {{ movement.type === 'Entrada' ? '+' : '-' }} {{ movement.quantity_change }} {{ product.measure_unit }}
                                             </p>
-                                            <p v-if="movement.notes" class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-xs" :title="movement.notes">
+                                            <p v-if="movement.notes" class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-xs pr-1" :title="movement.notes">
                                                 {{ movement.notes }}
                                             </p>
                                         </div>

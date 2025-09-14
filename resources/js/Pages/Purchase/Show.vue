@@ -71,7 +71,7 @@
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
-                <Stepper :currentStatus="purchase.status" :steps="purchaseSteps" />
+                <Stepper :currentStatus="purchase.status" :steps="purchaseSteps" :treatCurrentAsCompleted="true" />
                 
                 <!-- Card de Información de la Compra -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">

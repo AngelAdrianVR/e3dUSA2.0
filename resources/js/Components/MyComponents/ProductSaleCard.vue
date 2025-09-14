@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white dark:bg-slate-800/80 rounded-2xl shadow-lg p-5 border border-transparent transition-all duration-300 hover:shadow-2xl hover:border-primary/50 relative overflow-hidden">
+    <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl shadow-lg p-5 border border-transparent transition-all duration-300 hover:shadow-2xl hover:border-primary/50 relative overflow-hidden">
         <div v-if="isHighPriority" class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl z-10">
             <i class="fa-solid fa-star text-yellow-300 mr-1"></i>
             PRIORIDAD ALTA

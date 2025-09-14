@@ -1,7 +1,7 @@
 <template>
-    <div class="bg-white dark:bg-slate-900 border dark:border-slate-700 rounded-lg p-4 flex items-start space-x-4 shadow-sm hover:shadow-md transition-shadow duration-300">
+    <div class="bg-gray-100 dark:bg-slate-900 border dark:border-slate-700 rounded-lg p-4 flex items-start space-x-4 shadow-sm hover:shadow-md transition-shadow duration-300">
         <!-- Imagen del Producto -->
-        <div class="flex-shrink-0">
+        <div @click="$inertia.visit(route('catalog-products.show', purchaseItem.product.id))" class="flex-shrink-0 cursor-pointer">
             <img 
                 :src="purchaseItem.product?.media[0]?.original_url || 'https://placehold.co/100x100/e2e8f0/cccccc?text=SIN+IMAGEN'"
                 :alt="purchaseItem.description"
@@ -16,7 +16,7 @@
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Código: {{ purchaseItem.product?.code }}</p>
 
             <!-- Distribución de Cantidades -->
-            <div v-if="hasDistribution" class="text-sm text-blue-600 dark:text-sky-400 space-y-1 bg-blue-50 dark:bg-sky-900/40 p-2 rounded-md">
+            <div v-if="hasDistribution" class="text-sm text-blue-600 dark:text-sky-400 space-y-1 bg-blue-100 dark:bg-sky-900/40 p-2 rounded-md">
                 <p v-if="purchaseItem.plane_stock > 0" class="flex items-center">
                     <i class="fa-solid fa-plane w-5 mr-1"></i> 
                     <span>Avión: <span class="font-semibold">{{ purchaseItem.plane_stock }} {{ purchaseItem.product.measure_unit }}</span></span>

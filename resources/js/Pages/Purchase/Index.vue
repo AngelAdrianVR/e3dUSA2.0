@@ -84,7 +84,7 @@
                             <!-- COLUMNA DE PRODUCTOS -->
                             <el-table-column label="Productos" width="130">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.items?.length" placement="right" effect="light">
+                                    <el-tooltip v-if="scope.row.items?.length" placement="right" effect="dark">
                                         <template #content>
                                             <div class="max-h-64 overflow-y-auto pr-2">
                                             <ul class="list-disc list-inside text-xs space-y-3">
