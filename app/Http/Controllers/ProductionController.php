@@ -22,7 +22,7 @@ class ProductionController extends Controller
         $user = Auth::user();
 
         // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
-        if ($user->hasRole('Jefe de Producción') || $user->hasRole('Super Administrador')) {
+        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador')) {
             $selectedStatus = $request->input('status');
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
@@ -75,8 +75,8 @@ class ProductionController extends Controller
             ]);
         }
 
-        // --- Vista para el Operador ---
-        if ($user->hasRole('Operador')) {
+        // --- Vista para el Auxiliar de producción ---
+        if ($user->hasRole('Auxiliar de producción')) {
             // --- CARGA OPTIMIZADA ---
             // Solo se carga la información esencial para la vista de tarjetas.
             $myTasks = ProductionTask::where('operator_id', $user->id)
@@ -110,7 +110,7 @@ class ProductionController extends Controller
     public function create()
     {
         // Obtener la lista de usuarios que son operadores
-        $operators = User::where('is_active', true)->orderBy('name')->get();
+        $operators = User::where('is_active', true)->role('Auxiliar de producción')->orderBy('name')->get();
 
         // Obtener la lista de procesos de producción predefinidos
         $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();

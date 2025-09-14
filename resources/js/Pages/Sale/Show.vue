@@ -39,6 +39,12 @@
                     </button>
                 </el-tooltip>
 
+                <el-tooltip v-if="sale.status === 'Preparando Envío'" content="Ver detalles de envío" placement="top">
+                    <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </button>
+                </el-tooltip>
+
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-print"></i>
@@ -77,7 +83,7 @@
                 </Dropdown>
 
                 <Link :href="route('sales.index')"
-                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-red-600 transition-all duration-200">
                     <i class="fa-solid fa-xmark"></i>
                 </Link>
             </div>
@@ -180,14 +186,6 @@
                                     COT-{{ sale.quote_id?.toString().padStart(4, '0') }}
                                 </span>
                                 <span v-else>N/A</span>
-                            </li>
-
-                            <!-- envíos -->
-                            <li v-if="sale.shipments?.length" class="flex justify-between">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Envíos:</span>
-                                <span @click="$inertia.visit(route('shipments.show', sale.id))" class="text-blue-500 hover:underline cursor-pointer">
-                                    ENV-{{ sale.id.toString().padStart(4, '0') }}
-                                </span>
                             </li>
                         </template>
 

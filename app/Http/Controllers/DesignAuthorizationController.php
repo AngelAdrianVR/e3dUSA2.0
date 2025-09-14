@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Branch;
 use App\Models\Contact;
+use App\Models\Design;
 use App\Models\DesignAuthorization;
 use App\Models\DesignOrder;
 use App\Models\User;
@@ -48,8 +49,10 @@ class DesignAuthorizationController extends Controller
             ->get();
 
         $design_order_id = null;
+        $design_order = null;
         if ($request->has('design_order_id')) {
             $design_order_id = intval($request->input('design_order_id'));
+            $design_order = DesignOrder::find($design_order_id);
         }
         
         // Asumiendo que todos los usuarios pueden ser vendedores.
@@ -61,7 +64,7 @@ class DesignAuthorizationController extends Controller
             'designOrders' => $designOrders,
             'sellers' => $sellers,
             'branches' => $branches,
-            'design_order_id' => $design_order_id, // id de la orden de diseño 
+            'design_order' => $design_order, // orden de diseño relacionada 
         ]);
     }
 

@@ -33,6 +33,16 @@
             </div>
         </div>
     </div>
+
+    <!-- Último cambio de precio -->
+    <div 
+        v-if="product.price_history?.length" 
+        class="mt-2 text-sm rounded-sm py-1 px-2 text-gray-600"
+        :class="getPriceChangeClass(product.price_history[0].valid_from)"
+        >
+        Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}
+    </div>
+    
     <!-- Historial de Precios Especiales -->
     <div v-if="product.price_history.length" class="mt-4">
         <el-collapse>
@@ -223,6 +233,30 @@ methods:{
             min_allowed_price: basePrice * 1.04, // Regla de aumento del 4%
         };
         this.showPriceModal = true;
+    },
+    timeSince(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30);
+
+        if (diffMonths < 1) return "menos de un mes";
+        if (diffMonths < 12) {
+            const months = Math.floor(diffMonths);
+            return `hace ${months} mes${months > 1 ? "es" : ""}`;
+        }
+        const years = Math.floor(diffMonths / 12);
+        return `hace ${years} año${years > 1 ? "s" : ""}`;
+        },
+    getPriceChangeClass(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30);
+
+        if (diffMonths <= 6) return "bg-green-300";
+        if (diffMonths > 6 && diffMonths < 12) return "bg-amber-300";
+        return "bg-red-400";
     },
     currentPrice(product) {
         // si tiene precio especial y esta vigente, lo toma como precio actual, si no, toma el precio base

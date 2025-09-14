@@ -23,7 +23,7 @@
                     </button>
                 </el-tooltip>
                 <Link :href="route('productions.index')"
-                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-red-600 transition-all duration-200">
                 <i class="fa-solid fa-xmark"></i>
                 </Link>
             </div>
@@ -157,7 +157,7 @@
                                     <p class="font-semibold">{{ item.product.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ item.product.code }}</p>
                                 </div>
-                                <span class="font-bold text-gray-700 dark:text-gray-300">{{ item.quantity }} pz.</span>
+                                <span class="font-bold text-gray-700 dark:text-gray-300">{{ item.quantity.toLocaleString() }} pz.</span>
                             </div>
                             <el-tag :type="statusTagType(getProductionStatus(item))" size="small" effect="light" class="absolute top-2 right-2 !text-[10px]">
                                 {{ getProductionStatus(item) }}

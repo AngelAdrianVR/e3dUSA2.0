@@ -68,7 +68,7 @@ class SaleController extends Controller
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
             // Pasa el ID de la cotización a convertir como un prop
             'quoteToConvertId' => $quoteToConvertId,
         ]);
@@ -330,7 +330,7 @@ class SaleController extends Controller
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
             'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
         ]);
     }

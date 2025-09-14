@@ -91,7 +91,7 @@ export default {
                     title: 'Producción',
                     buttons: [
                         {
-                            label: 'Ventas sin OV',
+                            label: 'Ventas sin OP',
                             key: 'sales_without_ov',
                             count: this.actions.sales_without_ov || 0,
                             routeName: route('sales.index'),
