@@ -55,14 +55,17 @@ class BranchController extends Controller
             'contacts.*.charge' => 'nullable|string|max:255',
             'contacts.*.phone' => 'required|string|max:10',
             'contacts.*.email' => 'required|email|max:255',
-            // --- NUEVA VALIDACIÓN PARA CUMPLEAÑOS ---
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
 
-            // Validación para productos
+            // Validación para productos asignados
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
+
+            // Validación para productos sugeridos
+            'suggested_products' => 'nullable|array',
+            'suggested_products.*' => 'exists:products,id',
         ]);
 
         DB::transaction(function () use ($validated) {
@@ -82,21 +85,17 @@ class BranchController extends Controller
             // 2. Crear los contactos y sus detalles
             foreach ($validated['contacts'] as $index => $contactData) {
                 
-                // --- LÓGICA PARA CONSTRUIR LA FECHA DE CUMPLEAÑOS ---
                 $birthdate = null;
                 if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
-                    // Se usa un año bisiesto (2000) como placeholder para asegurar que el 29 de Febrero sea válido.
-                    // La base de datos guardará la fecha completa, pero solo nos interesan el mes y el día.
                     if (checkdate($contactData['birth_month'], $contactData['birth_day'], 2000)) {
                         $birthdate = "2000-{$contactData['birth_month']}-{$contactData['birth_day']}";
                     }
                 }
-                // --- FIN DE LA LÓGICA ---
 
                 $contact = $branch->contacts()->create([
                     'name' => $contactData['name'],
                     'charge' => $contactData['charge'],
-                    'birthdate' => $birthdate, // Campo actualizado
+                    'birthdate' => $birthdate,
                     'is_primary' => $index === 0,
                 ]);
 
@@ -114,7 +113,18 @@ class BranchController extends Controller
             }
 
             // 3. Relacionar productos y guardar precios especiales
-            // ... (la lógica de productos permanece igual)
+            if (!empty($validated['products'])) {
+                $productsData = collect($validated['products'])->mapWithKeys(function ($product) {
+                    return [$product['product_id'] => ['price' => $product['price']]];
+                });
+                $branch->products()->sync($productsData);
+            }
+
+            // 4. Guardar productos sugeridos
+            if (!empty($validated['suggested_products'])) {
+                // Esta línea funciona perfectamente con tu relación
+                $branch->suggestedProducts()->sync($validated['suggested_products']);
+            }
 
         });
         
@@ -128,6 +138,7 @@ class BranchController extends Controller
             'accountManager:id,name', 
             'parent:id,name', 
             'contacts.details',
+            'suggestedProducts.media',
             'products.media', // Carga los productos y sus imágenes
             'products.priceHistory' => function ($query) use ($branch) {
                 $query->where('branch_id', $branch->id)->orderBy('valid_from', 'desc');
@@ -146,7 +157,9 @@ class BranchController extends Controller
     public function edit(Branch $branch)
     {
         // Cargar las relaciones necesarias para la edición
-        $branch->load(['contacts.details', 'products']);
+        $branch->load(['contacts.details', 'products', 'suggestedProducts']);
+        // Carga los IDs de los productos sugeridos y pásalos como prop
+        $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
         // Formatear los datos para que coincidan con la estructura del formulario de Vue
         $formattedContacts = $branch->contacts->map(function ($contact) {
@@ -161,7 +174,7 @@ class BranchController extends Controller
                 $birth_day = $date->day;     // Extrae el número del día (1-31)
             }
             // --- FIN DE LA LÓGICA ---
-
+            
             return [
                 'id' => $contact->id,
                 'name' => $contact->name,
@@ -194,6 +207,7 @@ class BranchController extends Controller
             'users' => User::where('is_active', true)->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->select('id', 'name')->get(),
             'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
+            'suggestedProductIds' => $suggestedProductIds,
         ]);
     }
 
@@ -214,36 +228,35 @@ class BranchController extends Controller
             'contacts.*.charge' => 'nullable|string|max:255',
             'contacts.*.phone' => 'required|string|max:10',
             'contacts.*.email' => 'required|email|max:255',
-            // ---  VALIDACIÓN PARA CUMPLEAÑOS ---
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
+            'suggested_products' => 'nullable|array',
+            'suggested_products.*' => 'exists:products,id',
         ]);
 
         DB::transaction(function () use ($validated, $branch) {
             // 1. Actualizar datos de la sucursal
-            $branch->update(collect($validated)->except(['contacts', 'products'])->all());
+            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
 
             // 2. Sincronizar contactos
             $existingContactIds = [];
             foreach ($validated['contacts'] as $index => $contactData) {
-                // --- LÓGICA PARA CONSTRUIR LA FECHA DE CUMPLEAÑOS ---
                 $birthdate = null;
                 if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
                     if (checkdate($contactData['birth_month'], $contactData['birth_day'], 2000)) {
                         $birthdate = "2000-{$contactData['birth_month']}-{$contactData['birth_day']}";
                     }
                 }
-                // --- FIN DE LA LÓGICA ---
 
                 $contact = $branch->contacts()->updateOrCreate(
                     ['id' => $contactData['id'] ?? null],
                     [
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
-                        'birthdate' => $birthdate, // Campo actualizado
+                        'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]
                 );
@@ -251,12 +264,63 @@ class BranchController extends Controller
                 $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
                 $existingContactIds[] = $contact->id;
             }
-            // Eliminar contactos que ya no están en el formulario
             $branch->contacts()->whereNotIn('id', $existingContactIds)->delete();
 
-            // 3. Sincronización de productos y precios (sin cambios)
-            // ...
+            // --- 3. LÓGICA CORREGIDA PARA PRODUCTOS Y PRECIOS ---
 
+            // Primero, obtenemos solo los IDs de los productos del formulario
+            $productIdsInForm = collect($validated['products'] ?? [])->pluck('product_id');
+
+            // Sincronizamos la relación en la tabla pivote `branch_product`.
+            $branch->products()->sync($productIdsInForm);
+
+            // Segundo, manejamos el historial de precios por separado.
+            foreach ($validated['products'] ?? [] as $productData) {
+                $productId = $productData['product_id'];
+                $newPrice = $productData['price'];
+
+                $currentPriceRecord = DB::table('branch_price_history')
+                    ->where('branch_id', $branch->id)
+                    ->where('product_id', $productId)
+                    ->whereNull('valid_to')
+                    ->first();
+
+                $currentPrice = $currentPriceRecord ? (float) $currentPriceRecord->price : null;
+                $newPrice = !is_null($newPrice) ? (float) $newPrice : null;
+
+                if ($newPrice !== $currentPrice) {
+                    if ($currentPriceRecord) {
+                        DB::table('branch_price_history')
+                            ->where('id', $currentPriceRecord->id)
+                            ->update(['valid_to' => now()]);
+                    }
+                    if (!is_null($newPrice)) {
+                        DB::table('branch_price_history')->insert([
+                            'branch_id' => $branch->id,
+                            'product_id' => $productId,
+                            'price' => $newPrice,
+                            'valid_from' => now(),
+                            'valid_to' => null,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+            }
+            
+            $currentActiveProductIds = DB::table('branch_price_history')->where('branch_id', $branch->id)->whereNull('valid_to')->pluck('product_id');
+            $productsToRemovePrice = $currentActiveProductIds->diff($productIdsInForm);
+
+            if ($productsToRemovePrice->isNotEmpty()) {
+                DB::table('branch_price_history')
+                    ->where('branch_id', $branch->id)
+                    ->whereIn('product_id', $productsToRemovePrice)
+                    ->whereNull('valid_to')
+                    ->update(['valid_to' => now()]);
+            }
+
+            // 4. Sincronizar productos sugeridos
+            $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
         });
 
         return to_route('branches.show', $branch->id);

@@ -11,7 +11,7 @@
         <!-- Grid de productos asignados -->
         <div v-if="products.length" class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             <div v-for="product in products" :key="product.id"
-                 class="relative group bg-gray-100 dark:bg-slate-900 rounded-lg shadow-lg overflow-hidden border border-transparent dark:border-slate-800 hover:shadow-secondary/30 transition-shadow duration-300">
+                 class="relative group bg-gray-100 dark:bg-slate-900 rounded-lg hover:border-primary dark:hover:border-primary shadow-lg overflow-hidden border border-transparent dark:border-slate-800 transition duration-300">
 
                 <!-- Imagen del producto -->
                 <div class="h-40 bg-gray-200 dark:bg-slate-800 flex items-center justify-center">

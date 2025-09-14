@@ -71,8 +71,8 @@ class AppLayoutController extends Controller
         }
 
         // Búsqueda en Ordenes de diseño
-        $designOrders = DesignOrder::where('orden_title', 'LIKE', "%{$term}%")
-            ->select('id', 'orden_title', 'status')
+        $designOrders = DesignOrder::where('order_title', 'LIKE', "%{$term}%")
+            ->select('id', 'order_title', 'status')
             ->take($limit)
             ->get()
             ->map(function ($design_order) {

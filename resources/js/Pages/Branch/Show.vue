@@ -34,7 +34,6 @@
                         <DropdownLink :href="route('branches.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nuevo Cliente
                         </DropdownLink>
-                        <!-- ===== NUEVA OPCIÓN EN EL DROPDOWN ===== -->
                         <DropdownLink @click="showAddProductsModal = true" as="button">
                             <i class="fa-solid fa-tags w-4 mr-2"></i> Agregar Productos
                         </DropdownLink>
@@ -52,7 +51,7 @@
             </div>
         </header>
 
-        <!-- === CONTENIDO PRINCIPAL (Sin cambios) === -->
+        <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-7 mt-5 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-6">
@@ -145,6 +144,23 @@
                             </div>
                              <p v-else class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Aún no hay productos asignados a este cliente.</p>
                         </el-tab-pane>
+                        
+                        <!-- ================================================== -->
+                        <!-- ============== NUEVA PESTAÑA ===================== -->
+                        <!-- ================================================== -->
+                        <el-tab-pane name="suggested_products">
+                             <template #label>
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-lightbulb mr-2"></i>
+                                    <span>Sugerencias</span>
+                                </div>
+                            </template>
+                            <div v-if="branch.suggested_products?.length" class="space-y-4 mt-2 max-h-[60vh] overflow-y-auto pr-2">
+                                <SuggestedProducts :products="branch.suggested_products" />
+                            </div>
+                             <p v-else class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">No hay productos sugeridos para este cliente.</p>
+                        </el-tab-pane>
+
                         <el-tab-pane label="Cotizaciones" name="quotes">
                             <LoadingIsoLogo v-if="loadingQuotes" />
                             <Quotes v-else :quotes="quotes" />
@@ -153,9 +169,6 @@
                             <LoadingIsoLogo v-if="loadingSales" />
                             <Sales v-else :sales="sales" />
                         </el-tab-pane>
-                        <!-- <el-tab-pane label="Proyectos" name="projects">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">Próximamente: Proyectos relacionados.</p>
-                        </el-tab-pane> -->
                     </el-tabs>
                 </div>
             </div>
@@ -165,7 +178,6 @@
         <ModalCrearEditarContacto :show="showContactModal" :contact="contactToEdit" :branchId="branch.id" @close="showContactModal = false" />
         <AddProductsModal :show="showAddProductsModal" :branch="branch" :catalog_products="catalog_products" @close="showAddProductsModal = false" />
 
-        <!-- Modal de Confirmación para Eliminar contacto -->
         <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
             <template #title>
                 Eliminar Contacto
@@ -181,7 +193,6 @@
             </template>
         </ConfirmationModal>
 
-        <!-- Modal de Confirmación para Eliminar cliente -->
         <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
             <template #title>
                 Eliminar Cliente
@@ -204,10 +215,11 @@
 import Products from "@/Pages/Branch/Tabs/Products.vue";
 import Quotes from "@/Pages/Branch/Tabs/Quotes.vue";
 import Sales from "@/Pages/Branch/Tabs/Sales.vue";
+import SuggestedProducts from "@/Pages/Branch/Tabs/SuggestedProducts.vue"; // <-- NUEVO COMPONENTE
 
 // Modals
 import AddProductsModal from "@/Pages/Branch/Modals/AddProductsModal.vue";
-import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarContacto.vue"; // <-- NUEVO
+import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarContacto.vue";
 
 // Componentes
 import AppLayout from "@/Layouts/AppLayout.vue";
@@ -216,13 +228,13 @@ import PrimaryButton from "@/Components/PrimaryButton.vue";
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
-import DialogModal from "@/Components/DialogModal.vue"; // Importar DialogModal
+import DialogModal from "@/Components/DialogModal.vue";
 import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
-import TextInput from "@/Components/TextInput.vue"; // Importar TextInput
-import InputError from "@/Components/InputError.vue"; // Importar InputError
-import { Link, useForm, router } from "@inertiajs/vue3"; // Importar useForm y router
+import TextInput from "@/Components/TextInput.vue";
+import InputError from "@/Components/InputError.vue";
+import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -230,32 +242,23 @@ import { es } from 'date-fns/locale';
 
 export default {
     data() {
-        // --- FORMULARIO PARA AGREGAR PRODUCTOS ---
         const form = useForm({
             products: [],
         });
 
         return {
-            form, // Formulario para el modal
+            form,
             activeTab: 'general',
             selectedBranch: this.branch.id,
             showConfirmModal: false,
-            showAddProductsModal: false, // Estado para el nuevo modal
+            showAddProductsModal: false,
             showContactModal: false,
             showConfirmDeleteContact: { show: false, contactId: null },
-
-            // Cotizaciones
             quotes: [],
             loadingQuotes: false,
-
-            //Ventas
             sales: [],
             loadingSales: false,
-            
-            // Contactos
             contactToEdit: null,
-
-            // --- LÓGICA PARA ASIGNAR PRODUCTOS (del Create.vue) ---
             currentProduct: {
                 product_id: null,
                 price: null,
@@ -268,7 +271,6 @@ export default {
         };
     },
     components: {
-        // Componentes
         Link,
         Dropdown,
         AppLayout,
@@ -279,16 +281,13 @@ export default {
         LoadingIsoLogo,
         SecondaryButton,
         ConfirmationModal,
-        DialogModal, // Registrar DialogModal
-        TextInput,   // Registrar TextInput
-        InputError,  // Registrar InputError
-
-        // Pestañas
+        DialogModal,
+        TextInput,
+        InputError,
         Products,
         Quotes,
         Sales,
-
-        // Modales
+        SuggestedProducts, // <-- REGISTRAR NUEVO COMPONENTE
         AddProductsModal,
         ModalCrearEditarContacto,
     },
@@ -297,17 +296,13 @@ export default {
         branches: Array,
         catalog_products: Array,
     },
-    // ===== NUEVA PROPIEDAD COMPUTADA =====
     computed: {
         availableProducts() {
-            // Obtiene un array de IDs de los productos que el cliente ya tiene.
             const assignedProductIds = this.branch.products.map(p => p.id);
-            // Filtra el catálogo general para excluir los productos que ya están asignados.
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
         }
     },
     methods: {
-        // --- GESTIÓN DE CONTACTOS ---
         openContactModal(contact = null) {
             this.contactToEdit = contact;
             this.showContactModal = true;
@@ -330,26 +325,19 @@ export default {
             const detail = contact.details.find(d => d.type === type && d.is_primary);
             return detail ? detail.value : 'No disponible';
         },
-        // --- FIN GESTIÓN DE CONTACTOS ---
-
-        // --- MÉTODOS PARA GUARDAR PRODUCTOS ---
         saveProducts() {
-            // Se necesita una nueva ruta para manejar esta lógica en el backend
             this.form.post(route('branches.add-products', this.branch.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     ElMessage.success('Productos asignados correctamente.');
                     this.showAddProductsModal = false;
                     this.form.reset();
-                    // Inertia recargará los props automáticamente, actualizando la lista de productos.
                 },
                 onError: () => {
                      ElMessage.error('Ocurrió un error al asignar los productos.');
                 }
             });
         },
-
-        // --- MÉTODOS COPIADOS DE Create.vue PARA EL MODAL ---
         async getProductMedia() {
             if (!this.currentProduct.product_id) return;
             
@@ -376,7 +364,6 @@ export default {
                 ElMessage.warning('Debes seleccionar un producto.');
                 return;
             }
-            // Evitar duplicados (ya controlado con :disabled, pero es buena práctica tenerlo)
             if (this.isProductInForm(this.currentProduct.product_id)) {
                 ElMessage.warning('Este producto ya está en la lista.');
                 return;
@@ -404,15 +391,9 @@ export default {
         isProductInForm(productId) {
             return this.form.products.some(p => p.product_id === productId);
         },
-        getPrimaryDetail(contact, type) {
-            const detail = contact.details.find(d => d.type === type);
-            return detail ? detail.value : 'No disponible';
-        },
         formatBirthday(dateString) {
             if (!dateString) return '';
-            // Creamos una fecha a partir del string, asegurando que se interprete correctamente
             const date = new Date(dateString + 'T00:00:00'); 
-            // Usamos 'd MMMM' para obtener "día de Mes" (ej. "24 de Agosto")
             return format(date, "d 'de' MMMM", { locale: es });
         },
         formatDate(dateString) {
@@ -422,22 +403,16 @@ export default {
         },
         formatRelative(dateString) {
             if (!dateString) return "Sin registro";
-
             const date = new Date(dateString);
             const now = new Date();
-            const diffMs = now - date; // Diferencia en milisegundos
-
-            if (diffMs < 0) {
-                return "En el futuro"; // por si la fecha viene futura
-            }
-
+            const diffMs = now - date;
+            if (diffMs < 0) return "En el futuro";
             const seconds = Math.floor(diffMs / 1000);
             const minutes = Math.floor(seconds / 60);
             const hours = Math.floor(minutes / 60);
             const days = Math.floor(hours / 24);
             const months = Math.floor(days / 30);
             const years = Math.floor(months / 12);
-
             if (seconds < 60) return `Hace ${seconds} segundos`;
             if (minutes < 60) return `Hace ${minutes} minutos`;
             if (hours < 24) return `Hace ${hours} horas`;
@@ -491,7 +466,6 @@ export default {
             if (newId !== oldId) {
                 this.selectedBranch = newId;
                 this.activeTab = 'general';
-                // Recargar datos para el nuevo cliente
                 this.fetchQuotes();
                 this.fetchSales();
             }

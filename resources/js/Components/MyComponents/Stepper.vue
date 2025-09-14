@@ -33,7 +33,7 @@
                 <!-- Línea Conectora (no se muestra después del último paso) -->
                 <div v-if="index < steps.length - 1" class="flex-1 h-1 mx-1 bg-gray-200 dark:bg-slate-700 rounded-full">
                     <div
-                        class="h-full rounded-full bg-gradient-to-r from-sky-400 to-secondary transition-all duration-700 ease-out"
+                        class="h-full rounded-full bg-gradient-to-r from-sky-400 to-primary transition-all duration-700 ease-out"
                         :style="{ width: getLineWidth(index) }"
                     ></div>
                 </div>
@@ -99,9 +99,9 @@ export default {
         getNodeClasses(index) {
             const classes = [];
             if (index <= this.completedStepIndex) {
-                classes.push('w-8 h-8 bg-gradient-to-br from-sky-400 to-secondary shadow-md');
+                classes.push('w-8 h-8 bg-gradient-to-br from-sky-400 to-primary shadow-md');
             } else if (index === this.activeStepIndex) {
-                classes.push('w-10 h-10 bg-white dark:bg-slate-800 border-2 border-secondary dark:border-sky-400 text-secondary dark:text-sky-400 shadow-lg');
+                classes.push('w-10 h-10 bg-white dark:bg-slate-800 border-2 border-primary dark:border-sky-400 text-primary dark:text-sky-400 shadow-lg');
             } else {
                 classes.push('w-8 h-8 bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-gray-400');
             }
@@ -142,7 +142,7 @@ export default {
     border-color: #38bdf8; /* sky-400 for dark mode */
 }
 .animate-sonar {
-    border: 2px solid #3b82f6; /* secondary-600 */
+    border: 2px solid #3b82f6; /* primary-600 */
     animation: sonar-pulse 2s infinite cubic-bezier(0.66, 0, 0, 1);
 }
 
