@@ -1,7 +1,7 @@
 <template>
     <AppLayout title="Catálogo de productos">
         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-            Catálogo de productos
+            Productos
         </h2>
 
         <div v-if="loadingExport" class="fixed inset-0 bg-gray-900 bg-opacity-80 z-50 flex items-center justify-center">
@@ -14,21 +14,34 @@
         <div class="py-7">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <div class="flex justify-between items-center mb-6">
+                    <div class="lg:flex justify-between items-center mb-6 space-y-2 lg:space-y-0">
                         <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"
                             :href="route('catalog-products.create')">
-                        <SecondaryButton>
-                            <i class="fa-solid fa-plus mr-2"></i>
-                            Nuevo producto
-                        </SecondaryButton>
+                            <SecondaryButton>
+                                <i class="fa-solid fa-plus mr-2"></i>
+                                Nuevo producto
+                            </SecondaryButton>
                         </Link>
 
+                        <!-- Filtros y Búsqueda -->
+                        <div class="flex items-center space-x-2">
+                             <el-select v-model="productType" placeholder="Seleccionar tipo" class="!w-52">
+                                <el-option
+                                    v-for="item in productTypes"
+                                    :key="item.value"
+                                    :label="item.label"
+                                    :value="item.value"
+                                />
+                            </el-select>
+                        </div>
+
+                        <!-- Acciones y Reportes -->
                         <div class="flex items-center space-x-2">
                              <el-dropdown split-button type="primary" @click="openReport" plain>
                                 Reporte de precios
                                 <template #dropdown>
                                     <el-dropdown-menu>
-                                        <el-dropdown-item @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
+                                        <el-dropdown-item disabled @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
@@ -42,8 +55,13 @@
                                 </template>
                             </el-popconfirm>
                         </div>
-
-                        <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" :searchProps="SearchProps" />
+                    </div>
+                    <!-- Costo Total -->
+                    <div class="flex justify-between mb-1">
+                        <el-tag v-if="$page.props.auth.user.permissions.includes('Ver cantidades de dinero')" type="success" size="large">
+                            <p class="text-base">Costo total de inventario: {{ totalInventoryCost }}</p>
+                        </el-tag>
+                        <SearchInput v-model="search" placeholder="Buscar producto..." />
                     </div>
 
                     <div class="relative">
@@ -53,7 +71,7 @@
                         </div>
                         <el-table 
                             max-height="550" 
-                            :data="tableData"
+                            :data="products.data"
                             style="width: 100%" 
                             stripe
                             @selection-change="handleSelectionChange" 
@@ -71,16 +89,29 @@
                                     </figure>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="code" label="Código" width="200" />
-                            <el-table-column prop="name" label="Nombre" width="250" />
-                            <el-table-column prop="material" label="Material" />
-                            <el-table-column prop="brand.name" label="Marca" />
-                            <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver costos de productos')" prop="cost" label="Costo" width="150">
+                            <el-table-column prop="code" label="Código" width="160" />
+                            <el-table-column prop="name" label="Nombre" width="220" />
+                            <el-table-column prop="brand.name" label="Marca" width="120" />
+                            <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver costos de productos')" prop="cost" label="Costo" width="120">
                                 <template #default="scope">
                                     <span>${{ scope.row.cost?.toFixed(2) ?? '0.00' }}</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column align="right">
+                             <el-table-column label="Stock" width="130">
+                                <template #default="scope">
+                                    <span :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold' : 'text-green-600'" 
+                                          class="text-lg">
+                                        {{ (getProductStock(scope.row).quantity).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                    </span>
+                                    <span class="text-xs text-gray-500 ml-1">{{ scope.row.measure_unit }}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Ubicación">
+                                <template #default="scope">
+                                    <span class="text-gray-600 dark:text-gray-400">{{ getProductStock(scope.row).location ?? '-' }}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column align="right" width="80">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop
@@ -120,9 +151,9 @@
                         </el-table>
                     </div>
 
-                    <div v-if="catalog_products.total > 0 && !search" class="flex justify-center mt-6">
-                        <el-pagination v-model:current-page="catalog_products.current_page"
-                            :page-size="catalog_products.per_page" :total="catalog_products.total"
+                    <div v-if="products.total > 0" class="flex justify-center mt-6">
+                        <el-pagination v-model:current-page="products.current_page"
+                            :page-size="products.per_page" :total="products.total"
                             layout="prev, pager, next" background @current-change="handlePageChange" />
                     </div>
                 </div>
@@ -138,18 +169,23 @@ import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
-import { Link } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
+import { debounce } from 'lodash';
 
 export default {
     data() {
         return {
             loading: false,
             loadingExport: false,
-            search: '',
+            search: this.filters.search,
+            productType: this.filters.product_type ?? 'Catálogo',
             selectedItems: [],
-            // Mantenemos una propiedad separada para los datos de la tabla que pueden ser modificados por la búsqueda
-            tableData: this.catalog_products.data,
-            SearchProps: ['Nombre', 'Material', 'Marca', 'Código'], // indica por cuales propiedades del registro puedes buscar
+            productTypes: [
+                { value: 'Catálogo', label: 'Productos de Catálogo' },
+                { value: 'Materia prima', label: 'Materia Prima' },
+                { value: 'Insumo', label: 'Insumos' },
+                { value: 'Obsoleto', label: 'Obsoletos' },
+            ],
         };
     },
     components: {
@@ -160,35 +196,69 @@ export default {
         Link,
     },
     props: {
-        catalog_products: Object,
+        products: Object,
+        filters: Object,
+    },
+    computed:{
+        totalInventoryCost() {
+            if (!this.products || !this.products.data) return 0;
+            
+            const total = this.products.data.reduce((accumulator, product) => {
+                const stock = this.getProductStock(product).quantity;
+                const cost = product.cost ?? 0;
+                return accumulator + (stock * cost);
+            }, 0);
+
+            // Formatear como moneda
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: 'MXN'
+            }).format(total);
+        }
     },
     methods: {
-        async handleSearch() {
-            this.loading = true;
-            try {
-                // Si la búsqueda está vacía, volvemos a los datos originales de la paginación
-                if (!this.search) {
-                    this.tableData = this.catalog_products.data;
-                    // Forzamos un recharge con inertia para restaurar el estado original con paginación
-                    this.$inertia.get(this.route('catalog-products.index'), {}, {
-                        preserveState: true,
-                        replace: true,
-                        onFinish: () => { this.loading = false; },
-                    });
-                    return;
-                }
+        openReport() {
+            window.open(route('catalog-products.prices-report'), '_blank');
+        },
+        exportToExcel() {
+            this.loadingExport = true;
 
-                // Si hay texto, hacemos la petición con axios como en el original
-                const response = await axios.post(route('catalog-products.get-matches', { query: this.search }));
-                if (response.status === 200) {
-                    this.tableData = response.data.items;
+            axios({
+                url: '/export-catalog-products',
+                method: 'GET',
+                responseType: 'blob',
+            }).then(response => {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'catalogo_precios.xlsx');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }).catch(error => {
+                console.error('Error al exportar:', error);
+            }).finally(() => {
+                this.loadingExport = false;
+            });
+        },
+        fetchData() {
+            this.loading = true;
+            router.get(route('catalog-products.index'), {
+                search: this.search,
+                product_type: this.productType,
+            }, {
+                preserveState: true,
+                replace: true,
+                onFinish: () => {
+                    this.loading = false;
                 }
-            } catch (error) {
-                console.error(error);
-                ElMessage.error('No se pudo realizar la búsqueda');
-            } finally {
-                this.loading = false;
+            });
+        },
+        getProductStock(product) {
+            if (product.storages && product.storages.length > 0) {
+                return product.storages[0];
             }
+            return { quantity: 0, location: 'N/A' };
         },
         handleSelectionChange(selection) {
             this.selectedItems = selection;
@@ -218,9 +288,11 @@ export default {
             });
         },
         handlePageChange(page) {
-            // Cuando cambia la página, simplemente hacemos una visita de Inertia
-            // con el número de página correspondiente, como en Index1.
-            this.$inertia.get(route('catalog-products.index', { page: page, search: this.search }), {
+            router.get(route('catalog-products.index', {
+                page: page,
+                search: this.search,
+                product_type: this.productType
+            }), {
                 preserveState: true,
                 replace: true,
             });
@@ -230,7 +302,7 @@ export default {
                 const response = await axios.post(route('catalog-products.clone', { catalog_product_id: productId }));
                 if (response.status === 200) {
                     ElMessage.success(response.data.message);
-                    this.$inertia.reload({ only: ['catalog_products'] }); // Recargar datos
+                    this.$inertia.reload({ only: ['products'] }); // Recargar datos
                 }
             } catch (error) {
                 ElMessage.error(error.response.data.message || 'No se pudo clonar el producto');
@@ -262,16 +334,11 @@ export default {
         },
     },
     watch: {
-        // Observador para actualizar `tableData` si los props cambian (ej. por paginación)
-        'catalog_products.data': {
-            handler(newData) {
-                // Solo actualiza si no hay una búsqueda activa
-                if (!this.search) {
-                    this.tableData = newData;
-                }
-            },
-            deep: true,
-            immediate: true,
+        search: debounce(function () {
+            this.fetchData();
+        }, 300),
+        productType() {
+            this.fetchData();
         }
     }
 };

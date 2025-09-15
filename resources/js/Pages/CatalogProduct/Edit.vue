@@ -26,7 +26,7 @@
                                 <InputError :message="form.errors.product_type_key" class="mt-1" />
                             </div>
 
-                            <div>
+                           <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Familia de producto *</span>
@@ -46,7 +46,7 @@
                                 <InputError :message="form.errors.product_family_id" class="mt-1" />
                             </div>
 
-                            <div>
+                            <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Marca del producto/Agencia*</span>
@@ -60,6 +60,11 @@
                                 </el-select>
                                 <InputError :message="form.errors.brand_id" class="mt-1" />
                             </div>
+
+                             <!-- Brand input for Insumo -->
+                            <div v-if="form.product_type_key === 'I'">
+                                <TextInput v-model="form.brand_name" label="Marca*" :error="form.errors.brand_name" placeholder="Ej. 3M" />
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -71,7 +76,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
+                            <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel value="Material*" />
                                 <el-select v-model="form.material" placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
@@ -133,7 +138,7 @@
                             </div>
                         </div>
 
-                        <div class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                        <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_circular" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
@@ -405,7 +410,7 @@ import DialogModal from "@/Components/DialogModal.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import { ElMessage } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import axios from 'axios';
 
 export default {
@@ -420,20 +425,18 @@ export default {
     data() {
         const typeMap = {
             "Catálogo": "C",
-            "Materia prima": "MP"
+            "Materia Prima": "MP",
+            "Insumo": "I"
         };
 
-        const materialMap = {
-            "Metal": "M",
-            "Plástico": "PLS",
-            "Piel de lujo": "PL",
-            "Original": "O",
-            "Lujo": "L",
-            "Piel": "P",
-            "Zamak": "ZK",
-            "Solid chrome": "SCH",
-            "Micrometal": "MM",
-        };
+        const materialMap = Object.fromEntries(
+            Object.entries({
+                'M': 'METAL', 'PLS': 'PLASTICO', 'PL': 'PIEL DE LUJO', 'O': 'ORIGINAL', 'L': 'LUJO',
+                'P': 'PIEL', 'ZK': 'ZAMAK', 'SCH': 'SOLIDCHROME', 'MM': 'MICROMETAL', 'FCH': 'FLEXCHROME',
+                'AL': 'ALUMINIO', 'ES': 'ESTIRENO', 'ABS': 'ABS', 'PVC': 'PVC', 'T': 'TELA',
+                'CAU': 'CAUCHO', 'VPL': 'VINILPIEL'
+            }).map(([key, value]) => [value, key])
+        );
 
         // --- Initial Cost Calculation ---
         const initialComponentsCost = this.catalog_product.components.reduce((total, component) => {
@@ -450,6 +453,8 @@ export default {
         const productBaseCost = parseFloat(this.catalog_product.cost) || 0;
         // --- End of Calculation ---
 
+        const productTypeKey = typeMap[this.catalog_product.product_type];
+
         return {
             form: useForm({
                 _method: 'PUT', // Clave para que Laravel trate el POST como PUT
@@ -460,7 +465,8 @@ export default {
                 currency: this.catalog_product.currency,
                 base_price: this.catalog_product.base_price,
                 brand_id: this.catalog_product.brand_id,
-                product_type_key: typeMap[this.catalog_product.product_type],
+                brand_name: productTypeKey === 'I' ? this.catalog_product.brand?.name : null,
+                product_type_key: productTypeKey,
                 product_family_id: this.catalog_product.product_family_id,
                 material: materialMap[this.catalog_product.material],
                 measure_unit: this.catalog_product.measure_unit,
@@ -501,7 +507,7 @@ export default {
             productTypeOptions: [
                 { label: 'Catálogo', key: 'C' },
                 { label: 'Materia Prima', key: 'MP' },
-                // { label: 'Insumo', key: 'I' },
+                { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
                 { label: 'METAL', key: 'M' }, { label: 'PLASTICO', key: 'PLS' }, { label: 'PIEL DE LUJO', key: 'PL' },
@@ -519,6 +525,25 @@ export default {
         'form.product_type_key'(newVal) {
             this.generatePartNumber();
             this.form.is_used_as_component = newVal === 'MP';
+            
+            // Resetear campos al cambiar a 'Insumo'
+            if (newVal === 'I') {
+                this.form.product_family_id = null;
+                this.form.brand_id = null;
+                this.form.material = null;
+                this.form.is_circular = false;
+                this.form.width = null;
+                this.form.large = null;
+                this.form.height = null;
+                this.form.diameter = null;
+                this.form.components = [];
+                this.form.hasComponents = false;
+                this.form.production_processes = [];
+                this.hasProductionProcesses = false;
+            } else {
+                // Resetear brand_name al cambiar a otro tipo
+                this.form.brand_name = null;
+            }
         },
         'form.hasComponents'(newVal) {
             if (newVal) {
@@ -530,6 +555,7 @@ export default {
         'form.product_family_id': 'generatePartNumber',
         'form.material': 'generatePartNumber',
         'form.brand_id': 'generatePartNumber',
+        'form.brand_name': 'generatePartNumber',
     },
     computed: {
         /**
@@ -590,21 +616,27 @@ export default {
         },
         generatePartNumber() {
             const type = this.form.product_type_key || '';
-            const familyObj = this.product_families.find(f => f.id === this.form.product_family_id);
-            const family = familyObj ? familyObj.key.toUpperCase() : '';
-            const material = this.form.material || '';
-            const brandObj = this.brands.find(b => b.id == this.form.brand_id);
-            const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
             const id = this.catalog_product.id || 'XXX';
 
-            if (type && family && material) {
-                if ( type === 'MP' ) {
-                    this.form.code = `${type}-${material}-${family}-${brand}-${id}`; // incluye el tipo de producto
-                } else {
-                    this.form.code = `${family}-${material}-${brand}-${id}`; // se quito el tipo de producto para dejarlo legible y corto para facturas
-                }
+             if (type === 'I') {
+                const brand = this.form.brand_name ? this.form.brand_name.substring(0, 3).toUpperCase() : '';
+                this.form.code = `${type}-${brand}-${id}`;
             } else {
-                this.form.code = '';
+                const familyObj = this.product_families.find(f => f.id === this.form.product_family_id);
+                const family = familyObj ? familyObj.key.toUpperCase() : '';
+                const material = this.form.material || '';
+                const brandObj = this.brands.find(b => b.id == this.form.brand_id);
+                const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
+
+                if (type && family && material) {
+                    if ( type === 'MP' ) {
+                        this.form.code = `${type}-${material}-${family}-${brand}-${id}`;
+                    } else {
+                        this.form.code = `${family}-${material}-${brand}-${id}`;
+                    }
+                } else {
+                    this.form.code = '';
+                }
             }
         },
         // --- Métodos para Componentes ---
@@ -653,6 +685,21 @@ export default {
             this.editComponentIndex = null;
         },
         getComponentName(productId) {
+            // Primero, verifica si la prop 'components' es un array válido.
+            if (!Array.isArray(this.components)) {
+                // Como respaldo, intenta encontrar el nombre del componente en los datos iniciales del producto.
+                if (this.catalog_product && Array.isArray(this.catalog_product.components)) {
+                    const productFromCatalog = this.catalog_product.components.find(p => p.id === productId);
+                    if (productFromCatalog) {
+                        return productFromCatalog.name;
+                    }
+                }
+                // Si no se encuentra en ninguna parte, devuelve el ID y muestra una advertencia en la consola.
+                console.warn("La prop 'components' (lista de todas las materias primas) no se está pasando correctamente al componente Edit.vue. No se pudo obtener el nombre del componente.");
+                return `ID: ${productId}`;
+            }
+            
+            // Si la prop es válida, busca el nombre en la lista principal de componentes disponibles.
             const product = this.components.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
@@ -750,3 +797,4 @@ export default {
   to { opacity: 1; transform: translateY(0); }
 }
 </style>
+

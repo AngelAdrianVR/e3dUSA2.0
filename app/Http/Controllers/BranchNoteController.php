@@ -21,7 +21,7 @@ class BranchNoteController extends Controller
         // incluyendo solo los campos necesarios del usuario asociado.
         // Finalmente, las ordena por fecha de creación descendente.
         $notes = $branch->notes()
-                       ->with('user:id,name')
+                       ->with('user:id,name,profile_photo_path')
                        ->latest()
                        ->get();
 

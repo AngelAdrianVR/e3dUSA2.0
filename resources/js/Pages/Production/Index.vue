@@ -8,7 +8,7 @@
                 </h2>
 
                 <!-- Switch de vistas Kanban/Tabla -->
-                <div class="flex items-center space-x-2 p-1 bg-gray-200 dark:bg-slate-800 rounded-full">
+                <div v-if="viewType === 'manager'" class="flex items-center space-x-2 p-1 bg-gray-200 dark:bg-slate-800 rounded-full">
                      <button @click="managerView.activeView = 'kanban'" 
                             :class="[managerView.activeView === 'kanban' ? 'bg-primary text-white shadow-lg' : 'text-gray-500 dark:text-gray-400', 'px-4 py-1 rounded-full transition-all duration-300']">
                         <i class="fa-solid fa-grip-vertical mr-1"></i> Kanban

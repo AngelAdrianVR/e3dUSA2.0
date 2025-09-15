@@ -54,7 +54,9 @@ export default {
     computed: {
         series() {
             // The order here MUST match the colors and categories in chartOptions
-            const statusOrder = ['Pendiente', 'Sin material', 'En proceso', 'Terminada', 'Atrasadas'];
+            const statusOrder = ['Pendiente', 'Sin material', 'En proceso', 'Terminada'
+            // , 'Atrasadas'
+            ];
             return [{
                 name: 'Órdenes',
                 data: statusOrder.map(status => this.stats[status] || 0)
@@ -66,10 +68,12 @@ export default {
                 'Sin material': '#F97316', // orange-500
                 'En proceso': '#3B82F6',   // blue-500
                 'Terminadas': '#22C55E',   // green-500
-                'Atrasadas': '#EF4444',    // red-500
+                // 'Atrasadas': '#EF4444',    // red-500
             };
 
-            const categories = ['Pendientes', 'Sin material', 'En proceso', 'Terminadas', 'Atrasadas'];
+            const categories = ['Pendientes', 'Sin material', 'En proceso', 'Terminadas',
+            //  'Atrasadas'
+             ];
 
             return {
                 chart: {
