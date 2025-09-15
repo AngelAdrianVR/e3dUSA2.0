@@ -108,8 +108,8 @@ Route::post('products/{product}/stock-movement', [ProductController::class, 'han
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
-// Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
-// Route::get('export-catalog-products', [ProductController::class, 'exportExcel']);
+Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
+Route::get('catalog-products-export-excel', [ProductController::class, 'exportExcel'])->name('catalog-products.export-excel');
 
 
 // ------- product families Routes ---------

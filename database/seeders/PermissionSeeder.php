@@ -49,7 +49,7 @@ class PermissionSeeder extends Seeder
             'Autorización de diseño' => ['Ver formatos de autorizacion de diseño', 'Crear formatos de autorizacion de diseño', 'Editar formatos de autorizacion de diseño', 'Eliminar formatos de autorizacion de diseño', 'Autorizar formatos de autorizacion de diseño'],
             'Análisis de ventas' => ['Ver analisis de ventas'],
             'Seguimiento de muestras' => ['Ver muestras', 'Crear muestras', 'Editar muestras', 'Eliminar muestras'],
-            'Almacén' => ['Ver almacenes', 'Crear almacenes'],
+            'Almacén' => ['Ver almacenes', 'Crear almacenes', 'Crear movimientos de stock'],
         ];
 
         foreach ($permissions as $module => $permissionList) {

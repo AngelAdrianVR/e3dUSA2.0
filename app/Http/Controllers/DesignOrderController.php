@@ -37,7 +37,7 @@ class DesignOrderController extends Controller
             $query->whereNull('designer_id');
         }
         // Si el usuario es un diseñador
-        else if ($user->role('Diseñador')) {
+        else if ($user->hasRole('Diseñador')) {
             $query->where('designer_id', $user->id);
         }
         // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)

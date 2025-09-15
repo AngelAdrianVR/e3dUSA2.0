@@ -24,7 +24,7 @@
                                 <InputError :message="form.errors.product_type_key" class="mt-1" />
                             </div>
 
-                            <div>
+                            <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Familia de producto *</span>
@@ -44,7 +44,8 @@
                                 <InputError :message="form.errors.product_family_id" class="mt-1" />
                             </div>
 
-                            <div>
+                            <!-- Brand select for Catalog and Raw Material -->
+                            <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Marca del producto/Agencia*</span>
@@ -58,6 +59,11 @@
                                 </el-select>
                                 <InputError :message="form.errors.brand_id" class="mt-1" />
                             </div>
+
+                             <!-- Brand input for Insumo -->
+                            <div v-if="form.product_type_key === 'I'">
+                                <TextInput v-model="form.brand_name" label="Marca*" :error="form.errors.brand_name" placeholder="Ej. 3M" />
+                            </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -69,7 +75,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div>
+                            <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel value="Material*" />
                                 <el-select v-model="form.material" placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
@@ -87,7 +93,7 @@
                             </div>
                         </div>
 
-                        <p v-if="form.material == 'T'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
+                        <p v-if="form.material == 'T' && form.product_type_key !== 'I'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
                         Si el producto se vende por medidas personalizadas, indicar stock y costo tomando como unidad el metro lineal.  
                         (Ejemplo: un rollo de tela de 1.52m x 30m equivale a 30 en stock y la unidad es Metro(s)).
                         </p>
@@ -137,7 +143,7 @@
                             </div>
                         </div>
 
-                        <div class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                        <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_circular" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
@@ -459,6 +465,7 @@ export default {
                 cost: null,
                 caracteristics: null,
                 brand_id: null,
+                brand_name: null, // Campo para la marca como texto en Insumos
                 product_family_id: null,
                 is_used_as_component: false,
                 product_type_key: 'C', // 'C' para Catálogo por defecto
@@ -526,6 +533,25 @@ export default {
         'form.product_type_key'(newVal) {
             this.generatePartNumber();
             this.form.is_used_as_component = newVal === 'MP';
+
+            // Resetear campos al cambiar a 'Insumo'
+            if (newVal === 'I') {
+                this.form.product_family_id = null;
+                this.form.brand_id = null;
+                this.form.material = null;
+                this.form.is_circular = false;
+                this.form.width = null;
+                this.form.large = null;
+                this.form.height = null;
+                this.form.diameter = null;
+                this.form.components = [];
+                this.form.hasComponents = false;
+                this.form.production_processes = [];
+                this.hasProductionProcesses = false;
+            } else {
+                // Resetear brand_name al cambiar a otro tipo
+                this.form.brand_name = null;
+            }
         },
         'form.hasComponents'(newVal) {
             if (newVal) {
@@ -537,6 +563,7 @@ export default {
         'form.product_family_id': 'generatePartNumber',
         'form.material': 'generatePartNumber',
         'form.brand_id': 'generatePartNumber',
+        'form.brand_name': 'generatePartNumber',
     },
     computed: {
         /**
@@ -657,21 +684,27 @@ export default {
         },
         generatePartNumber() {
             const type = this.form.product_type_key || '';
-            const familyObj = this.product_families.find(f => f.id === this.form.product_family_id);
-            const family = familyObj ? familyObj.key.toUpperCase() : '';
-            const material = this.form.material || '';
-            const brandObj = this.brands.find(b => b.id == this.form.brand_id);
-            const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
             const id = this.consecutive || 'XXX';
 
-            if (type && family && material) {
-                if ( type === 'MP' ) {
-                    this.form.code = `${type}-${material}-${family}-${brand}-${id}`; // incluye el tipo de producto
-                } else {
-                    this.form.code = `${family}-${material}-${brand}-${id}`; // se quito el tipo de producto para dejarlo legible y corto para facturas
-                }
+            if (type === 'I') {
+                const brand = this.form.brand_name ? this.form.brand_name.substring(0, 3).toUpperCase() : '';
+                this.form.code = `${type}-${brand}-${id}`;
             } else {
-                this.form.code = '';
+                const familyObj = this.product_families.find(f => f.id === this.form.product_family_id);
+                const family = familyObj ? familyObj.key.toUpperCase() : '';
+                const material = this.form.material || '';
+                const brandObj = this.brands.find(b => b.id == this.form.brand_id);
+                const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
+
+                if (type && family && material) {
+                    if ( type === 'MP' ) {
+                        this.form.code = `${type}-${material}-${family}-${brand}-${id}`;
+                    } else {
+                        this.form.code = `${family}-${material}-${brand}-${id}`;
+                    }
+                } else {
+                    this.form.code = '';
+                }
             }
         },
         // --- Métodos para Componentes ---

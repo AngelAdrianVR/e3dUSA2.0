@@ -16,6 +16,13 @@
                     class="group relative flex items-center justify-center w-8 h-16 bg-slate-800/80 backdrop-blur-sm text-white rounded-l-2xl shadow-2xl hover:bg-slate-700/90 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                     aria-label="Mostrar notas"
                 >
+                    <span 
+                        class="absolute -top-1 -left-2 flex items-center justify-center 
+                            size-5 text-xs font-bold text-white bg-red-500 rounded-full 
+                            ring-2 ring-red-800 shadow-md"
+                    >
+                        {{ notes.length }}
+                    </span>
                     <!-- Icono -->
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -65,14 +72,15 @@
                             <p class="whitespace-pre-wrap text-slate-200">{{ note.content }}</p>
                             <div class="flex justify-between items-center mt-2 text-xs text-slate-500">
                                 <span class="font-semibold">{{ note.user?.name }} &bull; {{ formatRelative(note.created_at) }}</span>
-                                <div class="flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <button @click="startEdit(note)" class="hover:text-cyan-400">Editar</button>
-                                    <el-popconfirm title="¿Eliminar esta nota?" @confirm="deleteNote(note.id)">
-                                        <template #reference>
-                                            <button class="hover:text-red-500">Eliminar</button>
-                                        </template>
-                                    </el-popconfirm>
-                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end mt-2 space-x-3 opacity-0 text-xs text-slate-500 group-hover:opacity-100 transition-opacity duration-300">
+                                <button @click="startEdit(note)" class="hover:text-cyan-400">Editar</button>
+                                <el-popconfirm title="Se eliminará la nota. ¿Continuar?" @confirm="deleteNote(note.id)">
+                                    <template #reference>
+                                        <button class="hover:text-green-500">Terminado</button>
+                                    </template>
+                                </el-popconfirm>
                             </div>
                         </div>
                         <!-- Editor de la nota -->

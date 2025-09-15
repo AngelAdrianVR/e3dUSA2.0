@@ -13,12 +13,12 @@
                     </el-select>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <el-tooltip content="Registrar Entrada" placement="top">
+                    <el-tooltip v-if="$page.props.auth.user.permissions.includes('Crear movimientos de stock')" content="Registrar Entrada" placement="top">
                         <button @click="openStockModal('Entrada')" class="size-9 flex items-center justify-center rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-600 dark:text-green-300 transition-colors">
                             <i class="fa-solid fa-arrow-up"></i>
                         </button>
                     </el-tooltip>
-                    <el-tooltip content="Registrar Salida" placement="top">
+                    <el-tooltip v-if="$page.props.auth.user.permissions.includes('Crear movimientos de stock')" content="Registrar Salida" placement="top">
                          <button @click="openStockModal('Salida')" class="size-9 flex items-center justify-center rounded-lg bg-red-100 hover:bg-red-200 dark:bg-red-800 dark:hover:bg-red-700 text-red-600 dark:text-red-300 transition-colors">
                             <i class="fa-solid fa-arrow-down"></i>
                         </button>
@@ -101,6 +101,7 @@
                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ product.name }}
                             <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
                         </h1>
+                        <p class="text-amber-500">{{ product.product_type }}</p>
                         <p class="text-base text-gray-500 dark:text-gray-400 font-mono mt-1">Código: {{ product.code }}</p>
                     </div>
 

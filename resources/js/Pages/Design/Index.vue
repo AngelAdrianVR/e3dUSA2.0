@@ -40,9 +40,8 @@
                                 <button v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')" @click="switchView('all')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'all', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'all'}" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
                                     Todas
                                 </button>
-                                <button v-if="$page.props.auth.user.permissions.includes('Ver todas las ordenes de diseño')" @click="switchView('unassigned')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'unassigned', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'unassigned'}" class="relative px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
+                                <button v-if="$page.props.auth.user.permissions.includes('Asignar diseños')" @click="switchView('unassigned')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'unassigned', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'unassigned'}" class="relative px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
                                     Sin Asignar
-                                    <!-- Nuevo: Indicador numérico de órdenes sin asignar -->
                                     <span v-if="unassignedOrdersCount > 0" class="absolute -top-2 -right-2 inline-flex items-center justify-center size-5 text-xs font-bold text-white bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-800">
                                         {{ unassignedOrdersCount }}
                                     </span>
