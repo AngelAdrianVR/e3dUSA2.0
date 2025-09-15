@@ -10,6 +10,7 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-3">
             <p :class="['font-bold text-lg w-8 text-center', selectedSeller?.id === seller.id ? 'text-white' : 'text-secondary dark:text-indigo-400']">{{ index + 1 }}</p>
+            <img :src="seller.profile_photo_url" :alt="seller.name" class="size-9 object-cover rounded-full mr-2">
             <p class="font-medium dark:text-gray-200 truncate">{{ seller.name }}</p>
           </div>
           <span class="text-base font-bold text-green-500 dark:text-green-400 ml-4 whitespace-nowrap">{{ formatCurrency(seller.total_sold) }}</span>

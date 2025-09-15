@@ -429,7 +429,7 @@ export default {
             const years = Math.floor(diffMonths / 12);
             return `hace ${years} año${years > 1 ? "s" : ""}`;
             },
-            getPriceChangeClass(dateString) {
+        getPriceChangeClass(dateString) {
             const date = new Date(dateString);
             const now = new Date();
             const diffMs = now - date;

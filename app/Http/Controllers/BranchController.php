@@ -139,6 +139,7 @@ class BranchController extends Controller
             'parent:id,name', 
             'contacts.details',
             'suggestedProducts.media',
+            'products.storages',
             'products.media', // Carga los productos y sus imágenes
             'products.priceHistory' => function ($query) use ($branch) {
                 $query->where('branch_id', $branch->id)->orderBy('valid_from', 'desc');

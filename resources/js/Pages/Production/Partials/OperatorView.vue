@@ -7,7 +7,7 @@
                     <!-- Encabezado del Grupo (Orden de Venta) -->
                     <div class="flex justify-between items-start px-2 mb-2">
                         <div class="flex items-center space-x-2">
-                             <div class="h-8 w-1 rounded-full" :class="group.is_high_priority ? 'bg-red-500' : 'bg-secondary'"></div>
+                             <div class="h-8 w-1 rounded-full" :class="group.is_high_priority ? 'bg-red-500' : 'bg-primary'"></div>
 
                              <el-tooltip v-if="group.is_high_priority" content="Alta Prioridad" placement="top">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-7 text-red-500">
@@ -120,11 +120,11 @@
                                          <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs border-t border-slate-200 dark:border-slate-700 pt-2">
                                             <div>
                                                 <span class="text-gray-400">Ordenado:</span>
-                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ task.production.sale_product.quantity }}</span>
+                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ task.production.sale_product.quantity.toLocaleString() }}</span>
                                             </div>
                                             <div>
                                                 <span class="text-gray-400">A Producir:</span>
-                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ getQuantityToProduce(task) }}</span>
+                                                <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ getQuantityToProduce(task).toLocaleString() }}</span>
                                             </div>
                                             <div>
                                                 <span class="text-gray-400">De Stock:</span>

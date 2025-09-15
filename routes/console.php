@@ -22,3 +22,9 @@ Schedule::command('app:manage-weekly-payroll')->thursdays()->at('23:55');
 
 // Otorga las vacaciones proporcionales a cada empleado activo.
 Schedule::command('app:grant-weekly-vacations')->weeklyOn(5, '01:00'); // Cada viernes a la 1:00 AM
+
+// Ejecuta el backup de la base de datos todos los días a la 1:00 AM.
+Schedule::command('app:backup-database')->daily()->at('01:00');
+
+// Ejecuta el backup de los medios los días 1 y 15 de cada mes a las 2:00 AM.
+Schedule::command('app:backup-media')->twiceMonthly(1, 15, '02:00');

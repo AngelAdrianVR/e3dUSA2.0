@@ -89,6 +89,7 @@ class SalesAnalysisController extends Controller
             return [
                 'id' => $product->id,
                 'name' => $product->name,
+                'archived_at' => $product->archived_at,
                 'code' => $product->code,
                 'cost' => $product->cost,
                 'base_price' => $product->base_price,
@@ -244,15 +245,36 @@ class SalesAnalysisController extends Controller
     {
         $query = Sale::query()
             ->join('users', 'sales.user_id', '=', 'users.id')
-            ->select('users.id', 'users.name', DB::raw('SUM(sales.total_amount) as total_sold'))
-            ->groupBy('users.id', 'users.name')
+            ->select('users.id', 'users.name', 'users.profile_photo_path', DB::raw('SUM(sales.total_amount) as total_sold'))
+            ->groupBy('users.id', 'users.name', 'users.profile_photo_path') // <-- Es buena práctica agrupar por todas las columnas no agregadas
             ->orderBy('total_sold', 'desc')
             ->limit(20);
 
         $this->applyBaseFiltersToQuery($query, $request);
         $this->applyDateFilterToQuery($query, $request);
 
-        return response()->json($query->get());
+        // 1. Obtenemos los resultados crudos de la base de datos
+        $topSellersRaw = $query->get();
+
+        // 2. Transformamos la colección para añadir la URL de la foto
+        $topSellers = $topSellersRaw->map(function ($sellerData) {
+            // Creamos una instancia temporal del modelo User para usar su lógica
+            $user = new User();
+            
+            // El trait HasProfilePhoto busca este atributo para construir la URL
+            $user->profile_photo_path = $sellerData->profile_photo_path;
+
+            // Añadimos la URL calculada a nuestros datos
+            $sellerData->profile_photo_url = $user->profile_photo_url;
+            
+            // Añadimos el total vendido que ya teníamos
+            // (Este paso es redundante ya que $sellerData ya lo tiene, pero es para claridad)
+            $sellerData->total_sold = $sellerData->total_sold; 
+
+            return $sellerData;
+        });
+
+        return response()->json($topSellers);
     }
 
     /**
