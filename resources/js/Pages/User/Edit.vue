@@ -127,7 +127,7 @@ export default {
                                     <InputLabel value="Departamento*" />
                                     <el-select v-model="form.department" placeholder="Selecciona el departamento"
                                         class="!w-full">
-                                        <el-option v-for="department in departments" :key="department"
+                                        <el-option v-for="department in ['Ventas', 'Producción', 'Diseño', 'Administración', 'Finanzas', 'Mercadotecnia']" :key="department"
                                             :label="department" :value="department" />
                                     </el-select>
                                     <InputError :message="form.errors.department" class="mt-3" />

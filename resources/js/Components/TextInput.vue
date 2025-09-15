@@ -190,7 +190,7 @@ defineExpose({ focus: () => elementRef.value?.focus() });
 // Clases base compartidas para mantener un estilo consistente
 const baseClasses = computed(() => [
     'block w-full py-2 rounded-md shadow-sm',
-    'bg-gray-50 dark:bg-gray-700',
+    'bg-gray-50 dark:bg-transparent',
     'border transition-colors duration-300',
     'placeholder-gray-400 dark:placeholder-gray-500',
     'focus:outline-none focus:ring-0',
