@@ -16,7 +16,7 @@
         </template>
 
         <div @click="openFile"
-            class="group flex items-center space-x-2 border border-gray-200 bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-white rounded-lg py-2 px-4 cursor-pointer transition-all duration-300 ease-in-out hover:border-secondary dark:hover:border-secondary hover:shadow-lg hover:shadow-secondary/20 dark:hover:shadow-secondary/10 hover:-translate-y-1">
+            class="group flex items-center space-x-2 border border-gray-200 bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-white rounded-lg py-2 px-4 cursor-pointer transition-all duration-300 ease-in-out hover:border-primary dark:hover:border-primary hover:shadow-lg hover:shadow-primary/20 dark:hover:shadow-primary/10 hover:-translate-y-1">
             <figure class="h-8 w-1/5 flex-shrink-0">
                 <img class="w-full h-full object-contain" :src="getFileTypeIcon()">
             </figure>

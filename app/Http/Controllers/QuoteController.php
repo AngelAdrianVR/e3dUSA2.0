@@ -48,7 +48,7 @@ class QuoteController extends Controller
     public function create()
     {
         // Obtenemos solo los productos de tipo 'Catálogo' para el selector principal.
-        $catalogProducts = Product::where('product_type', 'Catálogo')->select('id', 'name', 'code')->get();
+        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
         
         // Obtenemos todas las sucursales (clientes).
         $branches = Branch::select('id', 'name', 'status')->get();
@@ -163,7 +163,7 @@ class QuoteController extends Controller
     public function edit(Quote $quote)
     {
         // Obtenemos solo los productos de tipo 'Catálogo' para el selector principal.
-        $catalogProducts = Product::where('product_type', 'Catálogo')->select('id', 'name', 'code')->get();
+        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
         
         // Obtenemos todas las sucursales (clientes).
         $branches = Branch::select('id', 'name', 'status')->get();
