@@ -22,7 +22,7 @@ class ProductionController extends Controller
         $user = Auth::user();
 
         // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
-        if ($user->hasRole('Jefe de Producción') || $user->hasRole('Super Administrador')) {
+        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador')) {
             $selectedStatus = $request->input('status');
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
@@ -30,10 +30,10 @@ class ProductionController extends Controller
                 ->whereHas('productions')
                 ->select(['id', 'branch_id', 'authorized_at', 'type', 'status', 'is_high_priority', 'user_id', 'created_at', 'promise_date'])
                 ->with([
-                    'user:id,name',
+                    'user:id,name,profile_photo_path',
                     'branch:id,name',
                     'productions.tasks:id,production_id,status,operator_id,started_at,finished_at,name',
-                    'productions.tasks.operator:id,name',
+                    'productions.tasks.operator:id,name,profile_photo_path',
                     'saleProducts:id,sale_id,product_id,quantity_to_produce',
                     'saleProducts.product:id,name,code,measure_unit',
                     'saleProducts.product.media',
@@ -75,8 +75,8 @@ class ProductionController extends Controller
             ]);
         }
 
-        // --- Vista para el Operador ---
-        if ($user->hasRole('Operador')) {
+        // --- Vista para el Auxiliar de producción ---
+        if ($user->hasRole('Auxiliar de producción')) {
             // --- CARGA OPTIMIZADA ---
             // Solo se carga la información esencial para la vista de tarjetas.
             $myTasks = ProductionTask::where('operator_id', $user->id)
@@ -110,7 +110,7 @@ class ProductionController extends Controller
     public function create()
     {
         // Obtener la lista de usuarios que son operadores
-        $operators = User::where('is_active', true)->orderBy('name')->get();
+        $operators = User::where('is_active', true)->role('Auxiliar de producción')->orderBy('name')->get();
 
         // Obtener la lista de procesos de producción predefinidos
         $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();
@@ -212,7 +212,7 @@ class ProductionController extends Controller
             'branch:id,name,address,rfc,post_code,status',
             'contact:id,name',
             'contact.details',
-            'user:id,name', // Usuario que creó la venta
+            'user:id,name,profile_photo_path', // Usuario que creó la venta
 
             // Productos de la venta
             'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
@@ -223,9 +223,9 @@ class ProductionController extends Controller
                 $query->with([
                     'tasks:id,production_id,operator_id,name,status,started_at,finished_at,estimated_time_minutes',
                     // Tareas de cada producción y el operador asignado
-                    'tasks.operator:id,name',
+                    'tasks.operator:id,name,profile_photo_path',
                     // Logs de cada producción y el usuario que los generó
-                    'logs.user:id,name',
+                    'logs.user:id,name,profile_photo_path',
                     // Producto asociado a la producción para tener referencia
                     'saleProduct.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics'
                 ])->orderBy('created_at'); // Ordenar producciones

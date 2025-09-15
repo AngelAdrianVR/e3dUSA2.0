@@ -20,6 +20,7 @@ class ProductController extends Controller
     public function index()
     {
         $catalog_products = Product::where('product_type', 'Catalogo')
+            ->whereNull('archived_at')
             ->with(['media', 'brand:id,name'])
             ->latest()
             ->select(['id', 'code', 'name', 'cost', 'material','brand_id', 'archived_at'])

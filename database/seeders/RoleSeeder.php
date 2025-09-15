@@ -19,7 +19,7 @@ class RoleSeeder extends Seeder
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         // --- Rol: Auxiliar de produccion ---
-        $auxProduccion = Role::create(['name' => 'Auxiliar de produccion']);
+        $auxProduccion = Role::create(['name' => 'Auxiliar de producción']);
         $auxProduccion->givePermissionTo([
             'Chatear',
             'Ver ordenes de produccion',

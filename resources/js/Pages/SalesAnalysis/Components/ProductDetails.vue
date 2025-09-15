@@ -9,6 +9,7 @@
             <img @click="openProductDetail" :src="selectedProduct.image_url || 'https://placehold.co/128x128/1f2937/9ca3af?text=N/A'" class="size-32 cursor-pointer rounded-lg object-cover bg-gray-700">
             <div class="flex-1">
                 <h3 class="text-2xl font-bold dark:text-white">{{ selectedProduct.name }}</h3>
+                <el-tag v-if="selectedProduct.archived_at" type="warning" class="mb-1">Obsoleto</el-tag>
                 <p class="text-sm text-gray-400 font-mono mb-4">{{ selectedProduct.code }}</p>
                 <div class="grid grid-cols-2 gap-4 text-sm">
                     <div>

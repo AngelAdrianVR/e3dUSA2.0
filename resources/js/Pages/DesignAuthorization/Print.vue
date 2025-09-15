@@ -86,7 +86,7 @@
             </div>
 
             <footer class="lg:col-span-full p-2 border-b border-[#9A9A9A] mt-5">
-                <h1 class="text-primary text-lg font-bold">Importante</h1>
+                <h1 class="text-red-600 text-lg font-bold">Importante</h1>
                 <p class="font-bold">Se solicita una revisión cuidadosa del diseño, los colores y el texto. Una vez autorizado, cualquier omisión será responsabilidad de la persona que lo firme</p>
                 <p class="text-sm text-gray-500">*Los logotipos y marcas mostrados en este formato tienen un propósito exclusivamente ilustrativo, ya que los tonos de los grabados e impresiones pueden variar dependiendo del producto o lote.</p>
                 <p class="text-sm text-gray-500">*Los colores de la pantalla puede variar dependiendo del dispositivo en que se visualicen. </p>

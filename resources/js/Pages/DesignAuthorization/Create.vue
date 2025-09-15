@@ -166,7 +166,7 @@ export default {
         designOrders: Array,
         sellers: Array,
         branches: Array,
-        design_order_id: Number,
+        design_order: Object,
     },
     methods: {
         store() {
@@ -207,8 +207,12 @@ export default {
         }
     },
     mounted() {
-        if ( this.design_order_id ) {
-            this.form.design_order_id = this.design_order_id;
+        if ( this.design_order ) {
+            this.form.design_order_id = this.design_order.id;
+            this.form.branch_id = this.design_order.branch_id;
+            this.handleBranchChange(this.design_order.branch_id);
+            this.form.contact_id = this.design_order.contact_id;
+            this.form.seller_id = this.design_order.requester_id;
             this.handleDesignOrderChange();
         }
     }
