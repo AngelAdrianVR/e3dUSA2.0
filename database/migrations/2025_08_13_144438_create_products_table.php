@@ -34,7 +34,7 @@ return new class extends Migration
             $table->integer('min_quantity')->default(1);
             $table->integer('max_quantity')->nullable();
             $table->foreignId('brand_id')->constrained('brands'); 
-            $table->foreignId('product_family_id')->constrained('product_families'); 
+            $table->foreignId('product_family_id')->nullable()->constrained('product_families'); 
             $table->timestamps();
         });
     }

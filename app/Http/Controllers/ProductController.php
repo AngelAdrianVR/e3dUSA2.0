@@ -14,19 +14,49 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use App\Exports\CatalogProductPricesExport;
+use App\Models\Branch;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $catalog_products = Product::where('product_type', 'Catalogo')
-            ->whereNull('archived_at')
-            ->with(['media', 'brand:id,name'])
-            ->latest()
-            ->select(['id', 'code', 'name', 'cost', 'material','brand_id', 'archived_at'])
-            ->paginate(30);
+        $productType = $request->input('product_type', 'Catálogo'); // 'Catálogo' como valor por defecto
+        $searchTerm = $request->input('search');
 
-        return inertia('CatalogProduct/Index', compact('catalog_products'));
+        // Iniciar la consulta base
+        $query = Product::query()
+            ->with(['storages:id,storable_id,storable_type,quantity,location', 'brand:id,name', 'media']);
+
+        // Aplicar filtro por tipo de producto
+        // Asumo que tienes un scope 'obsolete()' para productos archivados y 'ofType()' para filtrar por tipo.
+        if ($productType === 'Obsoleto') {
+            $query->whereNotNull('archived_at'); // o ->obsolete() si el scope existe
+        } else {
+            $query->whereNull('archived_at') // o ->active() si el scope existe
+                  ->where('product_type', $productType); // o ->ofType($productType) si el scope existe
+        }
+
+        // Aplicar filtro de búsqueda si existe
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('code', 'LIKE', "%{$searchTerm}%")
+                  ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                      $brandQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                  });
+            });
+        }
+
+        // Paginar los resultados
+        $products = $query->latest('id')->paginate(20)->withQueryString();
+
+        // Devolver la vista de Inertia con los datos
+        return Inertia::render('CatalogProduct/Index', [
+            'products' => $products,
+            'filters' => $request->only(['product_type', 'search']),
+        ]);
     }
 
     public function create()
@@ -72,10 +102,11 @@ class ProductController extends Controller
                 'numeric',
                 'min:0',
             ],
-            'brand_id' => 'required|exists:brands,id',
+            'brand_id' => 'nullable|required_if:product_type_key,C,MP|exists:brands,id',
+            'brand_name' => 'nullable|required_if:product_type_key,I|string|max:255',
             'product_type_key' => 'required|string|in:C,MP,I',
-            'product_family_id' => 'required|exists:product_families,id',
-            'material' => 'required|string',
+            'product_family_id' => 'nullable|required_if:product_type_key,C,MP|exists:product_families,id',
+            'material' => 'nullable|required_if:product_type_key,C,MP|string',
             'measure_unit' => 'nullable|string|max:100',
             'min_quantity' => 'nullable|integer|min:0',
             'max_quantity' => 'nullable|integer|min:0|gte:min_quantity',
@@ -97,6 +128,18 @@ class ProductController extends Controller
             'production_processes' => 'nullable|array',
             'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
         ]);
+
+        // --- Lógica para el tipo de producto 'Insumo' ---
+        if ($validatedData['product_type_key'] === 'I') {
+            // Busca o crea la marca por nombre y obtiene su ID
+            $brand = \App\Models\Brand::firstOrCreate(['name' => $validatedData['brand_name']]);
+            $validatedData['brand_id'] = $brand->id;
+            // Elimina el nombre temporal de la marca ya que ahora tenemos el ID
+            unset($validatedData['brand_name']);
+            // Asegura que la familia y el material sean nulos para los Insumos
+            $validatedData['product_family_id'] = null;
+            $validatedData['material'] = null;
+        }
 
         // 2. MAPEO DE CLAVES 
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
@@ -121,7 +164,10 @@ class ProductController extends Controller
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
-        $validatedData['material'] = $materials[$validatedData['material']];
+        // Se mapea el material solo si existe (no será el caso para Insumos)
+        if (isset($validatedData['material'])) {
+            $validatedData['material'] = $materials[$validatedData['material']];
+        }
 
         // ================== INICIO: LÓGICA DE CÁLCULO DE COSTO ============
         // Se inicializa el costo total con el valor base del formulario.
@@ -230,7 +276,7 @@ class ProductController extends Controller
         // Solo seleccionamos 'id' y 'name' para que la consulta sea ligera.
         $all_products = Product::query()
             ->select('id', 'name')
-            ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
+            // ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
             ->orderBy('name')
             ->get();
 
@@ -265,7 +311,6 @@ class ProductController extends Controller
         // 1. REGLAS DE VALIDACIÓN
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
-            // Ignora el producto actual al verificar si el código es único
             'code' => ['required', 'string', Rule::unique('products')->ignore($catalog_product->id)],
             'caracteristics' => 'nullable|string',
             'cost' => 'required|numeric|max:99999',
@@ -280,10 +325,11 @@ class ProductController extends Controller
                 'numeric',
                 'min:0',
             ],
-            'brand_id' => 'required|exists:brands,id',
+            'brand_id' => 'nullable|required_if:product_type_key,C,MP|exists:brands,id',
+            'brand_name' => 'nullable|required_if:product_type_key,I|string|max:255',
             'product_type_key' => 'required|string|in:C,MP,I',
-            'product_family_id' => 'required|exists:product_families,id',
-            'material' => 'required|string',
+            'product_family_id' => 'nullable|required_if:product_type_key,C,MP|exists:product_families,id',
+            'material' => 'nullable|required_if:product_type_key,C,MP|string',
             'measure_unit' => 'nullable|string|max:100',
             'min_quantity' => 'nullable|numeric|min:0',
             'max_quantity' => 'nullable|numeric|min:0|gte:min_quantity',
@@ -306,6 +352,18 @@ class ProductController extends Controller
             'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
             'location' => 'nullable|string|max:255',
         ]);
+
+        // --- Lógica para el tipo de producto 'Insumo' ---
+        if ($validatedData['product_type_key'] === 'I') {
+            // Busca o crea la marca por nombre y obtiene su ID
+            $brand = \App\Models\Brand::firstOrCreate(['name' => $validatedData['brand_name']]);
+            $validatedData['brand_id'] = $brand->id;
+            // Elimina el nombre temporal de la marca ya que ahora tenemos el ID
+            unset($validatedData['brand_name']);
+            // Asegura que la familia y el material sean nulos para los Insumos
+            $validatedData['product_family_id'] = null;
+            $validatedData['material'] = null;
+        }
 
         // 2. MAPEO DE CLAVES
         $productTypes = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo'];
@@ -330,7 +388,10 @@ class ProductController extends Controller
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
-        $validatedData['material'] = $materials[$validatedData['material']];
+        // Se mapea el material solo si existe (no será el caso para Insumos)
+        if (isset($validatedData['material'])) {
+            $validatedData['material'] = $materials[$validatedData['material']];
+        }
 
         // ================== INICIO: LÓGICA DE CÁLCULO DE COSTO ============
         // Se inicializa el costo total con el valor base del formulario.
@@ -359,7 +420,7 @@ class ProductController extends Controller
 
         // revisa si el precio base se modificó para actualizar la fecha de modificación
         if ( $catalog_product->base_price != $request->base_price ) {
-             $validatedData['base_price_updated_at'] = now();
+            $validatedData['base_price_updated_at'] = now();
         }
 
         // 4. TRANSACCIÓN DE BASE DE DATOS
@@ -379,19 +440,23 @@ class ProductController extends Controller
                 $storage->update(['location' => $request->location]);
             }
             
-            // 5. SINCRONIZAR RELACIONES (si es un producto de catálogo)
-            if ($validatedData['product_type_key'] === 'C') {
+            // 5. SINCRONIZAR RELACIONES
+            // Limpia relaciones si el producto ya no es de catálogo o es Insumo
+            if ($validatedData['product_type_key'] !== 'C') {
+                $catalog_product->components()->sync([]);
+                $catalog_product->productionCosts()->sync([]);
+            } else {
+                // Sincroniza si es de Catálogo
                 $componentsToSync = [];
                 if ($request->filled('components')) {
-                    $componentsToSync = [];
                     foreach ($request->input('components') as $component) {
                         $componentsToSync[$component['product_id']] = [
                             'quantity' => $component['quantity'],
                             'cost' => $component['cost']
                         ];
                     }
-                    $catalog_product->components()->sync($componentsToSync); // sync() elimina los que no están y agrega los nuevos
                 }
+                $catalog_product->components()->sync($componentsToSync);
 
                 $processesToSync = [];
                 if ($request->filled('production_processes')) {
@@ -423,9 +488,9 @@ class ProductController extends Controller
         return to_route('catalog-products.show', $catalog_product->id);
     }
 
-    public function destroy(Product $product)
+    public function destroy(Product $catalog_product)
     {
-        $product->delete();
+        $catalog_product->delete();
     }
 
     public function massiveDelete(Request $request)
@@ -590,6 +655,34 @@ class ProductController extends Controller
             'base_price' => $product->base_price,
             'base_price_updated_at' => $product->base_price_updated_at,
         ]);
+    }
+
+    public function pricesReport()
+    {
+        $catalog_products = Product::where('product_type', 'Catálogo')
+            ->whereNull('archived_at')
+            ->with([
+                'media',
+                // Carga el historial de precios, pero solo las entradas activas (sin fecha final).
+                // Para cada precio, también carga la información de la sucursal asociada.
+                'priceHistory' => function ($query) {
+                    $query->whereNull('valid_to') 
+                          ->with('branch:id,name'); // Asume que el modelo BranchPriceHistory tiene una relación 'branch'
+                }
+            ])
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'cost', 'base_price']);
+
+            // return $catalog_products;
+        return inertia('CatalogProduct/PricesReport', compact('catalog_products'));
+    }
+    
+
+    public function exportExcel()
+    {
+        $fileName = 'catalogo_precios.xlsx';
+        
+        return Excel::download(new CatalogProductPricesExport, $fileName);
     }
 
 }
