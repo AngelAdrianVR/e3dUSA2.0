@@ -65,13 +65,6 @@ class User extends Authenticatable implements Auditable
         'profile_photo_url',
     ];
 
-    protected $visible = [
-        'id',
-        'name',
-        'email',
-        'profile_photo_url',
-    ];
-
     /**
      * Get the attributes that should be cast.
      *
