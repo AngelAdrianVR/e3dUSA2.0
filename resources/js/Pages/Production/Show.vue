@@ -228,7 +228,7 @@
                                         <p v-if="task.finished_at" class="text-amber-400 font-bold">Fin: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ task.finished_at ? formatDateTime(task.finished_at) : '-' }}</span></p>
                                     </div>
                                     <div class="flex items-center text-xs mb-1.5">
-                                         <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 rounded-full mr-2">
+                                         <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 object-cover rounded-full mr-2">
                                         <span class="font-medium text-gray-700 dark:text-gray-300 w-1/3 truncate">{{ task.name }}</span>
                                         <span class="text-gray-500 dark:text-gray-400 ml-auto">Duración total: {{ getTaskDuration(task.started_at, task.finished_at) }}</span>
                                     </div>

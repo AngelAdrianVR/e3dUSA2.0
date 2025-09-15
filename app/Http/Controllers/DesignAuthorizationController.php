@@ -57,7 +57,7 @@ class DesignAuthorizationController extends Controller
         
         // Asumiendo que todos los usuarios pueden ser vendedores.
         // Podrías filtrar por un rol si lo tuvieras.
-        $sellers = User::select('id', 'name')->get(); 
+        $sellers = User::select('id', 'name')->role('Vendedor')->get(); 
         $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
 
         return Inertia::render('DesignAuthorization/Create', [
@@ -154,7 +154,7 @@ class DesignAuthorizationController extends Controller
             ->select('id', 'order_title')
             ->get();
 
-        $sellers = User::select('id', 'name')->get();
+        $sellers = User::select('id', 'name')->role('Vendedor')->get();
         $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
 
         return Inertia::render('DesignAuthorization/Edit', [

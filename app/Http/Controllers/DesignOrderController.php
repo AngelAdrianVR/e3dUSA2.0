@@ -36,8 +36,8 @@ class DesignOrderController extends Controller
             // Nuevo: Filtra para mostrar solo órdenes sin diseñador asignado.
             $query->whereNull('designer_id');
         }
-        // Si el usuario es un diseñador (asumiendo que tiene un rol o permiso específico)
-        else if ($user->isDesigner()) { // Deberás crear este método en tu modelo User
+        // Si el usuario es un diseñador
+        else if ($user->role('Diseñador')) {
             $query->where('designer_id', $user->id);
         }
         // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)

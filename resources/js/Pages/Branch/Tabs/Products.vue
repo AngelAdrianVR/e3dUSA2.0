@@ -12,6 +12,7 @@
             <div class="flex justify-between items-start">
                 <div>
                     <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400">{{ product.name }}</h4>
+                    <el-tag v-if="product.archived_at" type="warning" class="mb-1">Obsoleto</el-tag>
                     <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ product.code }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -27,9 +28,10 @@
                     </el-tooltip>
                 </div>
             </div>
-            <div class="text-sm mt-2 space-y-1">
+            <div class="text-sm mt-2 space-y-px">
                 <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio actual:</strong> ${{ currentPrice(product) }}</p>
                 <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Material:</strong> {{ product.material }}</p>
+                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Stock disponible:</strong> {{ product.storages[0]?.quantity }} {{ product.measure_unit }}</p>
             </div>
         </div>
     </div>
