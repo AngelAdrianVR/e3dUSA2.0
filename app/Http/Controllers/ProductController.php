@@ -14,19 +14,49 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use App\Exports\CatalogProductPricesExport;
+use App\Models\Branch;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $catalog_products = Product::where('product_type', 'Catalogo')
-            ->whereNull('archived_at')
-            ->with(['media', 'brand:id,name'])
-            ->latest()
-            ->select(['id', 'code', 'name', 'cost', 'material','brand_id', 'archived_at'])
-            ->paginate(30);
+        $productType = $request->input('product_type', 'Catálogo'); // 'Catálogo' como valor por defecto
+        $searchTerm = $request->input('search');
 
-        return inertia('CatalogProduct/Index', compact('catalog_products'));
+        // Iniciar la consulta base
+        $query = Product::query()
+            ->with(['storages:id,storable_id,storable_type,quantity,location', 'brand:id,name', 'media']);
+
+        // Aplicar filtro por tipo de producto
+        // Asumo que tienes un scope 'obsolete()' para productos archivados y 'ofType()' para filtrar por tipo.
+        if ($productType === 'Obsoleto') {
+            $query->whereNotNull('archived_at'); // o ->obsolete() si el scope existe
+        } else {
+            $query->whereNull('archived_at') // o ->active() si el scope existe
+                  ->where('product_type', $productType); // o ->ofType($productType) si el scope existe
+        }
+
+        // Aplicar filtro de búsqueda si existe
+        if ($searchTerm) {
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'LIKE', "%{$searchTerm}%")
+                  ->orWhere('code', 'LIKE', "%{$searchTerm}%")
+                  ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                      $brandQuery->where('name', 'LIKE', "%{$searchTerm}%");
+                  });
+            });
+        }
+
+        // Paginar los resultados
+        $products = $query->latest('id')->paginate(20)->withQueryString();
+
+        // Devolver la vista de Inertia con los datos
+        return Inertia::render('CatalogProduct/Index', [
+            'products' => $products,
+            'filters' => $request->only(['product_type', 'search']),
+        ]);
     }
 
     public function create()
@@ -246,7 +276,7 @@ class ProductController extends Controller
         // Solo seleccionamos 'id' y 'name' para que la consulta sea ligera.
         $all_products = Product::query()
             ->select('id', 'name')
-            ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
+            // ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
             ->orderBy('name')
             ->get();
 
@@ -460,7 +490,6 @@ class ProductController extends Controller
 
     public function destroy(Product $catalog_product)
     {
-        return $catalog_product;
         $catalog_product->delete();
     }
 
@@ -626,6 +655,34 @@ class ProductController extends Controller
             'base_price' => $product->base_price,
             'base_price_updated_at' => $product->base_price_updated_at,
         ]);
+    }
+
+    public function pricesReport()
+    {
+        $catalog_products = Product::where('product_type', 'Catálogo')
+            ->whereNull('archived_at')
+            ->with([
+                'media',
+                // Carga el historial de precios, pero solo las entradas activas (sin fecha final).
+                // Para cada precio, también carga la información de la sucursal asociada.
+                'priceHistory' => function ($query) {
+                    $query->whereNull('valid_to') 
+                          ->with('branch:id,name'); // Asume que el modelo BranchPriceHistory tiene una relación 'branch'
+                }
+            ])
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'cost', 'base_price']);
+
+            // return $catalog_products;
+        return inertia('CatalogProduct/PricesReport', compact('catalog_products'));
+    }
+    
+
+    public function exportExcel()
+    {
+        $fileName = 'catalogo_precios.xlsx';
+        
+        return Excel::download(new CatalogProductPricesExport, $fileName);
     }
 
 }
