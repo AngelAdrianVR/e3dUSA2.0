@@ -32,6 +32,7 @@
                 <h1 class="text-xl font-bold text-zinc-800 dark:text-white">{{ $page.props.auth.user.name }}</h1>
                 <!-- NOTA: Asegúrate de que `employee_detail.job_position` esté disponible en las props de tu página -->
                 <p class="text-sm text-zinc-500 dark:text-gray-400">{{ $page.props.auth.user.employee_detail?.job_position ?? 'Puesto no asignado' }}</p>
+                <p class="text-sm text-zinc-500 dark:text-gray-400">Rol: {{ $page.props.auth.user.role }}</p>
             </div>
 
             <!-- Separador -->
@@ -43,7 +44,7 @@
                 <div class="grid grid-cols-2 gap-4 text-center">
                     <div class="rounded-lg bg-zinc-100 p-3 dark:bg-zinc-800">
                         <p class="text-xs text-zinc-500 dark:text-gray-400">Salario Semanal</p>
-                        <p class="font-semibold text-zinc-800 dark:text-white">${{ $page.props.auth.user.employee_detail?.week_salary?.toLocaleString() ?? 'N/A' }}</p>
+                        <p class="font-semibold text-zinc-800 dark:text-white blur-sm">${{ $page.props.auth.user.employee_detail?.week_salary?.toLocaleString() ?? 'N/A' }}</p>
                     </div>
                     <div class="rounded-lg bg-zinc-100 p-3 dark:bg-zinc-800">
                         <p class="text-xs text-zinc-500 dark:text-gray-400">Horas/Semana</p>

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
 use App\Models\CalendarEntry;
 use App\Models\Contact;
 use App\Models\DesignOrder;
+use App\Models\EmployeeDetail;
+use App\Models\OvertimeRequest;
 use App\Models\Product;
 use App\Models\Production;
 use App\Models\ProductionTask;
@@ -12,8 +15,8 @@ use App\Models\Purchase;
 use App\Models\Quote;
 use App\Models\Sale;
 use App\Models\SampleTracking;
-use App\Models\Task;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -57,47 +60,25 @@ class DashboardController extends Controller
 
 
         // Required Actions Data
-        $requiredActions = [
-            'quotes_to_authorize' => Quote::whereNull('authorized_at')->count(),
-            'sales_to_authorize' => Sale::whereNull('authorized_at')->count(),
-            'designs_to_authorize' => DesignOrder::whereNull('authorized_at')->count(),
-            'purchases_to_authorize' => Purchase::whereNull('authorized_at')->count(),
-            'sample_trackings_to_authorize' => SampleTracking::whereNull('authorized_at')->count(),
-            'sales_without_ov' => Sale::with('productions')->whereDoesntHave('productions')->whereNotNull('authorized_at')->count(),
-            'pending_productions' => Production::where('status', 'Pendiente')->count(),
-            'unstarted_tasks' => ProductionTask::where('status', 'Pendiente')->count(),
-            'unstarted_design_orders' => DesignOrder::where('status', 'Autorizada')->whereNull('started_at')->count(),
-        ];
+        if ( $authUser->hasRole('Super Administrador') ) {
+            $requiredActions = [
+                'quotes_to_authorize' => Quote::whereNull('authorized_at')->count(),
+                'sales_to_authorize' => Sale::whereNull('authorized_at')->count(),
+                'designs_to_authorize' => DesignOrder::whereNull('authorized_at')->count(),
+                'purchases_to_authorize' => Purchase::whereNull('authorized_at')->count(),
+                'sample_trackings_to_authorize' => SampleTracking::whereNull('authorized_at')->count(),
+                'sales_without_ov' => Sale::with('productions')->whereDoesntHave('productions')->whereNotNull('authorized_at')->count(),
+                'pending_productions' => Production::where('status', 'Pendiente')->count(),
+                'unstarted_tasks' => ProductionTask::where('status', 'Pendiente')->count(),
+                'unstarted_design_orders' => DesignOrder::where('status', 'Autorizada')->whereNull('started_at')->count(),
+            ];
+        }
         
         // Employee Performance
-        // Define the start and end of the current week (Monday to Saturday)
-        $startOfWeek = now()->startOfWeek();
-        $endOfWeek = now()->startOfWeek()->addDays(5)->endOfDay();
-
-        // 1. Calculate points from sales for the current week
-        $salesPoints = Sale::whereNotNull('authorized_at')
-            ->whereBetween('authorized_at', [$startOfWeek, $endOfWeek])
-            ->select('user_id', DB::raw('SUM(CASE WHEN currency = "USD" THEN total_amount * 20 ELSE total_amount END) as points'))
-            ->groupBy('user_id')
-            ->pluck('points', 'user_id');
-
-        // 2. Calculate points from production tasks for the current week
-        $productionPoints = ProductionTask::where('status', 'Terminada')
-            ->whereNotNull('operator_id')
-            ->whereBetween('finished_at', [$startOfWeek, $endOfWeek])
-            ->select('operator_id', DB::raw('SUM(estimated_time_minutes) as points'))
-            ->groupBy('operator_id')
-            ->pluck('points', 'operator_id');
-
-        // 3. Combine points for each user, sort, and get the top 8 performers
-        $employeePerformance = User::get()->map(function ($user) use ($salesPoints, $productionPoints) {
-            $user->points = round(
-                ($salesPoints[$user->id] ?? 0) + ($productionPoints[$user->id] ?? 0)
-            );
-            return $user;
-        })->filter(function ($user) {
-            return $user->points != 0; // Filter out users with 0 points
-        })->sortByDesc('points')->values()->take(8); 
+        // --- Performance Data by Role ---
+        $productionPerformance = $this->getPerformanceData('Auxiliar de producción');
+        $salesPerformance = $this->getPerformanceData('Vendedor');
+        $designPerformance = $this->getPerformanceData('Diseñador');
 
         // 1. Upcoming Birthdays (next 30 days)
         $upcomingBirthdays = Contact::with(['branch', 'details'])
@@ -117,24 +98,25 @@ class DashboardController extends Controller
                 ];
             });
 
-        // 2. My Sales Orders (not in production yet)
+        // 2. My Sales Orders
         $mySalesOrders = Sale::where('user_id', $authUserId)
-            ->whereIn('status', ['Pendiente', 'Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío'])
-            ->latest()
-            ->limit(10)
-            ->get(['id', 'created_at', 'is_high_priority', 'status'])
-            ->map(function ($sale) {
-                return [
-                    'id' => $sale->id,
-                    'status' => $sale->status,
-                    'folio' => 'OV-' . $sale->id, // Folio generado dinámicamente
-                    'created_at' => $sale->created_at,
-                    'requires_follow_up' => $sale->is_high_priority, // Usando el campo correcto
-                ];
-            });
+        ->whereIn('status', ['Pendiente', 'Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío'])
+        ->latest()
+        ->limit(10)
+        ->get(['id', 'created_at', 'is_high_priority', 'status'])
+        ->map(function ($sale) {
+            return [
+                'id' => $sale->id,
+                'status' => $sale->status,
+                'folio' => 'OV-' . $sale->id, // Folio generado dinámicamente
+                'created_at' => $sale->created_at,
+                'requires_follow_up' => $sale->is_high_priority, // Usando el campo correcto
+            ];
+        });
 
         // 3. My Pending Tasks
-        $myPendingTasks = ProductionTask::with('production.sale', 'production.saleProduct')
+        if ( $authUser->hasRole('Auxiliar de producción') ) {
+            $myPendingTasks = ProductionTask::with('production.sale', 'production.saleProduct')
             ->where('operator_id', $authUserId)
             ->whereIn('status', ['Pendiente', 'En proceso', 'Pausada', 'Sin material'])
             ->orderBy('created_at')
@@ -152,17 +134,213 @@ class DashboardController extends Controller
                     'pieces_to_produce' => $task->production->saleProduct->quantity_to_produce ?? 0, // Cantidad a producir del item de la venta
                 ];
             });
+        }
+            
+        // panel de novedades
+        $currentMonth = now()->month;
+
+        // 1. Birthdays for the current month, sorted by day
+        $birthdays = EmployeeDetail::whereNotNull('birthdate')
+            ->whereMonth('birthdate', $currentMonth)
+            ->with('user')
+            ->get()
+            ->sortBy(fn($detail) => $detail->birthdate->format('d'));
+
+        // 2. Anniversaries for the current month, sorted by day
+        $anniversaries = EmployeeDetail::whereNotNull('join_date')
+            ->whereMonth('join_date', $currentMonth)
+            ->whereYear('join_date', '<', now()->year) // Exclude new hires from this year
+            ->with('user')
+            ->get()
+            ->sortBy(fn($detail) => $detail->join_date->format('d'));
+
+        // 3. New hires in the current month and year
+        $newHires = EmployeeDetail::whereMonth('join_date', $currentMonth)
+            ->whereYear('join_date', now()->year)
+            ->with('user')
+            ->latest('join_date')
+            ->get();
+
+        // 4. Combine and format news items
+        $news = collect([]);
+        foreach ($birthdays as $employee) {
+            $news->push([
+                'user_name' => $employee->user->name,
+                'department' => $employee->department,
+                'secondary_string' => '¡Feliz Cumpleaños!',
+                'date_string' => $employee->birthdate->isoFormat('D MMMM'),
+                'sort_date' => $employee->birthdate->day,
+                'type' => 'birthday',
+            ]);
+        }
+        foreach ($anniversaries as $employee) {
+            // FIX: Cast the result of diffInYears to an integer to remove decimals.
+            $years = (int) $employee->join_date->diffInYears(now());
+            if ($years > 0) {
+                $news->push([
+                    'user_name' => $employee->user->name,
+                    'department' => $employee->department,
+                    'secondary_string' => "Aniversario ($years años)",
+                    'date_string' => $employee->join_date->isoFormat('D MMMM'),
+                    'sort_date' => $employee->join_date->day,
+                    'type' => 'anniversary',
+                ]);
+            }
+        }
+        foreach ($newHires as $employee) {
+            $news->push([
+                'user_name' => $employee->user->name,
+                'department' => $employee->department,
+                'secondary_string' => 'Nuevo Ingreso',
+                'date_string' => $employee->join_date->isoFormat('D MMMM'),
+                'sort_date' => $employee->join_date->day,
+                'type' => 'new_hire',
+            ]);
+        }
+        $news = $news->sortBy('sort_date')->values();
 
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
             'warehouseStats' => $warehouseStats,
-            'requiredActions' => $requiredActions,
-            'employeePerformance' => $employeePerformance,
+            'requiredActions' => $requiredActions ?? null,
             'upcomingBirthdays' => $upcomingBirthdays,
             'mySalesOrders' => $mySalesOrders,
-            'myPendingTasks' => $myPendingTasks,
+            'myPendingTasks' => $myPendingTasks ?? null,
             'authUserName' => $authUser?->name,
+            'news' => $news,
+            'productionPerformance' => $productionPerformance,
+            'salesPerformance' => $salesPerformance,
+            'designPerformance' => $designPerformance,
         ]);
+
+    }
+
+    /**
+     * Calculates performance points for users based on their role.
+     */
+    private function getPerformanceData($roleName)
+    {
+        Carbon::setLocale('es');
+        $startOfWeek = now()->startOfWeek();
+        $endOfWeek = now()->endOfWeek();
+
+        $users = User::role($roleName)->whereHas('employeeDetail')->with('employeeDetail')->get();
+
+        if ($roleName === 'Vendedor') {
+            $weeklySales = Sale::whereNotNull('authorized_at')
+                ->whereBetween('authorized_at', [$startOfWeek, $endOfWeek])
+                ->select('id', 'user_id', 'authorized_at', 'total_amount', 'currency')
+                ->get();
+            $salesByUser = $weeklySales->groupBy('user_id');
+
+            return $users->map(function ($user) use ($salesByUser, $startOfWeek, $endOfWeek) {
+                $userSales = $salesByUser->get($user->id, collect());
+                if ($userSales->isEmpty()) return null;
+
+                $totalPoints = $userSales->sum(fn($sale) => $sale->currency === 'USD' ? $sale->total_amount * 20 : $sale->total_amount);
+                $salesByDay = $userSales->groupBy(fn($sale) => Carbon::parse($sale->authorized_at)->format('Y-m-d'));
+                $dailyDetails = [];
+
+                for ($date = $startOfWeek->copy(); $date->lte($endOfWeek); $date->addDay()) {
+                    if ($date->isSunday()) continue;
+                    $dayKey = $date->format('Y-m-d');
+                    $daySales = $salesByDay->get($dayKey, collect());
+                    $dayTotal = $daySales->sum(fn($sale) => $sale->currency === 'USD' ? $sale->total_amount * 20 : $sale->total_amount);
+                    $dailyDetails[] = ['date' => $date->isoFormat('ddd, D MMM'), 'amount' => round($dayTotal)];
+                }
+
+                $formattedSales = $userSales->map(fn($sale) => [
+                    'folio' => 'OV-' . $sale->id,
+                    'date' => Carbon::parse($sale->authorized_at)->isoFormat('ddd, D MMM HH:mm'),
+                    'amount' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
+                ])->all();
+
+                return ['id' => $user->id, 'name' => $user->name, 'points' => round($totalPoints), 'details' => $dailyDetails, 'weekly_tasks' => $formattedSales, 'type' => 'sales'];
+            })->filter()->sortByDesc('points')->values();
+        }
+
+        if ($roleName === 'Diseñador') {
+            $weeklyDesigns = DesignOrder::where('status', 'Terminada')->whereNotNull('finished_at')->whereBetween('finished_at', [$startOfWeek, $endOfWeek])->select('id', 'designer_id', 'order_title', 'finished_at')->get();
+            $designsByUser = $weeklyDesigns->groupBy('designer_id');
+
+            return $users->map(function ($user) use ($designsByUser, $startOfWeek, $endOfWeek) {
+                $userDesigns = $designsByUser->get($user->id, collect());
+                if ($userDesigns->isEmpty()) return null;
+
+                $totalPoints = $userDesigns->count() * 50;
+                $designsByDay = $userDesigns->groupBy(fn($design) => Carbon::parse($design->finished_at)->format('Y-m-d'));
+                $dailyDetails = [];
+
+                for ($date = $startOfWeek->copy(); $date->lte($endOfWeek); $date->addDay()) {
+                    if ($date->isSunday()) continue;
+                    $dayKey = $date->format('Y-m-d');
+                    $dailyDetails[] = ['date' => $date->isoFormat('ddd, D MMM'), 'orders' => $designsByDay->get($dayKey, collect())->count()];
+                }
+
+                $formattedDesigns = $userDesigns->map(fn($design) => [
+                    'folio' => 'OD-' . $design->id,
+                    'title' => $design->order_title,
+                    'date' => Carbon::parse($design->finished_at)->isoFormat('ddd, D MMM HH:mm'),
+                ])->all();
+
+                return ['id' => $user->id, 'name' => $user->name, 'points' => $totalPoints, 'details' => $dailyDetails, 'weekly_tasks' => $formattedDesigns, 'type' => 'design'];
+            })->filter()->sortByDesc('points')->values();
+        }
+
+        if ($roleName === 'Auxiliar de producción') {
+            return $users->map(function ($user) use ($startOfWeek, $endOfWeek) {
+                $dailyDetails = [];
+                for ($date = $startOfWeek->copy(); $date->lte($endOfWeek); $date->addDay()) {
+                    if ($date->isSunday()) continue;
+
+                    $dayPoints = ['date' => $date->isoFormat('ddd, D MMM'), 'punctuality' => 0, 'time' => 0, 'scrap' => 0, 'day_finished' => 0, 'extra_time' => 0, 'quality_supervision' => 0];
+                    
+                    $attendance = Attendance::where('employee_detail_id', $user->employeeDetail->id)->whereDate('timestamp', $date)->where('type', 'check_in')->first();
+                    if ($attendance) $dayPoints['punctuality'] = $attendance->late_minutes > 0 ? -10 : 10;
+
+                    $dayPoints['time'] = (int)ProductionTask::where('operator_id', $user->id)->where('status', 'Terminada')->whereDate('finished_at', $date)->sum(DB::raw('TIMESTAMPDIFF(MINUTE, started_at, finished_at)'));
+
+                    $tasksOnDay = ProductionTask::where('operator_id', $user->id)->where('status', 'Terminada')->whereDate('finished_at', $date)->with('production')->get();
+                    $totalScrap = $tasksOnDay->sum('production.scrap');
+                    if ($totalScrap > 0) $dayPoints['scrap'] = -$totalScrap;
+                    elseif ($tasksOnDay->isNotEmpty()) $dayPoints['scrap'] = 1;
+
+                    if ($user->employeeDetail && $user->employeeDetail->hours_per_week > 0 && count($user->employeeDetail->work_days) > 0) {
+                        $requiredHours = $user->employeeDetail->hours_per_week / count($user->employeeDetail->work_days);
+                        $check_in = Attendance::where('employee_detail_id', $user->employeeDetail->id)->whereDate('timestamp', $date)->where('type', 'check_in')->first();
+                        $check_out = Attendance::where('employee_detail_id', $user->employeeDetail->id)->whereDate('timestamp', $date)->where('type', 'check_out')->latest('timestamp')->first();
+                        if($check_in && $check_out) {
+                            $dayPoints['day_finished'] = $check_out->timestamp->diffInHours($check_in->timestamp) < $requiredHours ? -50 : '✓';
+                        }
+                    }
+                    $dailyDetails[] = $dayPoints;
+                }
+                
+                if (OvertimeRequest::where('employee_detail_id', $user->employeeDetail->id)->where('status', 'Aprobado')->whereBetween('date', [$startOfWeek, $endOfWeek])->exists()) {
+                     if (isset($dailyDetails[0])) $dailyDetails[0]['extra_time'] = 100;
+                }
+                
+                $totalPoints = collect($dailyDetails)->sum(fn($day) => $day['punctuality'] + $day['time'] + $day['scrap'] + ($day['day_finished'] === -50 ? -50 : 0) + $day['extra_time'] + $day['quality_supervision']);
+
+                $weeklyTasks = ProductionTask::with(['production.sale'])->where('operator_id', $user->id)->where('status', 'Terminada')->whereBetween('finished_at', [$startOfWeek, $endOfWeek])->get();
+                $formattedTasks = $weeklyTasks->map(function($task) {
+                    $startTime = Carbon::parse($task->started_at);
+                    $finishTime = Carbon::parse($task->finished_at);
+                    return [
+                        'folio' => 'OP-' . ($task->production->id ?? 'N/A'),
+                        'sale_folio' => 'OV-' . ($task->production->sale->id ?? 'N/A'),
+                        'name' => $task->name,
+                        'started_at' => $startTime->isoFormat('ddd, D MMM HH:mm'),
+                        'finished_at' => $finishTime->isoFormat('ddd, D MMM HH:mm'),
+                        'duration_minutes' => $finishTime->diffInMinutes($startTime),
+                    ];
+                })->all();
+
+                return ['id' => $user->id, 'name' => $user->name, 'points' => round($totalPoints), 'details' => $dailyDetails, 'weekly_tasks' => $formattedTasks, 'type' => 'production'];
+            })->sortByDesc('points')->values();
+        }
+
+        return collect([]);
     }
 
     /**

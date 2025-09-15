@@ -21,24 +21,33 @@
                     </div>
 
                     <!-- Required Actions -->
-                    <div class="lg:col-span-3">
+                    <div v-if="$page.props.auth.user.role === 'Super Administrador'" class="lg:col-span-3">
                         <RequiredActions :actions="requiredActions" />
                     </div>
 
                     <!-- Employee Performance -->
                     <div class="lg:col-span-2">
-                        <EmployeePerformance :employees="employeePerformance" />
+                        <EmployeePerformance 
+                            :production-performance="productionPerformance"
+                            :sales-performance="salesPerformance"
+                            :design-performance="designPerformance"
+                        />
                     </div>
-
+                    
+                    <!-- News Panel -->
+                    <div class="lg:col-span-2">
+                        <NewsPanel :news="news" />
+                    </div>
+                    
                     <!-- Personal Panels Column -->
                     <div class="flex flex-col lg:col-span-2 gap-5">
-                       <MySalesOrders :orders="mySalesOrders" />
+                       <MySalesOrders v-if="$page.props.auth.user.role === 'Vendedor' || $page.props.auth.user.role === 'Super Administrador'" :orders="mySalesOrders" />
                        <UpcomingBirthdays :contacts="upcomingBirthdays" />
                     </div>
 
-                    <!-- NEW: My Pending Tasks -->
-                    <div class="lg:col-span-3 xl:col-span-4">
-                        <MyPendingTasks :tasks="myPendingTasks" :user-name="authUserName" />
+                    <!-- My Pending Tasks -->
+                    <div class="lg:col-span-2">
+                        <MyPendingTasks v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :tasks="myPendingTasks" :user-name="authUserName" />
                     </div>
                 </div>
             </div>
@@ -56,6 +65,8 @@ import EmployeePerformance from './Components/EmployeePerformance.vue';
 import UpcomingBirthdays from './Components/UpcomingBirthdays.vue';
 import MySalesOrders from './Components/MySalesOrders.vue';
 import MyPendingTasks from './Components/MyPendingTasks.vue';
+import NewsPanel from './Components/NewsPanel.vue';
+// import OvertimePanel from './Components/OvertimePanel.vue';
 
 export default {
     components: {
@@ -68,16 +79,22 @@ export default {
         UpcomingBirthdays,
         MySalesOrders,
         MyPendingTasks,
+        NewsPanel,
+        // Overtime Panel,
     },
     props: {
         calendarEvents: Array,
         warehouseStats: Object,
         requiredActions: Object,
-        employeePerformance: Array,
         upcomingBirthdays: Array,
         mySalesOrders: Array,
         myPendingTasks: Array,
         authUserName: String,
+        news: Array,
+        overtimeOpportunity: Object,
+        productionPerformance: Object,
+        salesPerformance: Object,
+        designPerformance: Object,
     },
     data() {
         return {

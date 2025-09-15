@@ -45,7 +45,7 @@ class HandleInertiaRequests extends Middleware
 
         // Si el usuario está autenticado, cargamos sus detalles de empleado.
         if ($user) {
-            $user->load('employeeDetail');
+            $user->load(['employeeDetail', 'roles']);
 
             // Si tiene un perfil de empleado, procedemos a buscar sus datos de asistencia.
             if ($user->employeeDetail) {
@@ -101,6 +101,7 @@ class HandleInertiaRequests extends Middleware
                     'profile_photo_url' => $user->profile_photo_url,
                     'notifications' => $user->notifications()->latest()->take(30)->get(),
                     'active_alerts' => $user->active_alerts ?? [],
+                    'role' => $user->roles[0]->name,
                     // Incluimos los detalles del empleado para tenerlos a mano.
                     'employee_detail' => $user->employeeDetail,
                 ] : null,
