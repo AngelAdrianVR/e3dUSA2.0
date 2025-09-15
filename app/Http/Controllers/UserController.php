@@ -111,7 +111,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
             'job_position' => 'required|string|max:255',
             'department' => 'required|string|max:255',
@@ -121,15 +121,15 @@ class UserController extends Controller
             // Validación para el horario de trabajo
             'work_schedule' => 'present|array|size:7',
             'work_schedule.*.works' => 'required|boolean',
-            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i',
-            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i|after:work_schedule.*.start_time',
-            'work_schedule.*.break_time' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
+            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true',
+            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|after:work_schedule.*.start_time',
+            'work_schedule.*.break_minutes' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
         ], [
             // Mensajes de error personalizados
             'work_schedule.*.start_time.required_if' => 'La hora de entrada es obligatoria para días laborales.',
             'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
             'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
-            'work_schedule.*.break_time.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
+            'work_schedule.*.break_minutes.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
         ]);
 
         DB::transaction(function () use ($request) {
@@ -184,7 +184,7 @@ class UserController extends Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'password' => ['nullable', Rules\Password::defaults()],
             'role' => 'required|string|exists:roles,name',
             'job_position' => 'required|string|max:255',
             'department' => 'required|string|max:255',
@@ -194,15 +194,15 @@ class UserController extends Controller
             // Validación para el horario de trabajo
             'work_schedule' => 'present|array|size:7',
             'work_schedule.*.works' => 'required|boolean',
-            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i',
-            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|date_format:H:i|after:work_schedule.*.start_time',
-            'work_schedule.*.break_time' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
+            'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true',
+            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|after:work_schedule.*.start_time',
+            'work_schedule.*.break_minutes' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
         ], [
             // Mensajes de error personalizados
             'work_schedule.*.start_time.required_if' => 'La hora de entrada es obligatoria para días laborales.',
             'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
             'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
-            'work_schedule.*.break_time.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
+            'work_schedule.*.break_minutes.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
         ]);
 
         DB::transaction(function () use ($request, $user) {

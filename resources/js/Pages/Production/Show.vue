@@ -23,7 +23,7 @@
                     </button>
                 </el-tooltip>
                 <Link :href="route('productions.index')"
-                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-primary transition-all duration-200">
+                    class="flex-shrink-0 size-9 focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800 flex items-center justify-center rounded-full bg-white dark:bg-slate-800/80 border border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-red-600 transition-all duration-200">
                 <i class="fa-solid fa-xmark"></i>
                 </Link>
             </div>
@@ -157,7 +157,7 @@
                                     <p class="font-semibold">{{ item.product.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ item.product.code }}</p>
                                 </div>
-                                <span class="font-bold text-gray-700 dark:text-gray-300">{{ item.quantity }} pz.</span>
+                                <span class="font-bold text-gray-700 dark:text-gray-300">{{ item.quantity.toLocaleString() }} pz.</span>
                             </div>
                             <el-tag :type="statusTagType(getProductionStatus(item))" size="small" effect="light" class="absolute top-2 right-2 !text-[10px]">
                                 {{ getProductionStatus(item) }}
@@ -228,7 +228,7 @@
                                         <p v-if="task.finished_at" class="text-amber-400 font-bold">Fin: <span class="font-thin text-gray-700 dark:text-gray-300"> {{ task.finished_at ? formatDateTime(task.finished_at) : '-' }}</span></p>
                                     </div>
                                     <div class="flex items-center text-xs mb-1.5">
-                                         <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 rounded-full mr-2">
+                                         <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-5 object-cover rounded-full mr-2">
                                         <span class="font-medium text-gray-700 dark:text-gray-300 w-1/3 truncate">{{ task.name }}</span>
                                         <span class="text-gray-500 dark:text-gray-400 ml-auto">Duración total: {{ getTaskDuration(task.started_at, task.finished_at) }}</span>
                                     </div>

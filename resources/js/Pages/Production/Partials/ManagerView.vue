@@ -93,7 +93,7 @@
                                                                     <div v-for="task in getProductionForProduct(sale, item.id).tasks" :key="task.id" class="text-xs">
                                                                         <div class="flex items-center justify-between">
                                                                             <div class="flex items-center space-x-2">
-                                                                                <img :src="task.operator.profile_photo_url" class="size-6 rounded-full">
+                                                                                <img :src="task.operator.profile_photo_url" class="size-7 object-cover rounded-full">
                                                                                 <div>
                                                                                     <p class="font-semibold text-gray-200">{{ task.operator.name }}</p>
                                                                                     <p class="text-gray-400">{{ task.name }}</p>
@@ -112,7 +112,7 @@
                                                                 </div>
                                                             </template>
                                                             <div class="flex items-center space-x-3 w-full p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-800 cursor-default">
-                                                                <img draggable="false" :src="item.product.media[0]?.original_url" class="w-8 h-8 rounded-md object-cover bg-gray-500 flex-shrink-0" v-if="item.product.media?.length > 0">
+                                                                <img draggable="false" :src="item.product.media[0]?.original_url" class="size-8 rounded-md object-cover bg-gray-500 flex-shrink-0" v-if="item.product.media?.length > 0">
                                                                 <div class="w-8 h-8 rounded-md bg-gray-700 flex items-center justify-center flex-shrink-0" v-else>
                                                                     <i class="fa-solid fa-image text-gray-500"></i>
                                                                 </div>
@@ -147,12 +147,15 @@
                                 </div>
                                 
                                 <!-- Pie de la tarjeta: Creador -->
-                                <div class="mt-4 pt-3 border-t border-gray-200 dark:border-slate-700 flex items-center space-x-2">
-                                     <img :src="sale.user.profile_photo_url" class="size-7 rounded-full">
-                                     <div>
-                                         <p class="text-xs text-gray-400">Creado por</p>
-                                         <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">{{ sale.user.name }}</p>
-                                     </div>
+                                <div class="flex justify-between border-t border-gray-200 dark:border-slate-700">
+                                    <div class="mt-4 flex items-center space-x-2">
+                                        <img :src="sale.user.profile_photo_url" class="size-7 object-cover rounded-full">
+                                        <div>
+                                            <p class="text-xs text-gray-400">Creado por</p>
+                                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">{{ sale.user.name }}</p>
+                                        </div>
+                                    </div>
+                                        <p class="text-xs text-gray-400 mt-4">{{ formatDate(sale.created_at) }}</p>
                                 </div>
                             </div>
                         </template>

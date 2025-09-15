@@ -36,8 +36,8 @@ class DesignOrderController extends Controller
             // Nuevo: Filtra para mostrar solo órdenes sin diseñador asignado.
             $query->whereNull('designer_id');
         }
-        // Si el usuario es un diseñador (asumiendo que tiene un rol o permiso específico)
-        else if ($user->isDesigner()) { // Deberás crear este método en tu modelo User
+        // Si el usuario es un diseñador
+        else if ($user->role('Diseñador')) {
             $query->where('designer_id', $user->id);
         }
         // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
@@ -57,15 +57,8 @@ class DesignOrderController extends Controller
     public function create(Request $request)
     {
         $designCategories = DesignCategory::select('id', 'name')->get();
-        $designers = User::where('is_active', true)->select('id', 'name')->get();
+        $designers = User::where('is_active', true)->role('Diseñador')->select('id', 'name')->get();
         $branches = Branch::select('id', 'name')->with('contacts')->get();
-
-        // Se obtienen los usuarios que son diseñadores.
-        // Asumiendo que los diseñadores tienen un campo 'designer_level' no nulo como indica el flujo.
-        // $designers = User::whereNotNull('designer_level')
-        //                  ->where('status', 'active') // O cualquier otro criterio para usuarios activos
-        //                  ->select('id', 'name')
-        //
 
         // --- Handle design modification requests ---
         $originalDesign = null;
@@ -467,6 +460,7 @@ class DesignOrderController extends Controller
             'assignedDesignOrders.designCategory:id,name,complexity',
         ])
         ->where('is_active', true) // O el criterio que uses para identificar diseñadores
+        ->role('Diseñador')
         ->select('id', 'name')
         ->get();
 

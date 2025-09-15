@@ -47,7 +47,7 @@ class AppLayoutController extends Controller
             ->get()
             ->map(function ($product) {
                 // Asumimos que tienes una ruta 'products.show'
-                $product->url = route('products.show', $product->id);
+                $product->url = route('catalog-products.show', $product->id);
                 return $product;
             });
 

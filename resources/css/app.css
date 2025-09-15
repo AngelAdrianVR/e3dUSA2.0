@@ -175,7 +175,6 @@
 .dark .el-collapse-item {
     background-color: #1e293b; /* slate-800 */
     border: 1px solid #334155; /* slate-700 */
-    border-radius: 0.5rem; /* rounded-lg */
     margin-bottom: 0.5rem;
     transition: all 0.2s ease-in-out;
 }
@@ -187,9 +186,8 @@
 .dark .el-collapse-item__header {
     background-color: transparent;
     border-bottom: none;
-    border-radius: 0.5rem;
     padding: 0 1rem;
-    color: #cbd5e1; /* slate-300 */
+    color: #838a92; /* slate-300 */
 }
 
 .dark .el-collapse-item__header.is-active {
@@ -277,4 +275,11 @@
 .dark .el-dialog .el-input__inner::placeholder,
 .dark .el-dialog .el-textarea__inner::placeholder {
     color: #94a3b8; /* slate-400 */
+}
+
+/* tooltip fondo negro */
+.el-tooltip__popper {
+  background-color: #000 !important;
+  color: #fff !important; /* texto blanco para contraste */
+  border: none !important;
 }

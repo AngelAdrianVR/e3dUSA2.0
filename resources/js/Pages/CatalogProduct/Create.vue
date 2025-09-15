@@ -508,7 +508,7 @@ export default {
             productTypeOptions: [
                 { label: 'Catálogo', key: 'C' },
                 { label: 'Materia Prima', key: 'MP' },
-                // { label: 'Insumo', key: 'I' },
+                { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
                 { label: 'METAL', key: 'M' }, { label: 'PLASTICO', key: 'PLS' }, { label: 'PIEL DE LUJO', key: 'PL' },
