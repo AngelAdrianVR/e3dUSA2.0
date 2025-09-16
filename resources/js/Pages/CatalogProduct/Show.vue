@@ -526,7 +526,7 @@ export default {
         formattedDimensions() {
             const safe = (val) => val ?? "-";
 
-            if (this.product.is_circular) {
+            if (this.product.diameter) {
                 return `Ø ${safe(this.product.diameter)} mm (Diámetro) x ${safe(this.product.width)} mm (Grosor)`;
             }
 

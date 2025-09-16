@@ -102,7 +102,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <TextInput v-model="form.min_quantity" label="Cantidad mínima" :error="form.errors.min_quantity" type="number" placeholder="Ej. 100" />
                              <TextInput v-model="form.max_quantity" label="Cantidad máxima" :error="form.errors.max_quantity" type="number" placeholder="Ej. 1000" />
-                             <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
+                             <TextInput v-model="form.current_stock" label="Stock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
                              <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
                                 v-model="form.cost" 
@@ -352,7 +352,9 @@
                         <div>
                             <InputLabel value="Imágenes del producto (máx. 3)" />
                             <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" :maxFiles="3" class="mt-1" />
-                            <InputError :message="form.errors.media" class="mt-2" />
+                            <InputError :message="form.errors['media.0']" class="mt-2" />
+                            <InputError :message="form.errors['media.1']" class="mt-2" />
+                            <InputError :message="form.errors['media.2']" class="mt-2" />
                         </div>
 
                         <div class="border-t border-gray-200 dark:border-slate-700 pt-6 flex justify-end">

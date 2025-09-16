@@ -91,7 +91,7 @@
         </div>
 
         <div class="mt-4 w-full">
-            <p v-if="lastUpdateInfo" :class="lastUpdateInfo.colorClass" class="text-xs font-semibold mb-2">
+            <p v-if="lastUpdateInfo" :class="lastUpdateInfo.colorClass" class="text-sm font-semibold mb-2">
                 <i class="fa-solid fa-circle-info mr-1"></i>
                 {{ lastUpdateInfo.text }}
             </p>
