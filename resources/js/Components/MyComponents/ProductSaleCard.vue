@@ -19,6 +19,7 @@
 
             <div class="flex-1">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ saleProduct.product?.name }}</h3>
+                <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
                 
                 <el-tag v-if="saleProduct.is_new_design" type="primary" size="small" effect="light" class="mt-2">
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
@@ -48,7 +49,7 @@
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
-                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }}</p>
+                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
                      <div>
                         <p class="text-gray-500 dark:text-gray-400">Importe Total</p>

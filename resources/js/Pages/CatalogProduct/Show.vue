@@ -201,7 +201,7 @@
                                             <tbody>
                                                 <tr v-for="pricing in pricings" 
                                                     :key="pricing.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
-                                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }}</td>
+                                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }} {{ pricing.currency }}</td>
                                                     <td class="px-4 py-2">{{ formatDate(pricing.valid_from) }}</td>
                                                     <td class="px-4 py-2 flex items-center justify-between">
                                                         <span>{{ pricing.valid_to ? formatDate(pricing.valid_to) : 'Indefinido' }}</span>

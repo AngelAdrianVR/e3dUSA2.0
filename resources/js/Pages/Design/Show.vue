@@ -217,9 +217,9 @@
                             <p>Especificaciones:</p>
                             <p class="text-sm mt-2 whitespace-pre-wrap">{{ designOrder.specifications }}</p>
                             
-                            <div class="col-span-2 mt-5">
+                            <div v-if="$page.props.auth.user.id === designOrder.designer_id" class="col-span-2 mt-5">
                                 <InputLabel value="Archivos Finales (obligatorio para terminar)" />
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
+                                <p class="text-xs text-amber-500 dark:text-amber-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
                                 <FileUploader @files-selected="finishForm.final_files = $event" :multiple="true" acceptedFormat="cualquier" />
                                 <div v-if="finishForm.errors.final_files" class="text-red-500 text-xs mt-1">
                                     {{ finishForm.errors.final_files }}
