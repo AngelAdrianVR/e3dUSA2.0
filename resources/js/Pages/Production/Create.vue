@@ -423,7 +423,17 @@ export default {
             const process = this.productionCosts.find(p => p.id === selectedId);
             if (process) {
                 this.newTask.name = process.name;
-                this.newTask.estimated_time_minutes = Math.round(process.estimated_time_seconds / 60);
+
+                let totalSeconds = process.estimated_time_seconds;
+
+                // Si la tarea es 'Por pieza', multiplica el tiempo por la cantidad a producir
+                if (process.cost_type === 'Pieza' && this.currentProduct) {
+                    totalSeconds = process.estimated_time_seconds * this.currentProduct.quantity_to_produce;
+                }
+                
+                // Para los demás tipos ('Por tarea', etc.), se usa el tiempo base del proceso.
+                
+                this.newTask.estimated_time_minutes = Math.round(totalSeconds / 60);
             }
         },
         isNewTaskValid() {

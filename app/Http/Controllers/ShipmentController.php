@@ -53,7 +53,7 @@ class ShipmentController extends Controller
                 // Para cada envío, cargar los productos correspondientes
                 $query->with([
                     'shipmentProducts.saleProduct.product.media' // Carga el producto de la venta, el producto maestro y sus imágenes
-                ])->latest(); // Ordenar los envíos por los más recientes
+                ])->oldest(); // Ordenar los envíos por los más recientes
             }
         ]);
 

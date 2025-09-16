@@ -721,6 +721,7 @@ export default {
                 current_price: null,
                 media: null,
                 storages: [],
+                has_customization: false,
                 base_price: null,
                 show_image: true,
             };

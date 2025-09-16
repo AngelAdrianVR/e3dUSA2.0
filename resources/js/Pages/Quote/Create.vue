@@ -496,7 +496,7 @@
                             </el-input>
                         </div>
                     </div>
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="font-semibold">Moneda*</label>
                             <el-select v-model="priceForm.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
@@ -745,6 +745,7 @@ export default {
                 current_price: null,
                 media: null,
                 storages: [],
+                has_customization: false,
                 base_price: null,
                 show_image: true,
             };

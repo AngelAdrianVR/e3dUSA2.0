@@ -518,7 +518,7 @@ class QuoteController extends Controller
                     'cost' => $product->cost,
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
-                    'customization_details' => json_decode($product->pivot->customization_details),
+                    'customization_details' => $product->pivot->customization_details,
                     'notes' => $product->pivot->notes,
                     // NUEVO: Agregamos la URL de la primera imagen del producto.
                     'image_url' => $product->media->first()?->original_url,
@@ -531,6 +531,7 @@ class QuoteController extends Controller
             'freight_option' => $quote->freight_option,
             'freight_cost' => $quote->freight_cost,
             'notes' => $quote->notes,
+            'currency' => $quote->currency,
             'products' => $approvedProducts->values(),
         ]);
     }

@@ -33,7 +33,7 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip v-if="sale.authorized_at === null" content="Autorizar Órden" placement="top">
+                <el-tooltip v-if="sale.authorized_at === null && $page.props.auth.user.permissions.includes('Autorizar ordenes de venta')" content="Autorizar Órden" placement="top">
                     <button @click="authorize" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
                         <i class="fa-solid fa-check-double"></i>
                     </button>
@@ -51,7 +51,7 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top">
                     <Link :href="sale.authorized_at ? '' : route('sales.edit', sale.id)">
                         <button :disabled="sale.authorized_at" 
                             class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
@@ -60,23 +60,23 @@
                     </Link>
                 </el-tooltip>
                 
-                <Dropdown align="right" width="48">
+                <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
                     <template #trigger>
                         <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                             Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
                            <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
-                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM')) || true" as="button">
+                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM'))" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
                                 <p>Ver certificado de calidad</p>
                             </a>
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Órden
                         </DropdownLink>
                     </template>
@@ -305,6 +305,7 @@
                             :sale-product="product"
                             :is-high-priority="sale.is_high_priority"
                             :branch-id="sale.branch_id"
+                            :saleCurrency="sale.currency"
                         />
                     </div>
                     <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
