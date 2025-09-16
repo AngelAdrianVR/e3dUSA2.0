@@ -528,6 +528,7 @@ export default {
                 this.form.branch_id = quoteData.branch_id;
                 this.form.freight_option = quoteData.freight_option;
                 this.form.freight_cost = quoteData.freight_cost;
+                this.form.currency = quoteData.currency;
                 this.form.notes = quoteData.notes;
 
                 await this.handleBranchChange(quoteData.branch_id);

@@ -199,6 +199,58 @@ class DashboardController extends Controller
         }
         $news = $news->sortBy('sort_date')->values();
 
+        // ------------- Órdenes de Venta Autorizadas y Pendientes -------------
+        $availableSales = Sale::with(['contact', 'user', 'saleProducts.product.storages', 'saleProducts.product.media']) // Carga anticipada de relaciones
+            ->whereIn('status', ['Autorizada', 'Pendiente'])
+            ->latest('authorized_at')
+            ->limit(8)
+            ->get()
+            ->map(function ($sale) {
+                return [
+                    'id' => $sale->id,
+                    'folio' => 'OV-' . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
+                    'contact_name' => $sale->contact->name,
+                    'user_name' => $sale->user->name,
+                    'total' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
+                    'date' => Carbon::parse($sale->authorized_at)->isoFormat('D MMM, YYYY'),
+                    'status' => $sale->status,
+                    'products' => $sale->saleProducts->map(function ($saleProduct) {
+                        // Asegurarse de que el producto existe para evitar errores
+                        if (!$saleProduct->product) {
+                            return null;
+                        }
+                        return [
+                            'id' => $saleProduct->id,
+                            'name' => $saleProduct->product->name,
+                            'media' => $saleProduct->product->media,
+                            'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                            'stock_available' => $saleProduct->product->storages->sum('quantity') ?? 0,
+                        ];
+                    })->filter(), // Elimina cualquier producto nulo si la relación falla
+                ];
+            });
+
+            // ------------- NUEVA CONSULTA: Solicitudes de tiempo extra pendientes del usuario -------------
+            $pendingOvertimeRequests = collect();
+            // Asegurarse de que el usuario autenticado es un empleado con detalles
+            if ($authUser->hasRole('Auxiliar de producción')) {
+                // cargar detalles de personal
+                $authUser->load('employeeDetail');
+
+                $pendingOvertimeRequests = OvertimeRequest::where('employee_detail_id', $authUser->employeeDetail->id)
+                    ->where('date', '>=', now()->startOfDay()) // Solicitudes de hoy en adelante
+                    ->orderBy('date')
+                    ->get(['id', 'date', 'requested_minutes', 'status'])
+                    ->map(function($request) {
+                        return [
+                            'id' => $request->id,
+                            'date' => $request->date->isoFormat('D MMMM, YYYY'), // Formatear fecha
+                            'requested_minutes' => $request->requested_minutes,
+                            'status' => $request->status,
+                        ];
+                    });
+            }
+
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
             'warehouseStats' => $warehouseStats,
@@ -211,6 +263,8 @@ class DashboardController extends Controller
             'productionPerformance' => $productionPerformance,
             'salesPerformance' => $salesPerformance,
             'designPerformance' => $designPerformance,
+            'availableSales' => $availableSales,
+            'pendingOvertimeRequests' => $pendingOvertimeRequests,
         ]);
 
     }

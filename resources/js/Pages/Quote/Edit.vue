@@ -392,20 +392,21 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                             Código: {{ product.code }}
                             </p>
+                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
                         </div>
                         </div>
 
                         <!-- Precios -->
                         <div class="mt-4 flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
-                        <p class="font-medium text-secondary">${{ product.base_price }}</p>
+                        <p class="font-medium text-blue-400">${{ product.base_price }} {{ product.currency }}</p>
                         </div>
                         <div class="flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
                         <p class="font-semibold text-green-600 dark:text-green-400">
                         ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
-                                ? product.price_history[0].price 
-                                : product.base_price }}
+                                ? product.price_history[0].price + ' ' + product.price_history[0].currency
+                                : product.base_price + ' ' + product.currency }}
                         </p>
                         </div>
 
@@ -415,7 +416,7 @@
                             class="mt-2 text-sm rounded-sm py-1 px-2"
                             :class="getPriceChangeClass(product.price_history[0].valid_from)"
                             >
-                            Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}
+                            <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
                         </div>
 
                         <!-- Historial de precios (MODIFICADO CON ETIQUETAS) -->
@@ -720,6 +721,7 @@ export default {
                 current_price: null,
                 media: null,
                 storages: [],
+                has_customization: false,
                 base_price: null,
                 show_image: true,
             };

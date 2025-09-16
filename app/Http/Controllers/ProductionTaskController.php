@@ -16,7 +16,7 @@ class ProductionTaskController extends Controller
     public function updateStatus(Request $request, ProductionTask $production_task)
     {
         // Verificación de autorización: asegurar que el operador es dueño de la tarea o es un Admin.
-        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Admin')) {
+        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador')) {
             return back()->withErrors('No tienes permiso para modificar esta tarea.');
         }
 
@@ -25,7 +25,7 @@ class ProductionTaskController extends Controller
             'good_units' => 'nullable|integer|min:0',
             'scrap' => 'nullable|integer|min:0',
             'scrap_reason' => 'nullable|string|max:255',
-            'pause_reason' => 'nullable|string|max:255', // Added validation for pause reason
+            'pause_reason' => 'nullable|string|max:255',
         ]);
 
         $newStatus = $request->input('status');
@@ -69,7 +69,7 @@ class ProductionTaskController extends Controller
                 $production->good_units = $request->input('good_units');
             }
             if ($request->has('scrap')) {
-                $production->scrap = $request->input('scrap');
+                $production->scrap += $request->input('scrap');
                 $production->scrap_reason = $request->input('scrap_reason');
             }
             $production->save();

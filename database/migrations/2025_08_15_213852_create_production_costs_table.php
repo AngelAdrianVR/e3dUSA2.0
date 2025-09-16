@@ -17,7 +17,7 @@ return new class extends Migration
             $table->text('description')->nullable(); // Descripción de lo que implica el proceso
 
             // Define cómo se calcula el costo para dar más flexibilidad
-            $table->enum('cost_type', ['Hora', 'Pieza'])->default('Pieza');
+            $table->enum('cost_type', ['Hora', 'Pieza', 'Tarea'])->default('Pieza');
 
             // El valor del costo. Si es 'Hora', es costo/hr. Si es 'per_unit', es costo por pieza.
             $table->decimal('cost', 10, 2)->default(0);

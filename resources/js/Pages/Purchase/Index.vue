@@ -101,14 +101,14 @@
                                                 />
                                                 <div class="leading-relaxed">
                                                     <p class="text-amber-500 font-semibold">
-                                                    Tipo: <span class="text-white ml-1">{{ item.type }}</span>
+                                                    Tipo: <span class="text-white dark:text-gray-700 ml-1">{{ item.type }}</span>
                                                     </p>
                                                     <p class="text-amber-500 font-semibold">
-                                                    Nombre: <span class="text-white ml-1">{{ item.product.name }}</span>
+                                                    Nombre: <span class="text-white dark:text-gray-700 ml-1">{{ item.product.name }}</span>
                                                     </p>
                                                     <p class="text-amber-500 font-semibold">
                                                     Cantidad:
-                                                    <span class="text-white ml-1">
+                                                    <span class="text-white dark:text-gray-700 ml-1">
                                                         {{ item.quantity }} {{ item.product.measure_unit }}
                                                     </span>
                                                     </p>
@@ -119,19 +119,19 @@
                                                     </h2>
                                                     <p class="text-blue-400 font-semibold">
                                                         A favor:
-                                                        <span class="text-white ml-1">
+                                                        <span class="text-white dark:text-gray-700 ml-1">
                                                         {{ item.additional_stock }} {{ item.product.measure_unit }}
                                                         </span>
                                                     </p>
                                                     <p class="text-blue-400 font-semibold">
                                                         En avión:
-                                                        <span class="text-white ml-1">
+                                                        <span class="text-white dark:text-gray-700 ml-1">
                                                         {{ item.plane_stock }} {{ item.product.measure_unit }}
                                                         </span>
                                                     </p>
                                                     <p class="text-blue-400 font-semibold">
                                                         En barco:
-                                                        <span class="text-white ml-1">
+                                                        <span class="text-white dark:text-gray-700 ml-1">
                                                         {{ item.ship_stock }} {{ item.product.measure_unit }}
                                                         </span>
                                                     </p>

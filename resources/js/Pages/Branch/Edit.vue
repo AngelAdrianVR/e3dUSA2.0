@@ -16,7 +16,7 @@
                     <form @submit.prevent="update">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 border-b dark:border-gray-600 pb-2">Datos Generales</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre del cliente o prospecto" />
+                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
                             <TextInput label="RFC" v-model="form.rfc" type="text" :error="form.errors.rfc" placeholder="Registro Federal de Contribuyentes" />
                             <div class="md:col-span-2">
                                 <TextInput label="Dirección" v-model="form.address" type="text" :error="form.errors.address" placeholder="Calle, número, colonia" />
@@ -88,7 +88,7 @@
                         </div>
                         
                         <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
@@ -102,6 +102,14 @@
                                 </div>
                                 <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
                                     :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+
+                                <div>
+                                    <label>Moneda*</label>
+                                    <el-select v-model="currentProduct.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
+                                        <el-option label="MXN" value="MXN" />
+                                        <el-option label="USD" value="USD" />
+                                    </el-select>
+                                </div>
                             </div>
 
                             <div v-if="loadingProductMedia" class="flex items-center justify-center h-32">
@@ -237,6 +245,7 @@ export default {
                 price: null,
                 media: null,
                 base_price: null,
+                currency: 'MXN',
                 current_stock: null,
                 location: null
             },
@@ -354,6 +363,7 @@ export default {
                 product_id: null,
                 price: null,
                 media: null,
+                currency: 'MXN',
                 base_price: null,
                 current_stock: null,
                 location: null

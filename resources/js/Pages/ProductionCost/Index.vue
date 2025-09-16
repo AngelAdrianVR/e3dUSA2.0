@@ -103,6 +103,7 @@
                         <el-select v-model="form.cost_type" placeholder="Selecciona" class="w-full" :teleported="false">
                             <el-option label="Por hora" value="Hora" />
                             <el-option label="Por unidad" value="Pieza" />
+                            <el-option label="Por tarea" value="Tarea" />
                         </el-select>
                         <InputError :message="form.errors.cost_type" />
                     </div>

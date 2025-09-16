@@ -348,6 +348,7 @@ export default {
                         {
                             label: 'Órdenes de venta / stock',
                             route: 'sales.index',
+                            active: route().current('sales.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
                         },
                     ],

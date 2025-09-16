@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class BranchController extends Controller
 {
@@ -31,16 +32,16 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::where('is_active', true)->select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->role('Vendedor')->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:branches',
             'rfc' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
@@ -62,6 +63,7 @@ class BranchController extends Controller
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
+            'products.*.currency' => 'nullable|string|in:MXN,USD',
 
             // Validación para productos sugeridos
             'suggested_products' => 'nullable|array',
@@ -83,46 +85,62 @@ class BranchController extends Controller
             ]);
 
             // 2. Crear los contactos y sus detalles
-            foreach ($validated['contacts'] as $index => $contactData) {
-                
-                $birthdate = null;
-                if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
-                    if (checkdate($contactData['birth_month'], $contactData['birth_day'], 2000)) {
-                        $birthdate = "2000-{$contactData['birth_month']}-{$contactData['birth_day']}";
+            if (!empty($validated['contacts'])) {
+                foreach ($validated['contacts'] as $index => $contactData) {
+                    
+                    $birthdate = null;
+                    if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
+                        if (checkdate($contactData['birth_month'], $contactData['birth_day'], 2000)) {
+                            $birthdate = "2000-{$contactData['birth_month']}-{$contactData['birth_day']}";
+                        }
                     }
+
+                    $contact = $branch->contacts()->create([
+                        'name' => $contactData['name'],
+                        'charge' => $contactData['charge'],
+                        'birthdate' => $birthdate,
+                        'is_primary' => $index === 0,
+                    ]);
+
+                    $contact->details()->create([
+                        'type' => 'Teléfono',
+                        'value' => $contactData['phone'],
+                        'is_primary' => true,
+                    ]);
+
+                    $contact->details()->create([
+                        'type' => 'Correo',
+                        'value' => $contactData['email'],
+                        'is_primary' => true,
+                    ]);
                 }
-
-                $contact = $branch->contacts()->create([
-                    'name' => $contactData['name'],
-                    'charge' => $contactData['charge'],
-                    'birthdate' => $birthdate,
-                    'is_primary' => $index === 0,
-                ]);
-
-                $contact->details()->create([
-                    'type' => 'Teléfono',
-                    'value' => $contactData['phone'],
-                    'is_primary' => true,
-                ]);
-
-                $contact->details()->create([
-                    'type' => 'Correo',
-                    'value' => $contactData['email'],
-                    'is_primary' => true,
-                ]);
             }
 
-            // 3. Relacionar productos y guardar precios especiales
+            // 3. Relacionar productos y guardar precios especiales (CORREGIDO)
             if (!empty($validated['products'])) {
-                $productsData = collect($validated['products'])->mapWithKeys(function ($product) {
-                    return [$product['product_id'] => ['price' => $product['price']]];
-                });
-                $branch->products()->sync($productsData);
+                // Primero, extraemos solo los IDs de los productos para sincronizar la relación principal.
+                $productIds = collect($validated['products'])->pluck('product_id')->toArray();
+                
+                // Sincronizamos la tabla pivote 'branch_product' solo con las IDs.
+                $branch->products()->sync($productIds);
+
+                // Ahora, recorremos los productos para guardar los precios especiales en su tabla de historial.
+                foreach ($validated['products'] as $productData) {
+                    // Verificamos si se proporcionó un precio para este producto.
+                    if (isset($productData['price']) && $productData['price'] !== null) {
+                        // Creamos el registro en la tabla de historial de precios.
+                        $branch->priceHistory()->create([
+                            'product_id' => $productData['product_id'],
+                            'price' => $productData['price'],
+                            'valid_from' => now(), // Se establece la fecha de inicio como el día de hoy.
+                            'currency' => $productData['currency'], // Puedes añadir la moneda si es necesario.
+                        ]);
+                    }
+                }
             }
 
             // 4. Guardar productos sugeridos
             if (!empty($validated['suggested_products'])) {
-                // Esta línea funciona perfectamente con tu relación
                 $branch->suggestedProducts()->sync($validated['suggested_products']);
             }
 
@@ -151,7 +169,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->select('id', 'name')->get()
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get()
         ]);
     }
 
@@ -215,7 +233,12 @@ class BranchController extends Controller
     public function update(Request $request, Branch $branch)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('branches', 'name')->ignore($branch->id),
+            ],
             'rfc' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
@@ -223,6 +246,8 @@ class BranchController extends Controller
             'parent_branch_id' => 'nullable|exists:branches,id',
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
+
+            // Validación para contactos
             'contacts' => 'present|array',
             'contacts.*.id' => 'nullable|exists:contacts,id',
             'contacts.*.name' => 'required|string|max:255',
@@ -231,9 +256,14 @@ class BranchController extends Controller
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
+
+            // Validación para productos asignados
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
+            'products.*.currency' => 'nullable|string|in:MXN,USD',
+
+            // Validación para productos sugeridos
             'suggested_products' => 'nullable|array',
             'suggested_products.*' => 'exists:products,id',
         ]);
@@ -243,7 +273,7 @@ class BranchController extends Controller
             $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
 
             // 2. Sincronizar contactos
-            $existingContactIds = [];
+            $contactIdsToKeep = [];
             foreach ($validated['contacts'] as $index => $contactData) {
                 $birthdate = null;
                 if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
@@ -263,61 +293,52 @@ class BranchController extends Controller
                 );
                 $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
                 $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
-                $existingContactIds[] = $contact->id;
+                $contactIdsToKeep[] = $contact->id;
             }
-            $branch->contacts()->whereNotIn('id', $existingContactIds)->delete();
+            // Eliminar contactos que ya no vienen en la petición
+            $branch->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
 
-            // --- 3. LÓGICA CORREGIDA PARA PRODUCTOS Y PRECIOS ---
+            // 3. Sincronizar productos y precios especiales (LÓGICA MEJORADA)
+            $productDataFromRequest = collect($validated['products'] ?? [])->keyBy('product_id');
+            $productIdsFromRequest = $productDataFromRequest->keys();
 
-            // Primero, obtenemos solo los IDs de los productos del formulario
-            $productIdsInForm = collect($validated['products'] ?? [])->pluck('product_id');
+            // Sincroniza la tabla pivote 'branch_product'
+            $branch->products()->sync($productIdsFromRequest);
 
-            // Sincronizamos la relación en la tabla pivote `branch_product`.
-            $branch->products()->sync($productIdsInForm);
+            $currentActivePrices = $branch->priceHistory()->whereNull('valid_to')->get()->keyBy('product_id');
 
-            // Segundo, manejamos el historial de precios por separado.
-            foreach ($validated['products'] ?? [] as $productData) {
-                $productId = $productData['product_id'];
-                $newPrice = $productData['price'];
+            foreach ($productDataFromRequest as $productId => $data) {
+                $newPrice = $data['price'] ?? null;
+                $newCurrency = $data['currency'] ?? 'MXN';
+                $currentPriceRecord = $currentActivePrices->get($productId);
 
-                $currentPriceRecord = DB::table('branch_price_history')
-                    ->where('branch_id', $branch->id)
-                    ->where('product_id', $productId)
-                    ->whereNull('valid_to')
-                    ->first();
-
-                $currentPrice = $currentPriceRecord ? (float) $currentPriceRecord->price : null;
-                $newPrice = !is_null($newPrice) ? (float) $newPrice : null;
-
-                if ($newPrice !== $currentPrice) {
-                    if ($currentPriceRecord) {
-                        DB::table('branch_price_history')
-                            ->where('id', $currentPriceRecord->id)
-                            ->update(['valid_to' => now()]);
+                $hasPriceChanged = false;
+                if (!$currentPriceRecord && $newPrice !== null) {
+                    $hasPriceChanged = true;
+                } elseif ($currentPriceRecord) {
+                    if ($newPrice === null || (float)$newPrice !== (float)$currentPriceRecord->price || $newCurrency !== $currentPriceRecord->currency) {
+                        $hasPriceChanged = true;
                     }
-                    if (!is_null($newPrice)) {
-                        DB::table('branch_price_history')->insert([
-                            'branch_id' => $branch->id,
+                }
+                
+                if ($hasPriceChanged) {
+                    if ($currentPriceRecord) {
+                        $currentPriceRecord->update(['valid_to' => now()]);
+                    }
+                    if ($newPrice !== null) {
+                        $branch->priceHistory()->create([
                             'product_id' => $productId,
                             'price' => $newPrice,
+                            'currency' => $newCurrency,
                             'valid_from' => now(),
-                            'valid_to' => null,
-                            'created_at' => now(),
-                            'updated_at' => now(),
                         ]);
                     }
                 }
             }
-            
-            $currentActiveProductIds = DB::table('branch_price_history')->where('branch_id', $branch->id)->whereNull('valid_to')->pluck('product_id');
-            $productsToRemovePrice = $currentActiveProductIds->diff($productIdsInForm);
 
-            if ($productsToRemovePrice->isNotEmpty()) {
-                DB::table('branch_price_history')
-                    ->where('branch_id', $branch->id)
-                    ->whereIn('product_id', $productsToRemovePrice)
-                    ->whereNull('valid_to')
-                    ->update(['valid_to' => now()]);
+            $productIdsToRemovePrice = $currentActivePrices->keys()->diff($productIdsFromRequest);
+            if ($productIdsToRemovePrice->isNotEmpty()) {
+                $branch->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
             }
 
             // 4. Sincronizar productos sugeridos

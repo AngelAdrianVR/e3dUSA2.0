@@ -166,9 +166,9 @@
                         <div class="flex items-center space-x-4">
                              <!-- ===== BOTÓN MODIFICADO: Ahora abre el modal ===== -->
                             <button v-if="shipment.status === 'Pendiente'" @click="openConfirmationDialog(shipment)"
-                                class="px-3 py-1 bg-green-500 text-white rounded-md text-sm hover:bg-green-600 transition-colors duration-200 flex items-center gap-2">
+                                class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors duration-200 flex items-center gap-2">
                                 <i class="fa-solid fa-truck-fast"></i>
-                                Enviado
+                                Marcar como Enviado
                             </button>
                             <el-tag :type="getStatusTagType(shipment.status)">{{ shipment.status }}</el-tag>
                              <!-- Indicador de Alerta -->

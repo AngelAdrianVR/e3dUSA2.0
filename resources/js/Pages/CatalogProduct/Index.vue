@@ -36,7 +36,7 @@
                         </div>
 
                         <!-- Acciones y Reportes -->
-                        <div class="flex items-center space-x-2">
+                        <div v-if="$page.props.auth.user.permissions.includes('Descargar reporte de precios')" class="flex items-center space-x-2">
                              <el-dropdown split-button type="primary" @click="openReport" plain>
                                 Reporte de precios
                                 <template #dropdown>
