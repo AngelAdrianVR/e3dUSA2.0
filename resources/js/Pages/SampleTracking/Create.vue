@@ -93,14 +93,45 @@
                                 <div class="grid grid-cols-2 gap-x-4 gap-y-2">
                                     <!-- Campos para Producto de Catálogo -->
                                     <template v-if="item.type === 'catalog'">
-                                        <div>
-                                            <el-select v-model="item.itemable_id" filterable placeholder="Selecciona un producto" class="!w-full">
+                                        <div class="col-span-full">
+                                            <el-select @change="getProductData(item)" v-model="item.itemable_id" filterable placeholder="Selecciona un producto" class="!w-full">
                                                 <el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
                                             </el-select>
                                             <InputError :message="form.errors[`items.${index}.itemable_id`]" />
                                         </div>
 
-                                        <div>
+                                        <!-- Estado de carga -->
+                                        <div v-if="item.loading" class="col-span-full flex items-center justify-center p-6">
+                                            <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </div>
+
+                                        <!-- Tarjeta de producto -->
+                                        <div v-else-if="item.product_data" class="col-span-full mt-3 bg-white dark:bg-slate-900/50 rounded-xl shadow-md p-4 flex items-start space-x-4">
+                                            <!-- Imagen -->
+                                            <div class="flex-shrink-0">
+                                                <img v-if="item.product_data.media?.length" :src="item.product_data.media[0].original_url" alt="Imagen del producto" class="h-20 w-20 rounded-lg object-cover">
+                                                <div v-else class="h-20 w-20 rounded-lg bg-gray-200 dark:bg-slate-800 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 text-xs text-center">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 mb-1">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                    </svg>
+                                                    <span>Sin imagen</span>
+                                                </div>
+                                            </div>
+                                            <!-- Información -->
+                                            <div class="flex-1">
+                                                <p class="font-bold text-gray-800 dark:text-gray-100">{{ item.product_data.name }}</p>
+                                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.product_data.code }}</p>
+                                                <div class="mt-2 text-xs">
+                                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Stock total:</span>
+                                                    <span class="ml-1 text-green-600 dark:text-green-400 font-medium">{{ calculateTotalStock(item.product_data.storages) }} unidades</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-span-full">
                                             <el-input v-model="item.notes" :rows="2" type="textarea" placeholder="Notas o comentarios del producto" />
                                             <InputError :message="form.errors[`items.${index}.notes`]" />
                                         </div>
@@ -119,9 +150,7 @@
                                         </div>
                                         <div class="col-span-full">
                                             <InputLabel value="Imágenes del nuevo producto (opcional, máx. 2)" />
-                                            <!-- Corregido: @files-selected ahora actualiza item.media -->
                                             <FileUploader @files-selected="item.media = $event" format="Imagen" :multiple="true" :maxFiles="2" class="mt-1" />
-                                            <!-- Corregido: Mensaje de error apunta al item correcto -->
                                             <InputError :message="form.errors[`items.${index}.media`]" class="mt-2" />
                                         </div>
                                     </template>
@@ -150,7 +179,7 @@
                         </div>
 
                         <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :disabled="!form.items.length || form.processing" :loading="form.processing">
+                            <SecondaryButton :disabled="!form.items.length || form.processing" :loading="form.processing" @click="store">
                                 Guardar Solicitud
                             </SecondaryButton>
                         </div>
@@ -171,6 +200,7 @@ import InputError from "@/Components/InputError.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
+import axios from 'axios';
 
 export default {
     data() {
@@ -232,7 +262,9 @@ export default {
                     type: 'catalog',
                     itemable_id: null,
                     quantity: 1,
-                    notes: '', // Agregado: inicializar notas
+                    notes: '',
+                    product_data: null, // to store fetched product info
+                    loading: false, // to track loading state for this item
                 });
             } else {
                 this.form.items.push({
@@ -240,16 +272,40 @@ export default {
                     name: '',
                     description: '',
                     quantity: 1,
-                    media: [], // Corregido: inicializar como array para las imágenes
+                    media: [],
                 });
             }
         },
         removeItem(index) {
             this.form.items.splice(index, 1);
         },
+        async getProductData(item) {
+            if (!item.itemable_id) return;
+
+            item.loading = true;
+            item.product_data = null; // Reset previous data while loading
+
+            try {
+                const response = await axios.get(route('products.get-media', item.itemable_id));
+                if (response.status === 200) {
+                    item.product_data = response.data.product;
+                }
+            } catch (error) {
+                console.error(error);
+                ElMessage.error('No se pudo cargar la información del producto.');
+            } finally {
+                item.loading = false;
+            }
+        },
+        calculateTotalStock(storages) {
+            if (!storages || !storages.length) {
+                return 0;
+            }
+            // Sums the quantity from each storage location
+            return storages.reduce((total, storage) => total + (storage.quantity || 0), 0);
+        }
     },
     watch: {
-        // si se desactiva la devolucion, limpiar la fecha
         'form.will_be_returned'(newValue) {
             if (!newValue) {
                 this.form.expected_devolution_date = null;

@@ -31,6 +31,19 @@ class ProductionTaskController extends Controller
         $newStatus = $request->input('status');
         $oldStatus = $production_task->status;
 
+        // --- INICIO: VALIDACIÓN DE TAREA ÚNICA EN PROCESO ---
+        // Se aplica al intentar poner CUALQUIER tarea en "En Proceso".
+        if ($newStatus === 'En Proceso') {
+            $hasTaskInProgress = ProductionTask::where('operator_id', Auth::id())
+                                               ->where('status', 'En Proceso')
+                                               ->exists();
+
+            if ($hasTaskInProgress) {
+                return back()->withErrors(['error' => 'Ya tienes una tarea "En Proceso". No puedes iniciar o reanudar otra.']);
+            }
+        }
+        // --- FIN: VALIDACIÓN ---
+
         // Prevenir transiciones de estado inválidas
         if ($oldStatus === 'Terminada' || $oldStatus === 'Cancelada') {
             return back()->withErrors('Esta tarea ya ha sido finalizada o cancelada y no puede cambiar de estado.');

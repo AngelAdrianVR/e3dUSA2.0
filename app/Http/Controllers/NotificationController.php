@@ -53,4 +53,19 @@ class NotificationController extends Controller
         // Redirigimos hacia atrás. Inertia se encargará de actualizar el componente.
         return back()->with('success', 'Notificación eliminada.');
     }
+
+    public function destroySelected(Request $request)
+    {
+        // Validamos que 'ids' sea un arreglo y que sea requerido.
+        $request->validate([
+            'ids' => 'required|array',
+        ]);
+
+        $ids = $request->input('ids');
+
+        // Buscamos y eliminamos solo las notificaciones que pertenecen al usuario autenticado.
+        Auth::user()->notifications()->whereIn('id', $ids)->delete();
+
+        return back()->with('success', 'Notificaciones seleccionadas eliminadas.');
+    }
 }

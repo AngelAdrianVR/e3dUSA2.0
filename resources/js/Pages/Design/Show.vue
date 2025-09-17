@@ -74,11 +74,11 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink :href="route('design-orders.create')">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')" :href="route('design-orders.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nueva Orden
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de diseño')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar orden
                         </DropdownLink>
                     </template>
