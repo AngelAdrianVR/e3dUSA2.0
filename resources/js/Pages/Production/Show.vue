@@ -216,7 +216,7 @@
                     </div>
 
                     <!-- Kanban Body Grid -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
                         <!-- Main Column: Timeline Chart -->
                         <div class="lg:col-span-2">
                             <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Línea de Tiempo de Tareas</h3>
@@ -254,34 +254,64 @@
                         </div>
 
                         <!-- Sidebar Column: Details -->
-                        <div class="lg:col-span-1 space-y-5 h-[550px] overflow-y-auto overflow-x-hidden">
+                        <div class="lg:col-span-1 space-y-5 h-[55vh] overflow-y-auto overflow-x-hidden">
                              <!-- Quantities -->
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Cantidad a Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce.toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
-                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ (selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-red-600 dark:text-red-300">Merma</p>
-                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap }}</p>
+                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap.toLocaleString() }}</p>
                                     </div>
                                 </div>
                             </div>
-                             <!-- Production Tasks -->
+                            <!-- Production Tasks -->
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Tareas y Operadores</h3>
                                 <div v-if="selectedProduction?.tasks?.length" class="space-y-3">
-                                    <div @click="openLogModal(task)" v-for="task in selectedProduction.tasks" :key="task.id" class="flex items-center space-x-3 bg-gray-100 dark:bg-slate-700/50 p-2 rounded-lg cursor-pointer hover:scale-[1.02] transition-transform ease-linear duration-200">
-                                        <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800  transition-transform object-cover" :class="taskStatusRingColor(task.status)">
-                                        <div>
-                                            <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ task.operator?.name }}</p>
+                                    <div v-for="task in selectedProduction.tasks" :key="task.id" class="bg-gray-100 dark:bg-slate-700/50 p-3 rounded-lg">
+                                        <div class="flex flex-col items-start">
+                                            <div class="flex items-center space-x-3 cursor-pointer" @click="openLogModal(task)">
+                                                <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800 transition-transform object-cover" :class="taskStatusRingColor(task.status)">
+                                                <div>
+                                                    <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ task.operator?.name }}</p>
+                                                </div>
+                                            </div>
+                                            <!-- Action buttons -->
+                                            <div class="flex items-center space-x-1 mt-3">
+                                                <el-tooltip content="Reportar Falta de Material" placement="top">
+                                                    <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-7 w-7 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Pausar Tarea" placement="top">
+                                                    <button @click="pauseTask(task)" v-if="task.status === 'En Proceso'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-pause"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Iniciar Tarea" placement="top">
+                                                    <button @click="startTask(task)" v-if="task.status === 'Pendiente'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-play"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Reanudar Tarea" placement="top">
+                                                    <button @click="resumeTask(task)" v-if="task.status === 'Pausada' || task.status === 'Sin material'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-play"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <button @click="finishTask(task)" v-if="['En Proceso', 'Pausada'].includes(task.status)" class="px-2 py-1 bg-green-600 border border-transparent rounded-md text-xs font-semibold text-white uppercase hover:bg-green-500 transition">
+                                                    Finalizar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -333,7 +363,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
-import { Link } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { es } from 'date-fns/locale';
@@ -583,7 +613,107 @@ export default {
                     console.error('Error deleting sale:', errors);
                 },
             });
-        }
+        },
+        updateTaskStatus(taskId, newStatus, additionalData = {}) {
+            this.$inertia.put(route('production-tasks.updateStatus', taskId), {
+                status: newStatus,
+                ...additionalData
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success(`Tarea actualizada a "${newStatus}"`);
+                },
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] || 'No se pudo actualizar la tarea.';
+                    ElMessage.error(errorMessage);
+                },
+            });
+        },
+        startTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        resumeTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        pauseTask(task) {
+            ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
+                confirmButtonText: 'Confirmar Pausa',
+                cancelButtonText: 'Cancelar',
+                inputType: 'textarea',
+                inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
+                inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
+            }).then(({ value: pause_reason }) => {
+                this.updateTaskStatus(task.id, 'Pausada', { pause_reason });
+            }).catch(() => ElMessage.info('Acción cancelada'));
+        },
+        reportIssue(task) {
+             ElMessageBox.confirm(
+                `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
+                { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
+            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
+            ).catch(() => ElMessage.info('Acción cancelada'));
+        },
+        async finishTask(task) {
+            if ((task.status === 'En Proceso' || task.status === 'Pausada') && task.started_at) {
+                const startTime = new Date(task.started_at);
+                const now = new Date();
+                const elapsedTimeMinutes = (now.getTime() - startTime.getTime()) / (1000 * 60);
+                const requiredTimeMinutes = task.estimated_time_minutes / 2;
+
+                if (elapsedTimeMinutes < requiredTimeMinutes) {
+                    const remainingMinutes = Math.ceil(requiredTimeMinutes - elapsedTimeMinutes);
+                    ElMessage.warning(`Aún no puedes finalizar. Debes esperar al menos ${remainingMinutes} minuto(s) más.`);
+                    return;
+                }
+            }
+
+            const quantityToProduce = this.selectedSaleProduct.quantity_to_produce;
+
+            try {
+                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
+                    confirmButtonText: 'Siguiente',
+                    cancelButtonText: 'Cancelar',
+                    inputType: 'number',
+                    inputValue: quantityToProduce,
+                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
+                });
+
+                const { value: scrap } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
+                    confirmButtonText: 'Siguiente',
+                    cancelButtonText: 'Cancelar',
+                    inputType: 'number',
+                    inputValue: 0,
+                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
+                });
+
+                let scrap_reason = '';
+                if (scrap > 0) {
+                    const { value: reason } = await ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
+                        confirmButtonText: 'Finalizar Tarea',
+                        cancelButtonText: 'Cancelar',
+                        inputType: 'textarea',
+                        inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
+                    });
+                    scrap_reason = reason;
+                }
+
+                this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
+
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('Error al finalizar la tarea:', error);
+                }
+                ElMessage.info('Acción cancelada');
+            }
+        },
+        // getQuantityToProduce(task) {
+        //     const saleProduct = task.production?.sale_product;
+        //     const productionsOnSale = this.sale?.productions;
+
+        //     if (!saleProduct || !productionsOnSale) {
+        //         return task.production?.quantity_to_produce ?? 0;
+        //     }
+            
+        //     const correctProduction = productionsOnSale.find(p => p.sale_product_id === saleProduct.id);
+            
+        //     return correctProduction?.quantity_to_produce ?? 0;
+        // },
     }
 };
 </script>

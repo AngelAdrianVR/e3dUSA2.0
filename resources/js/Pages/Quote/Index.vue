@@ -89,8 +89,8 @@
                                     <div class="flex items-center">
                                         <el-tooltip :content="scope.row.receiver" placement="top">
                                             <template #content>
-                                                <p class="text-blue-300">Receptor: <span class="text-white">{{ scope.row.receiver }}</span></p>
-                                                <p class="text-blue-300">Depto: <span class="text-white">{{ scope.row.department }}</span></p>
+                                                <p class="text-blue-300 dark:text-blue-600">Receptor: <span class="text-white dark:text-gray-700">{{ scope.row.receiver }}</span></p>
+                                                <p class="text-blue-300 dark:text-blue-600">Depto: <span class="text-white dark:text-gray-700">{{ scope.row.department }}</span></p>
                                             </template>
                                             <div class="flex items-center">
                                                 <i class="fa-solid fa-circle text-[8px] mr-2"
@@ -123,10 +123,10 @@
                                     <el-tooltip placement="top">
                                         <template #content>
                                             <div class="text-xs">
-                                                <p class="text-white font-bold mb-2">No se toma en cuenta herramental ni flete</p>
-                                                <p class="text-blue-300">Venta: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
-                                                <p class="text-amber-400">Costo: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
-                                                <p class="text-green-400">Utilidad: <strong class="text-white">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                                <p class="text-white dark:text-gray-600 font-bold mb-2">No se toma en cuenta herramental ni flete</p>
+                                                <p class="text-blue-300 dark:text-blue-700">Venta: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
+                                                <p class="text-amber-400 dark:text-amber-700">Costo: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
+                                                <p class="text-green-400 dark:text-green-700">Utilidad: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
                                             </div>
                                         </template>
                                         <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">

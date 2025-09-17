@@ -16,7 +16,7 @@
                     class="group relative flex items-center justify-center w-8 h-16 bg-slate-800/80 backdrop-blur-sm text-white rounded-l-2xl shadow-2xl hover:bg-slate-700/90 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                     aria-label="Mostrar notas"
                 >
-                    <span 
+                    <span v-if="notes.length" 
                         class="absolute -top-1 -left-2 flex items-center justify-center 
                             size-5 text-xs font-bold text-white bg-red-500 rounded-full 
                             ring-2 ring-red-800 shadow-md"

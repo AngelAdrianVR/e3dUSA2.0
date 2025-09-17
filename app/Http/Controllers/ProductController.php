@@ -263,13 +263,15 @@ class ProductController extends Controller
         // Carga todas las relaciones necesarias para la vista de detalles.
         // Usar load() es eficiente porque solo carga las relaciones para este producto específico.
         $catalog_product->load([
-            'media', // Para la galería de imágenes
-            'brand', // Para obtener el nombre de la marca
-            'productFamily', // Para obtener el nombre de la familia
-            'storages.stockMovements', // Para existencias, ubicación y movimientos de stock
-            'components.media', // Materia prima que compone el producto
-            'productionCosts', // Procesos de producción asociados
-            'priceHistory.branch', // historial de precios
+            'media',
+            'brand',
+            'productFamily',
+            'storages.stockMovements' => function ($query) {
+                $query->latest()->limit(100); // puedes usar orderBy si prefieres
+            },
+            'components.media',
+            'productionCosts',
+            'priceHistory.branch',
         ]);
 
         // Obtiene una lista de todos los productos para el buscador/selector.

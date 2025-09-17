@@ -29,7 +29,7 @@
                 </div>
             </div>
             <div class="text-sm mt-2 space-y-px">
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio actual:</strong> ${{ currentPrice(product) }}</p>
+                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio actual:</strong> ${{ currentPrice(product).price }} {{ currentPrice(product).currency }}</p>
                 <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Material:</strong> {{ product.material }}</p>
                 <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Stock disponible:</strong> {{ product.storages[0]?.quantity }} {{ product.measure_unit }}</p>
             </div>
@@ -65,7 +65,7 @@
                         </thead>
                         <tbody>
                             <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
-                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }}</td>
+                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }} {{ history.currency }}</td>
                                 <td class="px-4 py-2">{{ formatDate(history.valid_from) }}</td>
                                 <td class="px-4 py-2 flex items-center justify-between">
                                     <span>{{ history.valid_to ? formatDate(history.valid_to) : 'Indefinido' }}</span>
@@ -261,13 +261,20 @@ methods:{
         return "bg-red-400";
     },
     currentPrice(product) {
-        // si tiene precio especial y esta vigente, lo toma como precio actual, si no, toma el precio base
+        // si tiene precio especial y está vigente, lo toma como precio actual, si no, toma el precio base
         const specialPrice = product.price_history?.[0];
         
         if (specialPrice && (!specialPrice.valid_to || specialPrice.valid_to === null)) {
-            return specialPrice.price;
+            return {
+                price: specialPrice.price,
+                currency: specialPrice.currency
+            };
         }
-        return product.base_price;
+
+        return {
+            price: product.base_price,
+            currency: product.currency
+        };
     },
     formatDate(dateString) {
         if (!dateString) return '';

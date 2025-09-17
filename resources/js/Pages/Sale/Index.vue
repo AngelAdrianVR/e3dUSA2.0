@@ -106,10 +106,10 @@
                                     <el-tooltip v-if="scope.row.type === 'venta'" placement="top" effect="dark">
                                         <template #content>
                                             <div class="text-xs">
-                                                <p class="text-white font-bold mb-2">No se toma en cuenta flete</p>
-                                                <p class="text-blue-300">Venta: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
-                                                <p class="text-amber-400">Costo: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
-                                                <p class="text-green-400">Utilidad: <strong class="text-white">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                                <p class="text-white dark:text-gray-700 font-bold mb-2">No se toma en cuenta flete</p>
+                                                <p class="text-blue-300 dark:text-blue-700">Venta: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
+                                                <p class="text-amber-400 dark:text-amber-700">Costo: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
+                                                <p class="text-green-400 dark:text-green-700">Utilidad: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
                                             </div>
                                         </template>
                                         <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">

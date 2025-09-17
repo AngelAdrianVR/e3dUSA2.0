@@ -52,7 +52,7 @@ class SaleController extends Controller
         ]);
 
         // Obtiene el quote_id de la solicitud
-        $quoteToConvertId = $request->input('quote_id');
+        $quoteToConvertId = intval($request->input('quote_id'));
 
         // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
@@ -669,10 +669,12 @@ class SaleController extends Controller
     public function print(Sale $sale)
     {
         $sale->load([
-            'branch.contacts', // Sucursal del cliente y sus contactos
-            'user',            // Usuario que creó la venta
+            'branch:id,name',
+            'branch.contacts:id,name,branch_id', // Sucursal del cliente y sus contactos
+            'user:id,name',            // Usuario que creó la venta
+            'saleProducts.product:id,name,code,measure_unit', // Productos de la venta y su info del catálogo
             'saleProducts.product.media', // Productos de la venta y su info del catálogo
-            'shipments'       // Envíos o parcialidades de la venta
+            'shipments.shipmentProducts'       // Envíos o parcialidades de la venta
         ]);
 
         // return $sale;
@@ -692,6 +694,7 @@ class SaleController extends Controller
         $sales = Sale::with('branch:id,name')
                     ->select('id', 'branch_id', 'type')
                     ->orderBy('id', 'desc')
+                    ->take(200)
                     ->get()
                     ->map(function ($sale) {
                         return [

@@ -16,7 +16,7 @@
                 </el-select>
             </div>
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip content="Editar Cliente" placement="top">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar clientes')" content="Editar Cliente" placement="top">
                     <Link :href="route('branches.edit', branch.id)">
                         <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                             <i class="fa-solid fa-pencil text-sm"></i>
@@ -31,14 +31,14 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink :href="route('branches.create')">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear clientes')" :href="route('branches.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nuevo Cliente
                         </DropdownLink>
                         <DropdownLink @click="showAddProductsModal = true" as="button">
                             <i class="fa-solid fa-tags w-4 mr-2"></i> Agregar Productos
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar clientes')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar
                         </DropdownLink>
                     </template>

@@ -74,11 +74,11 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink :href="route('design-orders.create')">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')" :href="route('design-orders.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nueva Orden
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de diseño')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar orden
                         </DropdownLink>
                     </template>
@@ -217,9 +217,9 @@
                             <p>Especificaciones:</p>
                             <p class="text-sm mt-2 whitespace-pre-wrap">{{ designOrder.specifications }}</p>
                             
-                            <div class="col-span-2 mt-5">
+                            <div v-if="$page.props.auth.user.id === designOrder.designer_id" class="col-span-2 mt-5">
                                 <InputLabel value="Archivos Finales (obligatorio para terminar)" />
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
+                                <p class="text-xs text-amber-500 dark:text-amber-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
                                 <FileUploader @files-selected="finishForm.final_files = $event" :multiple="true" acceptedFormat="cualquier" />
                                 <div v-if="finishForm.errors.final_files" class="text-red-500 text-xs mt-1">
                                     {{ finishForm.errors.final_files }}

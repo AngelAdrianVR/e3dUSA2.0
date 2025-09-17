@@ -8,6 +8,7 @@ use App\Models\Quote;
 use App\Models\QuoteProduct;
 use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
+use App\Notifications\NewQuoteForApprovalNotification;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class QuoteController extends Controller
 {
@@ -128,7 +130,21 @@ class QuoteController extends Controller
 
             // Adjuntar los productos a la cotización con sus datos pivote.
             $quote->products()->attach($productsData);
+            
+            // --- INICIO: LÓGICA DE NOTIFICACIÓN ---
+            // Verificar que la cotización se haya creado correctamente.
+            if ($quote) {
+                // Obtener todos los usuarios con el permiso para autorizar cotizaciones.
+                // Asegúrate de que el nombre del permiso sea exactamente 'Autorizar ordenes de venta'.
+                $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
+    
+                // Enviar la notificación a todos los usuarios encontrados.
+                if ($usersToNotify->isNotEmpty()) {
+                    Notification::send($usersToNotify, new NewQuoteForApprovalNotification($quote));
+                }
+            }
         });
+
 
         return Redirect::route('quotes.index')->with('success', 'Cotización creada exitosamente.');
     }
@@ -518,7 +534,7 @@ class QuoteController extends Controller
                     'cost' => $product->cost,
                     'quantity' => $product->pivot->quantity,
                     'unit_price' => $product->pivot->unit_price,
-                    'customization_details' => json_decode($product->pivot->customization_details),
+                    'customization_details' => $product->pivot->customization_details,
                     'notes' => $product->pivot->notes,
                     // NUEVO: Agregamos la URL de la primera imagen del producto.
                     'image_url' => $product->media->first()?->original_url,
@@ -531,6 +547,7 @@ class QuoteController extends Controller
             'freight_option' => $quote->freight_option,
             'freight_cost' => $quote->freight_cost,
             'notes' => $quote->notes,
+            'currency' => $quote->currency,
             'products' => $approvedProducts->values(),
         ]);
     }

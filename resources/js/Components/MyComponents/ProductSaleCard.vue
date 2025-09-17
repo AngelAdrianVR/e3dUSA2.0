@@ -19,6 +19,7 @@
 
             <div class="flex-1">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ saleProduct.product?.name }}</h3>
+                <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
                 
                 <el-tag v-if="saleProduct.is_new_design" type="primary" size="small" effect="light" class="mt-2">
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
@@ -44,15 +45,15 @@
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">Precio Unitario (Venta)</p>
-                        <p class="font-semibold text-lg text-green-600 dark:text-green-400">{{ formatCurrency(saleProduct.price) }}</p>
+                        <p class="font-semibold text-lg text-green-600 dark:text-green-400">{{ formatCurrency(saleProduct.price) }} {{ saleCurrency }}</p>
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
-                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }}</p>
+                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
                      <div>
                         <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
-                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }}</p>
+                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ saleCurrency }}</p>
                     </div>
                 </div>
             </div>
@@ -90,7 +91,7 @@
         </div>
 
         <div class="mt-4 w-full">
-            <p v-if="lastUpdateInfo" :class="lastUpdateInfo.colorClass" class="text-xs font-semibold mb-2">
+            <p v-if="lastUpdateInfo" :class="lastUpdateInfo.colorClass" class="text-sm font-semibold mb-2">
                 <i class="fa-solid fa-circle-info mr-1"></i>
                 {{ lastUpdateInfo.text }}
             </p>
@@ -149,6 +150,19 @@
                         </el-input>
                     </div>
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 h-48">
+                    <div>
+                        <label class="font-semibold">Moneda*</label>
+                        <el-select v-model="priceForm.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
+                            <el-option label="MXN" value="MXN" />
+                            <el-option label="USD" value="USD" />
+                        </el-select>
+                    </div>
+                    <div>
+                        <label class="font-semibold">Fecha de cambio (Vigente desde)*</label>
+                        <el-date-picker v-model="priceForm.valid_from" type="date" :teleported="false" placeholder="Selecciona una fecha" class="!w-full mt-1" />
+                    </div>
+                </div>
                 <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
                     El aumento del precio especial debe ser de al menos un 4% sobre el precio base.
@@ -202,6 +216,10 @@ export default {
     props: {
         saleProduct: {
             type: Object,
+            required: true,
+        },
+        saleCurrency: {
+            type: String,
             required: true,
         },
         isHighPriority: {

@@ -181,13 +181,13 @@
                     <div>
                         <label for="carpet-length"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Largo (cm)</label>
-                        <input type="number" id="carpet-length" v-model="carpetQuote.length" placeholder="e.g., 200"
+                        <input type="number" id="carpet-length" v-model="carpetQuote.length" placeholder="Ej. 200"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div>
                         <label for="carpet-width"
                             class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ancho (cm)</label>
-                        <input type="number" id="carpet-width" v-model="carpetQuote.width" placeholder="e.g., 150"
+                        <input type="number" id="carpet-width" v-model="carpetQuote.width" placeholder="Ej. 150"
                             class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                     </div>
                 </div>
@@ -196,7 +196,7 @@
                     <label for="carpet-discount"
                         class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descuento (%) <span
                             class="text-gray-500">(Opcional)</span></label>
-                    <input type="number" id="carpet-discount" v-model="carpetQuote.discount" placeholder="e.g., 10"
+                    <input type="number" id="carpet-discount" v-model="carpetQuote.discount" placeholder="Ej. 10"
                         min="0" max="100"
                         class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                 </div>
@@ -348,6 +348,7 @@ export default {
                         {
                             label: 'Órdenes de venta / stock',
                             route: 'sales.index',
+                            active: route().current('sales.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
                         },
                     ],

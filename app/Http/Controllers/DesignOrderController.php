@@ -153,7 +153,7 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        $designOrders = DesignOrder::select('id', 'order_title')->get();
+        $designOrders = DesignOrder::select('id', 'order_title')->take(200)->get();
 
         $designOrder->load([
             'designAuthorization', 
@@ -205,15 +205,7 @@ class DesignOrderController extends Controller
         $designCategories = DesignCategory::select('id', 'name')->get();
 
         // Se obtienen los usuarios que son diseñadores.
-        // Asumiendo que los diseñadores tienen un campo 'designer_level' no nulo como indica el flujo.
-        // $designers = User::whereNotNull('designer_level')
-        //                  ->where('status', 'active') // O cualquier otro criterio para usuarios activos
-        //                  ->select('id', 'name')
-        //                  ->get();
-
-        $designers = User::where('is_active', true) // O cualquier otro criterio para usuarios activos
-                         ->select('id', 'name')
-                         ->get();
+        $designers = User::where('is_active', true)->role('Diseñador')->select('id', 'name')->get();
 
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 

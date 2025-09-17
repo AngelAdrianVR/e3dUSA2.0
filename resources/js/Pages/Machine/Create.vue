@@ -98,7 +98,8 @@
                         </div>
 
                         <div label="Imagen de la máquina" prop="media" class="col-span-2 mt-5">
-                            <FileUploader @files-selected="form.media = $event" :multiple="true" acceptedFormat="imagen" :max-files="4" />
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3" for="">Imagenes de la máquina (max. 4)</label>
+                            <FileUploader @files-selected="form.media = $event" :multiple="true" :format="'Imagen'" :max-files="4" />
                             <InputError :message="form.errors.media" class="mt-2" />
                         </div>
                         
