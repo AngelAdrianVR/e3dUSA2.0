@@ -11,6 +11,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use App\Models\User;
+use App\Notifications\NewSampleTrackingNotification;
+use Illuminate\Support\Facades\Notification as FacadesNotification;
 
 class SampleTrackingController extends Controller
 {
@@ -27,7 +30,7 @@ class SampleTrackingController extends Controller
     {
         // Pasa los datos necesarios para los selectores del formulario
         $branches = Branch::with(['contacts:id,name,branch_id'])->get(['id', 'name']);
-        $products = Product::where('product_type', 'Catálogo')->get(['id', 'name']); 
+        $products = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->get(['id', 'name']); 
 
         // return $branches;
         return Inertia::render('SampleTracking/Create', compact('branches', 'products'));
@@ -52,7 +55,7 @@ class SampleTrackingController extends Controller
             'items.*.media' => 'nullable|array|max:2', // Agregado: validación para array de imágenes
             'items.*.media.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max:2048', // Agregado: validación para cada imagen
         ]);
-
+        
         try {
             DB::transaction(function () use ($validated, $request) {
                 // Crear el registro principal de seguimiento
@@ -102,7 +105,21 @@ class SampleTrackingController extends Controller
                         ]);
                     }
                 }
+
+                // --- INICIO DE LÓGICA DE NOTIFICACIÓN ---
+                // Si la transacción fue exitosa y el registro se creó
+                if ($sampleTracking) {
+                    // Buscamos a todos los usuarios con el rol 'Super Administrador'
+                    $usersToNotify = User::role('Super Administrador')->get();
+                    
+                    // Si encontramos usuarios, les enviamos la notificación
+                    if ($usersToNotify->isNotEmpty()) {
+                        FacadesNotification::send($usersToNotify, new NewSampleTrackingNotification($sampleTracking));
+                    }
+                }
+                // --- FIN DE LÓGICA DE NOTIFICACIÓN ---
             });
+
         } catch (\Exception $e) {
             // Manejo de errores
             return back()->withErrors('Ocurrió un error inesperado al guardar la solicitud: ' . $e->getMessage());

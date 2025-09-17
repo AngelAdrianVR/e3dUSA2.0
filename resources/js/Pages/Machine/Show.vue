@@ -482,14 +482,17 @@ export default {
   computed: {
     // Todas las computadas ahora usan directamente la prop 'machine'
     hasImages() {
-      return this.machine?.media && this.machine.media.length > 0;
+      const images = this.machine.media.filter(m => m.collection_name === 'images');
+      return this.machine?.media && images.length > 0;
     },
     hasMultipleImages() {
-        return this.machine?.media?.length > 1;
+      const images = this.machine.media.filter(m => m.collection_name === 'images');
+        return images.length > 1;
     },
     currentImageUrl() {
       if (!this.hasImages) return null;
-      return this.machine.media[this.currentImageIndex]?.original_url;
+      const images = this.machine.media.filter(m => m.collection_name === 'images');
+      return images[this.currentImageIndex]?.original_url;
     },
     // Permisos
     userPermissions() {

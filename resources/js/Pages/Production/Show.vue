@@ -216,7 +216,7 @@
                     </div>
 
                     <!-- Kanban Body Grid -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
                         <!-- Main Column: Timeline Chart -->
                         <div class="lg:col-span-2">
                             <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Línea de Tiempo de Tareas</h3>
@@ -254,22 +254,22 @@
                         </div>
 
                         <!-- Sidebar Column: Details -->
-                        <div class="lg:col-span-1 space-y-5 h-[550px] overflow-y-auto overflow-x-hidden">
+                        <div class="lg:col-span-1 space-y-5 h-[55vh] overflow-y-auto overflow-x-hidden">
                              <!-- Quantities -->
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Cantidad a Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce.toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
-                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ (selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-red-600 dark:text-red-300">Merma</p>
-                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap }}</p>
+                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap.toLocaleString() }}</p>
                                     </div>
                                 </div>
                             </div>

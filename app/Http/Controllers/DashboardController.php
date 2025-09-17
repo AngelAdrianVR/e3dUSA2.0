@@ -35,6 +35,7 @@ class DashboardController extends Controller
         
         // Calendar Widget Data
         $calendarEvents = CalendarEntry::where('start_datetime', '>=', now())
+            ->where('user_id', $authUserId)
             ->orderBy('start_datetime')
             ->limit(5)
             ->get(['id', 'title', 'start_datetime', 'is_full_day', 'entryable_type']);

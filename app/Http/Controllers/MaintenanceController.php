@@ -8,8 +8,10 @@ use App\Models\SparePart;
 use Illuminate\Support\Facades\DB; // Importar para usar transacciones
 use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Notifications\NewMaintenanceNotification;
 use App\Notifications\ValidationRequiredNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 
 class MaintenanceController extends Controller
 {
@@ -42,16 +44,21 @@ class MaintenanceController extends Controller
             'spare_parts_used.*.quantity'=> 'required|integer|min:1',
         ]);
 
-                // notificar a maribel para que valide limpieza
-            // $machine = Machine::find($request->machine_id);
-            // $maribel = User::find(3);
-            // $maribel->notify(
-            //     new ValidationRequiredNotification(
-            //         'trabajo de limpieza de máquina',
-            //         route('machines.show', $request->machine_id),
-            //         $machine->name
-            //     )
-            // );
+            // Notificacion
+            // 1. Buscamos a todos los usuarios con los roles deseados.
+            //    Asegúrate de que los nombres de los roles coincidan exactamente.
+            $usersToNotify = User::role(['Super Administrador', 'Mantenimiento'])->get();
+            $machine = Machine::find($request->machine_id);
+
+            // 2. Verificamos si encontramos usuarios antes de enviar.
+            if ($usersToNotify->isNotEmpty()) {
+                // 3. Usamos el Facade 'Notification' para enviar a la colección de usuarios.
+                Notification::send($usersToNotify, new NewMaintenanceNotification(
+                    $machine->name, // Ya tenemos la máquina de la notificación anterior
+                    $validatedData['maintenance_type'],
+                    route('machines.show', ['machine' => $machine->id])
+                ));
+            }
 
         // 2. LÓGICA DE BASE DE DATOS CON TRANSACCIÓN
         // Usamos una transacción para asegurar que todas las operaciones (crear mantenimiento y actualizar stock)

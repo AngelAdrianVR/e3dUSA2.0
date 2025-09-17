@@ -26,7 +26,7 @@
                 </div>
             </div>
              <div v-if="!events.length" class="text-center py-8">
-                <p class="text-gray-500 dark:text-gray-400">No hay eventos próximos.</p>
+                <p class="text-gray-500 dark:text-gray-400">No tienes eventos próximos.</p>
             </div>
         </div>
         <button @click="$inertia.visit(route('calendar.create'))" class="mt-auto w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-all duration-300">

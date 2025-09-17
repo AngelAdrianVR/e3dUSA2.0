@@ -50,7 +50,7 @@
 
               <!-- Descripción -->
               <div>
-                <TextInput v-model="form.description" label="Problemas detectados*" :error="form.errors.description"
+                <TextInput v-model="form.description" label="Descripción*" :error="form.errors.description"
                   :isTextarea="true" :withMaxLength="true" :maxLength="500"
                   placeholder="Escriba la descripción de tu recordatorio" />
               </div>

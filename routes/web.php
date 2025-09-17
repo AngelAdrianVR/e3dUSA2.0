@@ -94,6 +94,7 @@ Route::get('/global-search', [AppLayoutController::class, 'globalSearch'])->midd
 Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
 Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->middleware('auth')->name('notifications.destroy');
+Route::post('/notifications/destroy-selected', [NotificationController::class, 'destroySelected'])->middleware('auth')->name('notifications.destroy-selected');
 
 
 // ------- Products Routes ---------
