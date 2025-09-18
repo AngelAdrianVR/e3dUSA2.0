@@ -180,6 +180,9 @@ class DashboardController extends Controller
         // 1. Birthdays for the current month, sorted by day
         $birthdays = EmployeeDetail::whereNotNull('birthdate')
             ->whereMonth('birthdate', $currentMonth)
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->birthdate->format('d'));
@@ -187,7 +190,10 @@ class DashboardController extends Controller
         // 2. Anniversaries for the current month, sorted by day
         $anniversaries = EmployeeDetail::whereNotNull('join_date')
             ->whereMonth('join_date', $currentMonth)
-            ->whereYear('join_date', '<', now()->year) // Exclude new hires from this year
+            ->whereYear('join_date', '<', now()->year) // Excluye contrataciones de este año
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->join_date->format('d'));
