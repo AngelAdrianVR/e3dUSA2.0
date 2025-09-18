@@ -565,6 +565,7 @@ export default {
                         route().current('production-costs.*') ||
                         route().current('manuals.*') ||
                         route().current('sample-trackings.*') ||
+                        route().current('media-library.*') ||
                         route().current('audits.*'),
                     options: [
                         {
@@ -608,6 +609,12 @@ export default {
                             show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
                         },
                         {
+                            label: 'Biblioteca de medios',
+                            route: 'media-library.index',
+                            active: route().current('media-library.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver biblioteca de medios')
+                        },
+                        {
                             label: 'Cotizador de alfombras',
                             action: this.openCarpetCalculator,
                             show: true,
@@ -617,6 +624,7 @@ export default {
                     show: this.$page.props.auth.user.permissions.includes('Ver maquinas')
                         || this.$page.props.auth.user.permissions.includes('Ver historial de acciones')
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
+                        || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios')
                         || this.$page.props.auth.user.permissions.includes('Ver muestras')
                 },
             ],
