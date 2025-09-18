@@ -21,7 +21,14 @@
                             <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 capitalize">{{ formatType(event.entryable_type) }}</p>
                             <p class="text-sm text-gray-500 dark:text-gray-400">{{ event.title }}</p>
                         </div>
-                        <p v-if="!event.is_full_day" class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ formatTime(event.start_datetime) }}</p>
+                        <div class="text-right">
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ formatTime(event.start_datetime) }}</p>
+                            <span v-if="event.participant_status"
+                                  :class="getStatusColor(event.participant_status)"
+                                  class="px-2 py-0.5 rounded-full text-xs font-semibold mt-1 inline-block">
+                                {{ event.participant_status }}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -73,6 +80,14 @@ export default {
                 'default': { text: 'text-yellow-400', bg: 'bg-yellow-400/10' }
             };
             return colors[type] || colors['default'];
+        },
+        getStatusColor(status) {
+            const colors = {
+                'Pendiente': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+                'Aceptado': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+                'Rechazado': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
         },
         formatType(type) {
             if (type.includes('Event')) return 'Evento';

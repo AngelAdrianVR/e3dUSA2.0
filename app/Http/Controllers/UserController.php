@@ -39,6 +39,7 @@ class UserController extends Controller
                     }
                 });
             })
+            ->where('id', '>', 3)
             ->latest() // Opcional: ordenar por los más recientes
             ->paginate(30)
             // Importante: mantiene los parámetros de búsqueda en los enlaces de paginación

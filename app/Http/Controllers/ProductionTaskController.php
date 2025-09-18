@@ -118,7 +118,7 @@ class ProductionTaskController extends Controller
         if ($logType) {
             ProductionLog::create([
                 'production_id' => $production_task->production_id,
-                'user_id' => Auth::id(),
+                'user_id' => $production_task->operator_id,
                 'type' => $logType,
                 'notes' => $notes,
             ]);

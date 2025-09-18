@@ -18,10 +18,12 @@
             <div class="flex items-center space-x-2 dark:text-white mr-4">
                 <!-- ACCIONES PARA EL DISEÑADOR -->
                 <div v-if="isAssignedDesigner">
-                    <PrimaryButton v-if="canStartWork" @click="startWork">
-                        <i class="fa-solid fa-play mr-2"></i>
-                        Iniciar Trabajo
-                    </PrimaryButton>
+                    <el-tooltip v-if="!designOrder.started_at" :content="canStartWork ? 'Iniciar trabajo' : 'No puedes iniciar si no está autorizada'" placement="top">
+                        <PrimaryButton :disabled="!canStartWork" @click="startWork">
+                            <i class="fa-solid fa-play mr-2"></i>
+                            Iniciar Trabajo
+                        </PrimaryButton>
+                    </el-tooltip>
                     <PrimaryButton v-if="canFinishWork" @click="promptFinishWork" class="!bg-green-600 hover!bg-green-700"> <i class="fa-solid fa-check-double mr-2"></i>
                         Terminar Diseño
                     </PrimaryButton>
@@ -217,7 +219,7 @@
                             <p>Especificaciones:</p>
                             <p class="text-sm mt-2 whitespace-pre-wrap">{{ designOrder.specifications }}</p>
                             
-                            <div v-if="$page.props.auth.user.id === designOrder.designer_id" class="col-span-2 mt-5">
+                            <div v-if="$page.props.auth.user.id === designOrder.designer_id && (designOrder.started_at && !designOrder.finished_at)" class="col-span-2 mt-5">
                                 <InputLabel value="Archivos Finales (obligatorio para terminar)" />
                                 <p class="text-xs text-amber-500 dark:text-amber-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
                                 <FileUploader @files-selected="finishForm.final_files = $event" :multiple="true" acceptedFormat="cualquier" />
@@ -485,6 +487,7 @@ export default {
                 onSuccess: () => {
                     this.showFinishModal = false;
                     this.finishForm.reset(); // Limpiar el formulario
+                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
                     ElMessage.success('¡Excelente! Diseño terminado y archivado.');
                 },
                 onError: (errors) => {

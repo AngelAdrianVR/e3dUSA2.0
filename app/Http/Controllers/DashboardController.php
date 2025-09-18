@@ -7,6 +7,7 @@ use App\Models\CalendarEntry;
 use App\Models\Contact;
 use App\Models\DesignOrder;
 use App\Models\EmployeeDetail;
+use App\Models\Event;
 use App\Models\OvertimeRequest;
 use App\Models\Product;
 use App\Models\Production;
@@ -33,12 +34,48 @@ class DashboardController extends Controller
         $authUserId = Auth::id();
         $authUser = Auth::user();
         
-        // Calendar Widget Data
         $calendarEvents = CalendarEntry::where('start_datetime', '>=', now())
-            ->where('user_id', $authUserId)
+            ->where(function ($query) use ($authUserId) {
+                $query->where('user_id', $authUserId)
+                    ->orWhereHasMorph(
+                        'entryable',
+                        [Event::class],
+                        function ($q) use ($authUserId) {
+                            $q->whereHas('participants', function ($subQ) use ($authUserId) {
+                                $subQ->where('users.id', $authUserId);
+                            });
+                        }
+                    );
+            })
+            ->with([
+                // Eager load para optimizar consultas a la base de datos
+                'entryable' => function ($morphTo) use ($authUserId) {
+                    $morphTo->morphWith([
+                        Event::class => [
+                            // De la relación 'participants', solo trae al usuario actual
+                            'participants' => function ($query) use ($authUserId) {
+                                $query->where('users.id', $authUserId);
+                            }
+                        ]
+                    ]);
+                }
+            ])
             ->orderBy('start_datetime')
             ->limit(5)
-            ->get(['id', 'title', 'start_datetime', 'is_full_day', 'entryable_type']);
+            ->get()
+            // Transforma la colección para añadir el estado del participante
+            ->map(function ($entry) {
+                // Busca si se cargó la información del participante
+                $participant = $entry->entryable?->participants?->first();
+
+                // Si existe, añade el estado. Si no, déjalo como null.
+                $entry->participant_status = $participant ? $participant->pivot->status : null;
+                
+                // Opcional: Remueve la relación para no cargar datos innecesarios en la vista
+                unset($entry->entryable);
+
+                return $entry;
+            });
 
         // Warehouse Status Chart
         // Se calcula la cantidad de productos con stock bajo.

@@ -1,5 +1,8 @@
 <template>
     <AppLayout title="Editar Cliente">
+        <!-- Panel Flotante de Notas -->
+        <BranchNotes :branch-id="branch.id" />
+
         <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
                 <Back :href="route('branches.index')" />
@@ -214,6 +217,7 @@
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
@@ -265,6 +269,7 @@ export default {
         AppLayout,
         TextInput,
         InputError,
+        BranchNotes,
         PrimaryButton,
         SecondaryButton,
     },
