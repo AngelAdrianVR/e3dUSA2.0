@@ -110,7 +110,7 @@ class ProductionController extends Controller
     public function create()
     {
         // Obtener la lista de usuarios que son operadores
-        $operators = User::where('is_active', true)->role('Auxiliar de producción')->orderBy('name')->get();
+        $operators = User::where('is_active', true)->role(['Auxiliar de producción', 'Jefe de producción'])->orderBy('name')->get();
 
         // Obtener la lista de procesos de producción predefinidos
         $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();

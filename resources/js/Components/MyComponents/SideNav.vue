@@ -545,7 +545,7 @@ export default {
                         },
                     ],
                     dropdown: true,
-                    show: true
+                    show: this.$page.props.auth.user.permissions.includes('Ver ordenes de diseño')
                 },
                 {
                     label: 'Producción',
@@ -555,7 +555,7 @@ export default {
                     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
                     //     return notification.data.module === 'production';
                     // }),
-                    show: true
+                    show: this.$page.props.auth.user.permissions.includes('Ver ordenes de produccion')
                 },
                 {
                     label: 'Más',

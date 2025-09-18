@@ -19,7 +19,7 @@
               <SecondaryButton @click="respondToInvitation(invitation.id, 'Aceptado')">
                 <i class="fa-solid fa-circle-check mr-2"></i> Aceptar
               </SecondaryButton>
-              <PrimaryButton @click="respondToInvitation(invitation.id, 'Rechazado')">
+              <PrimaryButton class="!bg-red-600" @click="respondToInvitation(invitation.id, 'Rechazado')">
                 <i class="fa-solid fa-circle-xmark mr-2"></i> Rechazar
               </PrimaryButton>
             </div>
