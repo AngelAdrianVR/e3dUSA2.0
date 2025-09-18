@@ -109,10 +109,10 @@
                     <InfoItem label="Número de serie" :value="machine.serial_number" />
                     <InfoItem label="Proveedor" :value="machine.supplier" />
                     <InfoItem label="Costo" :value="`$${machine.cost}`" value-class="text-green-600 font-semibold" />
-                    <InfoItem label="Peso" :value="`${machine.weight} kg`" />
-                    <InfoItem label="Ancho" :value="`${machine.width} cm`" />
-                    <InfoItem label="Largo" :value="`${machine.large} cm`" />
-                    <InfoItem label="Alto" :value="`${machine.height} cm`" />
+                    <InfoItem label="Peso"   :value="machine.weight ? `${machine.weight} kg` : '-'" />
+                    <InfoItem label="Ancho"  :value="machine.width ? `${machine.width} cm` : '-'" />
+                    <InfoItem label="Largo"  :value="machine.large ? `${machine.large} cm` : '-'" />
+                    <InfoItem label="Alto"   :value="machine.height ? `${machine.height} cm` : '-'" />
                 </div>
                 <h3 class="text-base font-semibold mt-8 mb-3 border-t border-gray-200 dark:border-slate-700 pt-6">Archivos Adjuntos</h3>
                 <div v-if="machine.media?.filter(m => m.collection_name == 'files')?.length" class="grid grid-cols-2 lg:grid-cols-3 gap-3">

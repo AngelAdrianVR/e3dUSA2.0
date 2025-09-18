@@ -275,11 +275,16 @@
                             </div>
                             <!-- Production Tasks -->
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Tareas y Operadores</h3>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Tareas y Operadores</h3>
+                                    <button @click="openHistoryModal" class="px-3 py-1.5 bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 rounded-md text-xs font-semibold transition">
+                                        <i class="fa-solid fa-clock-rotate-left mr-2"></i>Historial de Acciones
+                                    </button>
+                                </div>
                                 <div v-if="selectedProduction?.tasks?.length" class="space-y-3">
                                     <div v-for="task in selectedProduction.tasks" :key="task.id" class="bg-gray-100 dark:bg-slate-700/50 p-3 rounded-lg">
                                         <div class="flex flex-col items-start">
-                                            <div class="flex items-center space-x-3 cursor-pointer" @click="openLogModal(task)">
+                                            <div class="flex items-center space-x-3">
                                                 <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800 transition-transform object-cover" :class="taskStatusRingColor(task.status)">
                                                 <div>
                                                     <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
@@ -339,21 +344,25 @@
             </div>
         </main>
 
-        <!-- Log Modal -->
-        <el-dialog v-model="logModalVisible" :title="`Historial de acciones de ${selectedOperatorName}`" width="500px">
+        <!-- History Modal -->
+        <el-dialog v-model="historyModalVisible" title="Historial de Acciones de Producción" width="500px">
             <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
-                 <div v-for="log in selectedOperatorLogs" :key="log.id" class="flex items-start space-x-3 text-sm">
+                 <div v-for="log in fullProductionLogs" :key="log.id" class="flex items-start space-x-3 text-sm">
                     <div class="flex-shrink-0 size-8 rounded-full flex items-center justify-center" :class="logTypeBgColor(log.type)">
                         <i class="fa-solid text-xs" :class="logTypeIcon(log.type)"></i>
                     </div>
                     <div class="flex-grow">
-                        <p class="text-gray-800 dark:text-gray-200">{{ log.notes }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <img :src="log.operator?.profile_photo_url" :alt="log.operator?.name" class="size-5 rounded-full object-cover">
+                            <span class="font-semibold text-gray-600 dark:text-gray-300">{{ log.operator?.name }}</span>
+                        </div>
+                        <p class="text-gray-800 dark:text-gray-200 pl-7">{{ log.notes }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-7">
                            {{ formatDistanceToNowWithLocale(log.created_at) }}
                         </p>
                     </div>
                 </div>
-                <Empty v-if="!selectedOperatorLogs.length" text="No hay eventos registrados para este operador." />
+                <Empty v-if="!fullProductionLogs.length" text="No hay eventos registrados para esta producción." />
             </div>
         </el-dialog>
     </AppLayout>
@@ -381,9 +390,8 @@ export default {
     data() {
         return {
             selectedSaleProduct: null,
-            logModalVisible: false,
-            selectedOperatorLogs: [],
-            selectedOperatorName: '',
+            historyModalVisible: false,
+            fullProductionLogs: [],
         };
     },
     computed: {
@@ -466,19 +474,28 @@ export default {
         selectProduct(product) {
             this.selectedSaleProduct = product;
         },
-        openLogModal(task) {
-            if (!task?.operator) return;
+        openHistoryModal() {
+            if (!this.selectedProduction?.logs) {
+                this.fullProductionLogs = [];
+                this.historyModalVisible = true;
+                return;
+            }
 
-            this.selectedOperatorName = `${task.operator.name} (${task.name})`;
-            const taskStart = new Date(task.started_at);
-            const taskEnd = task.finished_at ? new Date(task.finished_at) : new Date();
+            const operatorMap = this.selectedProduction.tasks.reduce((map, task) => {
+                if (task.operator) {
+                    map[task.operator.id] = task.operator;
+                }
+                return map;
+            }, {});
 
-            this.selectedOperatorLogs = this.selectedProduction?.logs?.filter(log => {
-                const logDate = new Date(log.created_at);
-                return log.user_id === task.operator.id && logDate >= taskStart && logDate <= taskEnd;
-            }) ?? [];
-            
-            this.logModalVisible = true;
+            this.fullProductionLogs = this.selectedProduction.logs
+                .map(log => ({
+                    ...log,
+                    operator: operatorMap[log.user_id] || { name: 'Operador Desconocido', profile_photo_url: 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=?' }
+                }))
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Sort recent first
+
+            this.historyModalVisible = true;
         },
         getPrimaryDetail(contact, type) {
             if (!contact.details) return 'No disponible';
@@ -702,18 +719,6 @@ export default {
                 ElMessage.info('Acción cancelada');
             }
         },
-        // getQuantityToProduce(task) {
-        //     const saleProduct = task.production?.sale_product;
-        //     const productionsOnSale = this.sale?.productions;
-
-        //     if (!saleProduct || !productionsOnSale) {
-        //         return task.production?.quantity_to_produce ?? 0;
-        //     }
-            
-        //     const correctProduction = productionsOnSale.find(p => p.sale_product_id === saleProduct.id);
-            
-        //     return correctProduction?.quantity_to_produce ?? 0;
-        // },
     }
 };
 </script>

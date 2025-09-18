@@ -140,7 +140,7 @@
 
                         <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
-                                <Checkbox v-model:checked="form.is_circular" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
+                                <Checkbox v-model:checked="form.is_circular" @change="resetDimentions" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
                             </label>
                             
@@ -480,6 +480,7 @@ export default {
                 large: this.catalog_product.large,
                 height: this.catalog_product.height,
                 diameter: this.catalog_product.diameter,
+                current_stock: this.catalog_product.storages[0]?.quantity,
                 location: this.catalog_product.storages[0]?.location,
                 media: [], // Para archivos nuevos
                 hasComponents: this.catalog_product.components.length ? true : false,
@@ -573,6 +574,12 @@ export default {
         },
     },
     methods: {
+        resetDimentions() {
+            this.form.width = null;
+            this.form.large = null;
+            this.form.height = null;
+            this.form.diameter = null;
+        },
         openProcessessCreate() {
             const url = route('production-costs.index');
             window.open(url, '_blank');

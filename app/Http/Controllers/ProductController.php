@@ -440,6 +440,7 @@ class ProductController extends Controller
             $storage = $catalog_product->storages()->first();
             if ($storage) {
                 $storage->update(['location' => $request->location]);
+                $storage->update(['quantity' => $request->current_stock]);
             }
             
             // 5. SINCRONIZAR RELACIONES
