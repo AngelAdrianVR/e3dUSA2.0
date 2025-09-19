@@ -51,7 +51,7 @@
                         <TextInput label="Folio de la factura*" v-model="form.folio" type="text" :error="form.errors.folio" placeholder="Ej. F-12345" />
 
                         <!-- Número de Parcialidad -->
-                        <TextInput label="Número de parcialidad*" v-model="form.installment_number" type="number" :min="1" :error="form.errors.installment_number" placeholder="Ej. 1" />
+                        <TextInput label="Número de parcialidad*" :disabled="sale_id_prop ? true : false" v-model="form.installment_number" type="number" :min="1" :error="form.errors.installment_number" placeholder="Ej. 1" />
 
                         <!-- Fecha de Emisión -->
                         <div>
@@ -103,6 +103,12 @@
                             <el-input v-model="form.notes" :rows="2" type="textarea" placeholder="Añade notas o comentarios adicionales..." />
                             <InputError :message="form.errors.notes" />
                         </div>
+
+                        <div class="col-span-full mt-5">
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3" for="">Archivos relacionados (max. 3)</label>
+                            <FileUploader @files-selected="form.media = $event" :multiple="true" :max-files="3" />
+                            <InputError :message="form.errors.media" class="mt-2" />
+                        </div>
                         
                         <!-- Botón de Guardar -->
                         <div class="flex justify-end mt-5 col-span-full">
@@ -119,6 +125,7 @@
 
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
@@ -131,6 +138,7 @@ export default {
     components: {
         AppLayout,
         SecondaryButton,
+        FileUploader,
         InputError,
         TextInput,
         Back,
@@ -152,6 +160,7 @@ export default {
             due_date: null,
             payment_option: 'PUE',
             payment_method: 'Transferencia electrónica de fondos',
+            media: [],
             notes: null,
         });
 

@@ -16,15 +16,15 @@
                             </SecondaryButton>
                         </Link>
 
-                        <!-- Input de búsqueda (funcionalidad a futuro) -->
-                        <SearchInput v-model="search" placeholder="Buscar folio o cliente..." />
+                        <!-- Input de búsqueda -->
+                        <!-- <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" :searchProps="SearchProps" /> -->
                     </div>
 
                     <!-- Pestañas de navegación -->
                     <el-tabs v-model="activeTab" class="demo-tabs">
                         <!-- Pestaña 1: Facturas Registradas -->
                         <el-tab-pane label="Facturas Registradas" name="all_invoices">
-                            <el-table :data="invoices.data" style="width: 100%" stripe class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
+                            <el-table :data="invoices.data" style="width: 100%" stripe @row-click="handleRowClick" class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
                                 <el-table-column prop="folio" label="Folio" width="120" />
                                 <el-table-column prop="sale.id" label="OV" width="120">
                                     <template #default="scope">
@@ -60,11 +60,11 @@
                                         </el-tag>
                                     </template>
                                 </el-table-column>
-                                <!-- --- MODIFICACIÓN --- Se añade columna de acciones con opción para cancelar -->
+                                <!-- Columna de acciones -->
                                 <el-table-column v-if="$page.props.auth.user.permissions.includes('Cancelar facturas') || $page.props.auth.user.permissions.includes('Eliminar facturas')" label="" align="" width="100">
                                     <template #default="scope">
                                         <el-dropdown trigger="click" @command="handleCommand">
-                                            <span class="el-dropdown-link text-secondary rounded-full hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out size-7 flex items-center justify-center">
+                                            <span @click.stop="" class="el-dropdown-link text-secondary rounded-full hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out size-7 flex items-center justify-center">
                                                 <i class="fa-solid fa-ellipsis-vertical"></i>
                                             </span>
                                             <template #dropdown>
@@ -88,7 +88,7 @@
                             </div>
                         </el-tab-pane>
                         
-                        <!-- Pestaña 2. ovs que requieren facturas -->
+                        <!-- Pestaña 2: OVs por Facturar -->
                         <el-tab-pane label="OVs por Facturar" name="sales_without_invoice">
                              <el-table :data="salesWithoutInvoice.data" style="width: 100%" stripe class="dark:!bg-slate-900 dark:!text-gray-300">
                                 <el-table-column prop="id" label="Folio OV" width="120">
@@ -103,7 +103,6 @@
                                         ${{ formatCurrency(scope.row.total_amount) }}
                                     </template>
                                 </el-table-column>
-                                <!-- --- NUEVA COLUMNA --- -->
                                 <el-table-column label="Total Facturado (Activo)" width="200">
                                     <template #default="scope">
                                         <span :class="scope.row.total_invoiced > 0 ? 'text-green-500' : ''">
@@ -111,7 +110,6 @@
                                         </span>
                                     </template>
                                 </el-table-column>
-                                <!-- --- NUEVA COLUMNA --- -->
                                 <el-table-column prop="invoices_count" label="No. Facturas" width="120" />
                                 <el-table-column prop="promise_date" label="Fecha Promesa" width="180">
                                     <template #default="scope">
@@ -238,22 +236,20 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import InputError from "@/Components/InputError.vue";
-// --- MODIFICACIÓN --- Se importa 'router' para las peticiones de cancelación
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-// --- MODIFICACIÓN --- Se importa ElMessageBox para diálogos de confirmación
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
     data() {
         return {
             search: '',
-            // --- MODIFICACIÓN --- La pestaña activa se inicializa desde la prop 'active_tab_prop' que viene del controlador
             activeTab: this.active_tab_prop,
             paymentModalVisible: false,
             selectedInvoice: null,
             paymentMethods: ['Efectivo', 'Transferencia electrónica de fondos', 'Tarjeta de crédito', 'Tarjeta de débito', 'Cheque nominativo', 'Por definir'],
+            SearchProps: ['Estatus', 'Cliente', 'ID'], // indica por cuales propiedades del registro puedes buscar
         };
     },
     components: {
@@ -267,25 +263,56 @@ export default {
         invoices: Object,
         salesWithoutInvoice: Object,
         pendingInvoices: Object,
-        active_tab_prop: String, // Prop para recibir la pestaña activa
+        active_tab_prop: String,
     },
     setup() {
         const paymentForm = useForm({
             amount: null,
-            payment_date: new Date().toISOString().split('T')[0], // hoy
+            payment_date: new Date().toISOString().split('T')[0],
             payment_method: 'Transferencia electrónica de fondos',
             notes: '',
         });
         return { paymentForm };
     },
     methods: {
-        // Maneja los comandos del dropdown de acciones.
+        handleRowClick(row) {
+            this.$inertia.get(route('invoices.show', row));
+        },
+        async handleSearch() {
+            this.loading = true;
+            try {
+                // Si la búsqueda está vacía, volvemos a los datos originales de la paginación
+                if (!this.search) {
+                    // Forzamos un recharge con inertia para restaurar el estado original con paginación
+                    this.$inertia.get(this.route('invoices.index'), {}, {
+                        preserveState: true,
+                        replace: true,
+                        onFinish: () => { this.loading = false; },
+                    });
+                    return;
+                }
+
+                // Si hay texto, hacemos la petición con axios como en el original
+                const response = await axios.post(route('invoices.get-matches', { query: this.search }));
+                if (response.status === 200) {
+                    this.invoices = response.data;
+                }
+            } catch (error) {
+                console.error(error);
+                ElMessage.error('No se pudo realizar la búsqueda');
+            } finally {
+                this.loading = false;
+            }
+        },
+        // --- MODIFICACIÓN ---
+        // Maneja los comandos del dropdown de acciones (cancelar y eliminar).
         handleCommand(command) {
             if (command.action === 'cancel') {
                 this.confirmCancelInvoice(command.invoice);
+            } else if (command.action === 'delete') {
+                this.confirmDeleteInvoice(command.invoice);
             }
         },
-        // Muestra un diálogo de confirmación antes de cancelar.
         confirmCancelInvoice(invoice) {
             if (invoice.status === 'Cancelada') {
                 ElMessage.info('Esta factura ya ha sido cancelada.');
@@ -299,7 +326,7 @@ export default {
                     confirmButtonText: 'Sí, Cancelar',
                     cancelButtonText: 'Salir',
                     type: 'warning',
-                    dangerouslyUseHTMLString: true, // Permite usar HTML en el mensaje
+                    dangerouslyUseHTMLString: true,
                 }
             ).then(() => {
                 this.cancelInvoice(invoice);
@@ -307,7 +334,6 @@ export default {
                 ElMessage.info('Cancelación abortada');
             });
         },
-        // Envía la petición PUT para cancelar la factura.
         cancelInvoice(invoice) {
             router.put(route('invoices.cancel', invoice.id), {}, {
                 preserveScroll: true,
@@ -315,12 +341,41 @@ export default {
                     ElMessage.success('Factura cancelada correctamente');
                 },
                 onError: (errors) => {
-                    ElMessage.error('No se pudo cancelar la factura. Inténtalo de nuevo.');
-                    console.log(errors);
+                    ElMessage.error(errors.error || 'No se pudo cancelar la factura.');
                 }
             });
         },
-        // Se ejecuta al cambiar de pestaña y actualiza la URL sin recargar la página.
+        // --- NUEVO ---
+        // Muestra un diálogo de confirmación antes de eliminar permanentemente.
+        confirmDeleteInvoice(invoice) {
+            ElMessageBox.confirm(
+                `Se eliminará permanentemente la factura con folio <strong class="text-red-500">${invoice.folio}</strong>. Esta acción no se puede deshacer. ¿Deseas continuar?`,
+                'Confirmar Eliminación',
+                {
+                    confirmButtonText: 'Sí, Eliminar',
+                    cancelButtonText: 'Salir',
+                    type: 'warning',
+                    dangerouslyUseHTMLString: true,
+                }
+            ).then(() => {
+                this.deleteInvoice(invoice);
+            }).catch(() => {
+                ElMessage.info('Eliminación abortada');
+            });
+        },
+        // --- NUEVO ---
+        // Envía la petición DELETE para eliminar la factura.
+        deleteInvoice(invoice) {
+            router.delete(route('invoices.destroy', invoice.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Factura eliminada correctamente');
+                },
+                onError: (errors) => {
+                    ElMessage.error(errors.error || 'No se pudo eliminar la factura.');
+                }
+            });
+        },
         onTabChange(tabName) {
             router.get(route('invoices.index'), { tab: tabName }, {
                 preserveState: true,
@@ -336,14 +391,13 @@ export default {
             if (value === null || value === undefined) return '0.00';
             return parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
-        // Se añade el parámetro 'tab' a la petición de paginación para mantener la pestaña activa.
         handlePageChange(pageName, page) {
             const params = {
                 [pageName]: page,
-                tab: this.activeTab, // <- Se añade la pestaña actual
+                tab: this.activeTab,
             };
             router.get(route('invoices.index', params), {
-                preserveState: true, // Mantiene el estado local (como el texto de búsqueda)
+                preserveState: true,
                 replace: true,
             });
         },
@@ -352,7 +406,7 @@ export default {
                 case 'Pagada': return 'success';
                 case 'Pendiente': return 'warning';
                 case 'Vencida': return 'danger';
-                case 'Cancelada': return 'danger';
+                case 'Cancelada': return 'info';
                 default: return 'primary';
             }
         },

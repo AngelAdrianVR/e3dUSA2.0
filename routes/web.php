@@ -213,6 +213,7 @@ Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityC
 // ------- CRM(Rutas de facturación)  ---------
 Route::resource('invoices', InvoiceController::class)->middleware('auth');
 Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+Route::post('invoices-get-matches', [InvoiceController::class, 'getMatches'])->middleware('auth')->name('invoices.get-matches');
 
 
 // ------- CRM(Rutas de pagos de facturación)  ---------

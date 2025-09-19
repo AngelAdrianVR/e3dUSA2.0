@@ -38,7 +38,7 @@ class InvoiceController extends Controller
             ->whereIn('status', ['Pendiente', 'Vencida'])
             ->orderBy('due_date', 'asc')
             ->paginate(10, ['*'], 'pending_page');
-
+            
         return Inertia::render('Invoice/Index', [
             'invoices' => $invoices,
             'salesWithoutInvoice' => $salesWithoutInvoice,
@@ -49,21 +49,26 @@ class InvoiceController extends Controller
     
     public function create(Request $request)
     {
-        // --- MODIFICACIÓN ---
-        // La consulta ahora busca OVs que no estén totalmente facturadas.
-        // 1. Carga relaciones y suma el monto de las facturas existentes (`invoiced_amount`).
-        // 2. Filtra en PHP para mantener solo las OVs cuyo `total_amount` es mayor
-        //    que el monto ya facturado (`invoiced_amount`).
-        // 3. Mapea el resultado para enviar al frontend datos útiles como el conteo
-        //    de facturas existentes y el total de parcialidades de la última factura.
-        $salesWithPartialInvoices = Sale::with(['branch:id,name', 'invoices:sale_id,amount,total_installments'])
-            ->where('status', '!=', 'Cancelada')
-            ->withSum('invoices as invoiced_amount', 'amount')
-            ->latest()
-            ->get();
+        // Se ajusta la consulta para que sea más eficiente y correcta.
+        $salesWithPartialInvoices = Sale::with([
+            'branch:id,name',
+            // Cargar solo facturas no canceladas para obtener un conteo preciso.
+            'invoices' => function ($query) {
+                $query->where('status', '!=', 'Cancelada')->select('sale_id', 'amount', 'total_installments');
+            }
+        ])
+        ->where('status', '!=', 'Cancelada')
+        // Sumar solo el monto de las facturas que no están canceladas.
+        ->withSum(['invoices as invoiced_amount' => function ($query) {
+            $query->where('status', '!=', 'Cancelada');
+        }], 'amount')
+        ->latest()
+        ->get();
 
+        // Filtrar en PHP: solo ventas cuyo monto total sea mayor al monto ya facturado.
         $sales = $salesWithPartialInvoices->filter(function ($sale) {
-            return is_null($sale->invoiced_amount) || $sale->total_amount > $sale->invoiced_amount;
+            $invoicedAmount = $sale->invoiced_amount ?? 0;
+            return (float)$sale->total_amount > (float)$invoicedAmount;
         })->map(function ($sale) {
             $lastInvoice = $sale->invoices->last();
             return [
@@ -73,10 +78,10 @@ class InvoiceController extends Controller
                 'currency' => $sale->currency,
                 'branch' => $sale->branch,
                 'invoiced_amount' => $sale->invoiced_amount ?? 0,
-                'invoice_count' => $sale->invoices->count(),
+                'invoice_count' => $sale->invoices->count(), // Conteo correcto
                 'last_total_installments' => $lastInvoice ? $lastInvoice->total_installments : 1,
             ];
-        })->values(); // Resetea las llaves para que sea un array JSON válido.
+        })->values();
 
         return Inertia::render('Invoice/Create', [
             'sales' => $sales,
@@ -97,12 +102,45 @@ class InvoiceController extends Controller
         $sale->invoice_id = $invoice->id;
         $sale->save();
 
+        // --- MANEJAR ARCHIVOS ADJUNTOS ---
+            if ($request->hasFile('media')) {
+                $sale->addMultipleMediaFromRequest(['media'])->each(function ($fileAdder) {
+                    $fileAdder->toMediaCollection('invoice_media');
+                });
+            }
+
         return to_route('invoices.index');
     }
 
     public function show(Invoice $invoice)
     {
-        //
+        // Carga todas las relaciones necesarias, incluyendo las otras facturas de la misma venta.
+        $invoice->load([
+            'sale' => function ($query) {
+                $query->select('id', 'branch_id', 'contact_id', 'currency', 'total_amount')
+                    // Cargar las facturas relacionadas directamente desde la venta
+                    ->with(['invoices' => function($q) {
+                        $q->select('id', 'sale_id', 'folio', 'status', 'amount', 'installment_number', 'total_installments')
+                          ->orderBy('installment_number', 'asc');
+                    }]);
+            },
+            'sale.branch' => function ($query) {
+                $query->select('id', 'name', 'rfc', 'address', 'post_code', 'status');
+            },
+            'sale.contact' => function ($query) {
+                $query->select('id', 'name');
+            },
+            'payments' => function ($query) {
+                // Ordena los pagos por fecha para mostrarlos cronológicamente.
+                $query->select('id', 'invoice_id', 'amount', 'payment_date', 'payment_method', 'notes')->latest('payment_date');
+            },
+            'user:id,name', // El usuario que creó la factura.
+            'media' // Archivos adjuntos a la factura.
+        ]);
+
+        return Inertia::render('Invoice/Show', [
+            'invoice' => $invoice
+        ]);
     }
 
     public function edit(Invoice $invoice)
@@ -117,7 +155,15 @@ class InvoiceController extends Controller
 
     public function destroy(Invoice $invoice)
     {
-        //
+        // Se añade validación para no permitir eliminar facturas con pagos.
+        if ($invoice->payments()->exists()) {
+            return back()->withErrors(['error' => 'No se puede eliminar una factura que ya tiene pagos registrados.']);
+        }
+
+        $invoice->delete();
+
+        // Se retorna a la página anterior con un mensaje de éxito.
+        return back()->with('success', 'Factura eliminada correctamente.');
     }
 
     public function cancel(Invoice $invoice)
@@ -136,5 +182,25 @@ class InvoiceController extends Controller
         $invoice->save();
 
         return back()->with('success', 'Factura cancelada correctamente.');
+    }
+
+    public function getMatches(Request $request)
+    {
+        $query = $request->input('query');
+
+        // Realiza la búsqueda
+        $invoices = Invoice::with(['branch:id,name', 'sale:id'])
+            ->latest()
+            ->where(function ($q) use ($query) {
+                $q->where('id', 'like', "%{$query}%")
+                ->orWhere('status', 'like', "%{$query}%")
+                // Busca dentro de la relación de la matriz (parent)
+                ->orWhereHas('branch', function ($parentQuery) use ($query) {
+                    $parentQuery->where('name', 'like', "%{$query}%");
+                });
+            })
+            ->get();
+
+        return response()->json(['items' => $invoices], 200);
     }
 }
