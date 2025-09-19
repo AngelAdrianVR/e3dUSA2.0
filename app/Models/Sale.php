@@ -22,6 +22,7 @@ class Sale extends Model implements HasMedia, Auditable
         'quote_id',
         'contact_id',
         'user_id',
+        'invoice_id',
         'currency',
         'type',
         'status',
@@ -54,6 +55,14 @@ class Sale extends Model implements HasMedia, Auditable
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Una venta puede tener muchas facturas.
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     /** contacto */

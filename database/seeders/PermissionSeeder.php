@@ -42,7 +42,7 @@ class PermissionSeeder extends Seeder
             'Ordenes de venta' => ['Ver ordenes de venta', 'Crear ordenes de venta', 'Editar ordenes de venta', 'Eliminar ordenes de venta', 'Ver todas las ventas', 'Ver utilidad ventas', 'Autorizar ordenes de venta'],
             'Ordenes de producción' => ['Ver ordenes de produccion', 'Crear ordenes de produccion', 'Editar ordenes de produccion', 'Eliminar ordenes de produccion', 'Ver todas las ordenes de produccion'],
             'Envíos' => ['Ver envios'],
-            'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas'],
+            'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas', 'Cancelar facturas'],
             'Proveedores' => ['Ver proveedores', 'Crear proveedores', 'Editar proveedores', 'Eliminar proveedores'],
             'Compras' => ['Ver ordenes de compra', 'Crear ordenes de compra', 'Editar ordenes de compra', 'Eliminar ordenes de compra', 'Autorizar ordenes de compra', 'Ver todas las compras'],
             'Diseño' => ['Ver ordenes de diseño', 'Crear ordenes de diseño', 'Editar ordenes de diseño', 'Eliminar ordenes de diseño', 'Ver todas las ordenes de diseño', 'Asignar diseños', 'Autorizar ordenes de diseño'],

@@ -47,7 +47,13 @@
                                 </el-select>
                                 <InputError :message="form.errors.parent_branch_id" />
                             </div>
-                             <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" />
+                            <div>
+                                <InputLabel value="Cómo nos conoció el cliente*" />
+                                <el-select v-model="branch.meet_way" placeholder="Selecciona">
+                                    <el-option v-for="item in meetWays" :key="item" :value="item" :label="item" />
+                                </el-select>
+                            </div>
+                             <!-- <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" /> -->
                         </div>
                         
                         <div class="flex justify-between items-center mt-8 mb-4 border-b dark:border-gray-600 pb-2">
@@ -261,6 +267,17 @@ export default {
                 { label: 'Julio', value: 7 }, { label: 'Agosto', value: 8 },
                 { label: 'Septiembre', value: 9 }, { label: 'Octubre', value: 10 },
                 { label: 'Noviembre', value: 11 }, { label: 'Diciembre', value: 12 },
+            ],
+            meetWays: [
+                'Recomendación',
+                'Búsqueda en línea',
+                'Publicidad ',
+                'Evento o feria comercial',
+                'Correo electrónico',
+                'Llamada telefónica ',
+                'Sitio web de la empresa',
+                'Tocamos puerta',
+                'Otro',
             ],
         };
     },
