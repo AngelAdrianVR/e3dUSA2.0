@@ -19,6 +19,7 @@ return new class extends Migration
             $table->foreignId('quote_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('contact_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('invoice_id')->nullable();
 
             // Columnas de la tabla
             $table->char('currency', 3)->default('MXN');

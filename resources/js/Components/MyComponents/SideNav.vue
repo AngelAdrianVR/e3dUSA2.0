@@ -322,6 +322,7 @@ export default {
                         || route().current('quotes.*')
                         || route().current('branches.*')
                         || route().current('sales.*')
+                        || route().current('invoices.*')
                         || route().current('sales-analysis.*'),
                     options: [
                         {
@@ -351,6 +352,12 @@ export default {
                             active: route().current('sales.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
                         },
+                        {
+                            label: 'Facturación',
+                            route: 'invoices.index',
+                            active: route().current('invoices.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
+                        },
                     ],
                     dropdown: true,
                     show:
@@ -358,6 +365,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver cotizaciones')
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta')
                         || this.$page.props.auth.user.permissions.includes('Ver analisis de ventas')
+                        || this.$page.props.auth.user.permissions.includes('Ver facturas')
                 },
                 {
                     label: 'Compras',

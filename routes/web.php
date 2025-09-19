@@ -15,6 +15,8 @@ use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ManualController;
@@ -206,6 +208,16 @@ Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->middleware('auth')->name('sales.quality-certificate');
+
+
+// ------- CRM(Rutas de facturación)  ---------
+Route::resource('invoices', InvoiceController::class)->middleware('auth');
+Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+
+
+// ------- CRM(Rutas de pagos de facturación)  ---------
+Route::post('/invoices/{invoice}/payments', [InvoicePaymentController::class, 'store'])->middleware('auth')->name('invoices.payments.store');
+
 
 
 // ------- (Produccion Routes)  ---------
