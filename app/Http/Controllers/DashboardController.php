@@ -8,6 +8,7 @@ use App\Models\Contact;
 use App\Models\DesignOrder;
 use App\Models\EmployeeDetail;
 use App\Models\Event;
+use App\Models\Invoice;
 use App\Models\OvertimeRequest;
 use App\Models\Product;
 use App\Models\Production;
@@ -135,6 +136,28 @@ class DashboardController extends Controller
                     'email' => $email,
                 ];
             });
+
+        // --- INICIA NUEVA CONSULTA: Mis Facturas Pendientes de Pago ---
+        $myPendingInvoices = collect();
+        if ($authUser->hasRole(['Vendedor', 'Super Administrador', 'Asistente de director'])) {
+            $myPendingInvoices = Invoice::where('user_id', $authUserId)
+                ->whereIn('status', ['Pendiente', 'Parcialmente pagada'])
+                ->with('payments') // Eager load payments para optimizar cálculo de pendiente
+                ->latest('due_date')
+                ->limit(10)
+                ->get()
+                ->map(function ($invoice) {
+                    return [
+                        'id' => $invoice->id,
+                        'folio' => $invoice->folio,
+                        'status' => $invoice->status,
+                        'pending_amount' => $invoice->pending_amount, // Usa el accesor del modelo
+                        'total_amount' => $invoice->amount,
+                        'currency' => $invoice->currency,
+                        'due_date' => $invoice->due_date->isoFormat('D MMM, YYYY'),
+                    ];
+                });
+        }
 
         // 2. My Sales Orders
         $mySalesOrders = Sale::where('user_id', $authUserId)
@@ -300,6 +323,7 @@ class DashboardController extends Controller
             'warehouseStats' => $warehouseStats,
             'requiredActions' => $requiredActions ?? null,
             'upcomingBirthdays' => $upcomingBirthdays,
+            'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
             'authUserName' => $authUser?->name,

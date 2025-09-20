@@ -5,12 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
-class InvoicePayment extends Model implements Auditable
+class InvoicePayment extends Model implements HasMedia, Auditable
 {
-    use HasFactory, AuditableTrait;
+    use HasFactory, AuditableTrait, InteractsWithMedia;
 
     protected $fillable = [
         'invoice_id',

@@ -28,3 +28,6 @@ Schedule::command('app:backup-database')->daily()->at('01:00');
 
 // Ejecuta el backup de los medios los días 1 y 15 de cada mes a las 2:00 AM.
 Schedule::command('app:backup-media')->twiceMonthly(1, 15, '02:00');
+
+// Revisa las facturas vencidas y manda una notificacion al creador. se ejecuta diario a la 1:00 AM.
+Schedule::command('invoices:check-overdue')->daily()->at('01:00');

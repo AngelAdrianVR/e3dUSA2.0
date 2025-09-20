@@ -47,8 +47,12 @@
                     
                     <!-- Personal Panels Column -->
                     <div class="flex flex-col lg:col-span-2 gap-5">
-                       <MySalesOrders v-if="$page.props.auth.user.role === 'Vendedor' || $page.props.auth.user.role === 'Super Administrador'" :orders="mySalesOrders" />
+                       <MySalesOrders v-if="this.$page.props.auth.user.permissions.includes('Crear ordenes de venta')" :orders="mySalesOrders" />
                        <UpcomingBirthdays :contacts="upcomingBirthdays" />
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <MyPendingInvoices v-if="this.$page.props.auth.user.permissions.includes('Crear facturas') && myPendingInvoices.length" :invoices="myPendingInvoices" />
                     </div>
 
                     <!-- My Pending Tasks -->
@@ -69,6 +73,7 @@ import WarehouseStatusChart from './Components/WarehouseStatusChart.vue';
 import RequiredActions from './Components/RequiredActions.vue';
 import EmployeePerformance from './Components/EmployeePerformance.vue';
 import UpcomingBirthdays from './Components/UpcomingBirthdays.vue';
+import MyPendingInvoices from './Components/MyPendingInvoices.vue';
 import MySalesOrders from './Components/MySalesOrders.vue';
 import MyPendingTasks from './Components/MyPendingTasks.vue';
 import NewsPanel from './Components/NewsPanel.vue';
@@ -77,18 +82,19 @@ import AvailableSalesPanel from './Components/AvailableSalesPanel.vue';
 
 export default {
     components: {
-        AppLayout,
-        ProductionOrdersChart,
-        CalendarWidget,
-        WarehouseStatusChart,
-        RequiredActions,
-        EmployeePerformance,
-        UpcomingBirthdays,
-        MySalesOrders,
-        MyPendingTasks,
         NewsPanel,
-        OvertimeRequestPanel,
+        AppLayout,
+        MySalesOrders,
+        CalendarWidget,
+        MyPendingTasks,
+        RequiredActions,
+        UpcomingBirthdays,
+        MyPendingInvoices,
+        EmployeePerformance,
         AvailableSalesPanel,
+        OvertimeRequestPanel,
+        WarehouseStatusChart,
+        ProductionOrdersChart,
     },
     props: {
         calendarEvents: Array,
@@ -99,6 +105,7 @@ export default {
         myPendingTasks: Array,
         authUserName: String,
         news: Array,
+        myPendingInvoices: Array,
         overtimeOpportunity: Object,
         productionPerformance: Object,
         salesPerformance: Object,
