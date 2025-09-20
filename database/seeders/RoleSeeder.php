@@ -70,6 +70,12 @@ class RoleSeeder extends Seeder
         $asistenteDirector = Role::create(['name' => 'Asistente de director']);
         $asistenteDirector->givePermissionTo([
             'Chatear',
+            'Ver facturas',
+            'Editar facturas',
+            'Crear facturas',
+            'Eliminar facturas',
+            'Cancelar facturas',
+            'Ver biblioteca de medios',
             'Descargar reporte de precios',
             'Ver cantidades de dinero',
             'Ver costos de productos',
@@ -84,7 +90,6 @@ class RoleSeeder extends Seeder
             'Ver ordenes de produccion',
             'Ver todas las ordenes de produccion',
             'Ver envios',
-            'Ver facturas',
             'Ver proveedores',
             'Ver ordenes de compra',
             'Ver todas las compras',
@@ -97,6 +102,7 @@ class RoleSeeder extends Seeder
         $disenador = Role::create(['name' => 'Diseñador']);
         $disenador->givePermissionTo([
             'Chatear',
+            'Ver biblioteca de medios',
             'Ver ordenes de diseño',
             'Crear ordenes de diseño',
             'Editar ordenes de diseño',
@@ -111,6 +117,7 @@ class RoleSeeder extends Seeder
         $jefeProduccion = Role::create(['name' => 'Jefe de producción']);
         $jefeProduccion->givePermissionTo([
             'Chatear',
+            'Ver biblioteca de medios',
             'Ver ordenes de produccion',
             'Crear ordenes de produccion',
             'Editar ordenes de produccion',
@@ -185,6 +192,12 @@ class RoleSeeder extends Seeder
             'Ver muestras',
             'Crear muestras',
             'Editar muestras',
+            'Ver biblioteca de medios',
+            'Ver facturas',
+            'Editar facturas',
+            'Crear facturas',
+            'Eliminar facturas',
+            'Cancelar facturas',
         ]);
 
         // --- Rol: Compras ---
@@ -205,6 +218,7 @@ class RoleSeeder extends Seeder
             'Editar ordenes de compra',
             'Autorizar ordenes de compra',
             'Ver todas las compras',
+            'Ver biblioteca de medios',
         ]);
     }
 }

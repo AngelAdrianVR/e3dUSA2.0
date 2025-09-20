@@ -15,9 +15,12 @@ use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ManualController;
+use App\Http\Controllers\MediaLibraryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
@@ -95,6 +98,13 @@ Route::patch('/notifications/{notification}/read', [NotificationController::clas
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
 Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->middleware('auth')->name('notifications.destroy');
 Route::post('/notifications/destroy-selected', [NotificationController::class, 'destroySelected'])->middleware('auth')->name('notifications.destroy-selected');
+
+
+// Rutas de Biblioteca de medios
+// routes/web.php
+Route::post('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index');
+// También es buena idea tener una ruta GET para la carga inicial
+Route::get('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index.get');
 
 
 // ------- Products Routes ---------
@@ -198,6 +208,18 @@ Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->middleware('auth')->name('sales.quality-certificate');
+
+
+// ------- CRM(Rutas de facturación)  ---------
+Route::resource('invoices', InvoiceController::class)->middleware('auth');
+Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+Route::post('invoices-get-matches', [InvoiceController::class, 'getMatches'])->middleware('auth')->name('invoices.get-matches');
+Route::post('invoices-store-media/{invoice}', [InvoiceController::class, 'storeMedia'])->middleware('auth')->name('invoices.media.store');
+
+
+// ------- CRM(Rutas de pagos de facturación)  ---------
+Route::post('/invoices/{invoice}/payments', [InvoicePaymentController::class, 'store'])->middleware('auth')->name('invoices.payments.store');
+
 
 
 // ------- (Produccion Routes)  ---------

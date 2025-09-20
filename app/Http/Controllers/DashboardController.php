@@ -8,6 +8,7 @@ use App\Models\Contact;
 use App\Models\DesignOrder;
 use App\Models\EmployeeDetail;
 use App\Models\Event;
+use App\Models\Invoice;
 use App\Models\OvertimeRequest;
 use App\Models\Product;
 use App\Models\Production;
@@ -136,6 +137,28 @@ class DashboardController extends Controller
                 ];
             });
 
+        // --- INICIA NUEVA CONSULTA: Mis Facturas Pendientes de Pago ---
+        $myPendingInvoices = collect();
+        if ($authUser->hasRole(['Vendedor', 'Super Administrador', 'Asistente de director'])) {
+            $myPendingInvoices = Invoice::where('user_id', $authUserId)
+                ->whereIn('status', ['Pendiente', 'Parcialmente pagada'])
+                ->with('payments') // Eager load payments para optimizar cálculo de pendiente
+                ->latest('due_date')
+                ->limit(10)
+                ->get()
+                ->map(function ($invoice) {
+                    return [
+                        'id' => $invoice->id,
+                        'folio' => $invoice->folio,
+                        'status' => $invoice->status,
+                        'pending_amount' => $invoice->pending_amount, // Usa el accesor del modelo
+                        'total_amount' => $invoice->amount,
+                        'currency' => $invoice->currency,
+                        'due_date' => $invoice->due_date->isoFormat('D MMM, YYYY'),
+                    ];
+                });
+        }
+
         // 2. My Sales Orders
         $mySalesOrders = Sale::where('user_id', $authUserId)
         ->whereIn('status', ['Pendiente', 'Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío'])
@@ -180,6 +203,9 @@ class DashboardController extends Controller
         // 1. Birthdays for the current month, sorted by day
         $birthdays = EmployeeDetail::whereNotNull('birthdate')
             ->whereMonth('birthdate', $currentMonth)
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->birthdate->format('d'));
@@ -187,7 +213,10 @@ class DashboardController extends Controller
         // 2. Anniversaries for the current month, sorted by day
         $anniversaries = EmployeeDetail::whereNotNull('join_date')
             ->whereMonth('join_date', $currentMonth)
-            ->whereYear('join_date', '<', now()->year) // Exclude new hires from this year
+            ->whereYear('join_date', '<', now()->year) // Excluye contrataciones de este año
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->join_date->format('d'));
@@ -294,6 +323,7 @@ class DashboardController extends Controller
             'warehouseStats' => $warehouseStats,
             'requiredActions' => $requiredActions ?? null,
             'upcomingBirthdays' => $upcomingBirthdays,
+            'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
             'authUserName' => $authUser?->name,

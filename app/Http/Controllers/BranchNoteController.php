@@ -25,7 +25,7 @@ class BranchNoteController extends Controller
                        ->latest()
                        ->get();
 
-        return response()->json($notes);
+        return response()->json(['notes' => $notes, 'branchName' => $branch->name]);
     }
     public function store(Request $request)
     {

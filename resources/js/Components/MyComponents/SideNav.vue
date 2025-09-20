@@ -322,6 +322,7 @@ export default {
                         || route().current('quotes.*')
                         || route().current('branches.*')
                         || route().current('sales.*')
+                        || route().current('invoices.*')
                         || route().current('sales-analysis.*'),
                     options: [
                         {
@@ -351,6 +352,12 @@ export default {
                             active: route().current('sales.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
                         },
+                        {
+                            label: 'Facturación',
+                            route: 'invoices.index',
+                            active: route().current('invoices.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
+                        },
                     ],
                     dropdown: true,
                     show:
@@ -358,6 +365,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver cotizaciones')
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de venta')
                         || this.$page.props.auth.user.permissions.includes('Ver analisis de ventas')
+                        || this.$page.props.auth.user.permissions.includes('Ver facturas')
                 },
                 {
                     label: 'Compras',
@@ -565,6 +573,7 @@ export default {
                         route().current('production-costs.*') ||
                         route().current('manuals.*') ||
                         route().current('sample-trackings.*') ||
+                        route().current('media-library.*') ||
                         route().current('audits.*'),
                     options: [
                         {
@@ -608,6 +617,12 @@ export default {
                             show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
                         },
                         {
+                            label: 'Biblioteca de medios',
+                            route: 'media-library.index',
+                            active: route().current('media-library.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver biblioteca de medios')
+                        },
+                        {
                             label: 'Cotizador de alfombras',
                             action: this.openCarpetCalculator,
                             show: true,
@@ -617,6 +632,7 @@ export default {
                     show: this.$page.props.auth.user.permissions.includes('Ver maquinas')
                         || this.$page.props.auth.user.permissions.includes('Ver historial de acciones')
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
+                        || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios')
                         || this.$page.props.auth.user.permissions.includes('Ver muestras')
                 },
             ],
