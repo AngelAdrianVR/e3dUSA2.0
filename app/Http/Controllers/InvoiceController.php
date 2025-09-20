@@ -95,16 +95,18 @@ class InvoiceController extends Controller
 
         $invoice = Invoice::create(array_merge($validatedData, [
             'user_id' => Auth::id(),
-            // No es necesario agregar 'branch_id' aquí, ya viene en $validatedData
         ]));
 
+        // Agrega el id de la factura a la venta si no la tiene
         $sale = Sale::find($validatedData['sale_id']);
-        $sale->invoice_id = $invoice->id;
-        $sale->save();
+        if ( !$sale->invoice_id ) {
+            $sale->invoice_id = $invoice->id;
+            $sale->save();
+        }
 
         // --- MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('media')) {
-                $sale->addMultipleMediaFromRequest(['media'])->each(function ($fileAdder) {
+                $invoice->addMultipleMediaFromRequest(['media'])->each(function ($fileAdder) {
                     $fileAdder->toMediaCollection('invoice_media');
                 });
             }
@@ -125,14 +127,16 @@ class InvoiceController extends Controller
                     }]);
             },
             'sale.branch' => function ($query) {
-                $query->select('id', 'name', 'rfc', 'address', 'post_code', 'status');
+                $query->select('id', 'name', 'rfc', 'address', 'post_code', 'status', 'created_at');
             },
             'sale.contact' => function ($query) {
                 $query->select('id', 'name');
             },
+            // --- CORRECCIÓN AQUÍ ---
+            // Se aplican las condiciones a la relación 'payments' y luego se carga 'media' para cada pago.
             'payments' => function ($query) {
-                // Ordena los pagos por fecha para mostrarlos cronológicamente.
-                $query->select('id', 'invoice_id', 'amount', 'payment_date', 'payment_method', 'notes')->latest('payment_date');
+                // Ordena los pagos por fecha para mostrarlos cronológicamente y carga sus archivos.
+                $query->with('media')->latest('payment_date');
             },
             'user:id,name', // El usuario que creó la factura.
             'media' // Archivos adjuntos a la factura.
@@ -145,12 +149,62 @@ class InvoiceController extends Controller
 
     public function edit(Invoice $invoice)
     {
-        //
+        // La lógica para obtener las órdenes de venta es similar a la del método 'create'.
+        // Se podría refactorizar a un método privado para evitar duplicar código.
+        $salesWithPartialInvoices = Sale::with([
+            'branch:id,name',
+            'invoices' => function ($query) {
+                $query->where('status', '!=', 'Cancelada')->select('sale_id', 'amount', 'total_installments');
+            }
+        ])
+        ->where('status', '!=', 'Cancelada')
+        ->withSum(['invoices as invoiced_amount' => function ($query) {
+            $query->where('status', '!=', 'Cancelada');
+        }], 'amount')
+        ->latest()
+        ->get();
+
+        $sales = $salesWithPartialInvoices->filter(function ($sale) use ($invoice) {
+            $invoicedAmount = $sale->invoiced_amount ?? 0;
+            // Permite la OV asociada a la factura actual, incluso si ya está completamente facturada.
+            return ((float)$sale->total_amount > (float)$invoicedAmount) || $sale->id === $invoice->sale_id;
+        })->map(function ($sale) {
+            $lastInvoice = $sale->invoices->last();
+            return [
+                'id' => $sale->id,
+                'total_amount' => $sale->total_amount,
+                'branch_id' => $sale->branch_id,
+                'currency' => $sale->currency,
+                'branch' => $sale->branch,
+                'invoiced_amount' => $sale->invoiced_amount ?? 0,
+                'invoice_count' => $sale->invoices->count(),
+                'last_total_installments' => $lastInvoice ? $lastInvoice->total_installments : 1,
+            ];
+        })->values();
+
+        return Inertia::render('Invoice/Edit', [
+            'invoice' => $invoice,
+            'sales' => $sales,
+        ]);
     }
 
-    public function update(Request $request, Invoice $invoice)
+    public function update(StoreInvoiceRequest $request, Invoice $invoice)
     {
-        //
+        $validatedData = $request->validated();
+        $invoice->update($validatedData);
+
+        // Manejo de archivos adjuntos. Solo añade los nuevos.
+        if ($request->hasFile('media')) {
+            // Opcional: si quisieras reemplazar los archivos, descomenta la siguiente línea.
+            // $invoice->clearMediaCollection('invoice_media');
+            
+            $invoice->addMultipleMediaFromRequest(['media'])->each(function ($fileAdder) {
+                $fileAdder->toMediaCollection('invoice_media');
+            });
+        }
+        
+        // Redirige a la vista de detalle con un mensaje de éxito.
+        return to_route('invoices.show', $invoice)->with('success', 'Factura actualizada correctamente.');
     }
 
     public function destroy(Invoice $invoice)
@@ -202,5 +256,26 @@ class InvoiceController extends Controller
             ->get();
 
         return response()->json(['items' => $invoices], 200);
+    }
+
+    /**
+     * Adjunta archivos a una factura existente.
+     * Es necesario crear la ruta para este método en tu archivo de rutas (web.php).
+     * Ejemplo: Route::post('/invoices/{invoice}/media', [InvoiceController::class, 'storeMedia'])->name('invoices.media.store');
+     */
+    public function storeMedia(Request $request, Invoice $invoice)
+    {
+        $request->validate([
+            'media' => 'required|array',
+            'media.*' => 'file|mimes:jpg,jpeg,png,pdf,xml|max:4096',
+        ]);
+
+        if ($request->hasFile('media')) {
+            $invoice->addMultipleMediaFromRequest(['media'])->each(function ($fileAdder) {
+                $fileAdder->toMediaCollection('invoice_media');
+            });
+        }
+
+        return back()->with('success', 'Archivos adjuntados correctamente.');
     }
 }

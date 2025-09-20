@@ -50,10 +50,17 @@
                                 </el-table-column>
                                 <el-table-column prop="due_date" label="Fecha Vencimiento" width="180">
                                     <template #default="scope">
-                                        {{ formatDate(scope.row.due_date) }}
+                                        <div class="flex items-center">
+                                            <span :class="{ 'text-red-500 font-bold': isOverdue(scope.row) }">
+                                                {{ formatDate(scope.row.due_date) }}
+                                            </span>
+                                            <el-tooltip v-if="isOverdue(scope.row)" content="Factura vencida" placement="top">
+                                                <i class="fa-solid fa-triangle-exclamation text-red-500 ml-2"></i>
+                                            </el-tooltip>
+                                        </div>
                                     </template>
                                 </el-table-column>
-                                <el-table-column prop="status" label="Estatus" width="120">
+                                <el-table-column prop="status" label="Estatus" width="150">
                                     <template #default="scope">
                                         <el-tag :type="getStatusTag(scope.row.status)" disable-transitions>
                                             {{ scope.row.status }}
@@ -69,11 +76,14 @@
                                             </span>
                                             <template #dropdown>
                                                 <el-dropdown-menu>
+                                                    <el-dropdown-item v-if="$page.props.auth.user.permissions.includes('Editar facturas') && !['Pagada', 'Parcialmente pagada', 'Cancelada', 'Vencida'].includes(scope.row.status)" :command="{ action: 'edit', invoice: scope.row }">
+                                                        <i class="fa-solid fa-pencil w-4 mr-2"></i> Editar
+                                                    </el-dropdown-item>
                                                     <el-dropdown-item v-if="$page.props.auth.user.permissions.includes('Cancelar facturas')" :command="{ action: 'cancel', invoice: scope.row }">
-                                                        <i class="fa-solid fa-ban mr-2"></i> Cancelar
+                                                        <i class="fa-solid fa-ban w-4 mr-2"></i> Cancelar
                                                     </el-dropdown-item>
                                                     <el-dropdown-item v-if="$page.props.auth.user.permissions.includes('Eliminar facturas')" :command="{ action: 'delete', invoice: scope.row }">
-                                                        <i class="fa-solid fa-trash-can mr-2"></i> Eliminar
+                                                        <i class="fa-solid fa-trash-can w-4 mr-2"></i> Eliminar
                                                     </el-dropdown-item>
                                                 </el-dropdown-menu>
                                             </template>
@@ -133,7 +143,7 @@
 
                         <!-- Pestaña 3: Facturas por Cobrar -->
                         <el-tab-pane label="Facturas por Cobrar" name="pending_invoices">
-                            <el-table :data="pendingInvoices.data" style="width: 100%" stripe class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
+                            <el-table :data="pendingInvoices.data" style="width: 100%" stripe class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300" @row-click="handleRowClick">
                                <el-table-column prop="folio" label="Folio" width="120" />
                                 <el-table-column prop="sale.id" label="OV" width="100">
                                      <template #default="scope">
@@ -154,7 +164,14 @@
                                 </el-table-column>
                                 <el-table-column prop="due_date" label="Vencimiento" width="180">
                                     <template #default="scope">
-                                        {{ formatDate(scope.row.due_date) }}
+                                        <div class="flex items-center">
+                                            <span :class="{ 'text-red-500 font-bold': isOverdue(scope.row) }">
+                                                {{ formatDate(scope.row.due_date) }}
+                                            </span>
+                                            <el-tooltip v-if="isOverdue(scope.row)" content="Factura vencida" placement="top">
+                                                <i class="fa-solid fa-triangle-exclamation text-red-500 ml-2"></i>
+                                            </el-tooltip>
+                                        </div>
                                     </template>
                                 </el-table-column>
                                 <el-table-column prop="status" label="Estatus" width="150">
@@ -166,7 +183,7 @@
                                 </el-table-column>
                                 <el-table-column align="right" width="180">
                                     <template #default="scope">
-                                        <el-button type="success" plain @click="openPaymentModal(scope.row)">Registrar Pago</el-button>
+                                        <el-button @click.stop="openPaymentModal(scope.row)" type="success" plain>Registrar Pago</el-button>
                                     </template>
                                 </el-table-column>
                             </el-table>
@@ -216,6 +233,19 @@
                              <el-input v-model="paymentForm.notes" :rows="2" type="textarea" placeholder="Añade notas o comentarios adicionales..." />
                              <InputError :message="paymentForm.errors.notes" />
                         </div>
+                        <!-- Adjuntar comprobante -->
+                        <div>
+                            <label class="text-sm ml-3">Adjuntar comprobante(s)</label>
+                            <el-upload
+                                ref="paymentUploaderRef"
+                                v-model:file-list="paymentForm.media"
+                                multiple
+                                :auto-upload="false"
+                            >
+                                <el-button type="primary" plain><i class="fa-solid fa-upload mr-2"></i>Seleccionar archivos</el-button>
+                            </el-upload>
+                            <InputError :message="paymentForm.errors.media" />
+                        </div>
                     </div>
                 </form>
             </div>
@@ -237,6 +267,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import InputError from "@/Components/InputError.vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
+import { ref } from 'vue';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -266,56 +297,44 @@ export default {
         active_tab_prop: String,
     },
     setup() {
+        // Referencia al componente de subida de archivos del modal de pago
+        const paymentUploaderRef = ref(null);
+
+        // Formulario para registrar pago, ahora con campo para archivos
         const paymentForm = useForm({
             amount: null,
             payment_date: new Date().toISOString().split('T')[0],
             payment_method: 'Transferencia electrónica de fondos',
             notes: '',
+            media: [],
         });
-        return { paymentForm };
+        return { paymentForm, paymentUploaderRef };
     },
     methods: {
-        handleRowClick(row) {
-            this.$inertia.get(route('invoices.show', row));
-        },
-        async handleSearch() {
-            this.loading = true;
-            try {
-                // Si la búsqueda está vacía, volvemos a los datos originales de la paginación
-                if (!this.search) {
-                    // Forzamos un recharge con inertia para restaurar el estado original con paginación
-                    this.$inertia.get(this.route('invoices.index'), {}, {
-                        preserveState: true,
-                        replace: true,
-                        onFinish: () => { this.loading = false; },
-                    });
-                    return;
-                }
-
-                // Si hay texto, hacemos la petición con axios como en el original
-                const response = await axios.post(route('invoices.get-matches', { query: this.search }));
-                if (response.status === 200) {
-                    this.invoices = response.data;
-                }
-            } catch (error) {
-                console.error(error);
-                ElMessage.error('No se pudo realizar la búsqueda');
-            } finally {
-                this.loading = false;
+        isOverdue(invoice) {
+            if (!['Pendiente', 'Parcialmente pagada'].includes(invoice.status)) {
+                return false;
             }
+            const dueDate = new Date(invoice.due_date);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return dueDate < today;
         },
-        // --- MODIFICACIÓN ---
-        // Maneja los comandos del dropdown de acciones (cancelar y eliminar).
+        handleRowClick(row) {
+            router.get(route('invoices.show', row));
+        },
         handleCommand(command) {
-            if (command.action === 'cancel') {
+            if (command.action === 'edit') {
+                this.$inertia.visit(route('invoices.edit', command.invoice));
+            } else if (command.action === 'cancel') {
                 this.confirmCancelInvoice(command.invoice);
             } else if (command.action === 'delete') {
                 this.confirmDeleteInvoice(command.invoice);
             }
         },
         confirmCancelInvoice(invoice) {
-            if (invoice.status === 'Cancelada') {
-                ElMessage.info('Esta factura ya ha sido cancelada.');
+            if (invoice.status === 'Cancelada' || invoice.status === 'Pagada') {
+                ElMessage.info(`Esta factura no se puede cancelar porque su estatus es "${invoice.status}".`);
                 return;
             }
 
@@ -337,16 +356,10 @@ export default {
         cancelInvoice(invoice) {
             router.put(route('invoices.cancel', invoice.id), {}, {
                 preserveScroll: true,
-                onSuccess: () => {
-                    ElMessage.success('Factura cancelada correctamente');
-                },
-                onError: (errors) => {
-                    ElMessage.error(errors.error || 'No se pudo cancelar la factura.');
-                }
+                onSuccess: () => ElMessage.success('Factura cancelada correctamente'),
+                onError: (errors) => ElMessage.error(errors.error || 'No se pudo cancelar la factura.'),
             });
         },
-        // --- NUEVO ---
-        // Muestra un diálogo de confirmación antes de eliminar permanentemente.
         confirmDeleteInvoice(invoice) {
             ElMessageBox.confirm(
                 `Se eliminará permanentemente la factura con folio <strong class="text-red-500">${invoice.folio}</strong>. Esta acción no se puede deshacer. ¿Deseas continuar?`,
@@ -354,7 +367,7 @@ export default {
                 {
                     confirmButtonText: 'Sí, Eliminar',
                     cancelButtonText: 'Salir',
-                    type: 'warning',
+                    type: 'error',
                     dangerouslyUseHTMLString: true,
                 }
             ).then(() => {
@@ -363,17 +376,11 @@ export default {
                 ElMessage.info('Eliminación abortada');
             });
         },
-        // --- NUEVO ---
-        // Envía la petición DELETE para eliminar la factura.
         deleteInvoice(invoice) {
             router.delete(route('invoices.destroy', invoice.id), {
                 preserveScroll: true,
-                onSuccess: () => {
-                    ElMessage.success('Factura eliminada correctamente');
-                },
-                onError: (errors) => {
-                    ElMessage.error(errors.error || 'No se pudo eliminar la factura.');
-                }
+                onSuccess: () => ElMessage.success('Factura eliminada correctamente'),
+                onError: (errors) => ElMessage.error(errors.error || 'No se pudo eliminar la factura.'),
             });
         },
         onTabChange(tabName) {
@@ -385,6 +392,8 @@ export default {
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
+            // sumamos un día porque la bd lo guarda un día antes
+            date.setDate(date.getDate() + 1);
             return format(date, "d 'de' MMM, yyyy", { locale: es });
         },
         formatCurrency(value) {
@@ -405,6 +414,7 @@ export default {
             switch (status) {
                 case 'Pagada': return 'success';
                 case 'Pendiente': return 'warning';
+                case 'Parcialmente pagada': return 'warning';
                 case 'Vencida': return 'danger';
                 case 'Cancelada': return 'info';
                 default: return 'primary';
@@ -419,22 +429,27 @@ export default {
         getPendingAmount(invoice) {
             const totalAmount = parseFloat(invoice.amount);
             const paidAmount = this.getPaidAmount(invoice);
-            return totalAmount - paidAmount;
+            const pending = totalAmount - paidAmount;
+            return Math.max(0, pending); // Evita montos negativos
         },
         openPaymentModal(invoice) {
             this.selectedInvoice = invoice;
             this.paymentForm.reset();
-            this.paymentForm.amount = this.getPendingAmount(invoice);
+            this.paymentForm.amount = this.getPendingAmount(invoice); // Sugiere el monto pendiente
+            this.paymentUploaderRef?.clearFiles(); // Limpia la lista de archivos del uploader
             this.paymentModalVisible = true;
         },
         submitPayment() {
             if (!this.selectedInvoice) return;
 
-            this.paymentForm.post(route('invoices.payments.store', this.selectedInvoice.id), {
+            // .transform() es crucial para que Inertia procese correctamente los archivos.
+            this.paymentForm.transform(data => ({
+                ...data,
+                media: data.media.map(file => file.raw),
+            })).post(route('invoices.payments.store', this.selectedInvoice.id), {
                 preserveScroll: true,
                 onSuccess: () => {
                     this.paymentModalVisible = false;
-                    this.paymentForm.reset();
                     ElMessage.success('Pago registrado correctamente');
                 },
                 onError: (errors) => {

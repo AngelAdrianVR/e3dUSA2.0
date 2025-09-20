@@ -43,7 +43,7 @@ return new class extends Migration
 
             // --- Estado y Detalles Adicionales ---
             // Controla el ciclo de vida de la factura.
-            $table->enum('status', ['Pendiente', 'Pagada', 'Vencida', 'Cancelada'])->default('Pendiente');
+            $table->enum('status', ['Pendiente', 'Parcialmente pagada', 'Pagada', 'Vencida', 'Cancelada'])->default('Pendiente');
             // PUE (Pago en una sola exhibición), PPD (Pago en parcialidades o diferido).
             $table->string('payment_option')->nullable();
             $table->string('payment_method')->nullable(); // Método de pago (transferencia, etc.).
