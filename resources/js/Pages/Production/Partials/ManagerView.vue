@@ -190,7 +190,7 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Cliente" #default="scope">
+                    <el-table-column label="Cliente" #default="scope" width="180">
                         {{ scope.row.branch?.name ?? 'N/A' }}
                     </el-table-column>
                     <el-table-column label="Creado por" width="200">
@@ -206,7 +206,7 @@
                             <el-tag :type="statusTagType(scope.row.production_summary.status)" class="!text-xs !font-bold">{{ scope.row.production_summary.status }}</el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Productos Terminados" width="180" align="center">
+                    <el-table-column label="Productos Terminados" width="120" align="center">
                          <template #default="scope">
                             <span class="font-semibold text-gray-700 dark:text-gray-200 text-sm">
                                 {{ scope.row.production_summary.completed_productions }} / {{ scope.row.production_summary.total_productions }}

@@ -96,7 +96,7 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3', // Valida que sea un array y máximo 3 archivos
-            'media.*' => 'file|max:10240', // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
+            'media.*' => 'file',
             'modifies_design_id' => 'nullable|exists:designs,id', // --- Validation for modification
         ]);
 
@@ -233,7 +233,7 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3',
-            'media.*' => 'file|max:10240' // 10MB
+            'media.*' => 'file' // 10MB
         ]);
 
         $previousDesignerId = $designOrder->designer_id;

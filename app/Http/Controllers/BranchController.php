@@ -224,7 +224,7 @@ class BranchController extends Controller
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
             'users' => User::where('is_active', true)->select('id', 'name')->get(),
-            'branches' => Branch::where('id', '!=', $branch->id)->select('id', 'name')->get(),
+            'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
             'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
         ]);
