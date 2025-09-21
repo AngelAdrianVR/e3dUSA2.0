@@ -32,7 +32,7 @@
                         </div>
                         <div class="p-5 bg-gray-50 dark:bg-slate-800/50">
                             <div v-if="cover_image_url" class="flex justify-center items-center aspect-video">
-                                 <img :src="cover_image_url" alt="Imagen de portada" class="max-h-full max-w-full object-contain rounded-md">
+                                 <img :src="cover_image_url" alt="Imagen de portada" draggable="false" class="max-h-full max-w-full object-contain rounded-md">
                             </div>
                             <div v-else class="flex flex-col items-center justify-center h-80 bg-gray-100 dark:bg-slate-800 rounded-md">
                                 <PhotoIcon class="h-16 w-16 text-gray-400" />
@@ -70,7 +70,8 @@
                         </div>
                         <div v-if="authorization.is_accepted === null">
                              <p class="text-sm text-center text-gray-600 dark:text-gray-400 mb-4">El cliente aún no ha dado una respuesta.</p>
-                            <div class="grid grid-cols-2 gap-3">
+                             <p v-if="!authorization.authorizer_name" class="text-sm text-center text-amber-600 dark:text-amber-400 mb-4">Se debe autorizar primero para actualizar el estatus del formato</p>
+                            <div v-if="authorization.authorizer_name" class="grid grid-cols-2 gap-3">
                                 <button @click="showAcceptanceModal = true" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition-transform hover:scale-105 flex items-center justify-center gap-2">
                                     <CheckCircleIcon class="h-5 w-5" /> Aceptar
                                 </button>

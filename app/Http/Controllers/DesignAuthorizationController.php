@@ -90,7 +90,7 @@ class DesignAuthorizationController extends Controller
             
             // 'media' es requerido solo si 'cover_media_id' no está presente.
             'media' => 'required_without:cover_media_id|nullable|array', 
-            'media.*' => 'file|mimes:jpg,jpeg,png,pdf|max:10240', // 10MB max per file
+            'media.*' => 'file|mimes:jpg,jpeg,png,pdf', // 10MB max per file
         ]);
 
         // --- Creación del registro ---

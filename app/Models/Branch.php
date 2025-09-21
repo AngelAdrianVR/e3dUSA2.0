@@ -23,7 +23,6 @@ class Branch extends Model implements Auditable
         'meet_way',
         'post_code',
         'sat_method',
-        'important_notes',
         'parent_branch_id',
         'days_to_reactive',
         'account_manager_id', // vendedor asignado (usuario)

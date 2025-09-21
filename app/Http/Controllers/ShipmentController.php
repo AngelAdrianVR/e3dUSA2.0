@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Models\Shipment;
+use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -98,7 +99,9 @@ class ShipmentController extends Controller
 
             foreach ($shipment->shipmentProducts as $shipmentProduct) {
                 $product = $shipmentProduct->saleProduct->product;
-                $quantityToDecrement = $shipmentProduct->quantity;
+
+                // descuenta unicamente la cantidad producida, ya que el resto tomado del stock del producto terminado ya fue descontado
+                $quantityToDecrement = $shipmentProduct->saleProduct->quantity_to_produce; 
 
                 // Asegurarse de que el producto existe y la cantidad a descontar es mayor a cero.
                 if ($product && $quantityToDecrement > 0) {
@@ -109,6 +112,14 @@ class ShipmentController extends Controller
                     if ($storage) {
                         // Utiliza decrement() para una operación atómica y segura en la base de datos.
                         $storage->decrement('quantity', $quantityToDecrement);
+
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'storage_id' => $storage->id,
+                            'quantity_change' => $quantityToDecrement,
+                            'type' => 'Salida',
+                            'notes' => 'Salida por envío de OV-' . $shipment->sale_id
+                        ]);
                     }
                 }
             }

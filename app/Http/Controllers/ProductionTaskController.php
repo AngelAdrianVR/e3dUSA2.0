@@ -100,13 +100,13 @@ class ProductionTaskController extends Controller
         if ($newStatus === 'Pausada') {
             $logType = 'pausa';
             $reason = $request->input('pause_reason', 'No especificada');
-            $notes = "El operador ha pausado la tarea. Razón: {$reason}";
+            $notes = "El operador ha pausado la tarea '" . $production_task->name . "'. Razón: {$reason}";
         } elseif ($newStatus === 'En Proceso' && $oldStatus === 'Pausada') {
             $logType = 'reanudacion';
-            $notes = 'El operador ha reanudado la tarea.';
+            $notes = 'El operador ha reanudado la tarea "' . $production_task->name . '".';
         } elseif ($newStatus === 'Terminada') {
             $logType = 'progreso';
-            $notes = "Tarea finalizada. Unidades buenas: {$request->input('good_units', 0)}, Merma: {$request->input('scrap', 0)}.";
+            $notes = "Tarea '" . $production_task->name . "' finalizada. Unidades buenas: {$request->input('good_units', 0)}, Merma: {$request->input('scrap', 0)}.";
             if ($request->input('scrap', 0) > 0 && $request->filled('scrap_reason')) {
                  $notes .= " Razón: {$request->input('scrap_reason')}";
             }
