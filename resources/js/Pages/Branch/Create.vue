@@ -46,7 +46,7 @@
                             </div>
                             <div>
                                 <InputLabel value="Cómo nos conoció el cliente*" />
-                                <el-select v-model="branch.meet_way" placeholder="Selecciona">
+                                <el-select v-model="form.meet_way" placeholder="Selecciona">
                                     <el-option v-for="item in meetWays" :key="item" :value="item" :label="item" />
                                 </el-select>
                             </div>
@@ -201,6 +201,7 @@
                                     :key="item.id"
                                     :label="item.name"
                                     :value="item.id"
+                                    :disabled="isProductInForm(item.id)"
                                 />
                             </el-select>
                             <InputError :message="form.errors.suggested_products" />
@@ -388,4 +389,3 @@ export default {
     }
 };
 </script>
-

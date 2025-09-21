@@ -108,7 +108,7 @@
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
 
                                 <!-- Tooltip de cliente -->
-                                <el-tooltip placement="top-start" effect="light" raw-content>
+                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
                                     <template #content>
                                         <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
                                         <!-- Header -->
@@ -147,6 +147,7 @@
                                         {{ sale.branch?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
+                                <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
                             </li>
 
                             <!-- Contacto -->
@@ -258,16 +259,17 @@
                             </span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Inicio:</span>
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Inicio:</span>
                             <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.started_at) }}
+                                {{ sale.production_summary.started_at ? formatDateTime(sale.production_summary.started_at) : 'No iniciada' }}
                             </span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fin:</span>
-                            <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.finished_at) }}
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Fin:</span>
+                            <span v-if="['Preparando Envío', 'Terminada'].includes(sale.status)" class="font-bold px-2 rounded-md text-xs">
+                                {{ sale.production_summary.finished_at ? formatDateTime(sale.production_summary.finished_at) : 'No finalizada' }}
                             </span>
+                            <span class="text-xs" v-else>No finalizada</span>
                         </div>
 
                         <!-- Barra de Progreso Futurista -->

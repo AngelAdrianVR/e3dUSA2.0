@@ -266,10 +266,6 @@
                             <p class="font-semibold text-gray-600 dark:text-gray-400">Guía de Rastreo</p>
                             <span>{{ shipment.tracking_guide ?? 'N/A' }}</span>
                         </div>
-                        <div>
-                            <p class="font-semibold text-gray-600 dark:text-gray-400"># de Paquetes</p>
-                            <span>{{ shipment.number_of_packages ?? 'N/A' }}</span>
-                        </div>
                     </div>
                     
                     <!-- Productos en este envío -->

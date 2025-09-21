@@ -105,7 +105,7 @@
                         <p class="text-base text-gray-500 dark:text-gray-400 font-mono mt-1">Código: {{ product.code }}</p>
                     </div>
 
-                    <article class="max-h-[600px] overflow-auto space-y-5">
+                    <article class="max-h-[62vh] overflow-auto space-y-5">
                         <!-- Tarjeta de Detalles Generales -->
                         <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Información General</h2>

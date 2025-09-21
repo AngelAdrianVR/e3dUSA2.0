@@ -177,10 +177,6 @@
                             <span>{{ designOrder.design_category?.name ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Sucursal:</span>
-                            <span>{{ designOrder.branch_name ?? 'No especificada' }}</span>
-                        </li>
-                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha Límite:</span>
                             <span>{{ formatDate(designOrder.due_date) }}</span>
                         </li>

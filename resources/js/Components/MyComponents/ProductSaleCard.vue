@@ -33,8 +33,8 @@
                             <el-tooltip v-if="branchId" placement="top">
                                 <template #content>
                                     <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
-                                    <p class="text-blue-400">Cantidad tomada de stock: <span class="text-white ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
-                                    <p class="text-blue-400">Cantidad a producir: <span class="text-white ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
+                                    <p class="text-blue-400">Cantidad tomada de stock: <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
+                                    <p class="text-blue-400">Cantidad a producir: <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
                                 </template>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
@@ -282,9 +282,9 @@ export default {
                 : 'Precio Actual (Base)';
         },
         lastUpdateInfo() {
-            if (!this.activeSpecialPrice) {
-                return null;
-            }
+            // if (!this.activeSpecialPrice) {
+            //     return null;
+            // }
 
             const fromDate = new Date(this.activeSpecialPrice.valid_from);
             const now = new Date();

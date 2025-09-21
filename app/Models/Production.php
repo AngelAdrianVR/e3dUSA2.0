@@ -124,15 +124,15 @@ class Production extends Model implements Auditable
                     $storage->increment('quantity', $quantityToAdd);
                     
                     // IMPORTANTE: Solo se crea el movimiento de stock si el tipo es 'stock'.
-                    if ($this->saleProduct->sale->type === 'stock') {
+                    // if ($this->saleProduct->sale->type === 'stock') {
                         StockMovement::create([
                             'product_id' => $product->id,
                             'storage_id' => $storage->id,
                             'quantity_change' => $quantityToAdd,
                             'type' => 'Entrada',
-                            'notes' => 'Entrada por orden de stock terminada OS-' . $this->saleProduct->sale->id
+                            'notes' => 'Entrada por orden terminada ' . $this->saleProduct->sale->type === 'stock' ? 'OS-' : 'OV-' . $this->saleProduct->sale->id
                         ]);
-                    }
+                    // }
                 }
             }
         }

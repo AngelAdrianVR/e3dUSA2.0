@@ -187,7 +187,7 @@ class PurchaseController extends Controller
             'subtotal' => 'required|numeric',
             'tax' => 'required|numeric',
             'total' => 'required|numeric',
-            'media.*' => 'nullable|file|max:10240', // max 10MB
+            'media.*' => 'nullable|file', // max 10MB
             'current_media_ids' => 'nullable|array', // IDs de los archivos existentes a conservar
         ]);
 

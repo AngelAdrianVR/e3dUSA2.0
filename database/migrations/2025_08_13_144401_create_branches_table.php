@@ -17,7 +17,7 @@ return new class extends Migration
             // Datos de la empresa/sucursal
             $table->string('name');
             $table->string('password'); //Para poder ingresar al portal de clientes
-            $table->string('rfc', 20)->nullable();
+            $table->string('rfc', 30)->nullable();
             $table->string('address')->nullable();
             $table->string('post_code')->nullable();
 
@@ -29,7 +29,6 @@ return new class extends Migration
             $table->foreignId('account_manager_id')->nullable()->constrained('users')->onDelete('set null');
             $table->unsignedSmallInteger('days_to_reactive')->default(60);
             // $table->date('last_purchase_date')->nullable(); // fecha de la última compra realizada en accesor
-            $table->text('important_notes')->nullable();
             
              // Configuración fiscal (SAT)
             $table->string('sat_method', 50)->nullable();
