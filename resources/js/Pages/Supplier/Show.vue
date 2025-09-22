@@ -124,8 +124,22 @@
                             <p class="font-semibold">{{ account.bank_name }} ({{ account.currency }})</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Titular: {{ account.account_holder }}</p>
                             <div class="text-sm mt-1 space-y-1">
-                                <p><strong class="font-normal">Cuenta:</strong> {{ account.account_number }}</p>
-                                <p v-if="account.clabe"><strong class="font-normal">CLABE:</strong> {{ account.clabe }}</p>
+                                <p>
+                                <strong class="font-normal">Cuenta:</strong> {{ account.account_number }}
+                                </p>
+
+                                <p v-if="account.clabe" class="flex items-center gap-2">
+                                <strong class="font-normal">CLABE:</strong> 
+                                <span>{{ formatClabe(account.clabe) }}</span>
+
+                                <!-- Botón copiar -->
+                                <button
+                                    @click="copyClabe(account.clabe)"
+                                    class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 dark:bg-gray-500 rounded"
+                                >
+                                    Copiar
+                                </button>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -269,6 +283,19 @@ export default {
         catalog_products: Array,
     },
     methods: {
+        formatClabe(clabe) {
+            if (!clabe) return '';
+            return clabe.replace(/(.{4})/g, '$1 ').trim();
+        },
+            async copyClabe(clabe) {
+            try {
+                await navigator.clipboard.writeText(clabe);
+                ElMessage.success('CLABE copiada');
+            } catch (err) {
+                console.error('Error al copiar:', err);
+                ElMessage.warning('No se pudo copiar la CLABE');
+            }
+        },
         // --- GESTIÓN DE CONTACTOS ---
         openContactModal(contact = null) {
             this.contactToEdit = contact;
