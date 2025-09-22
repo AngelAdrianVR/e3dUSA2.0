@@ -63,6 +63,7 @@ class SaleController extends Controller
                     ->whereDoesntHave('sale')
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
+                    ->take(100)
                     ->get();
         
         return Inertia::render('Sale/Create', [
@@ -325,6 +326,7 @@ class SaleController extends Controller
                     ->whereDoesntHave('sale')
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
+                    ->take(100)
                     ->get();
 
         return Inertia::render('Sale/Edit', [
