@@ -37,7 +37,12 @@ class PayrollController extends Controller
     public function show(Payroll $payroll)
     {
         // Eager load all necessary relationships, including the bonus rules.
-        $employees = EmployeeDetail::with('user', 'bonuses.rules', 'discounts')->get();
+        $employees = EmployeeDetail::with(['user', 'bonuses.rules', 'discounts'])
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
+            ->get();
+            
         $payrollData = $this->calculatePayrollData($payroll, $employees);
 
         $grandTotal = $payrollData->sum(function ($data) {

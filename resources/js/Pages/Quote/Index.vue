@@ -94,8 +94,8 @@
                                             </template>
                                             <div class="flex items-center">
                                                 <i class="fa-solid fa-circle text-[8px] mr-2"
-                                                    :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
-                                                <span>{{ scope.row.branch.name }}</span>
+                                                    :class="scope.row.branch?.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
+                                                <span>{{ scope.row.branch?.name }}</span>
                                             </div>
                                         </el-tooltip>
                                     </div>
@@ -120,7 +120,7 @@
                             </el-table-column>
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Utilidad cotizaciones')" label="Utilidad" width="90">
                                 <template #default="scope">
-                                    <el-tooltip placement="top">
+                                    <el-tooltip placement="right">
                                         <template #content>
                                             <div class="text-xs">
                                                 <p class="text-white dark:text-gray-600 font-bold mb-2">No se toma en cuenta herramental ni flete</p>

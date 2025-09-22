@@ -225,6 +225,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
+import InputLabel from "@/Components/InputLabel.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
@@ -284,6 +285,7 @@ export default {
         Back,
         AppLayout,
         TextInput,
+        InputLabel,
         InputError,
         PrimaryButton,
         SecondaryButton,

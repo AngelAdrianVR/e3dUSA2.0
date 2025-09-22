@@ -103,7 +103,7 @@
                             <!-- COLUMNA DE UTILIDAD -->
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver utilidad ventas')" label="Utilidad" width="100">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.type === 'venta'" placement="top" effect="dark">
+                                    <el-tooltip v-if="scope.row.type === 'venta'" placement="right" effect="dark">
                                         <template #content>
                                             <div class="text-xs">
                                                 <p class="text-white dark:text-gray-700 font-bold mb-2">No se toma en cuenta flete</p>

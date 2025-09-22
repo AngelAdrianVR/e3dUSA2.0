@@ -97,7 +97,7 @@
                                     <span>${{ scope.row.cost?.toFixed(2) ?? '0.00' }}</span>
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Stock" width="130">
+                             <el-table-column label="Stock" width="170">
                                 <template #default="scope">
                                     <span :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold' : 'text-green-600'" 
                                           class="text-lg">

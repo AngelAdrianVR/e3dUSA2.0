@@ -227,6 +227,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import InputLabel from "@/Components/InputLabel.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
@@ -287,6 +288,7 @@ export default {
         AppLayout,
         TextInput,
         InputError,
+        InputLabel,
         BranchNotes,
         PrimaryButton,
         SecondaryButton,
