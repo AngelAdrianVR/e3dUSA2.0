@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('sample_trackings', function (Blueprint $table) {
             $table->id();
+            $table->string('name')->nullable();
             $table->enum('status', ['Pendiente', 'Autorizado', 'Enviado', 'Aprobado', 'Rechazado', 'Devuelto', 'Completado', 'Modificación'])->default('Pendiente');
             
             // Foreign Keys for relationships

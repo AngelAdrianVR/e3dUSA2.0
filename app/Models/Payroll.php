@@ -10,6 +10,7 @@ class Payroll extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'week_number',
         'start_date',
         'end_date',

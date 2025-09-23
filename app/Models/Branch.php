@@ -14,6 +14,7 @@ class Branch extends Model implements Auditable
     use AuditableTrait;
 
     protected $fillable = [
+        'id',
         'rfc',
         'name',
         'status',

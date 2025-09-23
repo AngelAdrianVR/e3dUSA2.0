@@ -93,6 +93,10 @@
                             <el-tag :type="statusTagType" size="small">{{ sampleTracking.status }}</el-tag>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Nombre:</span>
+                            <span>{{ sampleTracking?.name ?? 'N/A' }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Solicitante:</span>
                             <span>{{ sampleTracking.requester?.name ?? 'N/A' }}</span>
                         </li>

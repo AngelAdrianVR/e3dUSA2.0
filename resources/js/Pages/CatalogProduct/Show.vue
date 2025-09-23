@@ -8,7 +8,7 @@
                         v-model="selectedCatalogProduct" filterable placeholder="Buscar otro producto..."
                         class="!w-full"
                         no-data-text="No hay productos registrados" no-match-text="No se encontraron coincidencias">
-                        <el-option v-for="item in catalog_products" :key="item.id"
+                        <el-option class="!w-96" v-for="item in catalog_products" :key="item.id"
                             :label="item.name" :value="item.id" />
                     </el-select>
                 </div>

@@ -98,12 +98,12 @@
                                     <span class="text-amber-500" v-else>Sin asignar</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Fecha de Solicitud" width="180">
+                            <el-table-column label="Solicitado el" width="150">
                                 <template #default="scope">
                                     {{ formatDate(scope.row.created_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status" label="Estatus" width="130">
+                            <el-table-column prop="status" label="Estatus" width="120">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
                                         <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
@@ -127,7 +127,7 @@
                                     <p v-else>No autorizada</p>
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Terminado el" width="140">
+                             <el-table-column label="Terminado el" width="130">
                                 <template #default="scope">
                                     {{ formatDate(scope.row.finished_at) ?? 'N/A' }}
                                 </template>
@@ -314,7 +314,7 @@ export default {
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
-            return format(date, "d 'de' MMMM, yyyy", { locale: es });
+            return format(date, "d 'de' MMM, yyyy", { locale: es });
         },
         handleSelectionChange(selection) {
             this.selectedItems = selection;

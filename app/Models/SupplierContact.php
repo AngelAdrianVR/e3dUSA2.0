@@ -24,6 +24,7 @@ class SupplierContact extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'supplier_id',
         'name',
         'position',

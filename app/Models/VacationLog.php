@@ -10,6 +10,7 @@ class VacationLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'employee_detail_id',
         'incident_id',
         'type',

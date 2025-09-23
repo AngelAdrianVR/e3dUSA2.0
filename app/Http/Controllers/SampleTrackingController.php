@@ -268,6 +268,7 @@ class SampleTrackingController extends Controller
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
+                ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('status', 'like', "%{$query}%")
                 ->orWhereHas('requester', function ($parentQuery) use ($query) {
                     $parentQuery->where('name', 'like', "%{$query}%");

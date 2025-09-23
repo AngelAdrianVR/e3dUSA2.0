@@ -16,6 +16,7 @@ class PurchaseItem extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'purchase_id',
         'product_id',
         'description',

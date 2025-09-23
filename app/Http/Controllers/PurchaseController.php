@@ -223,7 +223,7 @@ class PurchaseController extends Controller
 
             DB::commit();
 
-            return redirect()->route('purchases.index')->with('success', 'Órden de compra actualizada exitosamente.');
+            return redirect()->route('purchases.show', $purchase->id)->with('success', 'Órden de compra actualizada exitosamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();

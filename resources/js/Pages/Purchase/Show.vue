@@ -135,22 +135,22 @@
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Información de Cuenta bancaria</h3>
                     <ul class="space-y-3 text-sm">
-                        <h2 class="dark:text-white text-lg">{{ purchase.bank_account.name }}</h2>
+                        <h2 class="dark:text-white text-lg">{{ purchase.bank_account?.name }}</h2>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Nombrede propietario:</span>
                             <span>{{ purchase.bank_account?.account_holder ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">N° Cuenta:</span>
-                            <span>{{ purchase.bank_account.account_number }}</span>
+                            <span>{{ purchase.bank_account?.account_number }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Clabe:</span>
-                            <span>{{ purchase.bank_account.clabe }}</span>
+                            <span>{{ purchase.bank_account?.clabe }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Moneda:</span>
-                            <span>{{ purchase.bank_account.currency }}</span>
+                            <span>{{ purchase.bank_account?.currency }}</span>
                         </li>
                     </ul>
                 </div>

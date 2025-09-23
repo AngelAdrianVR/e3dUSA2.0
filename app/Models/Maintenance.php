@@ -14,6 +14,7 @@ class Maintenance extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'cost',
         'actions',
         'problems',
