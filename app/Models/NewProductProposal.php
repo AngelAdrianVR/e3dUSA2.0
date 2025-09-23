@@ -14,6 +14,7 @@ class NewProductProposal extends Model implements HasMedia
     use HasFactory,InteractsWithMedia;
 
     protected $fillable = [
+        'id',
         'name',
         'description',
         'specifications',

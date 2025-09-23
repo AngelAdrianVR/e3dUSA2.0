@@ -20,6 +20,7 @@ class Supplier extends Model implements Auditable
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'name',
         'rfc',
         'nickname',

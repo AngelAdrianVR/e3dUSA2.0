@@ -10,6 +10,7 @@ class TerminationLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'user_id',
         'termination_date',
         'reason',

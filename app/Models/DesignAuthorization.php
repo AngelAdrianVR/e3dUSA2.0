@@ -18,6 +18,7 @@ class DesignAuthorization extends Model implements HasMedia
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'design_order_id',
         'version',
         'product_name',

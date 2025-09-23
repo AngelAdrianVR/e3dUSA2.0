@@ -24,6 +24,8 @@ class Purchase extends Model implements HasMedia, Auditable
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
+        'rating',
         'status', //Autorizada, Compra realizada, Compra recibida
         'supplier_id',
         'user_id',
@@ -56,6 +58,7 @@ class Purchase extends Model implements HasMedia, Auditable
         'expected_delivery_date' => 'date',
         'recieved_at' => 'datetime',
         'is_spanish_template' => 'boolean',
+        'rating' => 'array',
     ];
 
     /**

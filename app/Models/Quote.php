@@ -18,6 +18,7 @@ class Quote extends Model implements Auditable
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'status',
         'receiver',
         'department',

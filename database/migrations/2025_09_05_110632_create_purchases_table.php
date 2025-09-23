@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('purchases', function (Blueprint $table) {
             $table->id();
-            // $table->string('type', 20)->default('Venta'); // si es para Muestra o Venta
             $table->boolean('is_spanish_template')->default(true);
 
             $table->enum('status', ['Pendiente', 'Autorizada', 'Compra realizada', 'Compra recibida', 'Cancelada'])->default('Pendiente');
@@ -29,10 +28,11 @@ return new class extends Migration
             $table->decimal('subtotal', 12, 2)->default(0);
             $table->decimal('tax', 12, 2)->default(0); // Impuestos (IVA, etc.)
             $table->decimal('total', 12, 2)->default(0);
-            $table->string('currency', 3)->default('MXN');
+            $table->string('currency', 3)->default('USD');
 
             $table->text('notes')->nullable();
             $table->text('shipping_details')->nullable(); // Detalles del envío, paquetería, etc.
+            $table->json('rating')->nullable(); // respuesta de preguntas de encuesta
             
             $table->timestamp('emited_at')->nullable(); // Fecha de emisión
             $table->timestamp('authorized_at')->nullable(); // Fecha de autorización

@@ -17,6 +17,7 @@ class Invoice extends Model implements HasMedia, Auditable
     use InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'sale_id',
         'branch_id',
         'user_id',

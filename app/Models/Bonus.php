@@ -13,6 +13,7 @@ class Bonus extends Model implements Auditable
     use AuditableTrait;
     
     protected $fillable = [
+        'id',
         'name',
         'description',
         'calculation_type',

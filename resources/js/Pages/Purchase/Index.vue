@@ -109,7 +109,7 @@
                                                     <p class="text-amber-500 font-semibold">
                                                     Cantidad:
                                                     <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.quantity }} {{ item.product.measure_unit }}
+                                                        {{ item.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}
                                                     </span>
                                                     </p>
 

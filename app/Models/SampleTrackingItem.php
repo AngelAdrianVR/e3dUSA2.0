@@ -12,6 +12,7 @@ class SampleTrackingItem extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'sample_tracking_id',
         'itemable_id',
         'itemable_type',

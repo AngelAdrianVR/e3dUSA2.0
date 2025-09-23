@@ -21,6 +21,7 @@ class Design extends Model implements HasMedia
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'name',
         'description',
         'design_category_id',

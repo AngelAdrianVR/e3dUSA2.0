@@ -118,26 +118,26 @@
                                         <p v-if="item.plane_stock > 0">
                                             <i class="fa-solid fa-plane w-4 text-blue-400"></i>
                                             Avión:
-                                            <span class="font-semibold">{{ item.plane_stock }} {{ item.product.measure_unit }}</span>
+                                            <span class="font-semibold">{{ item.plane_stock?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}</span>
                                         </p>
 
                                         <p v-if="item.ship_stock > 0">
                                             <i class="fa-solid fa-ship w-4 text-blue-400"></i>
                                             Barco:
-                                            <span class="font-semibold">{{ item.ship_stock }} {{ item.product.measure_unit }}</span>
+                                            <span class="font-semibold">{{ item.ship_stock?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}</span>
                                         </p>
 
                                         <p v-if="item.additional_stock > 0">
                                             <i class="fa-solid fa-plus-circle w-4 text-blue-400"></i>
                                             A Favor:
-                                            <span class="font-semibold">{{ item.additional_stock }} {{ item.product.measure_unit }}</span>
+                                            <span class="font-semibold">{{ item.additional_stock?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}</span>
                                         </p>
                                         </div>
                                     </el-collapse-item>
                                 </el-collapse>
 
                             </td>
-                            <td class="p-3 text-center align-top">{{ item.quantity }} {{ item.product.measure_unit }}</td>
+                            <td class="p-3 text-center align-top">{{ item.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}</td>
                             <td class="p-3 text-right align-top">{{ formatCurrency(item.unit_price) }}</td>
                             <td class="p-3 text-right font-semibold align-top">{{ formatCurrency(item.total_price) }}</td>
                         </tr>

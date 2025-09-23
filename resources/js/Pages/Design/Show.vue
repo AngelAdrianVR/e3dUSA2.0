@@ -168,6 +168,10 @@
                             <span>{{ designOrder.requester?.name ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Solicitado el:</span>
+                            <span>{{ formatDate(designOrder.created_at) }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Diseñador:</span>
                             <span v-if="designOrder.designer_id">{{ designOrder.designer?.name }}</span>
                             <span class="text-amber-500" v-else>No asignado</span>

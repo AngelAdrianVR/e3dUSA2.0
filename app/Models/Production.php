@@ -16,6 +16,7 @@ class Production extends Model implements Auditable
     use HasFactory, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'sale_product_id',
         'created_by_user_id',
         'quantity_to_produce',

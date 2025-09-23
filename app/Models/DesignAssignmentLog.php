@@ -26,6 +26,7 @@ class DesignAssignmentLog extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'design_order_id',
         'previous_designer_id',
         'new_designer_id',
