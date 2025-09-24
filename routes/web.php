@@ -240,12 +240,6 @@ Route::post('suppliers/massive-delete', [SupplierController::class, 'massiveDele
 Route::get('/suppliers/{supplier}/details', [SupplierController::class, 'getDetails'])->name('suppliers.get-details');
 
 
-// ------- (rutas de contactos de proveedores)  ---------
-Route::post('supplier-contacts', [SupplierContactController::class, 'store'])->middleware('auth')->name('supplier-contacts.store');
-Route::put('supplier-contacts/{contact}', [SupplierContactController::class, 'update'])->middleware('auth')->name('supplier-contacts.update');
-Route::delete('supplier-contacts/{contact}', [SupplierContactController::class, 'destroy'])->middleware('auth')->name('supplier-contacts.destroy');
-
-
 // ------- (Rutas de Cuentas Bancarias de Proveedores) ---------
 Route::post('supplier-bank-accounts', [SupplierBankAccountController::class, 'store'])->middleware('auth')->name('supplier-bank-accounts.store');
 Route::put('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'update'])->middleware('auth')->name('supplier-bank-accounts.update');

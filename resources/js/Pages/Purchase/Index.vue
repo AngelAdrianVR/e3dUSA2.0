@@ -162,7 +162,7 @@
                                     {{ formatDate(scope.row.created_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status" label="Estatus" width="130">
+                            <el-table-column prop="status" label="Estatus" width="140">
                                 <template #default="scope">
                                     <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
                                         {{ scope.row.status }}

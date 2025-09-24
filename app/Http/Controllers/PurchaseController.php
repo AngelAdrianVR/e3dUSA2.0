@@ -140,17 +140,16 @@ class PurchaseController extends Controller
     public function show(Purchase $purchase)
     {
         $purchase->load([
-            'user:id,name', // Usuario que creó la orden
-            'authorizer:id,name', // Usuario que autorizó
-            'supplier:id,name,address,phone', // Información del proveedor
-            'contact:id,name', // Contacto del proveedor
-            'contact.details', // detalles del Contacto del proveedor
-            'items.product.media', // Items de la compra, con su producto y la imagen del producto
-            'bankAccount'
+            'user:id,name', 
+            'authorizer:id,name',
+            'supplier:id,name,address,phone',
+            'contact:id,name',
+            'contact.details',
+            'items.product.media',
+            'bankAccount',
+            'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
-        // return $purchase;
-        // Renderizamos el componente de Vue y le pasamos la orden de compra con sus relaciones.
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
         ]);
@@ -283,16 +282,23 @@ class PurchaseController extends Controller
 
     public function updateStatus(Request $request, Purchase $purchase)
     {
-        // Validamos que el estatus enviado sea uno de los permitidos
         $request->validate([
             'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida'])],
+            'rating' => 'nullable|array',
+            'rating.q1' => 'required_with:rating|string',
+            'rating.q2' => 'required_with:rating|string',
+            'rating.q3_1' => 'required_with:rating|string',
+            'rating.q4' => 'required_with:rating|string',
+            'rating.q5' => 'required_with:rating|string',
+            'evidence_files' => 'nullable|array|max:4',
+            'evidence_files.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $newStatus = $request->input('status');
         $currentStatus = $purchase->status;
 
         try {
-            DB::transaction(function () use ($newStatus, $currentStatus, $purchase) {
+            DB::transaction(function () use ($request, $newStatus, $currentStatus, $purchase) {
                 switch ($newStatus) {
                     case 'Compra realizada':
                         if ($currentStatus !== 'Autorizada') {
@@ -306,30 +312,59 @@ class PurchaseController extends Controller
                             throw new \Exception('La compra debe estar marcada como "Realizada" para poder recibirla.');
                         }
 
-                        // 1. Actualizar el estado y la fecha de recepción de la compra
-                        $purchase->update([
+                        $updateData = [
                             'status' => $newStatus,
                             'recieved_at' => now(),
-                        ]);
+                        ];
 
-                        // 2. Cargar la relación items con sus productos para evitar N+1 queries
+                        if ($request->has('rating')) {
+                            $ratingData = $request->input('rating');
+                            $user = auth()->user();
+                            $pointsMap = [
+                                'q1' => ['Si' => 30],
+                                'q2' => ['Sí, cumplió con todo' => 15, 'No, no se cumplieron las especificaciones' => 0],
+                                'q3' => ['No se requirió soporte' => 15, 'Atención inmediata' => 10, 'Atención tardía (2 o más días para atender)' => 5, 'No brindó soporte' => 0],
+                                'q4' => ['No se presentó ninguna urgencia' => 15, '1 día de atraso' => 10, '2 a 3 días de atraso' => 8, '4 a 5 días de atraso' => 5, 'Más de 6 días de atraso' => 0],
+                                'q5' => ['0 avisos de rechazo' => 15, '1 aviso de rechazo' => 5, '2 o más avisos de rechazo' => 0]
+                            ];
+                            $q3_answer = $ratingData['q3_1'];
+                             if ($ratingData['q3_1'] !== 'No se requirió soporte' && !empty($ratingData['q3_2'])) {
+                                $q3_answer .= ' (' . $ratingData['q3_2'] . ')';
+                            }
+                            $questions = [
+                                ['answer' => $ratingData['q1'], 'points' => $pointsMap['q1'][$ratingData['q1']] ?? 0],
+                                ['answer' => $ratingData['q2'], 'points' => $pointsMap['q2'][$ratingData['q2']] ?? 0],
+                                ['answer' => $q3_answer, 'points' => $pointsMap['q3'][$ratingData['q3_2'] ?? $ratingData['q3_1']] ?? 0],
+                                ['answer' => $ratingData['q4'], 'points' => $pointsMap['q4'][$ratingData['q4']] ?? 0],
+                                ['answer' => $ratingData['q5'], 'points' => $pointsMap['q5'][$ratingData['q5']] ?? 0],
+                            ];
+                             $updateData['rating'] = [
+                                'questions' => $questions,
+                                'created_at' => now()->format('Y-m-d H:i:s'),
+                                'created_by' => $user->name,
+                            ];
+                        }
+                        
+                        $purchase->update($updateData);
+
+                        if ($request->hasFile('evidence_files')) {
+                            foreach ($request->file('evidence_files') as $file) {
+                                $purchase->addMedia($file)->toMediaCollection('evidence_files');
+                            }
+                        }
+
                         $purchase->load('items.product');
 
-                        // 3. Iterar sobre los productos de la compra para actualizar el stock
                         foreach ($purchase->items as $item) {
                             if ($item->product) {
-
                                 $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-
-                                // Incrementar el stock con la cantidad del item de la compra
                                 $storage->increment('quantity', $item->quantity);
-
                                 StockMovement::create([
                                     'product_id' => $item->product->id,
                                     'storage_id' => $storage->id,
                                     'quantity_change' => $item->quantity,
                                     'type' => 'Entrada',
-                                    'notes' => 'Entrada por orden de compra recibida OC- ' . $purchase->id
+                                    'notes' => 'Entrada por orden de compra recibida OC-' . $purchase->id
                                 ]);
                             }
                         }
