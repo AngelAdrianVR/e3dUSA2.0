@@ -29,7 +29,7 @@ class SampleTrackingController extends Controller
     public function create()
     {
         // Pasa los datos necesarios para los selectores del formulario
-        $branches = Branch::with(['contacts:id,name,branch_id'])->get(['id', 'name']);
+        $branches = Branch::with(['contacts:id,name'])->get(['id', 'name']);
         $products = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->get(['id', 'name']); 
 
         // return $branches;

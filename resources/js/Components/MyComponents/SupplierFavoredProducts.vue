@@ -54,8 +54,8 @@
                                 <p class="text-xs text-slate-400">{{ item.product.code }}</p>
                             </div>
                         </div>
-                        <span class="text-base font-bold text-amber-400 ml-2">{{ item.quantity }} pz</span>
                     </div>
+                        <p class="text-base text-right font-bold text-amber-400 ml-2 mt-1">{{ item.quantity }} pz</p>
                     <!-- Formulario para descontar -->
                     <div class="mt-3 flex items-center space-x-2">
                          <input type="number" v-model="discountQuantities[item.id]" :max="item.quantity" min="0.01" step="0.01" class="w-full text-sm bg-slate-700 text-white border-slate-600 rounded-md shadow-sm focus:ring-amber-500 focus:border-amber-500 transition" placeholder="Cantidad">
@@ -106,9 +106,9 @@ const fetchFavoredProducts = async () => {
         favoredProducts.value = response.data.favoredProducts;
         supplierName.value = response.data.supplierName;
 
-        if (favoredProducts.value.length > 0 && !isOpen.value) {
-            isOpen.value = true;
-        }
+        // if (favoredProducts.value.length > 0 && !isOpen.value) {
+        //     isOpen.value = true;
+        // }
     } catch (error) {
         console.error("Error al recuperar los productos a favor:", error);
         ElMessage.error('No se pudieron recuperar los productos a favor.');

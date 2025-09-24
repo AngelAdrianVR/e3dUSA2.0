@@ -152,9 +152,9 @@ const fetchNotes = async () => {
     notes.value = response.data.notes;
     branchName.value = response.data.branchName;
 
-    if (notes.value.length > 0) {
-      isOpen.value = true // abre el panel si hay notas
-    }
+    // if (notes.value.length > 0) {
+    //   isOpen.value = true // abre el panel si hay notas
+    // }
   } catch (error) {
     console.error("Error al recuperar las notas:", error)
     ElMessage.error('No se pudieron recuperar las notas.')

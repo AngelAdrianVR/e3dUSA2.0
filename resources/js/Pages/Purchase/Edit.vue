@@ -410,7 +410,11 @@ export default {
         editProduct(index) {
             this.editProductIndex = index;
             // Clonación profunda para evitar reactividad no deseada
-            this.productForm = JSON.parse(JSON.stringify(this.form.items[index]));
+            this.productForm = this.form.items[index];
+            this.productForm.additional_stock = 0;
+            this.productForm.plane_stock = 0;
+            this.productForm.ship_stock = 0;
+            // this.productForm = JSON.parse(JSON.stringify(this.form.items[index]));
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },
         cancelEdit() {
