@@ -83,16 +83,22 @@
                                     </button>
                                 </el-tooltip>
                                 <el-tooltip content="Eliminar" placement="top">
-                                    <button @click="confirmDeleteContact(contact)" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
+                                    <button @click="showConfirmDeleteContact = { show: true, contactId: contact.id }" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
                                         <i class="fa-regular fa-trash-can text-xs"></i>
                                     </button>
                                 </el-tooltip>
                             </div>
-                            <p class="font-semibold">{{ contact.name }} <span v-if="contact.is_primary" class="text-xs text-green-500">(Principal)</span></p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.position }}</p>
+                            <p class="font-semibold">{{ contact.name }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
-                                <p v-if="contact.email"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ contact.email }}</p>
-                                <p v-if="contact.phone"><i class="fa-solid fa-phone mr-2 text-gray-400"></i> {{ contact.phone }}</p>
+                                <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
+                                <p v-if="getPrimaryDetail(contact, 'Teléfono')">
+                                    <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
+                                    {{ formatPhone(getPrimaryDetail(contact, 'Teléfono')) }}
+                                </p>
+                                <p v-if="contact.birthdate">
+                                    <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -181,7 +187,7 @@
         </main>
 
         <!-- Modals -->
-        <ContactModal :show="showContactModal" :contact="contactToEdit" :supplierId="supplier.id" @close="showContactModal = false" />
+        <ModalCrearEditarContacto :show="showContactModal" :contact="contactToEdit" :contactable-id="supplier.id" :contactable-type="'App\\Models\\Supplier'" @close="showContactModal = false" />
         <BanckAccountModal :show="showBankAccountModal" :bankAccount="bankAccountToEdit" :supplierId="supplier.id" @close="showBankAccountModal = false" />
 
         <!-- Modal de Confirmación para Eliminar proveedor -->
@@ -201,16 +207,16 @@
         </ConfirmationModal>
 
         <!-- Modal de Confirmación para Eliminar contacto -->
-        <ConfirmationModal :show="showConfirmDeleteContactModal" @close="showConfirmDeleteContactModal = false">
+        <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
             <template #title>
                 Eliminar Contacto
             </template>
             <template #content>
-                ¿Estás seguro de que deseas eliminar a <strong>{{ contactToDelete?.name }}</strong>? Esta acción no se puede deshacer.
+                ¿Estás seguro de que deseas eliminar este contacto? Esta acción es irreversible.
             </template>
             <template #footer>
                 <div class="flex space-x-2">
-                    <CancelButton @click="showConfirmDeleteContactModal = false">Cancelar</CancelButton>
+                    <CancelButton @click="showConfirmDeleteContact.show = false">Cancelar</CancelButton>
                     <PrimaryButton @click="deleteContact" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
                 </div>
             </template>
@@ -244,8 +250,11 @@ import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import Products from './Tabs/Products.vue';
-import ContactModal from './Modals/ContactModal.vue';
 import BanckAccountModal from './Modals/BanckAccountModal.vue';
+// Se importa el modal de contacto reutilizable
+import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarContacto.vue";
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export default {
     data() {
@@ -256,8 +265,7 @@ export default {
             // Contactos
             showContactModal: false,
             contactToEdit: null,
-            contactToDelete: null,
-            showConfirmDeleteContactModal: false,
+            showConfirmDeleteContact: { show: false, contactId: null }, // Lógica adaptada de Branch
             // Cuentas
             showBankAccountModal: false,
             bankAccountToEdit: null,
@@ -274,8 +282,8 @@ export default {
         CancelButton,
         PrimaryButton,
         Products,
-        ContactModal,
         BanckAccountModal,
+        ModalCrearEditarContacto, // Se registra el nuevo modal
     },
     props: {
         supplier: Object,
@@ -283,11 +291,12 @@ export default {
         catalog_products: Array,
     },
     methods: {
+        // --- MÉTODOS GENERALES ---
         formatClabe(clabe) {
             if (!clabe) return '';
             return clabe.replace(/(.{4})/g, '$1 ').trim();
         },
-            async copyClabe(clabe) {
+        async copyClabe(clabe) {
             try {
                 await navigator.clipboard.writeText(clabe);
                 ElMessage.success('CLABE copiada');
@@ -296,28 +305,43 @@ export default {
                 ElMessage.warning('No se pudo copiar la CLABE');
             }
         },
-        // --- GESTIÓN DE CONTACTOS ---
+         formatPhone(number) {
+            if (!number) return '';
+            const digits = number.toString().replace(/\D/g, '');
+            return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
+        formatBirthday(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString + 'T00:00:00'); 
+            return format(date, "d 'de' MMMM", { locale: es });
+        },
+
+        // --- GESTIÓN DE CONTACTOS (Adaptado de ShowBranch.vue) ---
         openContactModal(contact = null) {
             this.contactToEdit = contact;
             this.showContactModal = true;
         },
-        confirmDeleteContact(contact) {
-            this.contactToDelete = contact;
-            this.showConfirmDeleteContactModal = true;
-        },
         deleteContact() {
-            router.delete(route('supplier-contacts.destroy', this.contactToDelete.id), {
+            const contactId = this.showConfirmDeleteContact.contactId;
+            router.delete(route('contacts.destroy', contactId), {
                 preserveScroll: true,
                 onSuccess: () => {
-                    ElMessage.success('Contacto eliminado');
-                    this.showConfirmDeleteContactModal = false;
-                    this.contactToDelete = null;
+                    ElMessage.success('Contacto eliminado correctamente');
+                    this.showConfirmDeleteContact = { show: false, contactId: null };
                 },
                 onError: () => {
-                    ElMessage.error('No se pudo eliminar el contacto');
+                    ElMessage.error('Ocurrió un error al eliminar el contacto');
                 }
             });
         },
+        getPrimaryDetail(contact, type) {
+            if (!contact.details) return null;
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : null;
+        },
+
         // --- GESTIÓN DE CUENTAS ---
         openBankAccountModal(account = null) {
             this.bankAccountToEdit = account;
@@ -335,8 +359,8 @@ export default {
                     this.showConfirmDeleteBankAccountModal = false;
                 }
             });
-            this.showConfirmDeleteBankAccountModal = false;
         },
+
         // --- ELIMINAR PROVEEDOR ---
         deleteSupplier() {
             router.delete(route('suppliers.destroy', this.supplier.id), {

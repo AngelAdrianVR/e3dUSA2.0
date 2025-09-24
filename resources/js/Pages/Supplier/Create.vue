@@ -32,7 +32,7 @@
                     <div class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mb-8">
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <TextInput v-model="newContact.name" label="Nombre del contacto*" placeholder="Ej. Juan Pérez" />
-                            <TextInput v-model="newContact.position" label="Puesto" placeholder="Ej. Ventas" />
+                            <TextInput v-model="newContact.charge" label="Puesto" placeholder="Ej. Ventas" />
                             <TextInput v-model="newContact.phone" label="Teléfono" type="tel" />
                             <TextInput v-model="newContact.email" label="Email" type="email" class="sm:col-span-2"/>
                             <label class="flex items-center mt-7">
@@ -50,7 +50,7 @@
                             <li v-for="(contact, index) in form.contacts" :key="index" class="flex justify-between items-center p-2 rounded-md">
                                 <div>
                                     <p class="font-bold text-primary">{{ contact.name }} <span v-if="contact.is_primary" class="text-xs text-green-500 font-normal">(Principal)</span></p>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ contact.position }}</p>
+                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ contact.charge }}</p>
                                     <p class="text-xs text-gray-500">{{ contact.phone }} | {{ contact.email }}</p>
                                 </div>
                                 <button @click="removeContact(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
@@ -259,7 +259,7 @@ export default {
             }),
             newContact: {
                 name: '',
-                position: '',
+                charge: '',
                 email: '',
                 phone: '',
                 is_primary: false,
@@ -299,7 +299,7 @@ export default {
             }
             
             this.form.contacts.push({ ...this.newContact });
-            this.newContact = { name: '', position: '', email: '', phone: '', is_primary: false }; // Reset
+            this.newContact = { name: '', charge: '', email: '', phone: '', is_primary: false }; // Reset
         },
         removeContact(index) {
             this.form.contacts.splice(index, 1);

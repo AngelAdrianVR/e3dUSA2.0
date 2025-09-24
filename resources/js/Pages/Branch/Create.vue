@@ -98,7 +98,7 @@
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                        <el-option v-for="item in catalog_products" 
+                                        <el-option class="!w-96" v-for="item in catalog_products" 
                                             :key="item.id" 
                                             :label="item.name" 
                                             :value="item.id"

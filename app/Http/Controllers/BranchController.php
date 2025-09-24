@@ -32,7 +32,7 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::where('is_active', true)->role('Vendedor')->select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
@@ -223,7 +223,7 @@ class BranchController extends Controller
             'branch' => $branch,
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
-            'users' => User::where('is_active', true)->select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
             'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,

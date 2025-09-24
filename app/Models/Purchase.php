@@ -87,10 +87,13 @@ class Purchase extends Model implements HasMedia, Auditable
     
     /**
      * Get the supplier contact for the purchase.
+     * * --- CORRECCIÓN ---
+     * Se ha cambiado el modelo al que se relaciona de 'SupplierContact' a 'Contact'.
+     * Ahora la compra se relaciona correctamente con el nuevo modelo de contactos polimórfico.
      */
     public function contact(): BelongsTo
     {
-        return $this->belongsTo(SupplierContact::class, 'supplier_contact_id');
+        return $this->belongsTo(Contact::class, 'supplier_contact_id');
     }
 
     /**
