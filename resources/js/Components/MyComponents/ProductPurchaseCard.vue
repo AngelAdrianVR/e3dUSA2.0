@@ -13,7 +13,8 @@
         <!-- Detalles del Producto y Distribución -->
         <div class="flex-grow">
             <p class="font-bold text-lg text-gray-800 dark:text-gray-100">{{ purchaseItem.product.name }}</p>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Código: {{ purchaseItem.product?.code }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Código: {{ purchaseItem.product?.code }}</p>
+            <p v-if="purchaseItem.notes" class="text-xs text-amber-500 dark:text-amber-400 mb-2">Notas: {{ purchaseItem.notes }}</p>
 
             <!-- Distribución de Cantidades -->
             <div v-if="hasDistribution" class="text-sm text-blue-600 dark:text-sky-400 space-y-1 bg-blue-100 dark:bg-sky-900/40 p-2 rounded-md">

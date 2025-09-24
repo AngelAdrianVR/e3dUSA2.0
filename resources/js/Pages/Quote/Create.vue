@@ -15,7 +15,7 @@
 
         <!-- Formulario principal -->
         <div ref="formContainer" class="py-7">
-            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[60rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
                     <form @submit.prevent="store">
@@ -40,15 +40,37 @@
                                     <el-radio-button :label="false">Plantilla en Inglés</el-radio-button>
                                 </el-radio-group>
                             </div>
+                            <!-- Selector de Cliente con creación rápida -->
                             <div>
                                 <InputLabel value="Cliente*" />
-                                <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full">
-                                    <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                                </el-select>
+                                <div class="flex items-center space-x-2">
+                                    <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full">
+                                        <el-option v-for="branch in localBranches" :key="branch.id" :label="branch.name" :value="branch.id" />
+                                    </el-select>
+                                    <el-button @click="branchModalVisible = true" type="primary" circle plain>
+                                        <i class="fa-solid fa-plus"></i>
+                                    </el-button>
+                                </div>
                                 <InputError :message="form.errors.branch_id" />
                             </div>
-                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Ej. Juan Pérez" />
-                            <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Ej. Gerente de Compras" />
+
+                            <!-- Selector de Contacto con creación rápida -->
+                            <div>
+                                <InputLabel value="Contacto*" />
+                                <div class="flex items-center space-x-2">
+                                    <el-select v-model="selected_contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" @change="handleContactChange" :disabled="!form.branch_id">
+                                        <el-option v-for="contact in availableContacts" :key="contact.id" :label="contact.name" :value="contact.id" />
+                                    </el-select>
+                                    <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </el-button>
+                                </div>
+                                <InputError :message="form.errors.receiver" />
+                            </div>
+                            <!-- Campos que se llenan con el contacto -->
+                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Selecciona un contacto" />
+                            <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Selecciona un contacto" />
+                            
                             <div>
                                 <InputLabel value="Dias para primera producción*" />
                                 <el-select v-model="form.first_production_days" placeholder="Selecciona">
@@ -144,7 +166,7 @@
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
                                         <!-- Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
-                                        <el-option v-for="product in localCatalogProducts" 
+                                        <el-option class="!w-96" v-for="product in localCatalogProducts" 
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
                                             :value="product.id"
@@ -539,6 +561,41 @@
             </template>
         </ConfirmationModal>
 
+        <!-- MODALES DE CREACIÓN RÁPIDA -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
+            <form @submit.prevent="storeQuickContact">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
+                    <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="contactModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickContact" :loading="quickContactForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -584,6 +641,25 @@ export default {
                 has_customization: false,
                 products: [],
             }),
+
+            // --- PROPIEDADES PARA CREACIÓN RÁPIDA ---
+            localBranches: [],
+            availableContacts: [],
+            selected_contact_id: null,
+            branchModalVisible: false,
+            contactModalVisible: false,
+            quickBranchForm: {
+                name: '',
+                rfc: '',
+                processing: false,
+                errors: {},
+            },
+            quickContactForm: {
+                name: '',
+                charge: '',
+                processing: false,
+                errors: {},
+            },
 
             //Notas importantes
             branchNotes: [],
@@ -970,15 +1046,105 @@ export default {
                 ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
         },
+
+        // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
+        handleBranchChange(branchId) {
+            this.selected_contact_id = null;
+            this.form.receiver = '';
+            this.form.department = '';
+            this.availableContacts = [];
+
+            if (branchId) {
+                const selectedBranch = this.localBranches.find(b => b.id === branchId);
+                this.availableContacts = selectedBranch?.contacts ?? [];
+            }
+        },
+        handleContactChange(contactId) {
+            const selectedContact = this.availableContacts.find(c => c.id === contactId);
+            if (selectedContact) {
+                this.form.receiver = selectedContact.name;
+                this.form.department = selectedContact.charge;
+            }
+        },
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    this.form.branch_id = newBranch.id;
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.quickBranchForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
+        async storeQuickContact() {
+            if (!this.form.branch_id) {
+                 ElMessage.warning('Primero debes seleccionar un cliente.');
+                 return;
+            }
+            this.quickContactForm.processing = true;
+            this.quickContactForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store.contact', { branch: this.form.branch_id }), this.quickContactForm);
+                if (response.status === 200) {
+                    const newContact = response.data;
+                    this.availableContacts.push(newContact);
+                    
+                    const parentBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+                    if (parentBranch) {
+                        parentBranch.contacts.push(newContact);
+                    }
+
+                    this.selected_contact_id = newContact.id;
+                    this.handleContactChange(newContact.id);
+
+                    this.contactModalVisible = false;
+                    this.quickContactForm.name = '';
+                    this.quickContactForm.charge = '';
+                    ElMessage.success('Contacto creado exitosamente');
+                }
+            } catch (error)
+            {
+                if (error.response && error.response.status === 422) {
+                    this.quickContactForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el contacto.');
+                }
+            } finally {
+                this.quickContactForm.processing = false;
+            }
+        },
+    },
+    created() {
+        this.localBranches = [...this.branches];
     },
     watch: {
-        // Observador para cargar productos del cliente cuando se selecciona uno
+        // Observador para cargar productos y contactos del cliente cuando se selecciona uno
         'form.branch_id'(newVal) {
             this.clientProducts = []; // Limpiar la lista anterior
+            this.handleBranchChange(newVal); // Poblar/limpiar contactos
             if (newVal) {
                 this.fetchClientProducts(newVal);
             }
-        }
+        },
+        branches(newVal) {
+            this.localBranches = [...newVal];
+        },
     },
     mounted() {
         this.updateDrawerSize();

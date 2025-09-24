@@ -16,21 +16,33 @@
                     <form @submit.prevent="store">
                         <!-- SECCIÓN DE DATOS GENERALES -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                            <TextInput label="Nombre*" v-model="form.name" type="text" :placeholder="'Ej. Llavero KIA nuevo diseño'" :error="form.errors.name" class="col-span-full" />
+
                             <!-- Selector de Cliente -->
                             <div>
                                 <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Cliente/Prospecto*</label>
-                                <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
-                                    <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                                </el-select>
+                                <div class="flex items-center space-x-2">
+                                    <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
+                                        <el-option v-for="branch in localBranches" :key="branch.id" :label="branch.name" :value="branch.id" />
+                                    </el-select>
+                                    <el-button @click="branchModalVisible = true" type="primary" circle plain>
+                                        <i class="fa-solid fa-plus"></i>
+                                    </el-button>
+                                </div>
                                 <InputError :message="form.errors.branch_id" />
                             </div>
 
                             <!-- Selector de Contacto -->
                             <div>
                                 <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Contacto*</label>
-                                <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" :disabled="!form.branch_id">
-                                    <el-option v-for="contact in availableContacts" :key="contact.id" :label="contact.name" :value="contact.id" />
-                                </el-select>
+                                 <div class="flex items-center space-x-2">
+                                    <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" :disabled="!form.branch_id">
+                                        <el-option v-for="contact in availableContacts" :key="contact.id" :label="contact.name" :value="contact.id" />
+                                    </el-select>
+                                    <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </el-button>
+                                </div>
                                 <InputError :message="form.errors.contact_id" />
                             </div>
 
@@ -95,12 +107,11 @@
                                     <template v-if="item.type === 'catalog'">
                                         <div class="col-span-full">
                                             <el-select @change="getProductData(item)" v-model="item.itemable_id" filterable placeholder="Selecciona un producto" class="!w-full">
-                                                <el-option v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
+                                                <el-option class="!w-96" v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
                                             </el-select>
                                             <InputError :message="form.errors[`items.${index}.itemable_id`]" />
                                         </div>
 
-                                        <!-- Estado de carga -->
                                         <div v-if="item.loading" class="col-span-full flex items-center justify-center p-6">
                                             <svg class="animate-spin h-8 w-8 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -108,9 +119,7 @@
                                             </svg>
                                         </div>
 
-                                        <!-- Tarjeta de producto -->
                                         <div v-else-if="item.product_data" class="col-span-full mt-3 bg-white dark:bg-slate-900/50 rounded-xl shadow-md p-4 flex items-start space-x-4">
-                                            <!-- Imagen -->
                                             <div class="flex-shrink-0">
                                                 <img v-if="item.product_data.media?.length" :src="item.product_data.media[0].original_url" alt="Imagen del producto" class="h-20 w-20 rounded-lg object-cover">
                                                 <div v-else class="h-20 w-20 rounded-lg bg-gray-200 dark:bg-slate-800 flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 text-xs text-center">
@@ -120,7 +129,6 @@
                                                     <span>Sin imagen</span>
                                                 </div>
                                             </div>
-                                            <!-- Información -->
                                             <div class="flex-1">
                                                 <p class="font-bold text-gray-800 dark:text-gray-100">{{ item.product_data.name }}</p>
                                                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.product_data.code }}</p>
@@ -160,11 +168,9 @@
                                         <el-input-number v-model="item.quantity" :min="1" placeholder="Cant." class="!w-full" />
                                         <InputError :message="form.errors[`items.${index}.quantity`]" />
                                     </div>
-
                                 </div>
                            </div>
                            
-                           <!-- Botones para agregar items -->
                            <div class="flex items-center space-x-2 mt-3">
                                 <el-button @click="addItem('catalog')" type="primary" plain>
                                     <i class="fa-solid fa-plus mr-2"></i>
@@ -187,6 +193,42 @@
                 </div>
             </div>
         </div>
+
+        <!-- MODALES DE CREACIÓN RÁPIDA -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
+            <form @submit.prevent="storeQuickContact">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
+                    <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="contactModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickContact" :loading="quickContactForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -205,6 +247,7 @@ import axios from 'axios';
 export default {
     data() {
         const form = useForm({
+            name: null,
             branch_id: null,
             contact_id: null,
             will_be_returned: false,
@@ -215,7 +258,22 @@ export default {
 
         return {
             form,
+            localBranches: [],
             availableContacts: [],
+            branchModalVisible: false,
+            contactModalVisible: false,
+            quickBranchForm: {
+                name: '',
+                rfc: '',
+                processing: false,
+                errors: {},
+            },
+            quickContactForm: {
+                name: '',
+                charge: '',
+                processing: false,
+                errors: {},
+            },
         };
     },
     components: {
@@ -229,7 +287,6 @@ export default {
     },
     props: {
         branches: Array,
-        contacts: Array,
         products: Array,
     },
     methods: {
@@ -253,7 +310,7 @@ export default {
         },
         handleBranchChange(branchId) {
             this.form.contact_id = null;
-            const selectedBranch = this.branches.find(b => b.id === branchId);
+            const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
         },
         addItem(type) {
@@ -263,8 +320,8 @@ export default {
                     itemable_id: null,
                     quantity: 1,
                     notes: '',
-                    product_data: null, // to store fetched product info
-                    loading: false, // to track loading state for this item
+                    product_data: null, 
+                    loading: false,
                 });
             } else {
                 this.form.items.push({
@@ -281,9 +338,8 @@ export default {
         },
         async getProductData(item) {
             if (!item.itemable_id) return;
-
             item.loading = true;
-            item.product_data = null; // Reset previous data while loading
+            item.product_data = null; 
 
             try {
                 const response = await axios.get(route('products.get-media', item.itemable_id));
@@ -298,19 +354,90 @@ export default {
             }
         },
         calculateTotalStock(storages) {
-            if (!storages || !storages.length) {
-                return 0;
-            }
-            // Sums the quantity from each storage location
+            if (!storages || !storages.length) return 0;
             return storages.reduce((total, storage) => total + (storage.quantity || 0), 0);
-        }
+        },
+        // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    this.form.branch_id = newBranch.id;
+                    this.handleBranchChange(newBranch.id);
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    const validationErrors = error.response.data.errors;
+                    Object.keys(validationErrors).forEach(key => {
+                        this.quickBranchForm.errors[key] = validationErrors[key][0];
+                    });
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
+        async storeQuickContact() {
+            if (!this.form.branch_id) {
+                 ElMessage.warning('Primero debes seleccionar un cliente.');
+                 return;
+            }
+            this.quickContactForm.processing = true;
+            this.quickContactForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store.contact', { branch: this.form.branch_id }), this.quickContactForm);
+                if (response.status === 200) {
+                    const newContact = response.data;
+                    this.availableContacts.push(newContact);
+                    
+                    const parentBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+                    if (parentBranch) {
+                        parentBranch.contacts.push(newContact);
+                    }
+
+                    this.form.contact_id = newContact.id;
+                    this.contactModalVisible = false;
+                    this.quickContactForm.name = '';
+                    this.quickContactForm.charge = '';
+                    ElMessage.success('Contacto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    const validationErrors = error.response.data.errors;
+                    Object.keys(validationErrors).forEach(key => {
+                        this.quickContactForm.errors[key] = validationErrors[key][0];
+                    });
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el contacto.');
+                }
+            } finally {
+                this.quickContactForm.processing = false;
+            }
+        },
+    },
+    created() {
+        this.localBranches = [...this.branches];
     },
     watch: {
         'form.will_be_returned'(newValue) {
             if (!newValue) {
                 this.form.expected_devolution_date = null;
             }
-        }
+        },
+        branches(newVal) {
+            this.localBranches = [...newVal];
+        },
     }
 };
 </script>

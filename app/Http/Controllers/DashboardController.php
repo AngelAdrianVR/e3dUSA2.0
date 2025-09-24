@@ -120,22 +120,33 @@ class DashboardController extends Controller
         $designPerformance = $this->getPerformanceData('Diseñador');
 
         // 1. Upcoming Birthdays (next 30 days)
-        $upcomingBirthdays = Contact::with(['branch', 'details'])
+        $upcomingBirthdays = Contact::with(['contactable', 'details']) // 1. Cambiado 'branch' por 'contactable'
             ->whereNotNull('birthdate')
             ->whereRaw('DAYOFYEAR(birthdate) BETWEEN DAYOFYEAR(CURDATE()) AND DAYOFYEAR(CURDATE() + INTERVAL 30 DAY)')
             ->orderByRaw('DAYOFYEAR(birthdate)')
             ->get()
             ->map(function ($contact) {
-                // Find primary email or first email
+                // La lógica para el email no cambia
                 $email = $contact->details->firstWhere('is_primary', true)->value ?? $contact->details->firstWhere('type', 'email')->value ?? null;
+
+                // 2. Lógica para obtener el nombre de la compañía de forma segura
+                $company_name = 'N/A'; // Valor por defecto
+                
+                // Verificamos que el "contactable" existe y es una instancia de Branch
+                if ($contact->contactable && $contact->contactable instanceof \App\Models\Branch) {
+                    $company_name = $contact->contactable->name;
+                } else if ($contact->contactable && $contact->contactable instanceof \App\Models\Supplier) {
+                    $company_name = $contact->contactable->name;
+                }
+
                 return [
                     'id' => $contact->id,
                     'name' => $contact->name,
-                    'company_name' => $contact->branch->name ?? 'N/A',
+                    'company_name' => $company_name,
                     'birthdate' => $contact->birthdate,
                     'email' => $email,
                 ];
-            });
+        });
 
         // --- INICIA NUEVA CONSULTA: Mis Facturas Pendientes de Pago ---
         $myPendingInvoices = collect();

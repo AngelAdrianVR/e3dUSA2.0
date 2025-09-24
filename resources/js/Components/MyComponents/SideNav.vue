@@ -267,6 +267,64 @@
             </button>
         </template>
     </DialogModal>
+    
+    <!-- Report Modal -->
+    <DialogModal :show="showReportModal" @close="closeReportModal">
+        <template #title>
+            <div class="flex items-center space-x-3">
+                <span class="bg-purple-100 dark:bg-purple-900 rounded-full p-2">
+                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 text-purple-600 dark:text-purple-300">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                </span>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Reportar error o enviar sugerencia</h2>
+            </div>
+        </template>
+        <template #content>
+            <div class="p-4 space-y-4">
+                 <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
+                    <select v-model="reportForm.type" class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                        <option>Error</option>
+                        <option>Sugerencia</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Título</label>
+                    <input type="text" v-model="reportForm.title" placeholder="Ej. El botón de guardar no funciona"
+                        class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                    <p v-if="reportForm.errors.title" class="text-red-500 text-xs mt-1">{{ reportForm.errors.title }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Descripción</label>
+                    <textarea v-model="reportForm.description" rows="4" placeholder="Describe el error o tu sugerencia a detalle..."
+                        class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
+                    <p v-if="reportForm.errors.description" class="text-red-500 text-xs mt-1">{{ reportForm.errors.description }}</p>
+                </div>
+            </div>
+        </template>
+        <template #footer>
+            <div class="flex items-center justify-between w-full">
+                <button v-if="this.$page.props.auth.user.role === 'Super Administrador'" @click="$inertia.visit(route('reports.index'))" :disabled="reportForm.processing"
+                    class="mr-10 inline-flex items-center justify-center px-4 py-2 bg-cyan-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-cyan-500 active:bg-purple-700 focus:outline-none focus:border-purple-700 focus:ring focus:ring-purple-200 disabled:opacity-25 transition">
+                    Ver reportes
+                </button>
+                <span v-else></span>
+                <div>
+                    <CancelButton @click="closeReportModal">Cancelar</CancelButton>
+                    <button @click="submitReport" :disabled="reportForm.processing"
+                        class="ml-2 inline-flex items-center justify-center px-4 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-500 active:bg-purple-700 focus:outline-none focus:border-purple-700 focus:ring focus:ring-purple-200 disabled:opacity-25 transition">
+                        <span v-if="reportForm.processing" class="animate-spin mr-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.667 0l3.181-3.183m-11.667-11.667l3.181 3.183A8.25 8.25 0 0118.015 15.022l3.181-3.183" />
+                            </svg>
+                        </span>
+                        Enviar
+                    </button>
+                </div>
+            </div>
+        </template>
+    </DialogModal>
 </template>
 
 <script>
@@ -275,14 +333,23 @@ import SideNavLink from "@/Components/MyComponents/SideNavLink.vue";
 import DropdownNavLink from "@/Components/MyComponents/DropdownNavLink.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import ProfileCard from './ProfileCard.vue';
-// import PayrollTemplate from "@/Components/MyComponents/payrollTemplate.vue";
 import DialogModal from "@/Components/DialogModal.vue";
+import { ElMessage } from 'element-plus';
+import { useForm } from '@inertiajs/vue3';
 
 export default {
     data() {
+        const reportForm = useForm({
+            title: '',
+            description: '',
+            type: 'Error',
+        });
+
         return {
             showCarpetCalculatorModal: false,
             showBasePriceModal: false,
+            showReportModal: false,
+            reportForm,
             basePriceConfig: {
                 price: 7500,
                 width: 60,
@@ -342,9 +409,6 @@ export default {
                             route: 'quotes.index',
                             active: route().current('quotes.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver cotizaciones'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'quote';
-                            // }),
                         },
                         {
                             label: 'Órdenes de venta / stock',
@@ -397,55 +461,17 @@ export default {
                     label: 'Logistica',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>',
                     active: route().current('shipments.*'),
-                    // || route().current('boxes.*') 
-                    // || route().current('shipping-rates.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return notification.data.module === 'shipments';
-                    // }),
                     options: [
                         {
                             label: 'Envíos',
                             route: 'shipments.index',
                             show: this.$page.props.auth.user.permissions.includes('Ver envios'),
                             active: route().current('shipments.*'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'suppler';
-                            // }),
-                            // notifications: false,
                         },
-                        // {
-                        //     label: 'Administrador de cajas',
-                        //     route: 'boxes.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver logistica'),
-                        //     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //     //     return notification.data.module === 'suppler';
-                        //     // }),
-                        //     // notifications: false,
-                        // },
-                        // {
-                        //     label: 'Tarifas',
-                        //     route: 'shipping-rates.index',
-                        //     show: this.$page.props.auth.user.permissions.includes('Ver logistica'),
-                        //     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                        //     //     return notification.data.module === 'suppler';
-                        //     // }),
-                        //     // notifications: false,
-                        // },
                     ],
                     dropdown: true,
                     show: this.$page.props.auth.user.permissions.includes('Ver envios')
                 },
-                // {
-                //     label: 'Almacén',
-                //     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>',
-                //     route: route('storages.index'),
-                //     active: route().current('storages.*'),
-                //     // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                //     //     return ['raw-material', 'consumable', 'finished-product', 'scrap'].includes(notification.data.module);
-                //     // }),
-                //     dropdown: false,
-                //     show: this.$page.props.auth.user.permissions.includes('Ver almacenes')
-                // },
                 {
                     label: 'Recursos Humanos',
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" /></svg>',
@@ -458,9 +484,6 @@ export default {
                         || route().current('overtime-requests.*')
                         || route().current('authorized-devices.*')
                         || route().current('payrolls.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return ['payroll', 'admin-additional-time', 'user'].includes(notification.data.module);
-                    // }),
                     options: [
                         {
                             label: 'Nóminas',
@@ -529,27 +552,18 @@ export default {
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M9.53 16.122a3 3 0 0 0-5.78 1.128 2.25 2.25 0 0 1-2.4 2.245 4.5 4.5 0 0 0 8.4-2.245c0-.399-.078-.78-.22-1.128Zm0 0a15.998 15.998 0 0 0 3.388-1.62m-5.043-.025a15.994 15.994 0 0 1 1.622-3.395m3.42 3.42a15.995 15.995 0 0 0 4.764-4.648l3.876-5.814a1.151 1.151 0 0 0-1.597-1.597L14.146 6.32a15.996 15.996 0 0 0-4.649 4.763m3.42 3.42a6.776 6.776 0 0 0-3.42-3.42" /></svg>',
                     active: route().current('design-orders.*') 
                     || route().current('design-authorizations.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return ['design', 'design-authorization'].includes(notification.data.module);
-                    // }),
                     options: [
                         {
                             label: 'Órdenes de diseño',
                             route: 'design-orders.index',
                             active: route().current('design-orders.*'),
                             show: true,
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'design';
-                            // }),
                         },
                         {
                             label: 'Formatos de autorización de diseño',
                             route: 'design-authorizations.index',
                             active: route().current('design-authorizations.*'),
                             show: true,
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'design-authorization';
-                            // }),
                         },
                     ],
                     dropdown: true,
@@ -560,9 +574,6 @@ export default {
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" /></svg>',
                     route: route('productions.index'),
                     active: route().current('productions.*'),
-                    // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                    //     return notification.data.module === 'production';
-                    // }),
                     show: this.$page.props.auth.user.permissions.includes('Ver ordenes de produccion')
                 },
                 {
@@ -581,18 +592,12 @@ export default {
                             route: 'manuals.index',
                             active: route().current('manuals.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver tutoriales y manuales'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'manual';
-                            // }),
                         },
                         {
                             label: 'Máquinaria',
                             route: 'machines.index',
                             active: route().current('machines.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver maquinas'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'machine';
-                            // }),
                         },
                         {
                             label: 'Procesos de producción',
@@ -606,9 +611,6 @@ export default {
                             route: 'sample-trackings.index',
                             active: route().current('sample-trackings.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver muestras'),
-                            // notifications: this.$page.props.auth.user?.notifications?.some(notification => {
-                            //     return notification.data.module === 'samples';
-                            // }),
                         },
                         {
                             label: 'Historial de acciones',
@@ -625,6 +627,11 @@ export default {
                         {
                             label: 'Cotizador de alfombras',
                             action: this.openCarpetCalculator,
+                            show: true,
+                        },
+                        {
+                            label: 'Errores o sugerencias',
+                            action: this.openReportModal,
                             show: true,
                         },
                     ],
@@ -728,6 +735,21 @@ export default {
             localStorage.removeItem('carpetBaseConfig');
             this.showCarpetCalculatorModal = false;
             this.openCarpetCalculator();
+        },
+        openReportModal() {
+            this.showReportModal = true;
+        },
+        closeReportModal() {
+            this.showReportModal = false;
+            this.reportForm.reset();
+        },
+        submitReport() {
+            this.reportForm.post(route('reports.store'), {
+                onSuccess: () => {
+                    this.closeReportModal();
+                    ElMessage.success('Se ha enviado tu reporte. Gracias!');
+                },
+            });
         },
     },
     mounted() {
