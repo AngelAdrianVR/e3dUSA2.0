@@ -145,6 +145,8 @@ Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
+Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
+Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
@@ -355,6 +357,8 @@ Route::post('sample-trackings/massive-delete', [SampleTrackingController::class,
 Route::post('sample-trackings-get-matches', [SampleTrackingController::class, 'getMatches'])->middleware('auth')->name('sample-trackings.get-matches');
 Route::put('sample-trackings/authorize/{sampleTracking}', [SampleTrackingController::class, 'authorizeSample'])->middleware('auth')->name('sample-trackings.authorize');
 Route::put('sample-trackings-update-status/{sampleTracking}', [SampleTrackingController::class, 'updateStatus'])->middleware('auth')->name('sample-trackings.update-status');
+Route::post('/sample-trackings/quick-store-branch', [SampleTrackingController::class, 'quickStoreBranch'])->name('sample-trackings.quick-store.branch');
+Route::post('/sample-trackings/{branch}/quick-store-contact', [SampleTrackingController::class, 'quickStoreContact'])->name('sample-trackings.quick-store.contact');
 
 
 // ------- Maintenances routes  -------------

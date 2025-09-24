@@ -19,7 +19,7 @@ return new class extends Migration
             // Foreign Keys for relationships
             $table->foreignId('branch_id')->nullable()->constrained()->cascadeOnDelete();
             $table->foreignId('contact_id')->nullable()->constrained()->cascadeOnDelete();
-            $table->string('contact_name')->nullable();
+            // $table->string('contact_name')->nullable();
             $table->foreignId('requester_user_id')->constrained('users')->cascadeOnDelete(); // User who creates the request
             $table->foreignId('authorized_by_user_id')->nullable()->constrained('users')->nullOnDelete(); // User who authorizes
             $table->foreignId('sale_id')->nullable()->constrained()->nullOnDelete(); // Link to a sale order if generated
