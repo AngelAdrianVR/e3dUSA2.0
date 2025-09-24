@@ -118,7 +118,21 @@
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
-                            <span>{{ purchase.contact?.name ?? 'N/A' }}</span>
+                            <el-tooltip placement="right">
+                                <template #content>
+                                    <div class="space-y-2 text-sm">
+                                        <p v-if="getPrimaryDetail(purchase.contact, 'Correo')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-envelope text-blue-400"></i>
+                                        <span>{{ getPrimaryDetail(purchase.contact, 'Correo') }}</span>
+                                        </p>
+                                        <p v-if="getPrimaryDetail(purchase.contact, 'Teléfono')" class="flex items-center gap-2">
+                                        <i class="fa-solid fa-phone text-green-400"></i>
+                                        <span>{{ getPrimaryDetail(purchase.contact, 'Teléfono') }}</span>
+                                        </p>
+                                    </div>
+                                </template>
+                            <span class="text-blue-500 cursor-default">{{ purchase.contact.name ?? 'N/A' }}</span>
+                            </el-tooltip>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Dirección:</span>
@@ -226,15 +240,22 @@ export default {
         };
     },
     methods: {
+        getPrimaryDetail(contact, type) {
+            if (!contact.details) return null;
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : null;
+        },
         formatDateTime(dateString) {
             if (!dateString) return 'N/A';
             const date = new Date(dateString);
-            return format(date, "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
+            return format(date, "d 'de' MMM, yyyy 'a las' HH:mm", { locale: es });
         },
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
-            return format(date, "d 'de' MMMM, yyyy", { locale: es });
+            return format(date, "d 'de' MMM, yyyy", { locale: es });
         },
         formatCurrency(value) {
             if (value === null || value === undefined) return '$0.00';

@@ -22,7 +22,12 @@ return new class extends Migration
             
             // Se normaliza el usuario que autoriza y el contacto de la compra
             $table->foreignId('authorizer_id')->nullable()->comment('Usuario que autorizó')->constrained('users')->onDelete('set null');
-            $table->foreignId('supplier_contact_id')->nullable()->comment('Contacto del proveedor para esta compra')->constrained('supplier_contacts')->onDelete('set null');
+            
+            // --- CORRECCIÓN ---
+            // Se actualiza la restricción de clave foránea para que apunte a la nueva tabla 'contacts'
+            // en lugar de la antigua 'supplier_contacts'.
+            $table->foreignId('supplier_contact_id')->nullable()->comment('Contacto del proveedor para esta compra')->constrained('contacts')->onDelete('set null');
+            
             $table->foreignId('supplier_bank_account_id')->nullable()->constrained()->onDelete('set null');
 
             $table->decimal('subtotal', 12, 2)->default(0);

@@ -90,19 +90,18 @@
                                 <el-tooltip
                                     v-if="sale.contact"
                                     placement="right"
-                                    effect="dark"
                                 >
                                     <template #content>
-                                    <div class="space-y-2 text-sm">
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-envelope text-blue-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
-                                        </p>
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-phone text-green-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
-                                        </p>
-                                    </div>
+                                        <div class="space-y-2 text-sm">
+                                            <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
+                                            <i class="fa-solid fa-envelope text-blue-400"></i>
+                                            <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
+                                            </p>
+                                            <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
+                                            <i class="fa-solid fa-phone text-green-400"></i>
+                                            <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+                                            </p>
+                                        </div>
                                     </template>
 
                                     <span
@@ -507,9 +506,11 @@ export default {
             this.historyModalVisible = true;
         },
         getPrimaryDetail(contact, type) {
-            if (!contact.details) return 'No disponible';
-            const detail = contact.details.find(d => d.type === type && d.is_primary);
-            return detail ? detail.value : 'No disponible';
+            if (!contact.details) return null;
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : null;
         },
         formatDateTime(dateString) {
             const date = new Date(dateString);

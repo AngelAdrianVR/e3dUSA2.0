@@ -179,7 +179,8 @@
         </main>
 
         <!-- Modals -->
-        <ModalCrearEditarContacto :show="showContactModal" :contact="contactToEdit" :branchId="branch.id" @close="showContactModal = false" />
+        <ModalCrearEditarContacto :show="showContactModal" :contactable-id="branch.id" :contact="contactToEdit"
+    :contactable-type="'App\\Models\\Branch'" @close="showContactModal = false" />
         <AddProductsModal :show="showAddProductsModal" :branch="branch" :catalog_products="catalog_products" @close="showAddProductsModal = false" />
 
         <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
@@ -333,8 +334,14 @@ export default {
         },
         getPrimaryDetail(contact, type) {
             if (!contact.details) return 'No disponible';
-            const detail = contact.details.find(d => d.type === type && d.is_primary);
-            return detail ? detail.value : 'No disponible';
+
+            // Buscar detalle primario
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+
+            // Si no hay primario, tomar el primero que coincida con el tipo
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : 'No disponible';
         },
         saveProducts() {
             this.form.post(route('branches.add-products', this.branch.id), {

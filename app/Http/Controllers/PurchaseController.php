@@ -58,7 +58,7 @@ class PurchaseController extends Controller
         // Validación de los datos del formulario, incluyendo los nuevos campos
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'supplier_contact_id' => 'nullable|exists:supplier_contacts,id',
+            'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
             'expected_delivery_date' => 'required|date',
             'currency' => 'required|string|max:3',
@@ -144,6 +144,7 @@ class PurchaseController extends Controller
             'authorizer:id,name', // Usuario que autorizó
             'supplier:id,name,address,phone', // Información del proveedor
             'contact:id,name', // Contacto del proveedor
+            'contact.details', // detalles del Contacto del proveedor
             'items.product.media', // Items de la compra, con su producto y la imagen del producto
             'bankAccount'
         ]);
@@ -174,7 +175,7 @@ class PurchaseController extends Controller
         // Validación de los datos del formulario
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'supplier_contact_id' => 'nullable|exists:supplier_contacts,id',
+            'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
             'expected_delivery_date' => 'required|date',
             'currency' => 'required|string|max:3',
