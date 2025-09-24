@@ -65,4 +65,12 @@ class Supplier extends Model implements Auditable
             ->withPivot('last_price', 'supplier_sku', 'min_quantity')
             ->withTimestamps();
     }
+
+    /**
+     * Get the favored products for the supplier.
+     */
+    public function favoredProducts(): HasMany
+    {
+        return $this->hasMany(FavoredProduct::class);
+    }
 }

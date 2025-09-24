@@ -1,5 +1,8 @@
 <template>
     <AppLayout :title="`Detalles de Compra OC-${purchase.id.toString().padStart(4, '0')}`">
+        <!-- Productos a favor -->
+        <SupplierFavoredProducts :supplier-id="purchase.supplier.id" />
+
         <!-- === ENCABEZADO === -->
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
@@ -11,7 +14,7 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de compra') && !purchase.authorized_at" content="Autorizar Compra" placement="top">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de compra') && !purchase.authorized_at && purchase.status !== 'Cancelada'" content="Autorizar Compra" placement="top">
                     <button @click="updateStatus('Autorizada')" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
                         <i class="fa-solid fa-check-double"></i>
                     </button>
@@ -34,8 +37,8 @@
                 </el-tooltip>
 
                 <el-tooltip :content="purchase.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Orden'" placement="top">
-                    <Link :href="purchase.authorized_at ? '' : route('purchases.edit', purchase.id)">
-                        <button :disabled="!!purchase.authorized_at" 
+                    <Link :href="purchase.authorized_at || purchase.status === 'Cancelada' ? '' : route('purchases.edit', purchase.id)">
+                        <button :disabled="!!purchase.authorized_at || purchase.status === 'Cancelada'" 
                             class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <i class="fa-solid fa-pencil text-sm"></i>
                         </button>
@@ -53,6 +56,9 @@
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nueva Orden
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
+                        <DropdownLink v-if="purchase.status !== 'Compra recibida' && purchase.status !== 'Cancelada'" @click="showCancelConfirmModal = true" as="button" class="text-amber-600 hover:!bg-amber-50 dark:hover:!bg-amber-900/50">
+                            <i class="fa-solid fa-ban w-4 mr-2"></i> Cancelar Orden
+                        </DropdownLink>
                         <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Orden
                         </DropdownLink>
@@ -70,8 +76,19 @@
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
+                <!-- === AVISO DE CANCELACIÓN === -->
+                <div v-if="purchase.status === 'Cancelada'" class="bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded-lg shadow-md dark:bg-amber-800/50 dark:text-amber-300 dark:border-amber-600">
+                    <div class="flex">
+                        <div class="py-1"><i class="fa-solid fa-circle-exclamation text-2xl mr-4"></i></div>
+                        <div>
+                            <p class="font-bold">Orden de Compra Cancelada</p>
+                            <p class="text-sm">Esta orden de compra fue cancelada y no se puede procesar más.</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- === STEPPER DE ESTADO === -->
-                <Stepper :currentStatus="purchase.status" :steps="purchaseSteps" :treatCurrentAsCompleted="true" />
+                <Stepper v-if="purchase.status !== 'Cancelada'" :currentStatus="purchase.status" :steps="purchaseSteps" :treatCurrentAsCompleted="true" />
                 
                 <!-- Card de Información de la Compra -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
@@ -189,7 +206,8 @@
                     <ul class="space-y-2 text-sm mb-4">
                         <li v-for="(question, index) in purchase.rating.questions" :key="index">
                             <p class="font-semibold">{{ getQuestionText(index) }}</p>
-                            <p class="pl-3 text-gray-600 dark:text-gray-400">R: {{ question.answer }} ({{ question.points }} pts)</p>
+                            <p v-if="index == 5" class="pl-3 text-amber-600 dark:text-amber-400">Notas: {{ question.answer }}</p>
+                            <p v-else class="pl-3 text-gray-600 dark:text-gray-400">R: {{ question.answer }} ({{ question.points }} pts)</p>
                         </li>
                     </ul>
                     
@@ -218,6 +236,22 @@
                 <div class="flex space-x-2">
                     <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
                     <SecondaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</SecondaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
+
+        <!-- Modal de Confirmación para Cancelar -->
+        <ConfirmationModal :show="showCancelConfirmModal" @close="showCancelConfirmModal = false">
+            <template #title>
+                Cancelar Orden de Compra OC-{{ purchase.id.toString().padStart(4, '0') }}
+            </template>
+            <template #content>
+                ¿Estás seguro de que deseas cancelar esta Orden de Compra? Esta acción no se puede deshacer. Los siguientes pasos del proceso ya no estarán disponibles.
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showCancelConfirmModal = false">Cerrar</CancelButton>
+                    <SecondaryButton @click="cancelPurchase" class="!bg-amber-600 hover:!bg-amber-700">Sí, Cancelar Orden</SecondaryButton>
                 </div>
             </template>
         </ConfirmationModal>
@@ -299,6 +333,13 @@
                                 </div>
                            </div>
                         </div>
+
+                        <TextInput
+                            v-model="ratingForm.notes"
+                            label="Notas o comentarios"
+                            :isTextarea="true"
+                            placeholder="Escribe alguna nota o comentarios referente a la compra recibida"
+                        />
                     </section>
                 </form>
             </template>
@@ -318,7 +359,9 @@ import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import DialogModal from "@/Components/DialogModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import SupplierFavoredProducts from "@/Components/MyComponents/SupplierFavoredProducts.vue";
 import ProductPurchaseCard from "@/Components/MyComponents/ProductPurchaseCard.vue";
+import TextInput from "@/Components/TextInput.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
@@ -334,12 +377,14 @@ export default {
         Stepper,
         Dropdown,
         AppLayout,
+        TextInput,
         DialogModal,
         DropdownLink,
         CancelButton,
         SecondaryButton,
         ConfirmationModal,
         ProductPurchaseCard,
+        SupplierFavoredProducts,
     },
     props: {
         purchase: Object,
@@ -347,6 +392,7 @@ export default {
     data() {
         return {
             showConfirmModal: false,
+            showCancelConfirmModal: false,
             showRatingModal: false,
             filePreviews: [],
             purchaseSteps: ['Autorizada', 'Compra realizada', 'Compra recibida'],
@@ -358,6 +404,7 @@ export default {
                 q3_2: null,
                 q4: 'No se presentó ninguna urgencia',
                 q5: '0 avisos de rechazo',
+                notes: null,
                 evidence_files: [],
             }),
              // Opciones para las preguntas de la encuesta
@@ -435,6 +482,21 @@ export default {
                 onError: (errors) => console.error("Error al actualizar:", errors),
             });
         },
+        cancelPurchase() {
+            router.put(route('purchases.update-status', this.purchase.id), {
+                status: 'Cancelada'
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('La orden de compra ha sido cancelada.');
+                    this.showCancelConfirmModal = false;
+                },
+                onError: (errors) => {
+                    ElMessage.error('Ocurrió un error al cancelar la orden.');
+                    console.error("Error al cancelar:", errors);
+                }
+            });
+        },
         submitRating() {
              const transformedData = this.ratingForm.data();
             transformedData.status = 'Compra recibida';
@@ -450,6 +512,7 @@ export default {
                     q3_2: this.ratingForm.q3_2,
                     q4: this.ratingForm.q4,
                     q5: this.ratingForm.q5,
+                    notes: this.ratingForm.notes,
                 },
                 evidence_files: this.ratingForm.evidence_files,
             }, {
@@ -496,4 +559,3 @@ export default {
     }
 };
 </script>
-

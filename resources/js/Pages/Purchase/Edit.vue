@@ -1,5 +1,8 @@
 <template>
     <AppLayout title="Editar Orden de Compra">
+        <!-- Productos a favor -->
+        <SupplierFavoredProducts v-if="form.supplier_id" :supplier-id="form.supplier_id" />
+
         <!-- Encabezado de la página -->
         <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
@@ -242,6 +245,7 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import SupplierFavoredProducts from "@/Components/MyComponents/SupplierFavoredProducts.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
@@ -300,6 +304,7 @@ export default {
         FileView,
         PrimaryButton,
         SecondaryButton,
+        SupplierFavoredProducts,
     },
     props: {
         purchase: Object,

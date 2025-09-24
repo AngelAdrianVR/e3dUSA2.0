@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\StockMovement;
@@ -115,6 +116,18 @@ class PurchaseController extends Controller
                     'type' => $itemData['type'] ?? 'Venta',
                     'notes' => $itemData['notes'] ?? null,
                 ]);
+
+                // 3. Lógica para sumar el stock a favor
+                $favoredQuantity = $itemData['additional_stock'] ?? 0;
+                if ($favoredQuantity > 0) {
+                    $favoredProduct = FavoredProduct::firstOrNew([
+                        'supplier_id' => $request->supplier_id,
+                        'product_id' => $itemData['product_id'],
+                    ]);
+
+                    $favoredProduct->quantity += $favoredQuantity;
+                    $favoredProduct->save();
+                }
             }
 
             // manejo de media (archivos extra)
@@ -184,20 +197,37 @@ class PurchaseController extends Controller
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
             'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.additional_stock' => 'nullable|numeric|min:0',
             'subtotal' => 'required|numeric',
             'tax' => 'required|numeric',
             'total' => 'required|numeric',
-            'media.*' => 'nullable|file', // max 10MB
-            'current_media_ids' => 'nullable|array', // IDs de los archivos existentes a conservar
+            'media.*' => 'nullable|file',
+            'current_media_ids' => 'nullable|array',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 1. Actualizar la orden de compra principal
+            // 1. RESPALDAR Y REVERTIR CANTIDADES A FAVOR ANTERIORES
+            // Obtenemos los items originales antes de cualquier cambio.
+            $originalItems = $purchase->items()->get();
+            foreach ($originalItems as $item) {
+                if ($item->additional_stock > 0) {
+                    $favoredProduct = FavoredProduct::where('supplier_id', $purchase->supplier_id)
+                                                    ->where('product_id', $item->product_id)
+                                                    ->first();
+                    if ($favoredProduct) {
+                        // Descontamos la cantidad que se había agregado previamente.
+                        $favoredProduct->quantity = max(0, $favoredProduct->quantity - $item->additional_stock);
+                        $favoredProduct->save();
+                    }
+                }
+            }
+
+            // 2. Actualizar la orden de compra principal
             $purchase->update($request->except(['items', 'media', 'current_media_ids']));
 
-            // 2. Sincronizar los items: Eliminar los antiguos e insertar los nuevos
+            // 3. Eliminar los items antiguos y crear los nuevos
             $purchase->items()->delete();
             foreach ($request->items as $itemData) {
                 PurchaseItem::create([
@@ -213,10 +243,22 @@ class PurchaseController extends Controller
                     'type' => $itemData['type'] ?? 'Venta',
                     'notes' => $itemData['notes'] ?? null,
                 ]);
+
+                // 4. AGREGAR LAS NUEVAS CANTIDADES A FAVOR
+                $newFavoredQuantity = $itemData['additional_stock'] ?? 0;
+                if ($newFavoredQuantity > 0) {
+                    // Usamos firstOrNew para encontrar el registro o prepararlo si no existe.
+                    $favoredProduct = FavoredProduct::firstOrNew([
+                        'supplier_id' => $purchase->supplier_id,
+                        'product_id' => $itemData['product_id'],
+                    ]);
+                    // Sumamos la nueva cantidad.
+                    $favoredProduct->quantity += $newFavoredQuantity;
+                    $favoredProduct->save();
+                }
             }
 
-            // 3. Manejo de media
-            // Agregar nuevos archivos
+            // 5. Manejo de media
             if ($request->hasFile('media')) {
                 $purchase->addMediaFromRequest('media')->toMediaCollection();
             }
@@ -283,13 +325,14 @@ class PurchaseController extends Controller
     public function updateStatus(Request $request, Purchase $purchase)
     {
         $request->validate([
-            'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida'])],
+            'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida', 'Cancelada'])],
             'rating' => 'nullable|array',
             'rating.q1' => 'required_with:rating|string',
             'rating.q2' => 'required_with:rating|string',
             'rating.q3_1' => 'required_with:rating|string',
             'rating.q4' => 'required_with:rating|string',
             'rating.q5' => 'required_with:rating|string',
+            'rating.notes' => 'nullable|string',
             'evidence_files' => 'nullable|array|max:4',
             'evidence_files.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
@@ -337,6 +380,7 @@ class PurchaseController extends Controller
                                 ['answer' => $q3_answer, 'points' => $pointsMap['q3'][$ratingData['q3_2'] ?? $ratingData['q3_1']] ?? 0],
                                 ['answer' => $ratingData['q4'], 'points' => $pointsMap['q4'][$ratingData['q4']] ?? 0],
                                 ['answer' => $ratingData['q5'], 'points' => $pointsMap['q5'][$ratingData['q5']] ?? 0],
+                                ['answer' => $ratingData['notes'], 'points' => 0],
                             ];
                              $updateData['rating'] = [
                                 'questions' => $questions,
@@ -368,6 +412,13 @@ class PurchaseController extends Controller
                                 ]);
                             }
                         }
+                        break;
+
+                    case 'Cancelada':
+                        if (in_array($currentStatus, ['Compra recibida', 'Cancelada'])) {
+                            throw new \Exception('No se puede cancelar una compra que ya ha sido recibida o que ya está cancelada.');
+                        }
+                        $purchase->update(['status' => $newStatus]);
                         break;
 
                     default:

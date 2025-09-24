@@ -1,5 +1,7 @@
 <template>
     <AppLayout :title="`Proveedor: ${supplier.name}`">
+        <SupplierFavoredProducts :supplier-id="supplier.id" />
+
         <!-- === ENCABEZADO === -->
         <h1 class="dark:text-white font-bold text-2xl mb-4">{{ supplier.name }}</h1>
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-gray-500">
@@ -251,6 +253,7 @@ import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import Products from './Tabs/Products.vue';
 import BanckAccountModal from './Modals/BanckAccountModal.vue';
+import SupplierFavoredProducts from "@/Components/MyComponents/SupplierFavoredProducts.vue";
 // Se importa el modal de contacto reutilizable
 import ModalCrearEditarContacto from "@/Pages/Branch/Modals/ModalCrearEditarContacto.vue";
 import { format } from 'date-fns';
@@ -274,15 +277,16 @@ export default {
         };
     },
     components: {
-        AppLayout,
         Link,
+        Products,
         Dropdown,
+        AppLayout,
         DropdownLink,
-        ConfirmationModal,
         CancelButton,
         PrimaryButton,
-        Products,
         BanckAccountModal,
+        ConfirmationModal,
+        SupplierFavoredProducts,
         ModalCrearEditarContacto, // Se registra el nuevo modal
     },
     props: {
