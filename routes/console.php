@@ -31,3 +31,9 @@ Schedule::command('app:backup-media')->twiceMonthly(1, 15, '02:00');
 
 // Revisa las facturas vencidas y manda una notificacion al creador. se ejecuta diario a la 1:00 AM.
 Schedule::command('invoices:check-overdue')->daily()->at('01:00');
+
+// Ejecuta el comando para notificar clientes inactivos todos los días a las 6:00 AM
+Schedule::command('clients:notify-inactive')->dailyAt('06:00');
+
+// Elimina notificaciones de mas de 40 dias de creados
+Schedule::command('notifications:clear-old')->daily()->at('01:00');;
