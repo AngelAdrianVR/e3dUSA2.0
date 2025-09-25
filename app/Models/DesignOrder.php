@@ -20,6 +20,7 @@ class DesignOrder extends Model implements HasMedia
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'order_title',
         'specifications',
         'status',

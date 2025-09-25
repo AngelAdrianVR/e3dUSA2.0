@@ -11,6 +11,7 @@ class ProductionLog extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'production_id',
         'user_id',
         'type', // 'pausa', 'reanudacion', 'progreso', 'alerta'

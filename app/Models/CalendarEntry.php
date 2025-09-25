@@ -16,6 +16,7 @@ class CalendarEntry extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'title',
         'description',
         'start_datetime',

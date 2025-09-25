@@ -18,7 +18,7 @@
                                 no-data-text="No hay productos"
                                 no-match-text="No se encontraron coincidencias"
                                 :disabled="isEditing">
-                            <el-option v-for="item in catalogProducts"
+                            <el-option v-for="item in catalogProducts" class="!w-96"
                                 :key="item.id"
                                 :label="item.name"
                                 :value="item.id" />

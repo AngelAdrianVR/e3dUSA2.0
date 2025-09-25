@@ -16,6 +16,7 @@ class Shipment extends Model implements HasMedia, Auditable
     use InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'sale_id',
         'status', // Pendiente, Enviado
         'promise_date',

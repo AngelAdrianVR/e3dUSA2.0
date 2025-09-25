@@ -26,6 +26,7 @@ class QuoteProduct extends Pivot
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'quote_id',
         'product_id',
         'quantity',

@@ -32,7 +32,7 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::where('is_active', true)->role('Vendedor')->select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
@@ -223,7 +223,7 @@ class BranchController extends Controller
             'branch' => $branch,
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
-            'users' => User::where('is_active', true)->select('id', 'name')->get(),
+            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
             'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
@@ -519,5 +519,32 @@ class BranchController extends Controller
             ->get();
 
         return response()->json($products);
+    }
+
+    // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
+
+    public function quickStoreBranch(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255|unique:branches,name',
+            'rfc' => 'nullable|string|max:13',
+        ]);
+
+        $branch = Branch::create($validated + ['password' => bcrypt('e3d')]);
+        $branch->load('contacts'); // Cargar relación para que coincida con la data inicial
+
+        return response()->json($branch);
+    }
+
+    public function quickStoreContact(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'charge' => 'nullable|string|max:255',
+        ]);
+
+        $contact = $branch->contacts()->create($validated);
+
+        return response()->json($contact);
     }
 }

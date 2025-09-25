@@ -6,17 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SupplierContact extends Model
+class FavoredProduct extends Model
 {
     use HasFactory;
-
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
-    protected $table = 'supplier_contacts';
-
 
     /**
      * The attributes that are mass assignable.
@@ -25,18 +17,23 @@ class SupplierContact extends Model
      */
     protected $fillable = [
         'supplier_id',
-        'name',
-        'position',
-        'email',
-        'phone',
-        'is_primary',
+        'product_id',
+        'quantity',
     ];
 
     /**
-     * Get the supplier that owns the contact.
+     * Get the supplier that owns the favored product.
      */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
+    }
+
+    /**
+     * Get the product that is favored.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
     }
 }

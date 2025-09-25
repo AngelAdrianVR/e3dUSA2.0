@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany; // Importar MorphMany
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
@@ -14,6 +15,7 @@ class Branch extends Model implements Auditable
     use AuditableTrait;
 
     protected $fillable = [
+        'id',
         'rfc',
         'name',
         'status',
@@ -49,7 +51,7 @@ class Branch extends Model implements Auditable
         // por lo que no es necesario especificarla.
         return $this->belongsToMany(Product::class);
     }
-    
+
 
     /**
      * Obtiene todas las notas asociadas con el cliente.
@@ -93,9 +95,12 @@ class Branch extends Model implements Auditable
         return $this->hasMany(Branch::class, 'parent_branch_id');
     }
 
-    public function contacts()
+    /**
+     * Obtiene todos los contactos de la sucursal (relación polimórfica).
+     */
+    public function contacts(): MorphMany
     {
-        return $this->hasMany(Contact::class);
+        return $this->morphMany(Contact::class, 'contactable');
     }
 
     /**
@@ -105,7 +110,7 @@ class Branch extends Model implements Auditable
     {
         return $this->belongsTo(User::class, 'account_manager_id');
     }
-    
+
     /**
      * Obtiene el precio especial vigente para un producto específico.
      */

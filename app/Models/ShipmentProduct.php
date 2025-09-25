@@ -11,6 +11,7 @@ class ShipmentProduct extends Model
     use HasFactory;
     
     protected $fillable = [
+        'id',
         'shipment_id',
         'sale_product_id',
         'quantity',

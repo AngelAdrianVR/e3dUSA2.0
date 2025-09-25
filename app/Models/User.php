@@ -150,6 +150,20 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(DesignOrder::class, 'designer_id');
     }
 
+    public function opportunities()
+    {
+        return $this->belongsToMany(Opportunity::class, 'opportunity_user')->withPivot('role')->withTimestamps();
+    }
+
+    // Opcional: Relaciones más explícitas si las necesitas
+    public function createdOpportunities() {
+        return $this->hasMany(Opportunity::class, 'created_by_id');
+    }
+
+    public function assignedOpportunities() {
+        return $this->hasMany(Opportunity::class, 'assigned_to_id');
+    }
+
 
     // ==========================================================
     // ========================== metodos =======================

@@ -469,6 +469,9 @@ export default {
       }
     },
     changeCurrency(currency) {
+      this.selectedProduct = null;
+      this.selectedCustomer = null;
+      this.selectedSeller = null;
       this.activeCurrency = currency;
       this.fetchAllData();
     },

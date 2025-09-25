@@ -101,7 +101,7 @@
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                        <el-option v-for="item in availableProducts" 
+                                        <el-option class="!w-96" v-for="item in availableProducts" 
                                             :key="item.id" 
                                             :label="item.name" 
                                             :value="item.id"
@@ -227,6 +227,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import InputLabel from "@/Components/InputLabel.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
@@ -287,6 +288,7 @@ export default {
         AppLayout,
         TextInput,
         InputError,
+        InputLabel,
         BranchNotes,
         PrimaryButton,
         SecondaryButton,

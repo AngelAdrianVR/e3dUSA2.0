@@ -19,6 +19,7 @@ class Sale extends Model implements HasMedia, Auditable
     use InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'branch_id',
         'quote_id',
         'contact_id',

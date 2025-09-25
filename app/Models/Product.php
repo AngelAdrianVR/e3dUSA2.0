@@ -18,6 +18,7 @@ class Product extends Model implements HasMedia, Auditable
     use InteractsWithMedia, AuditableTrait;
     
     protected $fillable = [
+        'id',
         'cost',
         'name',
         'code',

@@ -93,6 +93,10 @@
                             <el-tag :type="statusTagType" size="small">{{ sampleTracking.status }}</el-tag>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Nombre:</span>
+                            <span>{{ sampleTracking?.name ?? 'N/A' }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Solicitante:</span>
                             <span>{{ sampleTracking.requester?.name ?? 'N/A' }}</span>
                         </li>
@@ -191,7 +195,7 @@
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Teléfono:</span>
                             <span>
-                                {{ sampleTracking.contact.details.find(d => d.type === 'Teléfono')?.value ?? 'No especificado' }}
+                                {{ formatPhone(sampleTracking.contact.details.find(d => d.type === 'Teléfono')?.value) ?? 'No especificado' }}
                             </span>
                         </li>
 
@@ -321,6 +325,13 @@ export default {
         }
     },
     methods: {
+        formatPhone(number) {
+            if (!number) return '';
+            // Eliminamos todo lo que no sea dígito
+            const digits = number.toString().replace(/\D/g, '');
+            // Agrupamos cada 2 dígitos y unimos con guiones
+            return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);

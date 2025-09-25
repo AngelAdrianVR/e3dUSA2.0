@@ -10,6 +10,7 @@ class BranchNote extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'branch_id',
         'user_id',
         'content',

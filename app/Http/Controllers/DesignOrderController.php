@@ -130,7 +130,7 @@ class DesignOrderController extends Controller
                 'previous_designer_id' => null, // No hay diseñador previo
                 'new_designer_id' => $designOrder->designer_id,
                 'changed_by_user_id' => Auth::id(), // El solicitante hizo la asignación inicial
-                'reason' => 'Asignación inicial al crear la solicitud.',
+                'reason' => 'Asignación inicial al crear la orden.',
                 'changed_at' => now(),
             ]);
         }

@@ -11,6 +11,7 @@ class ProductionTask extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'production_id',
         'operator_id',
         'name',

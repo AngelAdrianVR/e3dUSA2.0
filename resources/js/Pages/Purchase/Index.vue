@@ -109,7 +109,7 @@
                                                     <p class="text-amber-500 font-semibold">
                                                     Cantidad:
                                                     <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.quantity }} {{ item.product.measure_unit }}
+                                                        {{ item.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}
                                                     </span>
                                                     </p>
 
@@ -162,7 +162,7 @@
                                     {{ formatDate(scope.row.created_at) ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status" label="Estatus" width="130">
+                            <el-table-column prop="status" label="Estatus" width="140">
                                 <template #default="scope">
                                     <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
                                         {{ scope.row.status }}

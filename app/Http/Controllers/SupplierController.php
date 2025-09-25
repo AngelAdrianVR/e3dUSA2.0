@@ -7,37 +7,31 @@ use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Inertia\Response;
 use Illuminate\Validation\Rule;
 
 class SupplierController extends Controller
 {
     public function index(Request $request)
     {
-        // Obtiene el término de búsqueda de la solicitud
         $query = $request->input('search');
-
         $suppliers = Supplier::query()
-            // Aplica el filtro de búsqueda si existe
             ->when($query, function ($q, $search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('nickname', 'like', "%{$search}%")
                   ->orWhere('rfc', 'like', "%{$search}%");
             })
-            ->latest() // Ordena por los más recientes
-            ->paginate(20) // Pagina los resultados
-            ->withQueryString(); // Mantiene los parámetros de búsqueda en la paginación
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
 
-        // Renderiza el componente de Vue y le pasa los proveedores
         return Inertia::render('Supplier/Index', [
             'suppliers' => $suppliers,
-            'filters' => $request->only(['search']), // Pasa los filtros actuales a la vista
+            'filters' => $request->only(['search']),
         ]);
     }
 
     public function create()
     {
-        // Obtenemos solo los productos que se pueden comprar (is_purchasable = true)
         $purchasableProducts = Product::where('is_purchasable', true)
             ->select('id', 'name', 'code')
             ->get();
@@ -47,15 +41,9 @@ class SupplierController extends Controller
         ]);
     }
 
-    /**
-     * Almacena un nuevo proveedor en la base de datos.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function store(Request $request)
     {
-        // Validación de los datos principales del proveedor y los arrays anidados
+        // 1. Validación adaptada para el nuevo modelo Contact
         $validatedData = $request->validate([
             'name' => 'required|string|max:255|unique:suppliers,name',
             'rfc' => 'nullable|string|max:13|unique:suppliers,rfc',
@@ -66,15 +54,13 @@ class SupplierController extends Controller
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
 
-            // Validación para los contactos
-            'contacts' => 'nullable|array',
+            // Se cambia 'position' por 'charge' para coincidir con el modelo Contact
+            'contacts' => 'present|array',
             'contacts.*.name' => 'required|string|max:255',
-            'contacts.*.position' => 'nullable|string|max:255',
-            'contacts.*.email' => 'nullable|email|max:255',
-            'contacts.*.phone' => 'nullable|string|max:20',
-            'contacts.*.is_primary' => 'boolean',
+            'contacts.*.charge' => 'nullable|string|max:255', // Antes 'position'
+            'contacts.*.email' => 'required|email|max:255',
+            'contacts.*.phone' => 'required|string|max:20',
 
-            // Validación para las cuentas bancarias
             'bankAccounts' => 'nullable|array',
             'bankAccounts.*.bank_name' => 'required|string|max:255',
             'bankAccounts.*.account_holder' => 'required|string|max:255',
@@ -82,7 +68,6 @@ class SupplierController extends Controller
             'bankAccounts.*.clabe' => 'nullable|string|max:18',
             'bankAccounts.*.currency' => 'required|string|max:3',
 
-            // Validación para los productos
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.last_price' => 'required|numeric|min:0',
@@ -90,77 +75,52 @@ class SupplierController extends Controller
             'products.*.min_quantity' => 'nullable|numeric|min:0',
         ]);
 
-        try {
-            // Usamos una transacción para asegurar la integridad de los datos
-            DB::transaction(function () use ($validatedData) {
-                // 1. Crear el proveedor
-                $supplier = Supplier::create([
-                    'name' => $validatedData['name'],
-                    'rfc' => $validatedData['rfc'],
-                    'nickname' => $validatedData['nickname'],
-                    'address' => $validatedData['address'],
-                    'post_code' => $validatedData['post_code'],
-                    'phone' => $validatedData['phone'],
-                    'email' => $validatedData['email'],
-                    'notes' => $validatedData['notes'],
-                ]);
+        DB::transaction(function () use ($validatedData) {
+            $supplier = Supplier::create(collect($validatedData)->except(['contacts', 'bankAccounts', 'products'])->all());
 
-                // 2. Crear y asociar los contactos (si existen)
-                if (!empty($validatedData['contacts'])) {
-                    // Asegurarse de que solo un contacto sea el principal
-                    $hasPrimary = false;
-                    foreach (array_reverse($validatedData['contacts']) as $contactData) {
-                        if ($contactData['is_primary'] && !$hasPrimary) {
-                            $hasPrimary = true;
-                        } elseif ($contactData['is_primary']) {
-                            $contactData['is_primary'] = false;
-                        }
-                        $supplier->contacts()->create($contactData);
-                    }
+            // 2. Lógica de creación de contactos adaptada
+            if (!empty($validatedData['contacts'])) {
+                foreach ($validatedData['contacts'] as $index => $contactData) {
+                    // Se crea el contacto principal
+                    $contact = $supplier->contacts()->create([
+                        'name' => $contactData['name'],
+                        'charge' => $contactData['charge'], // Usamos 'charge'
+                        'is_primary' => $index === 0, // El primero es el principal
+                    ]);
+
+                    // Se crean los detalles (teléfono y correo) para el contacto
+                    $contact->details()->create([
+                        'type' => 'Teléfono',
+                        'value' => $contactData['phone'],
+                        'is_primary' => true,
+                    ]);
+
+                    $contact->details()->create([
+                        'type' => 'Correo',
+                        'value' => $contactData['email'],
+                        'is_primary' => true,
+                    ]);
                 }
+            }
 
-                // 3. Crear y asociar las cuentas bancarias (si existen)
-                if (!empty($validatedData['bankAccounts'])) {
-                    foreach ($validatedData['bankAccounts'] as $bankAccountData) {
-                        $supplier->bankAccounts()->create($bankAccountData);
-                    }
-                }
+            if (!empty($validatedData['bankAccounts'])) {
+                $supplier->bankAccounts()->createMany($validatedData['bankAccounts']);
+            }
 
-                // 4. Asociar los productos (si existen)
-                if (!empty($validatedData['products'])) {
-                    $productsToSync = [];
-                    foreach ($validatedData['products'] as $productData) {
-                        // Preparamos el array para el método attach/sync
-                        $productsToSync[$productData['product_id']] = [
-                            'last_price' => $productData['last_price'],
-                            'supplier_sku' => $productData['supplier_sku'],
-                            'min_quantity' => $productData['min_quantity'],
-                        ];
-                    }
-                    $supplier->products()->attach($productsToSync);
-                }
-            });
-        } catch (\Exception $e) {
-            // En caso de error, puedes registrarlo y devolver un mensaje
-            // \Log::error('Error creating supplier: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Ocurrió un error al crear el proveedor. Inténtalo de nuevo.']);
-        }
+            if (!empty($validatedData['products'])) {
+                $productsToSync = collect($validatedData['products'])->keyBy('product_id')
+                    ->map(fn ($p) => \Illuminate\Support\Arr::except($p, 'product_id'))->toArray();
+                $supplier->products()->attach($productsToSync);
+            }
+        });
 
-        // Redirigir a la lista de proveedores con un mensaje de éxito
         return to_route('suppliers.index')->with('success', 'Proveedor creado exitosamente.');
     }
 
     public function show(Supplier $supplier)
     {
-        // Carga las relaciones para que estén disponibles en el componente de Vue
-        // Carga los productos relacionados a través de la tabla pivote
-        $supplier->load('contacts', 'bankAccounts', 'products.media',
-        'products:id,name,code,is_purchasable,archived_at,currency,measure_unit,cost');
-
-        // Obtiene todos los proveedores para el selector de búsqueda rápida en la vista
+        $supplier->load('contacts.details', 'bankAccounts', 'products.media');
         $allSuppliers = Supplier::select('id', 'name')->get();
-
-        // Obtenemos todos los productos que se pueden comprar para los modales de la vista
         $purchasableProducts = Product::where('is_purchasable', true)
             ->select('id', 'name', 'code', 'measure_unit')
             ->get();
@@ -174,25 +134,35 @@ class SupplierController extends Controller
 
     public function edit(Supplier $supplier)
     {
-        // Carga las relaciones del proveedor para que estén disponibles en la vista
-        $supplier->load('contacts', 'bankAccounts', 'products');
+        // Cargamos contacts.details para poder formatearlos
+        $supplier->load('contacts.details', 'bankAccounts', 'products');
 
-        // Obtenemos todos los productos que se pueden comprar para el selector
+        // Formateamos los contactos para que el frontend los reciba de forma consistente
+        $formattedContacts = $supplier->contacts->map(function ($contact) {
+            return [
+                'id' => $contact->id,
+                'name' => $contact->name,
+                'charge' => $contact->charge,
+                'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
+                'email' => $contact->details->firstWhere('type', 'Correo')->value ?? null,
+            ];
+        });
+
         $purchasableProducts = Product::where('is_purchasable', true)
             ->select('id', 'name', 'code')
             ->get();
 
-            // return $supplier;
-        // Renderiza el componente de Vue y le pasa los datos necesarios
         return Inertia::render('Supplier/Edit', [
             'supplier' => $supplier,
+            'formattedContacts' => $formattedContacts, // Enviamos los contactos formateados
             'products' => $purchasableProducts,
         ]);
     }
 
+
     public function update(Request $request, Supplier $supplier)
     {
-        // Validación de los datos. Usamos Rule::unique para ignorar el registro actual
+        // 3. Validación de actualización adaptada
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('suppliers')->ignore($supplier->id)],
             'rfc' => ['nullable', 'string', 'max:13', Rule::unique('suppliers')->ignore($supplier->id)],
@@ -202,18 +172,21 @@ class SupplierController extends Controller
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
-            'contacts' => 'nullable|array',
+
+            'contacts' => 'present|array',
+            'contacts.*.id' => 'nullable|exists:contacts,id', // Se valida contra la tabla 'contacts'
             'contacts.*.name' => 'required|string|max:255',
-            'contacts.*.position' => 'nullable|string|max:255',
-            'contacts.*.email' => 'nullable|email|max:255',
-            'contacts.*.phone' => 'nullable|string|max:20',
-            'contacts.*.is_primary' => 'boolean',
+            'contacts.*.charge' => 'nullable|string|max:255', // Antes 'position'
+            'contacts.*.email' => 'required|email|max:255',
+            'contacts.*.phone' => 'required|string|max:20',
+            
             'bankAccounts' => 'nullable|array',
             'bankAccounts.*.bank_name' => 'required|string|max:255',
             'bankAccounts.*.account_holder' => 'required|string|max:255',
             'bankAccounts.*.account_number' => 'required|string|max:255',
             'bankAccounts.*.clabe' => 'nullable|string|max:18',
             'bankAccounts.*.currency' => 'required|string|max:3',
+
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.last_price' => 'required|numeric|min:0',
@@ -221,61 +194,49 @@ class SupplierController extends Controller
             'products.*.min_quantity' => 'nullable|numeric|min:0',
         ]);
 
-        try {
-            // Usamos una transacción para asegurar la integridad de los datos
-            DB::transaction(function () use ($validatedData, $supplier) {
-                // 1. Actualizar los datos principales del proveedor
-                $supplier->update([
-                    'name' => $validatedData['name'],
-                    'rfc' => $validatedData['rfc'],
-                    'nickname' => $validatedData['nickname'],
-                    'address' => $validatedData['address'],
-                    'post_code' => $validatedData['post_code'],
-                    'phone' => $validatedData['phone'],
-                    'email' => $validatedData['email'],
-                    'notes' => $validatedData['notes'],
-                ]);
+        DB::transaction(function () use ($validatedData, $supplier) {
+            $supplier->update(collect($validatedData)->except(['contacts', 'bankAccounts', 'products'])->all());
 
-                // 2. Sincronizar contactos: Eliminamos los anteriores y creamos los nuevos
-                $supplier->contacts()->delete();
-                if (!empty($validatedData['contacts'])) {
-                    $hasPrimary = false;
-                    foreach (array_reverse($validatedData['contacts']) as $contactData) {
-                        if ($contactData['is_primary'] && !$hasPrimary) {
-                            $hasPrimary = true;
-                        } elseif ($contactData['is_primary']) {
-                            $contactData['is_primary'] = false;
-                        }
-                        $supplier->contacts()->create($contactData);
-                    }
-                }
+            // 4. Lógica de sincronización de contactos mejorada
+            $contactIdsToKeep = [];
+            if (!empty($validatedData['contacts'])) {
+                foreach ($validatedData['contacts'] as $index => $contactData) {
+                    $contact = $supplier->contacts()->updateOrCreate(
+                        ['id' => $contactData['id'] ?? null],
+                        [
+                            'name' => $contactData['name'],
+                            'charge' => $contactData['charge'],
+                            'is_primary' => $index === 0,
+                        ]
+                    );
 
-                // 3. Sincronizar cuentas bancarias
-                $supplier->bankAccounts()->delete();
-                if (!empty($validatedData['bankAccounts'])) {
-                    $supplier->bankAccounts()->createMany($validatedData['bankAccounts']);
-                }
+                    $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone']]);
+                    $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email']]);
 
-                // 4. Sincronizar productos con el método sync()
-                $productsToSync = [];
-                if (!empty($validatedData['products'])) {
-                    foreach ($validatedData['products'] as $productData) {
-                        $productsToSync[$productData['product_id']] = [
-                            'last_price' => $productData['last_price'],
-                            'supplier_sku' => $productData['supplier_sku'],
-                            'min_quantity' => $productData['min_quantity'],
-                        ];
-                    }
+                    $contactIdsToKeep[] = $contact->id;
                 }
-                $supplier->products()->sync($productsToSync);
-            });
-        } catch (\Exception $e) {
-            // \Log::error('Error updating supplier: ' . $e->getMessage());
-            return back()->withErrors(['error' => 'Ocurrió un error al actualizar el proveedor.']);
-        }
+            }
+            // Eliminar contactos que ya no están en la petición
+            $supplier->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
+
+            // Sincronizar cuentas bancarias
+            $supplier->bankAccounts()->delete();
+            if (!empty($validatedData['bankAccounts'])) {
+                $supplier->bankAccounts()->createMany($validatedData['bankAccounts']);
+            }
+
+            // Sincronizar productos
+            $productsToSync = [];
+            if (!empty($validatedData['products'])) {
+                $productsToSync = collect($validatedData['products'])->keyBy('product_id')
+                    ->map(fn ($p) => \Illuminate\Support\Arr::except($p, 'product_id'))->toArray();
+            }
+            $supplier->products()->sync($productsToSync);
+        });
 
         return to_route('suppliers.index')->with('success', 'Proveedor actualizado exitosamente.');
     }
+
 
     public function destroy(Supplier $supplier)
     {
@@ -285,8 +246,7 @@ class SupplierController extends Controller
     public function massiveDelete(Request $request)
     {
         foreach ($request->ids as $id) {
-            $supplier = Supplier::find($id);
-            $supplier->delete();
+            Supplier::find($id)?->delete();
         }
     }
 
