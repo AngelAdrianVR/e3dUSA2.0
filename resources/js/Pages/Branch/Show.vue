@@ -86,6 +86,18 @@
                     </ul>
                 </div>
 
+                <!-- Card de Sucursales -->
+                <div v-if="branch.children && branch.children.length > 0" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Sucursales</h3>
+                    <ul class="space-y-3 text-sm">
+                        <li v-for="child in branch.children" :key="child.id">
+                            <Link :href="route('branches.show', child.id)" class="font-semibold text-blue-500 hover:underline">
+                                ID:{{ child.id }} - {{ child.name }}
+                            </Link>
+                        </li>
+                    </ul>
+                </div>
+
                 <!-- Card de Contactos -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <div class="flex justify-between items-center border-b dark:border-gray-600 pb-3 mb-4">

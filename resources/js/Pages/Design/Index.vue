@@ -11,14 +11,21 @@
             <div class="max-w-[95rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <!-- Botón para crear nueva orden de diseño -->
-                        <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')"
-                            :href="route('design-orders.create')">
-                            <SecondaryButton>
-                                <i class="fa-solid fa-plus mr-2"></i>
-                                Nueva Orden
+                        <div class="flex items-center space-x-2">
+                            <!-- Botón para crear nueva orden de diseño -->
+                            <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')"
+                                :href="route('design-orders.create')">
+                                <SecondaryButton>
+                                    <i class="fa-solid fa-plus mr-2"></i>
+                                    Nueva Orden
+                                </SecondaryButton>
+                            </Link>
+                            <!-- Botón para generar reporte -->
+                            <SecondaryButton @click="showReportModal = true">
+                                <i class="fa-solid fa-file-invoice mr-2"></i>
+                                Reporte de Actividades
                             </SecondaryButton>
-                        </Link>
+                        </div>
 
                         <div class="flex items-center space-x-4">
                              <!-- Botón para eliminar seleccionados -->
@@ -240,6 +247,9 @@
                 </SecondaryButton>
             </template>
         </DialogModal>
+
+        <!-- Modal para Reporte de Actividades -->
+        <DesignersReport :show="showReportModal" @close="showReportModal = false" />
     </AppLayout>
 </template>
 
@@ -251,6 +261,7 @@ import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import DialogModal from '@/Components/DialogModal.vue';
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import DesignersReport from './Partials/DesignersReport.vue'; // <-- Importar componente
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
@@ -264,10 +275,10 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.designOrders.data,
-            // Nuevo: 'activeView' reemplaza a 'showAllDesigns' para manejar 3 estados
             activeView: this.filters.view || 'mine', 
             SearchProps: ['Folio', 'Título', 'Solicitante', 'Diseñador', 'Estatus'],
             showAssignModal: false,
+            showReportModal: false, // <-- Estado para el modal de reporte
             designers: [],
             selectedOrder: null,
             assignmentForm: this.$inertia.form({
@@ -284,11 +295,12 @@ export default {
         LoadingIsoLogo,
         SecondaryButton,
         DesignersWorkload,
+        DesignersReport, // <-- Registrar componente
     },
     props: {
         designOrders: Object,
         filters: Object,
-        unassignedOrdersCount: Number, // Nuevo: prop para el contador
+        unassignedOrdersCount: Number,
     },
     methods: {
         async handleSearch() {
@@ -404,7 +416,6 @@ export default {
         },
         handlePageChange(page) {
             const params = { page };
-            // Actualizado: usa 'activeView' para la paginación
             if (this.activeView !== 'mine') {
                 params.view = this.activeView;
             }
@@ -413,7 +424,6 @@ export default {
                 replace: true,
             });
         },
-        // Nuevo: Método para cambiar entre vistas, reemplaza a 'toggleView'
         switchView(view) {
             this.activeView = view;
             const params = {};

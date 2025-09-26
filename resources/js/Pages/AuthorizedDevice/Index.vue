@@ -8,14 +8,14 @@
             <p class="text-gray-600 dark:text-gray-400 text-sm text-center my-5">
                 Desde aquí puedes autorizar o remover los dispositivos que pueden registrar asistencias.
             </p>
-            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <SecondaryButton @click="showAuthModal = true">
                         <i class="fa-solid fa-plus mr-2"></i>
                         Autorizar este Dispositivo
                     </SecondaryButton>
 
-                    <el-table :data="devices" stripe class="dark:!bg-slate-900 mt-6">
+                    <el-table :data="devices" max-height="550" stripe class="dark:!bg-slate-900 mt-6">
                         <el-table-column prop="name" label="Nombre del Dispositivo" />
                         <el-table-column prop="creator.name" label="Autorizado por" />
                         <el-table-column prop="created_at" label="Fecha de Autorización">

@@ -12,7 +12,7 @@ class MigrateLegacySuppliers extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°8. Todo bien solo que los contactos no se muestran, es cosa de la migracion de contactos.
+     * N°8. Todo bien solo que algunos de los contactos no se muestran, es cosa de la migracion de contactos.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-suppliers';

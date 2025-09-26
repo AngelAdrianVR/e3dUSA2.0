@@ -153,6 +153,7 @@ class BranchController extends Controller
     {
         // Cargamos la sucursal con todas sus relaciones importantes
         $branch->load([
+            'children', 
             'accountManager:id,name', 
             'parent:id,name', 
             'contacts.details',
@@ -166,6 +167,7 @@ class BranchController extends Controller
 
         $allBranches = Branch::select('id', 'name')->get();
 
+        // return $branch;
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,

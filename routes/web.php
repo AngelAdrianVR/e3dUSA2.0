@@ -219,6 +219,7 @@ Route::resource('invoices', InvoiceController::class)->middleware('auth');
 Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
 Route::post('invoices-get-matches', [InvoiceController::class, 'getMatches'])->middleware('auth')->name('invoices.get-matches');
 Route::post('invoices-store-media/{invoice}', [InvoiceController::class, 'storeMedia'])->middleware('auth')->name('invoices.media.store');
+Route::get('/invoices-pending-report', [InvoiceController::class, 'pendingReport'])->name('invoices.pending-report')->middleware(['auth']);
 
 
 // ------- CRM(Rutas de pagos de facturación)  ---------
@@ -281,6 +282,7 @@ Route::get('design-orders-get-designers', [DesignOrderController::class, 'getDes
 Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController::class, 'assignDesigner'])->middleware('auth')->name('design-orders.assign-designer');
 Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
 Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
+Route::get('/design-orders-reports/designers-activity', [DesignOrderController::class, 'getDesignersActivityReport'])->middleware('auth')->name('design-orders.reports.designers-activity');
 
 
 // Ruta para almacenar las categorías de diseño creadas desde el modal

@@ -11,7 +11,7 @@ class MigrateLegacySales extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°12 Todo correcto!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-sales';
@@ -32,6 +32,10 @@ class MigrateLegacySales extends Command
     {
         $this->info("Iniciando la migración de Ventas y Envíos...");
 
+        // Listas para guardar advertencias
+        $missingForeignKeys = [];
+        $notFoundProducts = [];
+
         if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "sales", "sale_products" y "shipments" antes de empezar?', true)) {
             try {
                 DB::statement('SET FOREIGN_KEY_CHECKS=0;');
@@ -50,42 +54,52 @@ class MigrateLegacySales extends Command
             $oldDb = DB::connection('mysql_old');
             $newDb = DB::connection('mysql');
 
+            // --- Cargar mapeos ---
+            $this->info('Cargando mapeos de sucursales y productos...');
+            // Mapeo de Sucursales
+            $oldBranches = $oldDb->table('company_branches')->pluck('name', 'id');
+            $newBranches = $newDb->table('branches')->pluck('id', 'name');
+
+            // Mapeo de Productos (en varios pasos)
+            // 1. [catalog_product_id => name] de la BD antigua
+            $oldCatalogProducts = $oldDb->table('catalog_products')->pluck('name', 'id');
+            // 2. [catalog_product_company_id => catalog_product_id] de la BD antigua
+            $oldCompanyProductToCatalog = $oldDb->table('catalog_product_company')->pluck('catalog_product_id', 'id');
+            // 3. [name => new_product_id] de la BD nueva
+            $newProducts = $newDb->table('products')->pluck('id', 'name');
+            $this->info('Mapeos cargados.');
+
             // Obtenemos los IDs de las últimas 500 ventas para procesar sus envíos después.
             $last500SaleIds = $oldDb->table('sales')->orderBy('id', 'desc')->limit(500)->pluck('id');
 
-            $newDb->transaction(function () use ($oldDb, $newDb, $last500SaleIds) {
+            $newDb->transaction(function () use ($oldDb, $newDb, $last500SaleIds, $oldBranches, $newBranches, $oldCatalogProducts, $oldCompanyProductToCatalog, $newProducts, &$missingForeignKeys, &$notFoundProducts) {
 
                 $this->line('');
                 $this->info('Migrando TODAS las ventas...');
                 
-                // Procesamos todas las ventas de la base de datos antigua por ID.
-                // Para bases de datos muy grandes, considera usar ->chunkById()
                 $old_sales = $oldDb->table('sales')->orderBy('id')->get();
                 $progressBar = $this->output->createProgressBar($old_sales->count());
 
                 foreach ($old_sales as $sale) {
-                    // --- VERIFICACIÓN DE CLAVES FORÁNEAS ---
-                    // Si alguna de estas entidades no existe en la nueva BD, omitimos la venta.
+                    // --- Mapeo de Sucursal por nombre ---
+                    $oldBranchName = $oldBranches->get($sale->company_branch_id);
+                    $newBranchId = $oldBranchName ? $newBranches->get($oldBranchName) : null;
+                    if (!$newBranchId && $sale->company_branch_id) {
+                        $missingForeignKeys['branch'][] = "Venta ID {$sale->id} -> Sucursal '{$oldBranchName}' no encontrada en la nueva BD.";
+                    }
+
+                    // --- Verificación de usuario y contacto (asumiendo que los IDs coinciden) ---
                     if ($sale->user_id && !$newDb->table('users')->where('id', $sale->user_id)->exists()) {
-                        $this->warn("\nUsuario con ID {$sale->user_id} no encontrado. Omitiendo venta ID {$sale->id}.");
-                        $progressBar->advance();
-                        continue;
+                        $missingForeignKeys['user'][] = "Venta ID {$sale->id} -> Usuario ID {$sale->user_id}";
                     }
-                    if ($sale->company_branch_id && !$newDb->table('branches')->where('id', $sale->company_branch_id)->exists()) {
-                        $this->warn("\nSucursal con ID {$sale->company_branch_id} no encontrada. Omitiendo venta ID {$sale->id}.");
-                        $progressBar->advance();
-                        continue;
-                    }
-                    if ($sale->contact_id && !$newDb->table('contacts')->where('id', $sale->contact_id)->exists()) {
-                        $this->warn("\nContacto con ID {$sale->contact_id} no encontrado. Omitiendo venta ID {$sale->id}.");
-                        $progressBar->advance();
-                        continue;
+                     if ($sale->contact_id && !$newDb->table('contacts')->where('id', $sale->contact_id)->exists()) {
+                        $missingForeignKeys['contact'][] = "Venta ID {$sale->id} -> Contacto ID {$sale->contact_id}";
                     }
 
                     // --- 1. Inserción en la nueva tabla `sales` ---
                     $newDb->table('sales')->insert([
                         'id' => $sale->id,
-                        'branch_id' => $sale->company_branch_id,
+                        'branch_id' => $newBranchId, // ID de sucursal mapeado
                         'quote_id' => $sale->oportunity_id,
                         'contact_id' => $sale->contact_id,
                         'user_id' => $sale->user_id,
@@ -108,16 +122,26 @@ class MigrateLegacySales extends Command
                     // --- 2. Migrar productos asociados a la venta ---
                     $old_products = $oldDb->table('catalog_product_company_sale')->where('sale_id', $sale->id)->get();
                     foreach ($old_products as $product) {
-                        $newDb->table('sale_products')->insert([
-                            'sale_id' => $product->sale_id,
-                            'product_id' => $product->catalog_product_company_id,
-                            'quantity' => $product->quantity,
-                            'price' => 0, // Ajustar si es necesario
-                            'is_new_design' => $product->is_new_design,
-                            'notes' => $product->notes,
-                            'created_at' => $product->created_at,
-                            'updated_at' => $product->updated_at,
-                        ]);
+                        // Lógica para encontrar el nombre del producto y luego su nuevo ID
+                        $oldCatalogProductId = $oldCompanyProductToCatalog->get($product->catalog_product_company_id);
+                        $oldProductName = $oldCatalogProductId ? $oldCatalogProducts->get($oldCatalogProductId) : null;
+                        $newProductId = $oldProductName ? $newProducts->get($oldProductName) : null;
+
+                        if ($newProductId) {
+                             $newDb->table('sale_products')->insert([
+                                'sale_id' => $sale->id,
+                                'product_id' => $newProductId, // ID de producto mapeado
+                                'quantity' => $product->quantity,
+                                'quantity_to_produce' => $product->quantity,
+                                'price' => 0, // Ajustar si es necesario
+                                'is_new_design' => $product->is_new_design,
+                                'notes' => $product->notes,
+                                'created_at' => $product->created_at,
+                                'updated_at' => $product->updated_at,
+                            ]);
+                        } else {
+                            $notFoundProducts[] = $oldProductName ?? "ID Antiguo (company): {$product->catalog_product_company_id}";
+                        }
                     }
 
                     // --- 3. Migrar parcialidades (JSON) a `shipments` SÓLO para las últimas 500 ventas ---
@@ -153,6 +177,23 @@ class MigrateLegacySales extends Command
             $this->info("\n¡MIGRACIÓN DE VENTAS COMPLETADA EXITOSAMENTE!");
             $this->info("Se han transferido todas las ventas. Los envíos se crearon para los últimos 500 registros.");
 
+            if (!empty($missingForeignKeys)) {
+                $this->warn("\nADVERTENCIA: Se encontraron IDs de relaciones que no existen en la nueva base de datos:");
+                foreach ($missingForeignKeys as $key => $messages) {
+                    $this->line("Para la relación: " . ucfirst($key));
+                    foreach (array_unique($messages) as $message) {
+                        $this->line("- " . $message);
+                    }
+                }
+            }
+
+            if (!empty($notFoundProducts)) {
+                $this->warn("\nADVERTENCIA: Los siguientes productos no se asociaron a sus ventas porque no se encontraron por nombre en la nueva BD:");
+                foreach (array_unique($notFoundProducts) as $productName) {
+                    $this->line("- " . $productName);
+                }
+            }
+
         } catch (Throwable $e) {
             $this->error("\n\nERROR DURANTE LA MIGRACIÓN: " . $e->getMessage());
             $this->error("No se realizó ningún cambio en la nueva base de datos. Revisa el error y vuelve a intentarlo.");
@@ -172,12 +213,13 @@ class MigrateLegacySales extends Command
             return 'Pendiente';
         }
 
-        return match (strtolower(trim($oldStatus))) {
-            'esperando autorización' => 'Pendiente',
-            'autorizada' => 'Autorizada',
-            'en proceso' => 'En Proceso',
-            'completada' => 'Completada',
-            'enviada' => 'Enviada',
+        return match (trim($oldStatus)) {
+            'Autorizado. Sin orden de producción' => 'Autorizada',
+            'Producción sin iniciar' => 'En Proceso',
+            'Producción en proceso' => 'En Producción',
+            'Producción terminada' => 'Preparando Envío',
+            'Parcialmente enviado' => 'Preparando Envío',
+            'Enviado' => 'Enviada',
             default => 'Pendiente',
         };
     }
