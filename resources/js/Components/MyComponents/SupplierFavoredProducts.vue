@@ -27,10 +27,12 @@
             <!-- Encabezado -->
             <div class="flex justify-between items-center p-4 border-b border-slate-700 flex-shrink-0">
                 <h3 class="font-bold text-base flex items-center text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-3 text-amber-400">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                    </svg>
-                    Productos a favor de {{ supplierName }}
+                    <div class="w-8">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 mr-3 text-amber-400">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                        </svg>
+                    </div>
+                    <span>Productos a favor de {{ supplierName }}</span>
                 </h3>
                 <button @click="isOpen = false" class="text-slate-400 hover:text-white transition-colors" aria-label="Cerrar panel">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -43,7 +45,7 @@
                 <div v-else-if="favoredProducts.length > 0" v-for="item in favoredProducts" :key="item.id" class="text-sm bg-slate-800 p-3 rounded-lg">
                     <div class="flex justify-between items-center">
                         <div class="flex items-center space-x-3">
-                            <img v-if="item.product.media && item.product.media.length > 0" :src="item.product.media[0].original_url" :alt="item.product.name" class="w-12 h-12 rounded-md object-cover flex-shrink-0">
+                            <img v-if="item.product.media && item.product.media.length > 0" :src="item.product.media[0].original_url" :alt="item.product.name" @click="$inertia.visit(route('catalog-products.show', item.product.id))" class="size-12 cursor-pointer rounded-md object-cover flex-shrink-0">
                             <div v-else class="w-12 h-12 rounded-md bg-slate-700 flex items-center justify-center flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />

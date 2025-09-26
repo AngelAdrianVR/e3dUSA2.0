@@ -26,7 +26,7 @@ return new class extends Migration
             // --- CORRECCIÓN ---
             // Se actualiza la restricción de clave foránea para que apunte a la nueva tabla 'contacts'
             // en lugar de la antigua 'supplier_contacts'.
-            $table->foreignId('supplier_contact_id')->nullable()->comment('Contacto del proveedor para esta compra')->constrained('contacts')->onDelete('set null');
+            $table->foreignId('contact_id')->nullable()->comment('Contacto del proveedor para esta compra')->constrained('contacts')->onDelete('set null');
             
             $table->foreignId('supplier_bank_account_id')->nullable()->constrained()->onDelete('set null');
 

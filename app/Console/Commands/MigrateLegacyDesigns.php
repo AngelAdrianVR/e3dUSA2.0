@@ -11,7 +11,7 @@ class MigrateLegacyDesigns extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°7 - todo bien!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-designs';
@@ -52,8 +52,11 @@ class MigrateLegacyDesigns extends Command
             $oldDb = DB::connection('mysql_old');
             $newDb = DB::connection('mysql');
 
+            // Caché para los IDs de sucursales para no consultar la BD repetidamente por el mismo nombre
+            $branchCache = [];
+
             // Usamos una única transacción para asegurar la integridad de todos los datos.
-            $newDb->transaction(function () use ($oldDb, $newDb) {
+            $newDb->transaction(function () use ($oldDb, $newDb, &$branchCache) {
 
                 // --- 1. Migrar diseños base y crear entradas en la nueva tabla `designs` ---
                 $this->line('');
@@ -73,9 +76,29 @@ class MigrateLegacyDesigns extends Command
                         'updated_at' => $old_design->updated_at,
                     ]);
 
+                    // --- INICIO: LÓGICA AGREGADA PARA BUSCAR BRANCH_ID ---
+                    $branch_id = null;
+                    $branchName = $old_design->company_branch_name;
+                    if (!empty($branchName)) {
+                        if (isset($branchCache[$branchName])) {
+                            $branch_id = $branchCache[$branchName];
+                        } else {
+                            $branch = $newDb->table('branches')->where('name', $branchName)->first();
+                            if ($branch) {
+                                $branch_id = $branch->id;
+                                $branchCache[$branchName] = $branch_id; // Guardar en caché
+                            } else {
+                                $branchCache[$branchName] = null; // Guardar el resultado nulo para no volver a buscar
+                                $this->warn("\n  - Advertencia: No se encontró sucursal para '{$branchName}' (ID de diseño antiguo: {$old_design->id}). Se dejará nulo.");
+                            }
+                        }
+                    }
+                    // --- FIN: LÓGICA AGREGADA ---
+
                     // b) Creamos la orden de diseño principal conservando el ID.
                     $newDb->table('design_orders')->insert([
                         'id' => $old_design->id,
+                        'branch_id' => $branch_id, // <-- CAMPO AGREGADO
                         'order_title' => $old_design->name,
                         'specifications' => $this->combineSpecifications($old_design),
                         'status' => $this->mapStatus($old_design),
@@ -126,9 +149,29 @@ class MigrateLegacyDesigns extends Command
                         continue;
                     }
 
+                    // --- INICIO: LÓGICA AGREGADA PARA BUSCAR BRANCH_ID EN MODIFICACIONES ---
+                    $branch_id_mod = null;
+                    $branchNameMod = $original_old_design->company_branch_name;
+                     if (!empty($branchNameMod)) {
+                        if (isset($branchCache[$branchNameMod])) {
+                            $branch_id_mod = $branchCache[$branchNameMod];
+                        } else {
+                            $branch_mod = $newDb->table('branches')->where('name', $branchNameMod)->first();
+                            if ($branch_mod) {
+                                $branch_id_mod = $branch_mod->id;
+                                $branchCache[$branchNameMod] = $branch_id_mod; // Guardar en caché
+                            } else {
+                                $branchCache[$branchNameMod] = null; // Guardar el resultado nulo
+                                $this->warn("\n  - Advertencia: No se encontró sucursal para '{$branchNameMod}' (Modificación del diseño antiguo ID: {$original_old_design->id}). Se dejará nulo.");
+                            }
+                        }
+                    }
+                    // --- FIN: LÓGICA AGREGADA ---
+
                     // a) Creamos la nueva orden que representa la modificación.
                     // Nota: Usamos insertGetId aquí porque no podemos garantizar que el ID de la modificación no colisione.
                     $new_mod_order_id = $newDb->table('design_orders')->insertGetId([
+                        'branch_id' => $branch_id_mod, // <-- CAMPO AGREGADO
                         'order_title' => '[MODIFICACIÓN] ' . $original_old_design->name,
                         'specifications' => $modification->modifications,
                         'status' => 'Pendiente', // Las modificaciones se crean como pendientes
@@ -222,4 +265,3 @@ class MigrateLegacyDesigns extends Command
         return 'Pendiente';
     }
 }
-

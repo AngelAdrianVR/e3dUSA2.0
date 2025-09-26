@@ -436,7 +436,8 @@ class BranchController extends Controller
         $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
             ->latest()
             ->where(function ($q) use ($query) {
-                $q->where('name', 'like', "%{$query}%")
+                $q->where('id', 'like', "%{$query}%")
+                ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('status', 'like', "%{$query}%")
                 // Busca dentro de la relación de la matriz (parent)
                 ->orWhereHas('parent', function ($parentQuery) use ($query) {

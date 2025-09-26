@@ -189,6 +189,7 @@ class DesignOrderController extends Controller
             }
         }
 
+        // return $designOrder;
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,

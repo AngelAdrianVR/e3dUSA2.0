@@ -148,7 +148,7 @@
                                         </p>
                                     </div>
                                 </template>
-                            <span class="text-blue-500 cursor-default">{{ purchase.contact.name ?? 'N/A' }}</span>
+                            <span class="text-blue-500 cursor-default">{{ purchase.contact?.name ?? 'N/A' }}</span>
                             </el-tooltip>
                         </li>
                         <li class="flex justify-between">

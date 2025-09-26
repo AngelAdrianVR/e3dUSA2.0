@@ -399,19 +399,28 @@ class PurchaseController extends Controller
 
                         $purchase->load('items.product');
 
+                        // --- INICIO DE LA MODIFICACIÓN ---
                         foreach ($purchase->items as $item) {
                             if ($item->product) {
-                                $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-                                $storage->increment('quantity', $item->quantity);
-                                StockMovement::create([
-                                    'product_id' => $item->product->id,
-                                    'storage_id' => $storage->id,
-                                    'quantity_change' => $item->quantity,
-                                    'type' => 'Entrada',
-                                    'notes' => 'Entrada por orden de compra recibida OC-' . $purchase->id
-                                ]);
+                                // Se calcula la cantidad a agregar sumando lo que llega por avión y barco.
+                                $quantityToAdd = ($item->plane_stock ?? 0) + ($item->ship_stock ?? 0);
+
+                                // Solo se ejecuta la actualización si la cantidad es mayor a cero.
+                                if ($quantityToAdd > 0) {
+                                    $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
+                                    $storage->increment('quantity', $quantityToAdd);
+                                    
+                                    StockMovement::create([
+                                        'product_id' => $item->product->id,
+                                        'storage_id' => $storage->id,
+                                        'quantity_change' => $quantityToAdd, // Se usa la nueva cantidad calculada.
+                                        'type' => 'Entrada',
+                                        'notes' => 'Entrada por orden de compra recibida OC-' . $purchase->id
+                                    ]);
+                                }
                             }
                         }
+                        // --- FIN DE LA MODIFICACIÓN ---
                         break;
 
                     case 'Cancelada':
@@ -431,6 +440,7 @@ class PurchaseController extends Controller
 
         return back()->with('success', "El estatus de la compra se actualizó a \"{$newStatus}\".");
     }
+
 
     public function print(Purchase $purchase)
     {

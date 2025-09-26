@@ -14,7 +14,7 @@ class MigrateLegacySamples extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°10. todo está bien incluso los contactos pero los productos no coinciden.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-samples';
