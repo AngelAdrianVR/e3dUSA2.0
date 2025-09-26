@@ -18,6 +18,7 @@ class Contact extends Model
         'charge',
         'birthdate',
         'is_primary',
+        'contactable_id',
     ];
 
     /**

@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Notifications\designOrderAuthorizedNotification;
 use App\Notifications\DesignOrderFinishedNotification;
 use App\Notifications\NewDesignOrderAssignedNotification;
+use Carbon\Carbon;
+use Carbon\CarbonInterval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -189,6 +191,7 @@ class DesignOrderController extends Controller
             }
         }
 
+        // return $designOrder;
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
@@ -552,6 +555,83 @@ class DesignOrderController extends Controller
             ->get();
 
         return response()->json($similarOrders);
+    }
+
+    public function getDesignersActivityReport(Request $request)
+    {
+        $request->validate([
+            'month' => 'required|date_format:Y-m',
+            'designers' => 'required|array',
+            'designers.*' => 'exists:users,id',
+        ]);
+
+        $month = Carbon::createFromFormat('Y-m', $request->month);
+        $designersIds = $request->designers;
+
+        $designers = User::whereIn('id', $designersIds)->get();
+        $reportData = [];
+
+        setlocale(LC_TIME, 'es_ES.UTF-8');
+        $monthName = ucfirst($month->translatedFormat('F'));
+        $year = $month->year;
+
+        foreach ($designers as $designer) {
+            $orders = DesignOrder::where('designer_id', $designer->id)
+                ->where('status', 'Terminada')
+                ->whereYear('finished_at', $year)
+                ->whereMonth('finished_at', $month->month)
+                ->get();
+
+            $totalDurationInSeconds = 0;
+            $processedOrders = [];
+            $canCalculateAnyDuration = false; // Flag to check if any order has dates
+
+            foreach ($orders as $order) {
+                $duration = 'N/A';
+                if ($order->started_at && $order->finished_at) {
+                    $canCalculateAnyDuration = true; // We can calculate for at least one order
+                    
+                    $start = $order->started_at; // Casts to Carbon automatically
+                    $finish = $order->finished_at;
+                    $diffInSeconds = $finish->diffInSeconds($start);
+                    $totalDurationInSeconds += $diffInSeconds;
+
+                    $duration = CarbonInterval::seconds($diffInSeconds)->cascade()->forHumans(['short' => true]);
+                     if ($diffInSeconds === 0) {
+                        $duration = '0s';
+                    }
+                }
+                $processedOrders[] = [
+                    'id' => $order->id,
+                    'order_title' => $order->order_title,
+                    'started_at' => $order->started_at?->format('d/m/Y H:i'),
+                    'finished_at' => $order->finished_at?->format('d/m/Y H:i'),
+                    'duration' => $duration,
+                ];
+            }
+            
+            $totalDurationFormatted = 'N/A';
+            if ($canCalculateAnyDuration) {
+                 $totalDurationFormatted = CarbonInterval::seconds($totalDurationInSeconds)->cascade()->forHumans();
+                 if (empty($totalDurationFormatted)) {
+                    // If total is 0 seconds, forHumans() might return empty string.
+                    $totalDurationFormatted = '0 minutos';
+                }
+            }
+
+            $reportData[] = [
+                'designer_name' => $designer->name,
+                'orders' => $processedOrders,
+                'total_orders' => count($processedOrders),
+                'total_duration' => $totalDurationFormatted,
+            ];
+        }
+
+        return Inertia::render('Design/DesignersActivityReport', [
+            'reportData' => $reportData,
+            'monthName' => $monthName,
+            'year' => $year,
+        ]);
     }
 
 }

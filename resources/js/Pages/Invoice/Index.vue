@@ -8,13 +8,20 @@
             <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <!-- Botón para crear nueva factura -->
-                        <Link :href="route('invoices.create')">
-                            <SecondaryButton>
-                                <i class="fa-solid fa-plus mr-2"></i>
-                                Nueva Factura
+                        <div class="flex space-x-2">
+                            <!-- Botón para crear nueva factura -->
+                            <Link :href="route('invoices.create')">
+                                <SecondaryButton>
+                                    <i class="fa-solid fa-plus mr-2"></i>
+                                    Nueva Factura
+                                </SecondaryButton>
+                            </Link>
+                             <!-- Botón para reporte de facturas pendientes -->
+                            <SecondaryButton @click="reportModalVisible = true">
+                                <i class="fa-solid fa-file-invoice-dollar mr-2"></i>
+                                Facturas Pendientes
                             </SecondaryButton>
-                        </Link>
+                        </div>
 
                         <!-- Input de búsqueda -->
                         <!-- <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch" :searchProps="SearchProps" /> -->
@@ -258,6 +265,32 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- Modal para Reporte de Facturas Pendientes -->
+        <el-dialog v-model="reportModalVisible" title="Generar Reporte de Facturas Pendientes" width="500px">
+            <div>
+                <p class="mb-4">Selecciona el rango de fechas de emisión de las facturas que deseas incluir en el reporte.</p>
+                <el-date-picker
+                    v-model="reportDateRange"
+                    type="daterange"
+                    range-separator="a"
+                    start-placeholder="Fecha de inicio"
+                    end-placeholder="Fecha de fin"
+                    format="YYYY/MM/DD"
+                    value-format="YYYY-MM-DD"
+                    class="!w-full"
+                    size="large"
+                />
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="reportModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="generateReport">
+                        Generar Reporte
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -268,16 +301,25 @@ import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import InputError from "@/Components/InputError.vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { ref } from 'vue';
-import { format } from 'date-fns';
+import { format, subMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
     data() {
+        // Fechas por defecto para el reporte (último mes)
+        const endDate = new Date();
+        const startDate = subMonths(endDate, 1);
+
         return {
             search: '',
             activeTab: this.active_tab_prop,
             paymentModalVisible: false,
+            reportModalVisible: false,
+            reportDateRange: [
+                startDate.toISOString().split('T')[0], 
+                endDate.toISOString().split('T')[0]
+            ],
             selectedInvoice: null,
             paymentMethods: ['Efectivo', 'Transferencia electrónica de fondos', 'Tarjeta de crédito', 'Tarjeta de débito', 'Cheque nominativo', 'Por definir'],
             SearchProps: ['Estatus', 'Cliente', 'ID'], // indica por cuales propiedades del registro puedes buscar
@@ -311,6 +353,20 @@ export default {
         return { paymentForm, paymentUploaderRef };
     },
     methods: {
+        generateReport() {
+            if (!this.reportDateRange || this.reportDateRange.length !== 2) {
+                ElMessage.warning('Por favor, selecciona un rango de fechas válido.');
+                return;
+            }
+            const [startDate, endDate] = this.reportDateRange;
+            const reportUrl = route('invoices.pending-report', {
+                start_date: startDate,
+                end_date: endDate,
+            });
+
+            window.open(reportUrl, '_blank');
+            this.reportModalVisible = false;
+        },
         isOverdue(invoice) {
             if (!['Pendiente', 'Parcialmente pagada'].includes(invoice.status)) {
                 return false;

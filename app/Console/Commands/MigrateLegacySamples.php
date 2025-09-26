@@ -5,8 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\CatalogProduct; // Asegúrate de que la ruta a tu modelo sea correcta
-use App\Models\NewProductProposal; // Asegúrate de que la ruta a tu modelo sea correcta
+use App\Models\NewProductProposal;
 use App\Models\Product;
 use Throwable;
 
@@ -14,7 +13,7 @@ class MigrateLegacySamples extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°10. Todo correcto!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-samples';
@@ -56,17 +55,22 @@ class MigrateLegacySamples extends Command
             $oldDb = DB::connection('mysql_old');
             $newDb = DB::connection('mysql');
 
-            // Pre-cargamos las sucursales y contactos para mapear por nombre
+            // Pre-cargamos datos para mapear por nombre
             $this->line('');
             $this->info('Cargando mapeos...');
+            // Mapeo de Sucursales
             $oldBranches = $oldDb->table('company_branches')->pluck('name', 'id');
             $newBranches = $newDb->table('branches')->pluck('id', 'name');
+            // Mapeo de Contactos
             $oldContacts = $oldDb->table('contacts')->pluck('name', 'id');
             $newContacts = $newDb->table('contacts')->pluck('id', 'name');
-            $this->info('Mapeos de sucursales y contactos cargados.');
+            // --- NUEVO: Mapeo de Productos ---
+            $oldProducts = $oldDb->table('catalog_products')->pluck('name', 'id');
+            $newProducts = $newDb->table('products')->pluck('id', 'name');
+            $this->info('Mapeos de sucursales, contactos y productos cargados.');
 
 
-            $newDb->transaction(function () use ($oldDb, $newDb, $oldBranches, $newBranches, $oldContacts, $newContacts) {
+            $newDb->transaction(function () use ($oldDb, $newDb, $oldBranches, $newBranches, $oldContacts, $newContacts, $oldProducts, $newProducts) {
                 $this->line('');
                 $this->info('Migrando muestras...');
                 $old_samples = $oldDb->table('samples')->orderBy('id')->get();
@@ -98,37 +102,44 @@ class MigrateLegacySamples extends Command
                         'id' => $sample->id,
                         'name' => $sample->name,
                         'status' => $this->mapStatus($sample),
-                        'branch_id' => $newBranchId, // Usamos el ID nuevo encontrado
-                        'contact_id' => $newContactId, // Usamos el ID nuevo encontrado
+                        'branch_id' => $newBranchId,
+                        'contact_id' => $newContactId,
                         'requester_user_id' => $sample->user_id,
-                        'authorized_by_user_id' => null, // No hay un ID de usuario claro en la tabla antigua
-                        'sale_id' => null, // No hay un ID de venta claro en la tabla antigua
+                        'authorized_by_user_id' => null,
+                        'sale_id' => null,
                         'will_be_returned' => $sample->will_back,
                         'expected_devolution_date' => $sample->devolution_date,
                         'comments' => $sample->comments,
                         'authorized_at' => $sample->authorized_at,
-                        'approved_at' => $sample->sale_order_at, // Asumimos que si se vendió, se aprobó
+                        'approved_at' => $sample->sale_order_at,
                         'denied_at' => $sample->denied_at,
                         'sent_at' => $sample->sent_at,
                         'returned_at' => $sample->returned_at,
-                        'completed_at' => $sample->sale_order_at, // Asumimos que se completa cuando se genera la venta
+                        'completed_at' => $sample->sale_order_at,
                         'created_at' => $sample->created_at,
                         'updated_at' => $sample->updated_at,
                     ]);
 
                     // 2. Procesar los items de la muestra
                     
-                    // a) Si hay un producto del catálogo vinculado
+                    // a) Si hay un producto del catálogo vinculado (producto registrado)
                     if ($sample->catalog_product_id) {
-                        $newDb->table('sample_tracking_items')->insert([
-                            'sample_tracking_id' => $sample->id,
-                            'itemable_id' => $sample->catalog_product_id,
-                            'itemable_type' => Product::class, // O la ruta a tu modelo de producto
-                            'quantity' => $sample->quantity,
-                            'requires_modification' => $sample->requires_modification,
-                            'created_at' => $sample->created_at,
-                            'updated_at' => $sample->updated_at,
-                        ]);
+                        $oldProductName = $oldProducts->get($sample->catalog_product_id);
+                        $newProductId = $oldProductName ? $newProducts->get($oldProductName) : null;
+
+                        if ($newProductId) {
+                             $newDb->table('sample_tracking_items')->insert([
+                                'sample_tracking_id' => $sample->id,
+                                'itemable_id' => $newProductId, // ID del producto en la nueva BD
+                                'itemable_type' => Product::class,
+                                'quantity' => $sample->quantity,
+                                'requires_modification' => $sample->requires_modification,
+                                'created_at' => $sample->created_at,
+                                'updated_at' => $sample->updated_at,
+                            ]);
+                        } else {
+                            $this->warn(" Producto del catálogo antiguo '{$oldProductName}' (ID: {$sample->catalog_product_id}) no encontrado en la nueva BD para la muestra ID {$sample->id}.");
+                        }
                     }
 
                     // b) Si hay productos no registrados en el campo JSON
@@ -139,7 +150,7 @@ class MigrateLegacySamples extends Command
                                 // Primero, creamos la propuesta de nuevo producto
                                 $proposal_id = $newDb->table('new_product_proposals')->insertGetId([
                                     'name' => $product_name,
-                                    'status' => 'Propuesta',
+                                    'status' => 'Propuesta', // Status por defecto como se requiere
                                     'created_at' => $sample->created_at,
                                     'updated_at' => $sample->updated_at,
                                 ]);
@@ -148,7 +159,7 @@ class MigrateLegacySamples extends Command
                                 $newDb->table('sample_tracking_items')->insert([
                                     'sample_tracking_id' => $sample->id,
                                     'itemable_id' => $proposal_id,
-                                    'itemable_type' => NewProductProposal::class, // O la ruta a tu modelo de propuesta
+                                    'itemable_type' => NewProductProposal::class,
                                     'quantity' => 1, // Asumimos 1 ya que no hay cantidad específica en el JSON antiguo
                                     'requires_modification' => false,
                                     'created_at' => $sample->created_at,
@@ -195,4 +206,3 @@ class MigrateLegacySamples extends Command
         return 'Pendiente';
     }
 }
-

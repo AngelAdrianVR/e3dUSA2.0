@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Supplier; // Importar el modelo para la relación polimórfica
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,7 +12,7 @@ class MigrateLegacySuppliers extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°8. Todo bien solo que algunos de los contactos no se muestran, es cosa de la migracion de contactos.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-suppliers';
@@ -21,7 +22,7 @@ class MigrateLegacySuppliers extends Command
      *
      * @var string
      */
-    protected $description = 'Migra los datos de proveedores desde la base de datos antigua a la nueva estructura.';
+    protected $description = 'Migra los datos de proveedores y productos, y asigna los contactos polimórficos ya existentes.';
 
     /**
      * Execute the console command.
@@ -31,14 +32,15 @@ class MigrateLegacySuppliers extends Command
         $this->info("Iniciando la migración de Proveedores...");
 
         // Confirmación para limpiar las tablas nuevas
-        if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "suppliers", "supplier_bank_accounts" y "supplier_contacts" antes de empezar? Se recomienda para una migración limpia.', true)) {
+        if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "suppliers", "supplier_bank_accounts" y "product_supplier" antes de empezar? Los contactos NO serán eliminados.', true)) {
             try {
                 DB::statement('SET FOREIGN_key_CHECKS=0;');
-                DB::table('supplier_contacts')->truncate();
+                DB::table('product_supplier')->truncate();
                 DB::table('supplier_bank_accounts')->truncate();
                 DB::table('suppliers')->truncate();
+                // NOTA: No truncamos 'contacts' ni 'contact_details'
                 DB::statement('SET FOREIGN_key_CHECKS=1;');
-                $this->warn('Las tablas de proveedores, cuentas bancarias y contactos han sido limpiadas.');
+                $this->warn('Las tablas de destino (excepto contactos) han sido limpiadas.');
             } catch (Throwable $e) {
                 $this->error("Error al limpiar las tablas: " . $e->getMessage());
                 return 1;
@@ -46,70 +48,53 @@ class MigrateLegacySuppliers extends Command
         }
 
         try {
-            // Conexiones a las bases de datos definidas en config/database.php
+            // Conexiones a las bases de datos
             $oldDb = DB::connection('mysql_old');
-            $newDb = DB::connection('mysql'); // Conexión por defecto
+            $newDb = DB::connection('mysql');
 
-            // Usamos una única transacción para asegurar la integridad de todos los datos.
-            // Si algo falla, se revierte toda la migración.
-            $newDb->transaction(function () use ($oldDb, $newDb) {
+            // Caché para los IDs de productos para no consultar la BD repetidamente
+            $productCache = [];
+
+            $newDb->transaction(function () use ($oldDb, $newDb, &$productCache) {
                 
-                // --- 1. Migrar la tabla `suppliers` ---
                 $this->line('');
-                $this->info('Migrando proveedores...');
+                $this->info('Migrando proveedores, asignando contactos y migrando productos...');
                 $old_suppliers = $oldDb->table('suppliers')->orderBy('id')->get();
                 $progressBar = $this->output->createProgressBar($old_suppliers->count());
 
                 foreach ($old_suppliers as $supplier) {
-                    // Verificamos si ya existe un proveedor con este nombre para evitar el error de duplicado.
-                    $isDuplicate = $newDb->table('suppliers')->where('name', $supplier->name)->exists();
-
-                    if ($isDuplicate) {
-                        $this->warn(" Proveedor duplicado en la BD de origen. Omitiendo la inserción de '{$supplier->name}' (ID Antiguo: {$supplier->id}).");
+                    if ($newDb->table('suppliers')->where('name', $supplier->name)->exists()) {
+                        $this->warn("\n  - Omitiendo proveedor duplicado: '{$supplier->name}' (ID Antiguo: {$supplier->id}).");
                         $progressBar->advance();
-                        continue; // Saltamos al siguiente proveedor
+                        continue;
                     }
 
-                    // Mapeo de campos directos
-                    $newSupplierData = [
+                    // --- 1. Migrar datos del proveedor ---
+                    $newDb->table('suppliers')->insert([
                         'id'         => $supplier->id,
                         'name'       => $supplier->name,
                         'nickname'   => $supplier->nickname,
                         'address'    => $supplier->address,
                         'post_code'  => $supplier->post_code,
                         'phone'      => $supplier->phone,
+                        'email'      => null, // El email ahora está en el contacto
+                        'notes'      => null, // Añadir si existe en la tabla antigua
                         'created_at' => $supplier->created_at,
                         'updated_at' => $supplier->updated_at,
-                    ];
+                    ]);
 
-                    $newDb->table('suppliers')->insert($newSupplierData);
-
-                    // --- 2. Migrar las cuentas bancarias (desde JSON) ---
+                    // --- 2. Migrar cuentas bancarias (desde JSON) ---
                     if (!empty($supplier->banks)) {
                         $banks = json_decode($supplier->banks, true);
-                        
                         if (is_array($banks)) {
                             foreach ($banks as $bank) {
-                                // Limpiamos la CLABE para remover espacios y otros caracteres no numéricos.
-                                $rawClabe = $bank['clabe'] ?? null;
-                                $cleanClabe = $rawClabe ? preg_replace('/[^0-9]/', '', $rawClabe) : null;
-                                
-                                // Como seguridad extra, truncamos la clabe a 18 caracteres.
-                                if ($cleanClabe) {
-                                    $cleanClabe = substr($cleanClabe, 0, 18);
-                                }
-
-                                // Mapeo flexible de campos del JSON para manejar inconsistencias.
-                                $accountHolder = $bank['account_holder'] ?? $bank['beneficiary_name'] ?? $supplier->name;
-                                $accountNumber = $bank['account_number'] ?? $bank['accountNumber'] ?? 'N/A';
-
-                                // Aseguramos que los campos existan antes de insertarlos
+                                $cleanClabe = isset($bank['clabe']) ? preg_replace('/[^0-9]/', '', $bank['clabe']) : null;
                                 $newDb->table('supplier_bank_accounts')->insert([
                                     'supplier_id'      => $supplier->id,
                                     'bank_name'        => $bank['bank_name'] ?? 'N/A',
-                                    'account_holder'   => $accountHolder,
-                                    'account_number'   => $accountNumber,
-                                    'clabe'            => $cleanClabe,
+                                    'account_holder'   => $bank['account_holder'] ?? $bank['beneficiary_name'] ?? $supplier->name,
+                                    'account_number'   => $bank['account_number'] ?? 'N/A',
+                                    'clabe'            => $cleanClabe ? substr($cleanClabe, 0, 18) : null,
                                     'currency'         => $bank['currency'] ?? 'MXN',
                                     'created_at'       => $supplier->created_at,
                                     'updated_at'       => $supplier->updated_at,
@@ -118,21 +103,73 @@ class MigrateLegacySuppliers extends Command
                         }
                     }
                     
-                    // --- 3. Migrar el contacto principal ---
-                    // Asumimos que existe una tabla 'contacts' en la BD antigua
-                    if (!empty($supplier->contact_id)) {
-                        $contact = $oldDb->table('contacts')->where('id', $supplier->contact_id)->first();
-                        if ($contact) {
-                            $newDb->table('supplier_contacts')->insert([
-                                'supplier_id' => $supplier->id,
-                                'name'        => $contact->name,
-                                'position'    => $contact->position ?? null,
-                                'email'       => $contact->email ?? null,
-                                'phone'       => $contact->phone ?? 'N/A',
-                                'is_primary'  => true,
-                                'created_at'  => $contact->created_at ?? $supplier->created_at,
-                                'updated_at'  => $contact->updated_at ?? $supplier->updated_at,
-                            ]);
+                    // // --- 3. Asignar Contactos existentes a la tabla polimórfica ---
+                    // if (!empty($supplier->contact_id)) {
+                    //     $old_contact = $oldDb->table('contacts')->where('id', $supplier->contact_id)->first();
+                    //     if ($old_contact && !empty($old_contact->name)) {
+                    //         $contact_name = $old_contact->name;
+                            
+                    //         // Buscamos el contacto en la nueva BD por nombre que aún no esté asignado
+                    //         $new_contact = $newDb->table('contacts')
+                    //             ->where('name', $contact_name)
+                    //             ->whereNull('contactable_id')
+                    //             ->first();
+
+                    //         if ($new_contact) {
+                    //             // Si lo encontramos, actualizamos la relación polimórfica
+                    //             $newDb->table('contacts')->where('id', $new_contact->id)->update([
+                    //                 'contactable_type' => Supplier::class,
+                    //                 'contactable_id'   => $supplier->id,
+                    //             ]);
+                    //         } else {
+                    //             $this->warn("\n  - Advertencia: Contacto '{$contact_name}' no fue encontrado o ya estaba asignado en la nueva BD. No se pudo asociar al proveedor '{$supplier->name}'.");
+                    //         }
+                    //     }
+                    // }
+
+                    // --- 4. Migrar productos relacionados ---
+                    if (!empty($supplier->raw_materials_id)) {
+                        $old_product_ids = json_decode($supplier->raw_materials_id, true);
+                        if (is_array($old_product_ids)) {
+                            foreach ($old_product_ids as $old_id) {
+                                // CORRECCIÓN: Buscar solo en la tabla 'rawm_aterials'
+                                $old_product = $oldDb->table('raw_materials')->where('id', $old_id)->first();
+
+                                if ($old_product && !empty($old_product->name)) {
+                                    $product_name = $old_product->name;
+                                    $new_product_id = null;
+
+                                    if (isset($productCache[$product_name])) {
+                                        $new_product_id = $productCache[$product_name];
+                                    } else {
+                                        $new_product = $newDb->table('products')->where('name', $product_name)->first();
+                                        if ($new_product) {
+                                            $new_product_id = $new_product->id;
+                                            $productCache[$product_name] = $new_product_id;
+                                        } else {
+                                            $productCache[$product_name] = null;
+                                            $this->warn("\n  - Advertencia: Producto '{$product_name}' no encontrado en la nueva BD. No se pudo asociar al proveedor '{$supplier->name}'.");
+                                        }
+                                    }
+
+                                    if ($new_product_id) {
+                                        // CORRECCIÓN: Verificar si la relación ya existe antes de insertar
+                                        $exists = $newDb->table('product_supplier')
+                                            ->where('supplier_id', $supplier->id)
+                                            ->where('product_id', $new_product_id)
+                                            ->exists();
+
+                                        if (!$exists) {
+                                            $newDb->table('product_supplier')->insert([
+                                                'supplier_id' => $supplier->id,
+                                                'product_id'  => $new_product_id,
+                                                'created_at'  => now(),
+                                                'updated_at'  => now(),
+                                            ]);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
@@ -144,10 +181,10 @@ class MigrateLegacySuppliers extends Command
 
             $this->line('');
             $this->info("\n¡MIGRACIÓN DE PROVEEDORES COMPLETADA EXITOSAMENTE!");
-            $this->info("Todos los datos han sido transferidos a la nueva base de datos.");
 
         } catch (Throwable $e) {
             $this->error("\n\nERROR DURANTE LA MIGRACIÓN: " . $e->getMessage());
+            $this->error("Línea: " . $e->getLine() . " en " . $e->getFile());
             $this->error("No se realizó ningún cambio en la nueva base de datos. Revisa el error y vuelve a intentarlo.");
             Log::error('Error en migración de proveedores: ' . $e->getFile() . ' en línea ' . $e->getLine() . ' - ' . $e->getMessage());
             return 1;

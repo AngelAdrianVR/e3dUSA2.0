@@ -11,7 +11,7 @@ class MigrateLegacyProducts extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°3
      * @var string
      */
     protected $signature = 'app:migrate-legacy-products';

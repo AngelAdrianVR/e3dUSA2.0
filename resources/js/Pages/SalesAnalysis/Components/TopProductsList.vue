@@ -13,7 +13,7 @@
           <p class="text-xs text-gray-400">{{ product.code }}</p>
         </div>
         <div class="text-right flex-shrink-0">
-            <p class="font-bold text-base text-gray-600 dark:text-white">{{ product.total_quantity }}</p>
+            <p class="font-bold text-base text-gray-600 dark:text-white">{{ product.total_quantity.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</p>
             <p class="text-xs text-gray-500">unidades</p>
         </div>
       </li>

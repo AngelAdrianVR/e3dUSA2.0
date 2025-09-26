@@ -11,7 +11,7 @@ class MigrateLegacyContacts extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°5 - algunos si los asignó bien, pero solo creó 757 de 910 contactos
      * @var string
      */
     protected $signature = 'app:migrate-legacy-contacts';
@@ -21,23 +21,28 @@ class MigrateLegacyContacts extends Command
      *
      * @var string
      */
-    protected $description = 'Migra los contactos desde la base de datos antigua a las nuevas tablas (contacts, contact_details y supplier_contacts).';
+    protected $description = 'Migrates contacts polymorphically from the old database to the new structure.';
+
+    /**
+     * Cache for new branch IDs to avoid repeated DB queries.
+     * @var array
+     */
+    private $branchNameCache = [];
 
     /**
      * Execute the console command.
      */
     public function handle()
     {
-        $this->info("Iniciando la migración de contactos...");
-        $this->warn("IMPORTANTE: Asegúrate de haber ejecutado primero la migración de clientes (sucursales) y proveedores, ya que este script depende de sus IDs.");
+        $this->info("Iniciando la migración de contactos polimórficos...");
+        $this->warn("IMPORTANTE: Asegúrate de haber ejecutado primero la migración de clientes (branches) y proveedores.");
 
-        if ($this->confirm('¿Deseas eliminar los datos de las tablas "contacts", "contact_details" y "supplier_contacts" antes de empezar?')) {
+        if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "contacts" y "contact_details" antes de empezar?')) {
             DB::statement('SET FOREIGN_KEY_CHECKS=0;');
             DB::table('contact_details')->truncate();
             DB::table('contacts')->truncate();
-            DB::table('supplier_contacts')->truncate();
             DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-            $this->warn('Las tablas de contactos han sido limpiadas.');
+            $this->warn('Las tablas "contacts" y "contact_details" han sido limpiadas.');
         }
 
         try {
@@ -45,8 +50,7 @@ class MigrateLegacyContacts extends Command
             $newDb = DB::connection('mysql');
 
             $newDb->transaction(function () use ($oldDb, $newDb) {
-                $this->migrateBranchContacts($oldDb, $newDb);
-                $this->migrateSupplierContacts($oldDb, $newDb);
+                $this->migrateContacts($oldDb, $newDb);
             });
 
             $this->info("\n\n¡MIGRACIÓN DE CONTACTOS COMPLETADA EXITOSAMENTE!");
@@ -61,45 +65,91 @@ class MigrateLegacyContacts extends Command
     }
 
     /**
-     * Migra los contactos asociados a Sucursales (CompanyBranch).
+     * Migra todos los contactos polimórficos (Branch y Supplier).
      */
-    private function migrateBranchContacts($oldDb, $newDb)
+    private function migrateContacts($oldDb, $newDb)
     {
-        $contactable_type = 'App\Models\CompanyBranch';
-        
+        // Incluimos Company y CompanyBranch, ya que sus contactos migran a Branch
         $old_contacts = $oldDb->table('contacts')
-                              ->where('contactable_type', $contactable_type)
+                              ->whereIn('contactable_type', ['App\Models\Company', 'App\Models\CompanyBranch', 'App\Models\Supplier'])
+                              ->orderBy('contactable_type')
                               ->orderBy('contactable_id')
                               ->get();
 
         if ($old_contacts->isEmpty()) {
-            $this->warn("\nNo se encontraron contactos de sucursales (CompanyBranch) para migrar.");
+            $this->warn("\nNo se encontraron contactos de sucursales o proveedores para migrar.");
             return;
         }
 
-        $this->info("\nMigrando " . $old_contacts->count() . " contactos de sucursales...");
+        $this->info("\nMigrando " . $old_contacts->count() . " contactos...");
         $progressBar = $this->output->createProgressBar($old_contacts->count());
         
-        $processedBranches = []; // Para asignar el 'is_primary' al primer contacto de cada sucursal
+        $processedContactables = []; // Para asignar 'is_primary' al primer contacto de cada entidad
 
         foreach ($old_contacts as $contact) {
-            // El contactable_id corresponde al id de la sucursal en la nueva tabla 'branches'
-            $branchId = $contact->contactable_id;
+            $newContactableType = null;
+            $newParentId = null;
+
+            // Mapear el tipo y buscar el ID del padre en la nueva DB
+            switch ($contact->contactable_type) {
+                case 'App\Models\Company':
+                case 'App\Models\CompanyBranch':
+                    $newContactableType = 'App\Models\Branch';
+                    $oldParentName = null;
+
+                    if ($contact->contactable_type === 'App\Models\Company') {
+                        $oldParent = $oldDb->table('companies')->where('id', $contact->contactable_id)->first();
+                        $oldParentName = $oldParent->business_name ?? null;
+                    } else { // CompanyBranch
+                        $oldParent = $oldDb->table('company_branches')->where('id', $contact->contactable_id)->first();
+                        $oldParentName = $oldParent->name ?? null;
+                    }
+                    
+                    if ($oldParentName) {
+                        // Usamos un cache para no consultar el mismo nombre de branch repetidamente
+                        if (isset($this->branchNameCache[$oldParentName])) {
+                            $newParentId = $this->branchNameCache[$oldParentName];
+                        } else {
+                            $newBranch = $newDb->table('branches')->where('name', $oldParentName)->first();
+                            if ($newBranch) {
+                                $newParentId = $newBranch->id;
+                                $this->branchNameCache[$oldParentName] = $newParentId; // Guardar en cache
+                            }
+                        }
+                    }
+
+                    if (!$newParentId) {
+                         $this->warn("\nAdvertencia: No se encontró un cliente (branch) con el nombre '{$oldParentName}'. Saltando contacto '{$contact->name}' (ID: {$contact->id}).");
+                         $progressBar->advance();
+                         continue 2;
+                    }
+                    break;
+                    
+                case 'App\Models\Supplier':
+                    $newContactableType = 'App\Models\Supplier';
+                    // Para proveedores, el ID debería coincidir. Lo verificamos.
+                    $parentExists = $newDb->table('suppliers')->where('id', $contact->contactable_id)->exists();
+                     if ($parentExists) {
+                        $newParentId = $contact->contactable_id;
+                    } else {
+                        $this->warn("\nAdvertencia: El proveedor con ID antiguo {$contact->contactable_id} no existe. Saltando contacto '{$contact->name}' (ID: {$contact->id}).");
+                        $progressBar->advance();
+                        continue 2;
+                    }
+                    break;
+            }
             
-            // Verificamos si la sucursal existe en la nueva BD
-            if (!$newDb->table('branches')->where('id', $branchId)->exists()) {
-                 $this->warn("\nAdvertencia: La sucursal (branch) con ID antiguo {$branchId} no existe en la nueva base de datos. Saltando contacto '{$contact->name}'.");
-                 $progressBar->advance();
-                 continue;
-            }
-
-            $isPrimary = !in_array($branchId, $processedBranches);
+            // Determinar si es el contacto principal para la NUEVA entidad padre
+            $contactableKey = $newContactableType . '-' . $newParentId;
+            $isPrimary = !in_array($contactableKey, $processedContactables);
             if ($isPrimary) {
-                $processedBranches[] = $branchId;
+                $processedContactables[] = $contactableKey;
             }
 
-            $newContactId = $newDb->table('contacts')->insertGetId([
-                'branch_id' => $branchId,
+            $newDb->table('contacts')->insert([
+                'id' => $contact->id, // Mantener el ID original del contacto
+                'contactable_type' => $newContactableType,
+                'contactable_id' => $newParentId, // Usar el NUEVO ID encontrado por nombre
                 'name' => $contact->name,
                 'charge' => $contact->charge,
                 'birthdate' => $this->formatBirthdate($contact->birthdate_day, $contact->birthdate_month),
@@ -109,59 +159,8 @@ class MigrateLegacyContacts extends Command
             ]);
 
             // Migrar detalles de contacto (emails y teléfonos)
-            $this->migrateContactDetails($newDb, $newContactId, $contact);
+            $this->migrateContactDetails($newDb, $contact->id, $contact);
 
-            $progressBar->advance();
-        }
-        $progressBar->finish();
-    }
-
-    /**
-     * Migra los contactos asociados a Proveedores (Suppliers).
-     */
-    private function migrateSupplierContacts($oldDb, $newDb)
-    {
-        $old_contacts = $oldDb->table('contacts')
-                              ->where('contactable_type', 'App\Models\Supplier')
-                              ->orderBy('contactable_id')
-                              ->get();
-        
-        if ($old_contacts->isEmpty()) {
-            $this->warn("\nNo se encontraron contactos de proveedores para migrar.");
-            return;
-        }
-
-        $this->info("\nMigrando " . $old_contacts->count() . " contactos de proveedores...");
-        $progressBar = $this->output->createProgressBar($old_contacts->count());
-
-        $processedSuppliers = []; // Para asignar el 'is_primary' al primer contacto de cada proveedor
-
-        foreach ($old_contacts as $contact) {
-            $supplierId = $contact->contactable_id;
-            
-            // Verificamos si el proveedor existe en la nueva BD.
-            if (!$newDb->table('suppliers')->where('id', $supplierId)->exists()) {
-                 $this->warn("\nAdvertencia: El proveedor con ID antiguo {$supplierId} no existe en la nueva base de datos. Saltando contacto '{$contact->name}'.");
-                 $progressBar->advance();
-                 continue;
-            }
-
-            $isPrimary = !in_array($supplierId, $processedSuppliers);
-            if ($isPrimary) {
-                $processedSuppliers[] = $supplierId;
-            }
-
-            $newDb->table('supplier_contacts')->insert([
-                'supplier_id' => $supplierId,
-                'name' => $contact->name,
-                'position' => $contact->charge, // Mapeamos 'charge' a 'position'
-                'email' => $contact->email,
-                'phone' => $contact->phone,
-                'is_primary' => $isPrimary,
-                'created_at' => $contact->created_at,
-                'updated_at' => $contact->updated_at,
-            ]);
-            
             $progressBar->advance();
         }
         $progressBar->finish();

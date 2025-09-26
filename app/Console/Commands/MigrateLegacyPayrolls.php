@@ -12,7 +12,7 @@ class MigrateLegacyPayrolls extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°2. Está todo bien, solo hay que actualizar sueldo , bonos y descuentos de usuarios
      * @var string
      */
     protected $signature = 'app:migrate-legacy-payrolls';

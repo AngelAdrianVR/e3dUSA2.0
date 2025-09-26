@@ -11,7 +11,7 @@ class MigrateLegacyQuotes extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°11 todo bien!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-quotes';
@@ -52,7 +52,13 @@ class MigrateLegacyQuotes extends Command
             $oldDb = DB::connection('mysql_old');
             $newDb = DB::connection('mysql');
 
-            $newDb->transaction(function () use ($oldDb, $newDb, &$notFoundProducts, &$missingForeignKeys) {
+            // --- Cargar mapeos de sucursales ---
+            $this->info('Cargando mapeo de sucursales...');
+            $oldBranches = $oldDb->table('company_branches')->pluck('name', 'id');
+            $newBranches = $newDb->table('branches')->pluck('id', 'name');
+            $this->info('Mapeo de sucursales cargado.');
+
+            $newDb->transaction(function () use ($oldDb, $newDb, $oldBranches, $newBranches, &$notFoundProducts, &$missingForeignKeys) {
                 
                 $this->line('');
                 $this->info('Migrando cotizaciones...');
@@ -64,15 +70,16 @@ class MigrateLegacyQuotes extends Command
                 $progressBar->start();
 
                 foreach ($oldQuotes as $oldQuote) {
-                    // --- Verificación de llaves foráneas ---
-                    $branchId = $oldQuote->company_branch_id;
-                    $userId = $oldQuote->user_id;
-
-                    if ($branchId && !$newDb->table('branches')->where('id', $branchId)->exists()) {
-                        $missingForeignKeys['branch'][] = "Cotización ID {$oldQuote->id} -> Sucursal ID {$branchId}";
-                        $branchId = null;
+                    // --- Mapeo de Sucursal por nombre ---
+                    $oldBranchName = $oldBranches->get($oldQuote->company_branch_id);
+                    $newBranchId = $oldBranchName ? $newBranches->get($oldBranchName) : null;
+                    
+                    if (!$newBranchId) {
+                        $missingForeignKeys['branch'][] = "Cotización ID {$oldQuote->id} -> Sucursal '{$oldBranchName}' no encontrada en la nueva BD.";
                     }
 
+                    // --- Verificación de usuario ---
+                    $userId = $oldQuote->user_id;
                     if ($userId && !$newDb->table('users')->where('id', $userId)->exists()) {
                         $missingForeignKeys['user'][] = "Cotización ID {$oldQuote->id} -> Usuario ID {$userId}";
                         $userId = null;
@@ -102,7 +109,7 @@ class MigrateLegacyQuotes extends Command
                         'has_early_payment_discount' => $oldQuote->early_payment_discount,
                         'early_payment_discount_amount' => $oldQuote->discount ?? 0,
                         'early_paid_at' => $oldQuote->early_paid_at,
-                        'branch_id' => $branchId,
+                        'branch_id' => $newBranchId, // Usamos el ID nuevo encontrado
                         'user_id' => $userId,
                         'sale_id' => $oldQuote->sale_id, // Se migra directamente
                         'created_at' => $oldQuote->created_at,
@@ -216,4 +223,3 @@ class MigrateLegacyQuotes extends Command
         return $oldQuote->freight_option ?? 'Por cuenta del cliente';
     }
 }
-
