@@ -12,7 +12,7 @@ class MigrateLegacyStorage extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * En cualquier orden despues de los productos.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-storage';

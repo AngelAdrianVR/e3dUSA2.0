@@ -12,7 +12,7 @@ class MigrateLegacyPayrolls extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°2.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-payrolls';

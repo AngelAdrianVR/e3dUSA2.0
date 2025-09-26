@@ -6,13 +6,13 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
-use Illuminate\Support\Collection;
 
-class MigrateLegacyProducts extends Command
+class MigrateLegacyBranchProducts extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°6. existen sucursales que se llaman igual que la matriz y a esas sucursales les asigna los productos (esta correcto porque así esta en el antiguo, pero no
+     * es loo ideal)
      * @var string
      */
     protected $signature = 'app:migrate-legacy-branch-products';
@@ -22,7 +22,7 @@ class MigrateLegacyProducts extends Command
      *
      * @var string
      */
-    protected $description = 'Migra productos asignados a clientes, precios especiales e inventario desde la BD antigua.';
+    protected $description = 'Migra los productos asignados a clientes y su historial de precios desde la BD antigua.';
 
     /**
      * Execute the console command.
@@ -31,16 +31,14 @@ class MigrateLegacyProducts extends Command
      */
     public function handle()
     {
-        $this->info("Iniciando la migración de Productos, Precios y Almacenes...");
+        $this->info("Iniciando la migración de productos por cliente y precios especiales...");
 
-        // Confirmación para limpiar las tablas nuevas
-        if ($this->confirm('¿Deseas eliminar TODOS los datos de "branch_product" y "branch_price_history" antes de empezar? Los datos de "storages" solo se actualizarán.', true)) {
+        if ($this->confirm('¿Deseas eliminar TODOS los datos de "branch_product" y "branch_price_history" antes de empezar?', true)) {
             try {
-                DB::statement('SET FOREIGN_key_CHECKS=0;');
+                DB::statement('SET FOREIGN_KEY_CHECKS=0;');
                 DB::table('branch_product')->truncate();
                 DB::table('branch_price_history')->truncate();
-                // Ya no se trunca la tabla storages
-                DB::statement('SET FOREIGN_key_CHECKS=1;');
+                DB::statement('SET FOREIGN_KEY_CHECKS=1;');
                 $this->warn('Las tablas "branch_product" y "branch_price_history" han sido limpiadas.');
             } catch (Throwable $e) {
                 $this->error("Error al limpiar las tablas: " . $e->getMessage());
@@ -53,18 +51,14 @@ class MigrateLegacyProducts extends Command
             $newDb = DB::connection('mysql');
 
             $newDb->transaction(function () use ($oldDb, $newDb) {
-                // --- CACHING ---
-                // Para evitar consultas N+1, cargamos los datos necesarios de la nueva BD en memoria.
-                $this->line('Cacheando datos de la nueva base de datos...');
+                $this->line('Cacheando datos necesarios de la nueva base de datos...');
                 $newBranches = $newDb->table('branches')->pluck('id', 'name');
                 $newProducts = $newDb->table('products')->pluck('id', 'name');
                 $this->info('Datos cacheados con éxito.');
 
-                // --- 1. Migrar Relaciones Cliente-Producto y Precios ---
                 $this->line('');
-                $this->info('Migrando relaciones y precios por cliente...');
-
-                // Asumimos que la tabla 'companies' en la BD antigua contiene el nombre del cliente/sucursal
+                $this->info('Migrando relaciones cliente-producto y su historial de precios...');
+                
                 $oldRelations = $oldDb->table('catalog_product_company as cpc')
                     ->join('companies', 'companies.id', '=', 'cpc.company_id')
                     ->join('catalog_products', 'catalog_products.id', '=', 'cpc.catalog_product_id')
@@ -86,12 +80,14 @@ class MigrateLegacyProducts extends Command
                     $newProductId = $newProducts->get($relation->product_name);
 
                     if (!$newBranchId) {
-                        $this->warn("\nAdvertencia: No se encontró la sucursal '{$relation->branch_name}' en la nueva BD. Saltando...");
+                        $this->warn("\nAdvertencia: No se encontró la sucursal '{$relation->branch_name}' en la nueva BD. Saltando relación de producto.");
+                        $progressBar->advance();
                         continue;
                     }
 
                     if (!$newProductId) {
-                        $this->warn("\nAdvertencia: No se encontró el producto '{$relation->product_name}' en la nueva BD. Saltando...");
+                        $this->warn("\nAdvertencia: No se encontró el producto '{$relation->product_name}' en la nueva BD. Saltando relación de producto.");
+                        $progressBar->advance();
                         continue;
                     }
 
@@ -108,64 +104,16 @@ class MigrateLegacyProducts extends Command
                 }
 
                 $progressBar->finish();
-                $this->info(' -> Relaciones y precios migrados.');
-
-                // --- 2. Migrar Inventario (Storages) ---
-                $this->line('');
-                $this->info('Actualizando inventario de productos (storages)...');
-
-                // Cachear productos de la BD antigua para no hacer consultas en el bucle
-                $oldCatalogProducts = $oldDb->table('catalog_products')->pluck('name', 'id');
-                $oldRawMaterials = $oldDb->table('raw_materials')->pluck('name', 'id');
-
-                // Obtener todos los registros de la tabla de storages antigua
-                $oldStorages = $oldDb->table('storages')->get();
-                $progressBarStorages = $this->output->createProgressBar($oldStorages->count());
-
-                foreach ($oldStorages as $storage) {
-                    $productName = null;
-
-                    // Determinar el nombre del producto basado en el campo 'type' y el 'storable_id'
-                    // de la tabla polimórfica antigua
-                    if (isset($storage->type) && str_contains($storage->type, 'CatalogProduct')) {
-                        $productName = $oldCatalogProducts->get($storage->storable_id);
-                    } elseif (isset($storage->type) && str_contains($storage->type, 'RawMaterial')) {
-                        $productName = $oldRawMaterials->get($storage->storable_id);
-                    }
-
-                    if ($productName) {
-                        $newProductId = $newProducts->get($productName);
-                        if ($newProductId) {
-                            $newDb->table('storages')
-                                ->where('storable_id', $newProductId)
-                                ->where('storable_type', 'App\Models\Product')
-                                ->update([
-                                    'quantity' => $storage->quantity,
-                                    'location' => $storage->location,
-                                    'updated_at' => $storage->updated_at,
-                                ]);
-                        } else {
-                            $this->warn("\nAdvertencia: Producto de inventario '{$productName}' no encontrado en la nueva BD. Saltando.");
-                        }
-                    } else {
-                         $this->warn("\nAdvertencia: No se pudo encontrar el producto original para el storage id {$storage->id}. Saltando...");
-                    }
-                    $progressBarStorages->advance();
-                }
-
-                $progressBarStorages->finish();
-                $this->info(' -> Inventario actualizado.');
-
+                $this->info("\n -> Relaciones y precios migrados correctamente.");
             });
 
             $this->line('');
-            $this->info("\n¡MIGRACIÓN COMPLETADA EXITOSAMENTE!");
+            $this->info("¡MIGRACIÓN COMPLETADA EXITOSAMENTE!");
 
         } catch (Throwable $e) {
             $this->error("\n\nERROR DURANTE LA MIGRACIÓN: " . $e->getMessage());
             $this->error("Línea: " . $e->getLine() . " en " . $e->getFile());
-            $this->error("No se realizó ningún cambio en la nueva base de datos. Revisa el error y vuelve a intentarlo.");
-            Log::error('Error en migración de productos: ' . $e->getFile() . ' L:' . $e->getLine() . ' - ' . $e->getMessage());
+            Log::error('Error en migración de branch-products: ' . $e->getFile() . ' L:' . $e->getLine() . ' - ' . $e->getMessage());
             return 1;
         }
 
@@ -174,12 +122,6 @@ class MigrateLegacyProducts extends Command
 
     /**
      * Migra los 3 precios (new, old, oldest) a la nueva tabla de historial.
-     *
-     * @param \Illuminate\Database\Connection $newDb
-     * @param int $branchId
-     * @param int $productId
-     * @param object $relation
-     * @return void
      */
     private function migratePrices($newDb, $branchId, $productId, $relation): void
     {
@@ -205,8 +147,7 @@ class MigrateLegacyProducts extends Command
                 'price' => $relation->old_price,
                 'currency' => $relation->old_currency ?? 'MXN',
                 'valid_from' => $relation->old_date,
-                // La vigencia de este precio termina cuando empieza el 'nuevo'
-                'valid_to' => $relation->new_date,
+                'valid_to' => $relation->new_date, // La vigencia termina cuando empieza el 'nuevo'
                 'created_at' => $relation->created_at,
                 'updated_at' => $relation->updated_at,
             ]);
@@ -220,12 +161,10 @@ class MigrateLegacyProducts extends Command
                 'price' => $relation->oldest_price,
                 'currency' => $relation->oldest_currency ?? 'MXN',
                 'valid_from' => $relation->oldest_date,
-                 // La vigencia de este precio termina cuando empieza el 'antiguo'
-                'valid_to' => $relation->old_date,
+                'valid_to' => $relation->old_date, // La vigencia termina cuando empieza el 'antiguo'
                 'created_at' => $relation->created_at,
                 'updated_at' => $relation->updated_at,
             ]);
         }
     }
 }
-

@@ -6,14 +6,15 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\Product; // Asegúrate de importar tu modelo Product
-use App\Models\SupplierContact; // Importar el modelo de contacto del proveedor
+use App\Models\Supplier; // Importar el modelo Supplier para la relación polimórfica
 use Throwable;
 
 class MigrateLegacyPurchases extends Command
 {
     /**
      * The name and signature of the console command.
-     *
+     * N°9. Funciona perfecto solo que hay que editarlos para agregar los totales pero es muy sencillo. Los contactos no estan completos pero es problema de la
+     * migracion de contactos.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-purchases';
@@ -63,19 +64,21 @@ class MigrateLegacyPurchases extends Command
                 $progressBar = $this->output->createProgressBar($old_purchases->count());
 
                 foreach ($old_purchases as $purchase) {
-                    // Mapeo del ID de contacto
-                    $supplierContactId = null;
+                    // Mapeo del ID de contacto polimórfico
+                    $contactId = null;
                     if ($purchase->contact_id) {
                         // 1. Buscar el contacto en la BD antigua por ID para obtener el nombre
                         $oldContact = $oldDb->table('contacts')->find($purchase->contact_id);
 
                         if ($oldContact) {
-                            // 2. Buscar el contacto en la BD nueva por nombre y proveedor para obtener el nuevo ID
-                            $newContact = SupplierContact::where('name', $oldContact->name)
-                                                         ->where('supplier_id', $purchase->supplier_id)
+                            // 2. Buscar el contacto en la BD nueva por nombre y la relación polimórfica con el proveedor
+                            $newContact = $newDb->table('contacts')
+                                                         ->where('name', $oldContact->name)
+                                                         ->where('contactable_type', Supplier::class)
+                                                         ->where('contactable_id', $purchase->supplier_id)
                                                          ->first();
                             if ($newContact) {
-                                $supplierContactId = $newContact->id;
+                                $contactId = $newContact->id;
                             } else {
                                 $this->warn("\nContacto '{$oldContact->name}' no encontrado para el proveedor ID {$purchase->supplier_id} en la nueva BD. Se omitirá en la compra ID {$purchase->id}.");
                             }
@@ -90,7 +93,7 @@ class MigrateLegacyPurchases extends Command
                         'status' => $this->mapPurchaseStatus($purchase->status),
                         'supplier_id' => $purchase->supplier_id,
                         'user_id' => $purchase->user_id,
-                        'supplier_contact_id' => $supplierContactId,
+                        'contact_id' => $contactId, // Campo corregido
                         'notes' => $purchase->notes,
                         'shipping_details' => $purchase->carrier, 
                         'rating' => $purchase->rating,
@@ -170,4 +173,3 @@ class MigrateLegacyPurchases extends Command
         };
     }
 }
-

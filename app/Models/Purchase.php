@@ -30,7 +30,7 @@ class Purchase extends Model implements HasMedia, Auditable
         'supplier_id',
         'user_id',
         'authorizer_id',
-        'supplier_contact_id',
+        'contact_id',
         'supplier_bank_account_id',
         'subtotal',
         // 'type', // Venta, Muestra

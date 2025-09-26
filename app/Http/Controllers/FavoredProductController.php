@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FavoredProduct;
+use App\Models\StockMovement;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,22 +35,39 @@ class FavoredProductController extends Controller
         ]);
 
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($request, $favoredProduct) {
+                $quantityToDiscount = $request->input('quantity');
+                
+                // Cargar la relación con el producto principal
+                $product = $favoredProduct->product;
 
-            $favoredProduct->decrement('quantity', $request->quantity);
+                if (!$product) {
+                    throw new \Exception('El producto a favor no está asociado a ningún producto del inventario.');
+                }
 
-            // Opcional: Registrar el descuento en un log o historial
-            // History::create([...]);
+                // 1. Descontar la cantidad del producto a favor
+                $favoredProduct->decrement('quantity', $quantityToDiscount);
 
-            DB::commit();
+                // 2. Agregar la cantidad al stock del producto principal
+                $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
+                $storage->increment('quantity', $quantityToDiscount);
+
+                // 3. Crear el movimiento de stock
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'storage_id' => $storage->id,
+                    'quantity_change' => $quantityToDiscount,
+                    'type' => 'Entrada',
+                    'notes' => 'Entrada por descuento de stock a favor'
+                ]);
+            });
 
             // Devolver el producto actualizado
-            $favoredProduct->load('product'); // Recargar la relación del producto
+            $favoredProduct->refresh()->load('product');
             return response()->json($favoredProduct);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Error al descontar la cantidad.'], 500);
+            return response()->json(['message' => 'Error al descontar la cantidad: ' . $e->getMessage()], 500);
         }
     }
 }
