@@ -278,4 +278,40 @@ class InvoiceController extends Controller
 
         return back()->with('success', 'Archivos adjuntados correctamente.');
     }
+
+    /**
+     * Genera un reporte de facturas pendientes en un rango de fechas.
+     */
+    public function pendingReport(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+        ]);
+
+        $startDate = $request->start_date;
+        $endDate = $request->end_date;
+
+        // Buscar OVs que tengan facturas con estatus pendiente/vencido/parcial
+        // y cuya fecha de emisión esté en el rango seleccionado.
+        $sales = Sale::whereHas('invoices', function ($query) use ($startDate, $endDate) {
+            $query->whereIn('status', ['Pendiente', 'Parcialmente pagada', 'Vencida'])
+                  ->whereBetween('issue_date', [$startDate, $endDate]);
+        })
+        ->with([
+            // Cargar todas las facturas de esas OVs para dar contexto completo.
+            'invoices' => function ($query) {
+                $query->with('payments')->orderBy('installment_number', 'asc');
+            }, 
+            'branch:id,name'
+        ])
+        ->get();
+        
+        // Devuelve la vista del reporte con los datos.
+        // Asegúrate de que no se use el layout principal para que la vista sea limpia para imprimir.
+        return Inertia::render('Invoice/PendingInvoicesReport', [
+            'sales' => $sales,
+            'report_dates' => ['start' => $startDate, 'end' => $endDate],
+        ]);
+    }
 }

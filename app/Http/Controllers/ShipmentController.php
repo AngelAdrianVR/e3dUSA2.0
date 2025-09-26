@@ -23,7 +23,7 @@ class ShipmentController extends Controller
             ]) // Carga las relaciones de envíos y sucursal (cliente)
             ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
             ->latest() // Ordena por los más recientes
-            ->paginate(10); // Pagina los resultados
+            ->paginate(20); // Pagina los resultados
 
             // return $salesWithShipments;
         // Renderiza la vista de Inertia, pasando los datos de las ventas.

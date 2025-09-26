@@ -12,7 +12,7 @@ class MigrateLegacyBranchProducts extends Command
     /**
      * The name and signature of the console command.
      * N°6. existen sucursales que se llaman igual que la matriz y a esas sucursales les asigna los productos (esta correcto porque así esta en el antiguo, pero no
-     * es loo ideal)
+     * es lo ideal)
      * @var string
      */
     protected $signature = 'app:migrate-legacy-branch-products';

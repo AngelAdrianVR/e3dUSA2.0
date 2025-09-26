@@ -10,7 +10,7 @@ class MigrateLegacyUsers extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°1
+     * N°1 bien pero hay que editar algunas cosas de sueldos y dias de trabajo
      * @var string
      */
     protected $signature = 'app:migrate-legacy-users';

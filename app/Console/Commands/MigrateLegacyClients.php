@@ -12,7 +12,7 @@ class MigrateLegacyClients extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°4
+     * N°4 Todo corercto!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-clients';

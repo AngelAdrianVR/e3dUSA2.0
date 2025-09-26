@@ -11,7 +11,7 @@ class MigrateLegacyMachines extends Command
 {
     /**
      * The name and signature of the console command.
-     * Puede ir en cualquier orden
+     * Puede ir en cualquier orden. Todo bien!
      * @var string
      */
     protected $signature = 'app:migrate-legacy-machines';
