@@ -296,7 +296,7 @@ class SaleController extends Controller
     public function show(Sale $sale)
     {
         $sale->load([
-            'branch:id,name,rfc,address,post_code,status,important_notes',
+            'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
             'productions.tasks', // para darle info al accesor y mostrar estatus de la producción.

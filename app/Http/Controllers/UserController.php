@@ -196,13 +196,13 @@ class UserController extends Controller
             'work_schedule' => 'present|array|size:7',
             'work_schedule.*.works' => 'required|boolean',
             'work_schedule.*.start_time' => 'nullable|required_if:work_schedule.*.works,true',
-            'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|after:work_schedule.*.start_time',
+            // 'work_schedule.*.end_time' => 'nullable|required_if:work_schedule.*.works,true|after:work_schedule.*.start_time',
             'work_schedule.*.break_minutes' => 'nullable|required_if:work_schedule.*.works,true|integer|min:0',
         ], [
             // Mensajes de error personalizados
             'work_schedule.*.start_time.required_if' => 'La hora de entrada es obligatoria para días laborales.',
-            'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
-            'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
+            // 'work_schedule.*.end_time.required_if' => 'La hora de salida es obligatoria para días laborales.',
+            // 'work_schedule.*.end_time.after' => 'La hora de salida debe ser posterior a la de entrada.',
             'work_schedule.*.break_minutes.required_if' => 'El tiempo de comida es obligatorio para días laborales.',
         ]);
 

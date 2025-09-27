@@ -52,17 +52,27 @@
 
                                 <div>
                                     <InputLabel value="Cliente*" />
-                                    <el-select v-model="form.branch_id" :disabled="form.quote_id ? true : false" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
-                                        <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                                    </el-select>
+                                     <div class="flex items-center space-x-2">
+                                        <el-select v-model="form.branch_id" :disabled="form.quote_id ? true : false" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
+                                            <el-option v-for="branch in localBranches" :key="branch.id" :label="branch.name" :value="branch.id" />
+                                        </el-select>
+                                        <el-button @click="branchModalVisible = true" type="primary" circle plain :disabled="form.quote_id ? true : false">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </el-button>
+                                    </div>
                                     <InputError :message="form.errors.branch_id" />
                                 </div>
 
                                  <div>
                                     <InputLabel value="Contacto*" />
-                                    <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero">
-                                        <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
-                                    </el-select>
+                                    <div class="flex items-center space-x-2">
+                                        <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero" :disabled="!form.branch_id">
+                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
+                                        </el-select>
+                                        <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </el-button>
+                                    </div>
                                     <InputError :message="form.errors.contact_id" />
                                 </div>
                             </template>
@@ -252,6 +262,41 @@
             :branches="branches"
             :catalog_products="catalog_products"
         />
+
+        <!-- MODALES DE CREACIÓN RÁPIDA -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
+            <form @submit.prevent="storeQuickContact">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
+                    <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="contactModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickContact" :loading="quickContactForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -272,6 +317,7 @@ import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.v
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import { h } from 'vue';
+import axios from 'axios';
 
 export default {
     components: {
@@ -313,9 +359,24 @@ export default {
                 oce_media: null,
                 anotherFiles: null,
                 shipping_option: null,
-                // promise_date: null, // se toma del promise_date del primer envío
                 shipments: [], 
             }),
+            // --- PROPIEDADES PARA CREACIÓN RÁPIDA ---
+            localBranches: [],
+            branchModalVisible: false,
+            contactModalVisible: false,
+            quickBranchForm: {
+                name: '',
+                rfc: '',
+                processing: false,
+                errors: {},
+            },
+            quickContactForm: {
+                name: '',
+                charge: '',
+                processing: false,
+                errors: {},
+            },
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
@@ -351,6 +412,9 @@ export default {
         }
     },
     watch: {
+        branches(newVal) {
+            this.localBranches = [...newVal];
+        },
         'form.type'(newType) {
             // Limpia el formulario al cambiar de tipo para evitar enviar datos incorrectos
             if (newType === 'stock') {
@@ -501,7 +565,7 @@ export default {
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
             
-            const selectedBranch = this.branches.find(b => b.id === branchId);
+            const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
             await this.fetchClientProducts();
@@ -596,7 +660,73 @@ export default {
                 customization_details: product.customization_details || [],
                 is_new_design: false,
             });
-        }
+        },
+        // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    this.form.branch_id = newBranch.id;
+                    await this.handleBranchChange(newBranch.id); // Llama para actualizar contactos y productos
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.quickBranchForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
+        async storeQuickContact() {
+            if (!this.form.branch_id) {
+                 ElMessage.warning('Primero debes seleccionar un cliente.');
+                 return;
+            }
+            this.quickContactForm.processing = true;
+            this.quickContactForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store.contact', { branch: this.form.branch_id }), this.quickContactForm);
+                if (response.status === 200) {
+                    const newContact = response.data;
+                    this.availableContacts.push(newContact);
+                    
+                    const parentBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+                    if (parentBranch) {
+                        parentBranch.contacts.push(newContact);
+                    }
+
+                    this.form.contact_id = newContact.id;
+                    this.contactModalVisible = false;
+                    this.quickContactForm.name = '';
+                    this.quickContactForm.charge = '';
+                    ElMessage.success('Contacto creado exitosamente');
+                }
+            } catch (error)
+            {
+                if (error.response && error.response.status === 422) {
+                    this.quickContactForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el contacto.');
+                }
+            } finally {
+                this.quickContactForm.processing = false;
+            }
+        },
+    },
+    created() {
+        this.localBranches = [...this.branches];
     },
     mounted() {
         if (this.quoteToConvertId) {

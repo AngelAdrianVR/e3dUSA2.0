@@ -4,7 +4,7 @@
         <h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">Órdenes de Venta disponibles</h5>
         <p>¿Cero tareas pendientes?. ¡Pide tareas para avanzar!</p>
    </div>
-   <div class="flow-root">
+   <div class="flow-root max-h-96 overflow-y-auto">
         <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
             <li v-for="order in orders" :key="order.id" class="py-3 sm:py-4">
                 <div class="flex items-center space-x-4">

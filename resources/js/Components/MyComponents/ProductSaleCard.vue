@@ -45,7 +45,7 @@
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">Precio Unitario (Venta)</p>
-                        <p class="font-semibold text-lg text-green-600 dark:text-green-400">{{ formatCurrency(saleProduct.price) }} {{ saleCurrency }}</p>
+                        <p class="font-semibold text-lg text-green-600 dark:text-green-400">{{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
@@ -53,7 +53,7 @@
                     </div>
                      <div>
                         <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
-                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ saleCurrency }}</p>
+                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
                 </div>
             </div>
