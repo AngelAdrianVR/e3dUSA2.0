@@ -61,18 +61,20 @@ class MigrateLegacySales extends Command
             $newBranches = $newDb->table('branches')->pluck('id', 'name');
 
             // Mapeo de Productos (en varios pasos)
-            // 1. [catalog_product_id => name] de la BD antigua
             $oldCatalogProducts = $oldDb->table('catalog_products')->pluck('name', 'id');
-            // 2. [catalog_product_company_id => catalog_product_id] de la BD antigua
             $oldCompanyProductToCatalog = $oldDb->table('catalog_product_company')->pluck('catalog_product_id', 'id');
-            // 3. [name => new_product_id] de la BD nueva
             $newProducts = $newDb->table('products')->pluck('id', 'name');
-            $this->info('Mapeos cargados.');
+
+            // --- NUEVO: Mapeo de Precios de Productos ---
+            $this->info('Cargando mapeo de precios...');
+            $oldCompanyProductPrices = $oldDb->table('catalog_product_company')->pluck('new_price', 'id');
+            $this->info('Mapeo de precios cargado.');
+
 
             // Obtenemos los IDs de las últimas 500 ventas para procesar sus envíos después.
             $last500SaleIds = $oldDb->table('sales')->orderBy('id', 'desc')->limit(500)->pluck('id');
 
-            $newDb->transaction(function () use ($oldDb, $newDb, $last500SaleIds, $oldBranches, $newBranches, $oldCatalogProducts, $oldCompanyProductToCatalog, $newProducts, &$missingForeignKeys, &$notFoundProducts) {
+            $newDb->transaction(function () use ($oldDb, $newDb, $last500SaleIds, $oldBranches, $newBranches, $oldCatalogProducts, $oldCompanyProductToCatalog, $newProducts, $oldCompanyProductPrices, &$missingForeignKeys, &$notFoundProducts) {
 
                 $this->line('');
                 $this->info('Migrando TODAS las ventas...');
@@ -96,10 +98,44 @@ class MigrateLegacySales extends Command
                         $missingForeignKeys['contact'][] = "Venta ID {$sale->id} -> Contacto ID {$sale->contact_id}";
                     }
 
+                    // --- LÓGICA DE PRODUCTOS Y CÁLCULO DE TOTAL ---
+                    $old_products_for_sale = $oldDb->table('catalog_product_company_sale')->where('sale_id', $sale->id)->get();
+                    $calculatedTotalAmount = 0;
+                    $newProductsToInsert = [];
+
+                    foreach ($old_products_for_sale as $product) {
+                        // Obtener precio unitario del mapeo
+                        $unitPrice = $oldCompanyProductPrices->get($product->catalog_product_company_id) ?? 0;
+                        
+                        // Sumar al total de la venta
+                        $calculatedTotalAmount += $product->quantity * $unitPrice;
+
+                        // Lógica para encontrar el nuevo ID del producto
+                        $oldCatalogProductId = $oldCompanyProductToCatalog->get($product->catalog_product_company_id);
+                        $oldProductName = $oldCatalogProductId ? $oldCatalogProducts->get($oldCatalogProductId) : null;
+                        $newProductId = $oldProductName ? $newProducts->get($oldProductName) : null;
+
+                        if ($newProductId) {
+                             $newProductsToInsert[] = [
+                                'sale_id' => $sale->id,
+                                'product_id' => $newProductId,
+                                'quantity' => $product->quantity,
+                                'quantity_to_produce' => $product->quantity,
+                                'price' => $unitPrice, // Guardamos el precio unitario
+                                'is_new_design' => $product->is_new_design,
+                                'notes' => $product->notes,
+                                'created_at' => $product->created_at,
+                                'updated_at' => $product->updated_at,
+                            ];
+                        } else {
+                            $notFoundProducts[] = $oldProductName ?? "ID Antiguo (company): {$product->catalog_product_company_id}";
+                        }
+                    }
+
                     // --- 1. Inserción en la nueva tabla `sales` ---
                     $newDb->table('sales')->insert([
                         'id' => $sale->id,
-                        'branch_id' => $newBranchId, // ID de sucursal mapeado
+                        'branch_id' => $newBranchId,
                         'quote_id' => $sale->oportunity_id,
                         'contact_id' => $sale->contact_id,
                         'user_id' => $sale->user_id,
@@ -110,7 +146,7 @@ class MigrateLegacySales extends Command
                         'promise_date' => null,
                         'notes' => $sale->notes,
                         'is_high_priority' => $sale->is_high_priority,
-                        'total_amount' => $sale->total_amount,
+                        'total_amount' => $calculatedTotalAmount, // Usamos el total calculado
                         'freight_option' => $sale->freight_option,
                         'freight_cost' => $sale->freight_cost,
                         'authorized_user_name' => $sale->authorized_user_name,
@@ -120,29 +156,10 @@ class MigrateLegacySales extends Command
                     ]);
 
                     // --- 2. Migrar productos asociados a la venta ---
-                    $old_products = $oldDb->table('catalog_product_company_sale')->where('sale_id', $sale->id)->get();
-                    foreach ($old_products as $product) {
-                        // Lógica para encontrar el nombre del producto y luego su nuevo ID
-                        $oldCatalogProductId = $oldCompanyProductToCatalog->get($product->catalog_product_company_id);
-                        $oldProductName = $oldCatalogProductId ? $oldCatalogProducts->get($oldCatalogProductId) : null;
-                        $newProductId = $oldProductName ? $newProducts->get($oldProductName) : null;
-
-                        if ($newProductId) {
-                             $newDb->table('sale_products')->insert([
-                                'sale_id' => $sale->id,
-                                'product_id' => $newProductId, // ID de producto mapeado
-                                'quantity' => $product->quantity,
-                                'quantity_to_produce' => $product->quantity,
-                                'price' => 0, // Ajustar si es necesario
-                                'is_new_design' => $product->is_new_design,
-                                'notes' => $product->notes,
-                                'created_at' => $product->created_at,
-                                'updated_at' => $product->updated_at,
-                            ]);
-                        } else {
-                            $notFoundProducts[] = $oldProductName ?? "ID Antiguo (company): {$product->catalog_product_company_id}";
-                        }
+                    if (!empty($newProductsToInsert)) {
+                        $newDb->table('sale_products')->insert($newProductsToInsert);
                     }
+                    
 
                     // --- 3. Migrar parcialidades (JSON) a `shipments` SÓLO para las últimas 500 ventas ---
                     if ($last500SaleIds->contains($sale->id) && !empty($sale->partialities)) {
@@ -240,4 +257,3 @@ class MigrateLegacySales extends Command
         };
     }
 }
-

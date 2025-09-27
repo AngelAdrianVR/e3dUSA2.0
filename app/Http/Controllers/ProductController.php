@@ -288,7 +288,7 @@ class ProductController extends Controller
             // Lo envolvemos en 'data' para que coincida con la estructura que espera el prop.
             'product' => $catalog_product,
             // Pasamos la lista completa de productos para el selector.
-            'catalog_products' => $all_products,
+            // 'catalog_products' => $all_products,
         ]);
     }
 
@@ -686,6 +686,27 @@ class ProductController extends Controller
         $fileName = 'catalogo_precios.xlsx';
         
         return Excel::download(new CatalogProductPricesExport, $fileName);
+    }
+
+    public function fetchProductsList()
+    {
+        //utilizar helper request() porque no es post la petición, es get
+        $type = request('type');
+
+        if ( $type === 'Todos' ) {
+            $products = Product::query()
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $products = Product::query()
+                ->select('id', 'name')
+                ->where('product_type', $type)
+                ->orderBy('name')
+                ->get();
+        }
+
+        return response()->json($products);
     }
 
 }

@@ -4,7 +4,8 @@
             <!-- Encabezado con buscador y acciones -->
             <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-slate-700">
                 <div class="w-full lg:w-1/3">
-                    <el-select @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
+                    <LoadingIsoLogo v-if="loadingProductList" />
+                    <el-select v-else @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
                         v-model="selectedCatalogProduct" filterable placeholder="Buscar otro producto..."
                         class="!w-full"
                         no-data-text="No hay productos registrados" no-match-text="No se encontraron coincidencias">
@@ -449,6 +450,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import Modal from "@/Components/Modal.vue";
@@ -472,13 +474,12 @@ export default {
         InputError,
         CancelButton,
         DropdownLink,
-        PrimaryButton,
+        LoadingIsoLogo,
         SecondaryButton,
         ConfirmationModal,
     },
     props: {
         product: Object,
-        catalog_products: Array, // Es mejor que sea un Array para el select
     },
     data() {
         return {
@@ -502,6 +503,8 @@ export default {
                 notes: '',
                 type: '', // 'Entrada' o 'Salida'
             }),
+            catalog_products: [],
+            loadingProductList: false,
         };
     },
     computed: {
@@ -591,6 +594,25 @@ export default {
                 this.loadingUpdate = false;
             }
         },
+        async fetchProductsList() {
+            try {
+                this.loadingProductList = true;
+
+                // llamada al backend (ajusta la ruta a tu endpoint)
+                const response = await axios.get(route("products.fetch-products-list", { type: 'Todos' }), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
+                );
+
+                if ( response.status === 200 ) {
+                    this.catalog_products = response.data;
+                }
+
+            } catch (error) {
+                console.error(error);
+                ElMessage.error("Error al cargar lista de productos");
+            } finally {
+                this.loadingProductList = false;
+            }
+        },
         openStockModal(type) {
             this.stockMovementForm.reset();
             this.stockMovementForm.type = type;
@@ -667,6 +689,9 @@ export default {
                 this.showConfirmModal = false;
             }
         },
+    },
+    mounted() {
+     this.fetchProductsList();
     },
     watch: {
         // Observador para resetear la imagen actual si el producto cambia

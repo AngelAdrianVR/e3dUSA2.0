@@ -514,6 +514,12 @@ export default {
                 }
             });
         }
+    },
+    mounted() {
+        router.reload({ 
+            preserveScroll: true,
+            preserveState: false 
+        });
     }
 };
 </script>
