@@ -45,6 +45,14 @@
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
+
+                            <!-- ====== BOTÓN NUEVO PARA EDICIÓN MASIVA ====== -->
+                             <el-button v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')"
+                                type="warning" plain @click="showMassiveEditModal = true" :disabled="!selectedItems.length">
+                                Editar selección
+                            </el-button>
+                            <!-- ============================================= -->
+
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
                                 confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
                                 title="¿Estás seguro de eliminar los productos seleccionados?" @confirm="deleteSelections">
@@ -101,7 +109,7 @@
                                 <template #default="scope">
                                     <span :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold' : 'text-green-600'" 
                                           class="text-lg">
-                                        {{ (getProductStock(scope.row).quantity).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                        {{ (getProductStock(scope.row).quantity).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
                                     </span>
                                     <span class="text-xs text-gray-500 ml-1">{{ scope.row.measure_unit }}</span>
                                 </template>
@@ -167,6 +175,15 @@
                 </div>
             </div>
         </div>
+
+        <!-- ====== MODAL PARA EDICIÓN MASIVA ====== -->
+        <MassiveEditModal 
+            :show="showMassiveEditModal"
+            :selected_products="selectedItems"
+            :product_families="product_families"
+            @close="showMassiveEditModal = false"
+        />
+        <!-- ======================================= -->
     </AppLayout>
 </template>
 
@@ -175,6 +192,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import MassiveEditModal from './Partials/MassiveEditModal.vue'; // <-- AÑADIR IMPORTACIÓN
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { Link, router } from "@inertiajs/vue3";
@@ -188,6 +206,7 @@ export default {
             search: this.filters.search,
             productType: this.filters.product_type ?? 'Catálogo',
             selectedItems: [],
+            showMassiveEditModal: false, // <-- AÑADIR ESTADO PARA EL MODAL
             productTypes: [
                 { value: 'Catálogo', label: 'Productos de Catálogo' },
                 { value: 'Materia prima', label: 'Materia Prima' },
@@ -202,10 +221,12 @@ export default {
         SearchInput,
         AppLayout,
         Link,
+        MassiveEditModal, // <-- AÑADIR COMPONENTE
     },
     props: {
         products: Object,
         filters: Object,
+        product_families: Array, // <-- AÑADIR PROP
     },
     computed:{
         totalInventoryCost() {
@@ -275,15 +296,14 @@ export default {
             this.$inertia.get(route('catalog-products.show', row));
         },
         handleCommand(command) {
-            const commandName = command.split('-')[0];
-            const rowId = command.split('-')[1];
-
-            if (commandName === 'clone') {
+            const commandParts = command.split('-');
+            const commandName = commandParts[0];
+            const rowId = commandParts[1];
+        
+            if (commandName === 'show' || commandName === 'edit' || commandName === 'obsolet') {
+                 router.get(route('catalog-products.' + commandName, rowId));
+            } else if (commandName === 'clone') {
                 this.clone(rowId);
-            } else {
-                const url = route('catalog-products.' + commandName, rowId);
-                window.open(url, '_blank');
-                // this.$inertia.get(route('catalog-products.' + commandName, rowId));
             }
         },
         deleteSelections() {
@@ -317,31 +337,7 @@ export default {
             } catch (error) {
                 ElMessage.error(error.response.data.message || 'No se pudo clonar el producto');
             }
-        },
-        openReport() {
-            window.open(route('catalog-products.prices-report'), '_blank');
-        },
-        exportToExcel() {
-            this.loadingExport = true;
-            axios({
-                url: route('catalog-products.export-excel'),
-                method: 'GET',
-                responseType: 'blob',
-            }).then(response => {
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', 'catalogo_productos.xlsx');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }).catch(error => {
-                console.error('Error al exportar:', error);
-                ElMessage.error('No se pudo generar el archivo de Excel');
-            }).finally(() => {
-                this.loadingExport = false;
-            });
-        },
+        }
     },
     watch: {
         search: debounce(function () {
@@ -366,3 +362,4 @@ export default {
     background-color: #3b82f6 !important; /* bg-blue-600 */
 }
 </style>
+
