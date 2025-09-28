@@ -3,7 +3,7 @@
         <div class="p-4 sm:p-6 lg:p-8 dark:text-gray-200">
             <!-- Encabezado con buscador y acciones -->
             <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-slate-700">
-                <div class="w-full lg:w-1/3">
+                <!-- <div class="w-full lg:w-1/3">
                     <LoadingIsoLogo v-if="loadingProductList" />
                     <el-select v-else @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
                         v-model="selectedCatalogProduct" filterable placeholder="Buscar otro producto..."
@@ -12,7 +12,7 @@
                         <el-option class="!w-96" v-for="item in catalog_products" :key="item.id"
                             :label="item.name" :value="item.id" />
                     </el-select>
-                </div>
+                </div> -->
                 <div class="flex items-center space-x-2">
                     <el-tooltip v-if="$page.props.auth.user.permissions.includes('Crear movimientos de stock')" content="Registrar Entrada" placement="top">
                         <button @click="openStockModal('Entrada')" class="size-9 flex items-center justify-center rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-600 dark:text-green-300 transition-colors">
@@ -349,7 +349,7 @@
             <template #footer>
                 <div class="flex space-x-2">
                     <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
+                    <SecondaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</SecondaryButton>
                 </div>
             </template>
         </ConfirmationModal>
@@ -474,6 +474,7 @@ export default {
         InputError,
         CancelButton,
         DropdownLink,
+        PrimaryButton,
         LoadingIsoLogo,
         SecondaryButton,
         ConfirmationModal,
@@ -690,9 +691,9 @@ export default {
             }
         },
     },
-    mounted() {
-     this.fetchProductsList();
-    },
+    // mounted() {
+    //  this.fetchProductsList();
+    // },
     watch: {
         // Observador para resetear la imagen actual si el producto cambia
         'product.id'(newId) {

@@ -36,14 +36,15 @@ class MigrateLegacySales extends Command
         $missingForeignKeys = [];
         $notFoundProducts = [];
 
-        if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "sales", "sale_products" y "shipments" antes de empezar?', true)) {
+        if ($this->confirm('¿Deseas eliminar TODOS los datos de las tablas "sales", "sale_products", "shipments" y "shipment_products" antes de empezar?', true)) {
             try {
                 DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                DB::table('shipment_products')->truncate();
                 DB::table('shipments')->truncate();
                 DB::table('sale_products')->truncate();
                 DB::table('sales')->truncate();
                 DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-                $this->warn('Las tablas "sales", "sale_products" y "shipments" han sido limpiadas.');
+                $this->warn('Las tablas "sales", "sale_products", "shipments" y "shipment_products" han sido limpiadas.');
             } catch (Throwable $e) {
                 $this->error("Error al limpiar las tablas: " . $e->getMessage());
                 return 1;
@@ -168,10 +169,14 @@ class MigrateLegacySales extends Command
                         $partialities = json_decode($sale->partialities);
 
                         if (json_last_error() === JSON_ERROR_NONE && is_array($partialities)) {
+                            // Obtenemos los productos de la venta recién insertados para asociarlos a los envíos.
+                            $saleProducts = $newDb->table('sale_products')->where('sale_id', $sale->id)->get();
+
                             foreach ($partialities as $partiality) {
-                                $newDb->table('shipments')->insert([
+                                // Insertamos el envío y obtenemos su ID
+                                $shipmentId = $newDb->table('shipments')->insertGetId([
                                     'sale_id' => $sale->id,
-                                    'status' => $this->mapShipmentStatus($partiality->status ?? null),
+                                    'status' => $this->mapSaleStatus($sale->status),
                                     'shipping_company' => $partiality->shipping_company ?? null,
                                     'promise_date' => $partiality->promise_date ?? null,
                                     'tracking_guide' => $partiality->tracking_guide ?? null,
@@ -182,6 +187,24 @@ class MigrateLegacySales extends Command
                                     'created_at' => $sale->created_at,
                                     'updated_at' => $sale->updated_at,
                                 ]);
+
+                                // Asociamos los productos de la venta con el nuevo envío.
+                                if ($saleProducts->isNotEmpty()) {
+                                    $shipmentProductsToInsert = $saleProducts->map(function ($saleProduct) use ($shipmentId, $sale) {
+                                        return [
+                                            'shipment_id' => $shipmentId,
+                                            'sale_product_id' => $saleProduct->id,
+                                            // ADVERTENCIA: La data antigua no especifica la cantidad de productos por envío.
+                                            // Se asume la cantidad total del producto en cada envío parcial.
+                                            // Esto podría necesitar un ajuste si se obtiene más información.
+                                            'quantity' => $saleProduct->quantity,
+                                            'created_at' => $sale->created_at,
+                                            'updated_at' => $sale->updated_at,
+                                        ];
+                                    })->all();
+
+                                    $newDb->table('shipment_products')->insert($shipmentProductsToInsert);
+                                }
                             }
                         }
                     }

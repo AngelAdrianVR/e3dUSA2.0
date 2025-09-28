@@ -32,7 +32,7 @@ class SaleController extends Controller
         }
 
         $sales = $query->with(['user:id,name', 'branch:id,name', 'saleProducts.product:id,name,cost', 'invoice:id,folio,sale_id'])
-                    ->select('id', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
+                    ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
                     ->latest() // Ordena por los más recientes primero
                     ->paginate(15) // Pagina los resultados
                     ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación

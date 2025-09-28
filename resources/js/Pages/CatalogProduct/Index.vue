@@ -281,7 +281,9 @@ export default {
             if (commandName === 'clone') {
                 this.clone(rowId);
             } else {
-                this.$inertia.get(route('catalog-products.' + commandName, rowId));
+                const url = route('catalog-products.' + commandName, rowId);
+                window.open(url, '_blank');
+                // this.$inertia.get(route('catalog-products.' + commandName, rowId));
             }
         },
         deleteSelections() {

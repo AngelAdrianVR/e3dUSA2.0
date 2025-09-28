@@ -304,7 +304,7 @@ class ProductController extends Controller
             'brands' => Brand::all(),
             'product_families' => ProductFamily::all(),
             'production_processes' => ProductionCost::all(),
-            'raw_materials' => Product::where('product_type', 'Materia prima')->get(),
+            'components' => Product::where('is_used_as_component', true)->get(['id', 'name']),
         ]);
     }
 
@@ -488,7 +488,8 @@ class ProductController extends Controller
         }
 
         // 7. REDIRECCIÓN CON MENSAJE DE ÉXITO
-        return to_route('catalog-products.show', $catalog_product->id);
+        return to_route('catalog-products.index');
+        // return to_route('catalog-products.show', $catalog_product->id);
     }
 
     public function destroy(Product $catalog_product)
