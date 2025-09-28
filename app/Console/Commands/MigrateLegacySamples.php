@@ -13,8 +13,7 @@ class MigrateLegacySamples extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°10. Todo correcto!
-     * @var string
+     * N°10. Todo correcto! Hecho.
      */
     protected $signature = 'app:migrate-legacy-samples';
 

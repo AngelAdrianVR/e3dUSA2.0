@@ -14,7 +14,7 @@ class MigrateLegacyPurchases extends Command
     /**
      * The name and signature of the console command.
      * N°9. Funciona perfecto solo que hay que editarlos para agregar los totales pero es muy sencillo. Los contactos no estan completos pero es problema de la
-     * migracion de contactos.
+     * migracion de contactos. Hecho
      * @var string
      */
     protected $signature = 'app:migrate-legacy-purchases';

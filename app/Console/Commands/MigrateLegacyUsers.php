@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Log;
 
 class MigrateLegacyUsers extends Command
 {
-    /**
+    /** ! crea desde el usuario 4 en adelante porque los primeros 3 se crean con el seeder. Super Admin, Sherman y Maribel
      * The name and signature of the console command.
      * N°1 bien pero hay que editar algunas cosas de sueldos y dias de trabajo, bonos y agregar rol-
      * @var string

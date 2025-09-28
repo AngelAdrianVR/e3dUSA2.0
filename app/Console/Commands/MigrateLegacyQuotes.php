@@ -11,7 +11,7 @@ class MigrateLegacyQuotes extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°11 todo bien!
+     * N°11 todo bien! Hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-quotes';

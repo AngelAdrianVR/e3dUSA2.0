@@ -13,7 +13,7 @@ class ConsolidateBranches extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°14 es el último. Sirve para borrar duplicados de clientes y pasar los productos registrados a la sucursal matriz
+     * N° justo despues de branchProducts. Sirve para borrar duplicados de clientes y pasar los productos registrados a la sucursal matriz. hecho
      * @var string
      */
     protected $signature = 'app:consolidate-branches';
@@ -23,7 +23,7 @@ class ConsolidateBranches extends Command
      *
      * @var string
      */
-    protected $description = 'Consolida sucursales con nombres duplicados y migra los productos de las sucursales hijas a las matrices.';
+    protected $description = 'Consolida sucursales con nombres duplicados y migra los productos y su historial de precios de las sucursales hijas a las matrices.';
 
     /**
      * Execute the console command.
@@ -42,7 +42,7 @@ class ConsolidateBranches extends Command
 
             $this->line('');
             $this->info('¡Proceso completado exitosamente!');
-            $this->info('Las sucursales han sido consolidadas y los productos migrados.');
+            $this->info('Las sucursales han sido consolidadas y los productos e historiales de precios migrados.');
 
         } catch (Throwable $e) {
             $this->error("\n\nERROR DURANTE LA CONSOLIDACIÓN: " . $e->getMessage());
@@ -95,12 +95,12 @@ class ConsolidateBranches extends Command
     }
 
     /**
-     * Migra las relaciones de productos de todas las sucursales hijas a sus respectivas matrices.
+     * Migra las relaciones de productos y el historial de precios de todas las sucursales hijas a sus respectivas matrices.
      */
     private function migrateChildProductsToParent()
     {
         $this->line('');
-        $this->info('1. Migrando productos de todas las sucursales hijas a sus matrices...');
+        $this->info('1. Migrando productos e historial de precios de todas las sucursales hijas a sus matrices...');
 
         // Obtenemos todas las sucursales que son hijas (y que aún existen)
         $childBranches = Branch::whereNotNull('parent_branch_id')->get();
@@ -135,6 +135,15 @@ class ConsolidateBranches extends Command
                 }
             }
 
+            // --- INICIO DE LA LÓGICA AGREGADA ---
+            // Migrar el historial de precios cambiando el branch_id por el de la sucursal matriz.
+            // Esto asegura que todos los registros de precios históricos de la sucursal hija
+            // ahora apunten a la sucursal matriz.
+            DB::table('branch_price_history')
+                ->where('branch_id', $child->id)
+                ->update(['branch_id' => $parentId]);
+            // --- FIN DE LA LÓGICA AGREGADA ---
+
             // Finalmente, eliminar todas las asociaciones de productos del hijo, ya que fueron migradas.
             DB::table('branch_product')->where('branch_id', $child->id)->delete();
 
@@ -142,7 +151,6 @@ class ConsolidateBranches extends Command
         }
 
         $progressBar->finish();
-        $this->info("\n -> Migración de productos finalizada.");
+        $this->info("\n -> Migración de productos e historial de precios finalizada.");
     }
 }
-
