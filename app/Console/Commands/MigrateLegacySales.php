@@ -11,7 +11,7 @@ class MigrateLegacySales extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°12 Todo correcto!
+     * N°12 Todo correcto! Hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-sales';
@@ -91,11 +91,13 @@ class MigrateLegacySales extends Command
                     }
 
                     // --- Verificación de usuario y contacto (asumiendo que los IDs coinciden) ---
+                    $contactId = $sale->contact_id; // Asignamos el ID original por defecto
                     if ($sale->user_id && !$newDb->table('users')->where('id', $sale->user_id)->exists()) {
                         $missingForeignKeys['user'][] = "Venta ID {$sale->id} -> Usuario ID {$sale->user_id}";
                     }
                      if ($sale->contact_id && !$newDb->table('contacts')->where('id', $sale->contact_id)->exists()) {
                         $missingForeignKeys['contact'][] = "Venta ID {$sale->id} -> Contacto ID {$sale->contact_id}";
+                        $contactId = null; // Si no existe, lo establecemos como null
                     }
 
                     // --- LÓGICA DE PRODUCTOS Y CÁLCULO DE TOTAL ---
@@ -137,7 +139,7 @@ class MigrateLegacySales extends Command
                         'id' => $sale->id,
                         'branch_id' => $newBranchId,
                         'quote_id' => $sale->oportunity_id,
-                        'contact_id' => $sale->contact_id,
+                        'contact_id' => $contactId, // Usamos la variable que puede ser null
                         'user_id' => $sale->user_id,
                         'status' => $this->mapSaleStatus($sale->status),
                         'oce_name' => $sale->oce_name,

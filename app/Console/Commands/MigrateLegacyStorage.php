@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\Product; // Importa tu nuevo modelo Product
+use App\Models\Product; // Importa tu nuevo modelo Product. hecho.
 use Throwable;
 
 class MigrateLegacyStorage extends Command

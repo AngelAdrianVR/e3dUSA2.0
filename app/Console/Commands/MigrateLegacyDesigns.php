@@ -11,7 +11,7 @@ class MigrateLegacyDesigns extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°7 - todo bien!
+     * N°7 - todo bien! hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-designs';

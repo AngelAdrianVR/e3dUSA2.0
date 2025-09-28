@@ -12,7 +12,8 @@ class MigrateLegacyContacts extends Command
 {
     /**
      * The name and signature of the console command.
-     * M°5 Todo correcto, solo que tiene la logica anterior. los productos de agregan a la matriz y los contactos a las sucursales.
+     * M°5 Todo correcto, solo que tiene la logica anterior. los productos de agregan a la matriz y los contactos a las sucursales. Pero tengo otro comando
+     * que arregla eso (ConsolidateBranches).
      * @var string
      */
     protected $signature = 'app:migrate-legacy-contacts';
