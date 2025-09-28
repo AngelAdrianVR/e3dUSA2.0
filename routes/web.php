@@ -124,6 +124,7 @@ Route::put('/products/{product}/simple-update', [ProductController::class, 'simp
 Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
 Route::get('catalog-products-export-excel', [ProductController::class, 'exportExcel'])->name('catalog-products.export-excel');
 Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
+Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
 
 
 // ------- product families Routes ---------

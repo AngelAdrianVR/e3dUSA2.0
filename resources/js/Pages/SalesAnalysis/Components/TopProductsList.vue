@@ -2,7 +2,7 @@
   <div class="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg h-full">
     <h2 class="text-lg font-semibold dark:text-white mb-4">Top 20 Productos Más Vendidos</h2>
     <LoadingIsoLogo v-if="isLoading" class="my-3" />
-    <ul v-else-if="topProducts.length" class="space-y-2 max-h-[60vh] overflow-y-auto pr-2">
+    <ul v-else-if="topProducts.length" class="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
       <li v-for="(product, index) in topProducts" :key="product.id" @click="$emit('selectProduct', product)"
         :class="['flex items-center space-x-4 p-3 rounded-lg cursor-pointer transition-all duration-200',
           selectedProduct?.id === product.id ? 'dark:bg-indigo-900 bg-blue-200 shadow-lg' : 'dark:hover:bg-gray-700 hover:bg-gray-100']">

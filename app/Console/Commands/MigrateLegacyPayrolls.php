@@ -39,7 +39,7 @@ class MigrateLegacyPayrolls extends Command
             'payrolls', 
             'bonus_employee_detail', 
             'discount_employee_detail', 
-            'employee_details'
+            // 'employee_details'
         ];
 
         if ($this->confirm('¿Deseas limpiar las tablas de nóminas (' . implode(', ', $tablesToTruncate) . ')?', true)) {
