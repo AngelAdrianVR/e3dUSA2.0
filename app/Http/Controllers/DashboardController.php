@@ -287,7 +287,7 @@ class DashboardController extends Controller
                 return [
                     'id' => $sale->id,
                     'folio' => 'OV-' . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
-                    'contact_name' => $sale->contact->name,
+                    'contact_name' => $sale->contact?->name,
                     'user_name' => $sale->user->name,
                     'total' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
                     'date' => Carbon::parse($sale->authorized_at)->isoFormat('D MMM, YYYY'),

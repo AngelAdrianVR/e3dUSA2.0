@@ -11,7 +11,7 @@ class MigrateLegacyMedia extends Command
 {
     /**
      * The name and signature of the console command.
-     * En cualquier orden. Todo bien!
+     * En cualquier orden. Todo bien! hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-media';

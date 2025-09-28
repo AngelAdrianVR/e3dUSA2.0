@@ -115,7 +115,7 @@ const alertPositionStyle = computed(() => ({
                 
                 <!-- Contenido específico por tipo de alerta -->
                 <div v-if="alertData.type === 'pending_quotations'">
-                    <p v-if="alertData.quote_ids && alertData.quote_ids.length" class="text-xs mt-1 text-gray-600">
+                    <p v-if="alertData.quote_ids && alertData.quote_ids.length" class="text-xs mt-1 text-gray-600 max-h-32 overflow-y-auto">
                         Folios: COT-{{ alertData.quote_ids.join(', COT-') }}
                     </p>
                     <Link :href="route('quotes.index')" :class="['text-sm font-bold hover:underline mt-2 inline-block', currentStyle.linkColor]">

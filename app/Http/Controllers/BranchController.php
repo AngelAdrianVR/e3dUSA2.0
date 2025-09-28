@@ -116,30 +116,34 @@ class BranchController extends Controller
                 }
             }
 
-            // 3. Relacionar productos y guardar precios especiales (CORREGIDO)
+            // 3. Relacionar productos y guardar precios especiales (MODIFICADO)
             if (!empty($validated['products'])) {
-                // Primero, extraemos solo los IDs de los productos para sincronizar la relación principal.
+                // Obtenemos la sucursal matriz para asignarle los productos.
+                // Si es una nueva sucursal hija, necesitamos cargar la relación 'parent'.
+                $branch->load('parent'); 
+                $productTargetBranch = $this->getProductTargetBranch($branch);
+
+                // Extraemos solo los IDs de los productos para sincronizar la relación principal.
                 $productIds = collect($validated['products'])->pluck('product_id')->toArray();
                 
-                // Sincronizamos la tabla pivote 'branch_product' solo con las IDs.
-                $branch->products()->sync($productIds);
+                // Sincronizamos la tabla pivote 'branch_product' con la sucursal matriz.
+                $productTargetBranch->products()->sync($productIds);
 
                 // Ahora, recorremos los productos para guardar los precios especiales en su tabla de historial.
                 foreach ($validated['products'] as $productData) {
-                    // Verificamos si se proporcionó un precio para este producto.
                     if (isset($productData['price']) && $productData['price'] !== null) {
-                        // Creamos el registro en la tabla de historial de precios.
-                        $branch->priceHistory()->create([
+                        // Creamos el registro en la tabla de historial de precios asociado a la matriz.
+                        $productTargetBranch->priceHistory()->create([
                             'product_id' => $productData['product_id'],
                             'price' => $productData['price'],
-                            'valid_from' => now(), // Se establece la fecha de inicio como el día de hoy.
-                            'currency' => $productData['currency'], // Puedes añadir la moneda si es necesario.
+                            'valid_from' => now(),
+                            'currency' => $productData['currency'],
                         ]);
                     }
                 }
             }
 
-            // 4. Guardar productos sugeridos
+            // 4. Guardar productos sugeridos (se mantiene por sucursal individual)
             if (!empty($validated['suggested_products'])) {
                 $branch->suggestedProducts()->sync($validated['suggested_products']);
             }
@@ -151,23 +155,33 @@ class BranchController extends Controller
 
     public function show(Branch $branch)
     {
-        // Cargamos la sucursal con todas sus relaciones importantes
+        // Cargamos las relaciones directas de la sucursal
         $branch->load([
             'children', 
             'accountManager:id,name', 
             'parent:id,name', 
             'contacts.details',
             'suggestedProducts.media',
-            'products.storages',
-            'products.media', // Carga los productos y sus imágenes
-            'products.priceHistory' => function ($query) use ($branch) {
-                $query->where('branch_id', $branch->id)->orderBy('valid_from', 'desc');
-            } // Carga solo el historial de precios de este cliente para cada producto
         ]);
+
+        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos (la matriz o ella misma)
+        $productSourceBranch = $this->getProductTargetBranch($branch);
+
+        // Cargamos los productos desde la sucursal matriz
+        $products = $productSourceBranch->products()->with([
+            'storages',
+            'media',
+            // El historial de precios también se consulta con el ID de la matriz
+            'priceHistory' => function ($query) use ($productSourceBranch) {
+                $query->where('branch_id', $productSourceBranch->id)->orderBy('valid_from', 'desc');
+            }
+        ])->get();
+
+        // Asignamos manualmente la relación de productos a la sucursal que se está mostrando
+        $branch->setRelation('products', $products);
 
         $allBranches = Branch::select('id', 'name')->get();
 
-        // return $branch;
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
@@ -177,24 +191,24 @@ class BranchController extends Controller
 
     public function edit(Branch $branch)
     {
-        // Cargar las relaciones necesarias para la edición
-        $branch->load(['contacts.details', 'products', 'suggestedProducts']);
-        // Carga los IDs de los productos sugeridos y pásalos como prop
+        // Cargar las relaciones que no dependen de la matriz
+        $branch->load(['contacts.details', 'suggestedProducts', 'parent']);
         $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
-        // Formatear los datos para que coincidan con la estructura del formulario de Vue
+        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
+        $productSourceBranch = $this->getProductTargetBranch($branch);
+        $products = $productSourceBranch->products;
+
+        // Formatear los datos de contactos para que coincidan con la estructura del formulario
         $formattedContacts = $branch->contacts->map(function ($contact) {
-            // --- LÓGICA PARA EXTRAER MES Y DÍA DEL CUMPLEAÑOS ---
             $birth_month = null;
             $birth_day = null;
 
             if ($contact->birthdate) {
-                // Usamos Carbon para parsear la fecha de forma segura
                 $date = Carbon::parse($contact->birthdate);
-                $birth_month = $date->month; // Extrae el número del mes (1-12)
-                $birth_day = $date->day;     // Extrae el número del día (1-31)
+                $birth_month = $date->month;
+                $birth_day = $date->day;
             }
-            // --- FIN DE LA LÓGICA ---
             
             return [
                 'id' => $contact->id,
@@ -202,14 +216,15 @@ class BranchController extends Controller
                 'charge' => $contact->charge,
                 'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
                 'email' => $contact->details->firstWhere('type', 'Correo')->value ?? null,
-                'birth_month' => $birth_month, // Nuevo campo
-                'birth_day' => $birth_day,       // Nuevo campo
+                'birth_month' => $birth_month,
+                'birth_day' => $birth_day,
             ];
         });
 
-        $formattedProducts = $branch->products->map(function ($product) use ($branch) {
+        // MODIFICADO: Formatear productos basados en la sucursal matriz
+        $formattedProducts = $products->map(function ($product) use ($productSourceBranch) {
             $specialPrice = DB::table('branch_price_history')
-                ->where('branch_id', $branch->id)
+                ->where('branch_id', $productSourceBranch->id) // Usar el ID de la matriz
                 ->where('product_id', $product->id)
                 ->whereNull('valid_to')
                 ->orderBy('valid_from', 'desc')
@@ -218,6 +233,7 @@ class BranchController extends Controller
             return [
                 'product_id' => $product->id,
                 'price' => $specialPrice->price ?? null,
+                'currency' => $specialPrice->currency ?? 'MXN',
             ];
         });
 
@@ -297,17 +313,19 @@ class BranchController extends Controller
                 $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
                 $contactIdsToKeep[] = $contact->id;
             }
-            // Eliminar contactos que ya no vienen en la petición
             $branch->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
+            
+            // MODIFICADO: Determinar la sucursal matriz para la gestión de productos
+            $branch->load('parent');
+            $productTargetBranch = $this->getProductTargetBranch($branch);
 
-            // 3. Sincronizar productos y precios especiales (LÓGICA MEJORADA)
+            // 3. Sincronizar productos y precios especiales en la sucursal matriz
             $productDataFromRequest = collect($validated['products'] ?? [])->keyBy('product_id');
             $productIdsFromRequest = $productDataFromRequest->keys();
 
-            // Sincroniza la tabla pivote 'branch_product'
-            $branch->products()->sync($productIdsFromRequest);
+            $productTargetBranch->products()->sync($productIdsFromRequest);
 
-            $currentActivePrices = $branch->priceHistory()->whereNull('valid_to')->get()->keyBy('product_id');
+            $currentActivePrices = $productTargetBranch->priceHistory()->whereNull('valid_to')->get()->keyBy('product_id');
 
             foreach ($productDataFromRequest as $productId => $data) {
                 $newPrice = $data['price'] ?? null;
@@ -328,7 +346,7 @@ class BranchController extends Controller
                         $currentPriceRecord->update(['valid_to' => now()]);
                     }
                     if ($newPrice !== null) {
-                        $branch->priceHistory()->create([
+                        $productTargetBranch->priceHistory()->create([
                             'product_id' => $productId,
                             'price' => $newPrice,
                             'currency' => $newCurrency,
@@ -340,10 +358,10 @@ class BranchController extends Controller
 
             $productIdsToRemovePrice = $currentActivePrices->keys()->diff($productIdsFromRequest);
             if ($productIdsToRemovePrice->isNotEmpty()) {
-                $branch->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
+                $productTargetBranch->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
             }
 
-            // 4. Sincronizar productos sugeridos
+            // 4. Sincronizar productos sugeridos (se mantiene individual)
             $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
         });
 
@@ -377,26 +395,25 @@ class BranchController extends Controller
 
     public function removeProduct(Branch $branch, Product $product)
     {
+        // MODIFICADO: Obtenemos la sucursal matriz para eliminar la relación del producto.
+        $productTargetBranch = $this->getProductTargetBranch($branch);
+
         try {
-            DB::transaction(function () use ($branch, $product) {
-                // 1. Eliminar el historial de precios para esta relación específica
+            DB::transaction(function () use ($productTargetBranch, $product) {
+                // 1. Eliminar el historial de precios para esta relación (de la matriz)
                 DB::table('branch_price_history')
-                    ->where('branch_id', $branch->id)
+                    ->where('branch_id', $productTargetBranch->id)
                     ->where('product_id', $product->id)
                     ->delete();
 
-                // 2. Eliminar la relación en la tabla pivote (branch_product)
-                $branch->products()->detach($product->id);
+                // 2. Eliminar la relación en la tabla pivote (de la matriz)
+                $productTargetBranch->products()->detach($product->id);
             });
 
-            // Retornar una respuesta JSON exitosa. Inertia la recibirá.
             return response()->json(['message' => 'Producto removido exitosamente.']);
 
         } catch (\Exception $e) {
-            // Registrar el error para facilitar la depuración
             Log::error('Error al remover producto de cliente: ' . $e->getMessage());
-            
-            // Retornar una respuesta de error
             return response()->json(['message' => 'Ocurrió un error en el servidor al intentar remover el producto.'], 500);
         }
     }
@@ -464,9 +481,13 @@ class BranchController extends Controller
             'products' => 'required|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
+            'products.*.currency' => 'nullable|string',
         ]);
 
-        DB::transaction(function () use ($validated, $branch) {
+        // MODIFICADO: Obtenemos la sucursal matriz para asignarle los productos.
+        $productTargetBranch = $this->getProductTargetBranch($branch);
+
+        DB::transaction(function () use ($validated, $productTargetBranch) {
             $now = now();
             $priceHistoryData = [];
             $productIdsToSync = [];
@@ -475,47 +496,49 @@ class BranchController extends Controller
                 $productIdsToSync[] = $productData['product_id'];
 
                 if (isset($productData['price']) && !is_null($productData['price'])) {
-                    // Opcional: Invalidar precios anteriores para este producto y cliente
+                    // Invalidar precios anteriores para este producto y cliente (en la matriz)
                     DB::table('branch_price_history')
-                        ->where('branch_id', $branch->id)
+                        ->where('branch_id', $productTargetBranch->id)
                         ->where('product_id', $productData['product_id'])
                         ->whereNull('valid_to')
                         ->update(['valid_to' => $now]);
 
-                    // Agregar el nuevo precio especial
+                    // Agregar el nuevo precio especial a la matriz
                     $priceHistoryData[] = [
-                        'branch_id' => $branch->id,
+                        'branch_id' => $productTargetBranch->id,
                         'product_id' => $productData['product_id'],
                         'price' => $productData['price'],
                         'valid_from' => $now,
-                        'valid_to' => null, // El nuevo precio es el vigente
+                        'valid_to' => null,
+                        'currency' => $productData['currency'],
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
                 }
             }
 
-            // Usamos syncWithoutDetaching para añadir los nuevos productos
-            // sin eliminar los que ya estaban asignados.
-            $branch->products()->syncWithoutDetaching($productIdsToSync);
+            // Usamos syncWithoutDetaching para añadir los nuevos productos a la matriz
+            $productTargetBranch->products()->syncWithoutDetaching($productIdsToSync);
 
             if (!empty($priceHistoryData)) {
                 DB::table('branch_price_history')->insert($priceHistoryData);
             }
         });
 
-        // No es necesario retornar a una ruta, Inertia se encargará de recargar los props.
-        // Simplemente puedes retornar un redirect o un JSON.
         return back()->with('success', 'Productos agregados correctamente.');
     }
 
     public function fetchBranchProducts(Branch $branch)
     {
-        $products = $branch->products()
+        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
+        $productSourceBranch = $this->getProductTargetBranch($branch);
+
+        $products = $productSourceBranch->products()
             ->with([
                 'media',
-                'priceHistory' => function ($query) use ($branch) {
-                    $query->where('branch_id', $branch->id)
+                // El historial de precios también se consulta con el ID de la matriz
+                'priceHistory' => function ($query) use ($productSourceBranch) {
+                    $query->where('branch_id', $productSourceBranch->id)
                         ->orderBy('valid_from', 'desc');
                 }
             ])
@@ -549,5 +572,17 @@ class BranchController extends Controller
         $contact = $branch->contacts()->create($validated);
 
         return response()->json($contact);
+    }
+
+    /**
+     * Obtiene la sucursal matriz (o la misma si no tiene padre).
+     *
+     * @param Branch $branch
+     * @return Branch
+     */
+    private function getProductTargetBranch(Branch $branch): Branch
+    {
+        // Si la sucursal tiene un padre, esa es la matriz. De lo contrario, es ella misma.
+        return $branch->parent_branch_id ? $branch->parent : $branch;
     }
 }

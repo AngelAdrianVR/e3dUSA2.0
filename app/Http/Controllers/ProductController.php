@@ -56,6 +56,7 @@ class ProductController extends Controller
         return Inertia::render('CatalogProduct/Index', [
             'products' => $products,
             'filters' => $request->only(['product_type', 'search']),
+            'product_families' => ProductFamily::all(), // <-- AÑADIR ESTA LÍNEA
         ]);
     }
 
@@ -288,7 +289,7 @@ class ProductController extends Controller
             // Lo envolvemos en 'data' para que coincida con la estructura que espera el prop.
             'product' => $catalog_product,
             // Pasamos la lista completa de productos para el selector.
-            'catalog_products' => $all_products,
+            // 'catalog_products' => $all_products,
         ]);
     }
 
@@ -304,7 +305,7 @@ class ProductController extends Controller
             'brands' => Brand::all(),
             'product_families' => ProductFamily::all(),
             'production_processes' => ProductionCost::all(),
-            'raw_materials' => Product::where('product_type', 'Materia prima')->get(),
+            'components' => Product::where('is_used_as_component', true)->get(['id', 'name']),
         ]);
     }
 
@@ -488,6 +489,7 @@ class ProductController extends Controller
         }
 
         // 7. REDIRECCIÓN CON MENSAJE DE ÉXITO
+        // return to_route('catalog-products.index');
         return to_route('catalog-products.show', $catalog_product->id);
     }
 
@@ -686,6 +688,94 @@ class ProductController extends Controller
         $fileName = 'catalogo_precios.xlsx';
         
         return Excel::download(new CatalogProductPricesExport, $fileName);
+    }
+
+    public function fetchProductsList()
+    {
+        //utilizar helper request() porque no es post la petición, es get
+        $type = request('type');
+
+        if ( $type === 'Todos' ) {
+            $products = Product::query()
+                ->select('id', 'name')
+                ->orderBy('name')
+                ->get();
+        } else {
+            $products = Product::query()
+                ->select('id', 'name')
+                ->where('product_type', $type)
+                ->orderBy('name')
+                ->get();
+        }
+
+        return response()->json($products);
+    }
+
+    public function massiveUpdate(Request $request)
+    {
+        $materialMap = $this->getMaterialMap();
+        $validatedData = $request->validate([
+            'products' => 'required|array|min:1',
+            'products.*.id' => 'required|exists:products,id',
+            'products.*.product_family_id' => 'nullable|exists:product_families,id',
+            'products.*.material' => ['nullable', 'string', Rule::in(array_keys($materialMap))],
+            'products.*.is_used_as_component' => 'present|boolean',
+        ]);
+    
+        DB::beginTransaction();
+        try {
+            foreach ($validatedData['products'] as $productData) {
+                $product = Product::with('brand', 'productFamily')->find($productData['id']);
+                if (!$product) continue;
+    
+                $updateData = [
+                    'product_family_id' => $productData['product_family_id'],
+                    'is_used_as_component' => $productData['is_used_as_component'],
+                    'material' => isset($productData['material']) ? $materialMap[$productData['material']] : null,
+                ];
+                
+                $product->update($updateData);
+    
+                // --- REGENERAR CÓDIGO DEL PRODUCTO ---
+                $product->refresh(); 
+    
+                $type = '';
+                if ($product->product_type === 'Catálogo') $type = 'C';
+                elseif ($product->product_type === 'Materia Prima') $type = 'MP';
+                
+                if ($type === 'C' || $type === 'MP') {
+                    $id = $product->id;
+                    $family = $product->productFamily->key ?? '';
+                    $materialKey = isset($productData['material']) ? $productData['material'] : (array_search($product->material, $materialMap) ?: '');
+                    $brand = $product->brand ? strtoupper(substr($product->brand->name, 0, 3)) : '';
+        
+                    $newCode = "{$family}-{$materialKey}-{$brand}-{$id}";
+                    if ($type === 'MP') {
+                        $newCode = "{$type}-{$materialKey}-{$family}-{$brand}-{$id}";
+                    }
+                     $product->update(['code' => $newCode]);
+                }
+            }
+    
+            DB::commit();
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['massive_update' => 'Ocurrió un error al actualizar los productos: ' . $e->getMessage()]);
+        }
+    
+        return redirect()->route('catalog-products.index')->with('success', 'Productos actualizados correctamente.');
+    }
+
+    // Helper para obtener el mapa de materiales (puedes moverlo a un Trait o Service si prefieres)
+    private function getMaterialMap()
+    {
+        return [
+            'M'   => 'METAL', 'PLS' => 'PLASTICO', 'PL'  => 'PIEL DE LUJO', 'O'   => 'ORIGINAL',
+            'L'   => 'LUJO', 'P'   => 'PIEL', 'ZK'  => 'ZAMAK', 'SCH' => 'SOLIDCHROME',
+            'MM'  => 'MICROMETAL', 'FCH' => 'FLEXCHROME', 'AL'  => 'ALUMINIO', 'ES'  => 'ESTIRENO',
+            'ABS' => 'ABS', 'PVC' => 'PVC', 'T'   => 'TELA', 'CAU' => 'CAUCHO', 'VPL' => 'VINILPIEL',
+        ];
     }
 
 }

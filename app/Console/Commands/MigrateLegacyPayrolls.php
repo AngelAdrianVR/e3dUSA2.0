@@ -12,7 +12,7 @@ class MigrateLegacyPayrolls extends Command
 {
     /**
      * The name and signature of the console command.
-     * N°2. Está todo bien, solo hay que actualizar sueldo , bonos y descuentos de usuarios
+     * N°2. Está todo bien, solo hay que actualizar sueldo , bonos y descuentos de usuarios. hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-payrolls';
@@ -39,7 +39,7 @@ class MigrateLegacyPayrolls extends Command
             'payrolls', 
             'bonus_employee_detail', 
             'discount_employee_detail', 
-            'employee_details'
+            // 'employee_details'
         ];
 
         if ($this->confirm('¿Deseas limpiar las tablas de nóminas (' . implode(', ', $tablesToTruncate) . ')?', true)) {

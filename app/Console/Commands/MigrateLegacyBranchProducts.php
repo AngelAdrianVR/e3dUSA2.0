@@ -12,7 +12,7 @@ class MigrateLegacyBranchProducts extends Command
     /**
      * The name and signature of the console command.
      * N°6. existen sucursales que se llaman igual que la matriz y a esas sucursales les asigna los productos (esta correcto porque así esta en el antiguo, pero no
-     * es lo ideal)
+     * es lo ideal). Ya tengo un comando que lo arregla (ConsolidateBranches). hecho.
      * @var string
      */
     protected $signature = 'app:migrate-legacy-branch-products';
@@ -131,7 +131,7 @@ class MigrateLegacyBranchProducts extends Command
                 'branch_id' => $branchId,
                 'product_id' => $productId,
                 'price' => $relation->new_price,
-                'currency' => $relation->new_currency ?? 'MXN',
+                'currency' => ltrim($relation->new_currency, '$') ?? 'MXN',
                 'valid_from' => $relation->new_date,
                 'valid_to' => null, // El precio más nuevo no tiene fecha de fin
                 'created_at' => $relation->created_at,
@@ -145,7 +145,7 @@ class MigrateLegacyBranchProducts extends Command
                 'branch_id' => $branchId,
                 'product_id' => $productId,
                 'price' => $relation->old_price,
-                'currency' => $relation->old_currency ?? 'MXN',
+                'currency' => ltrim($relation->old_currency, '$') ?? 'MXN',
                 'valid_from' => $relation->old_date,
                 'valid_to' => $relation->new_date, // La vigencia termina cuando empieza el 'nuevo'
                 'created_at' => $relation->created_at,
@@ -159,7 +159,7 @@ class MigrateLegacyBranchProducts extends Command
                 'branch_id' => $branchId,
                 'product_id' => $productId,
                 'price' => $relation->oldest_price,
-                'currency' => $relation->oldest_currency ?? 'MXN',
+                'currency' => ltrim($relation->oldest_currency, '$') ?? 'MXN',
                 'valid_from' => $relation->oldest_date,
                 'valid_to' => $relation->old_date, // La vigencia termina cuando empieza el 'antiguo'
                 'created_at' => $relation->created_at,

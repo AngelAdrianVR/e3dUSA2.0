@@ -3,15 +3,16 @@
         <div class="p-4 sm:p-6 lg:p-8 dark:text-gray-200">
             <!-- Encabezado con buscador y acciones -->
             <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-slate-700">
-                <div class="w-full lg:w-1/3">
-                    <el-select @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
+                <!-- <div class="w-full lg:w-1/3">
+                    <LoadingIsoLogo v-if="loadingProductList" />
+                    <el-select v-else @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
                         v-model="selectedCatalogProduct" filterable placeholder="Buscar otro producto..."
                         class="!w-full"
                         no-data-text="No hay productos registrados" no-match-text="No se encontraron coincidencias">
                         <el-option class="!w-96" v-for="item in catalog_products" :key="item.id"
                             :label="item.name" :value="item.id" />
                     </el-select>
-                </div>
+                </div> -->
                 <div class="flex items-center space-x-2">
                     <el-tooltip v-if="$page.props.auth.user.permissions.includes('Crear movimientos de stock')" content="Registrar Entrada" placement="top">
                         <button @click="openStockModal('Entrada')" class="size-9 flex items-center justify-center rounded-lg bg-green-100 hover:bg-green-200 dark:bg-green-800 dark:hover:bg-green-700 text-green-600 dark:text-green-300 transition-colors">
@@ -348,7 +349,7 @@
             <template #footer>
                 <div class="flex space-x-2">
                     <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
+                    <SecondaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</SecondaryButton>
                 </div>
             </template>
         </ConfirmationModal>
@@ -449,6 +450,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import Modal from "@/Components/Modal.vue";
@@ -473,12 +475,12 @@ export default {
         CancelButton,
         DropdownLink,
         PrimaryButton,
+        LoadingIsoLogo,
         SecondaryButton,
         ConfirmationModal,
     },
     props: {
         product: Object,
-        catalog_products: Array, // Es mejor que sea un Array para el select
     },
     data() {
         return {
@@ -502,6 +504,8 @@ export default {
                 notes: '',
                 type: '', // 'Entrada' o 'Salida'
             }),
+            catalog_products: [],
+            loadingProductList: false,
         };
     },
     computed: {
@@ -591,6 +595,25 @@ export default {
                 this.loadingUpdate = false;
             }
         },
+        async fetchProductsList() {
+            try {
+                this.loadingProductList = true;
+
+                // llamada al backend (ajusta la ruta a tu endpoint)
+                const response = await axios.get(route("products.fetch-products-list", { type: 'Todos' }), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
+                );
+
+                if ( response.status === 200 ) {
+                    this.catalog_products = response.data;
+                }
+
+            } catch (error) {
+                console.error(error);
+                ElMessage.error("Error al cargar lista de productos");
+            } finally {
+                this.loadingProductList = false;
+            }
+        },
         openStockModal(type) {
             this.stockMovementForm.reset();
             this.stockMovementForm.type = type;
@@ -668,6 +691,9 @@ export default {
             }
         },
     },
+    // mounted() {
+    //  this.fetchProductsList();
+    // },
     watch: {
         // Observador para resetear la imagen actual si el producto cambia
         'product.id'(newId) {
