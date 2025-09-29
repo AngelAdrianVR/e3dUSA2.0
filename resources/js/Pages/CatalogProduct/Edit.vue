@@ -78,14 +78,14 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel value="Material*" />
-                                <el-select v-model="form.material" placeholder="Selecciona" class="w-full">
+                                <el-select v-model="form.material" filterable placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
                                 </el-select>
                                 <InputError :message="form.errors.material" class="mt-1" />
                             </div>
                             <div>
                                 <InputLabel value="Unidad de medida" />
-                                <el-select v-model="form.measure_unit" clearable placeholder="Selecciona la unidad de medida"
+                                <el-select v-model="form.measure_unit" filterable clearable placeholder="Selecciona la unidad de medida"
                                     no-data-text="No hay unidades de medida registradas"
                                     no-match-text="No se encontraron coincidencias">
                                     <el-option v-for="(item, index) in mesureUnits" :key="index" :label="item" :value="item" />
@@ -517,7 +517,7 @@ export default {
                 { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
                 { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
                 { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-                { label: 'VINILPIEL', key: 'VPL' }
+                { label: 'VINILPIEL', key: 'VPL', label: 'FIBRA DE CARBONO', key: 'FC' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',

@@ -282,4 +282,26 @@ class ProductionController extends Controller
 
         return back();
     }
+
+    /**
+     * Muestra una vista para imprimir la orden de producción de una venta.
+     *
+     * @param Sale $sale
+     * @return \Inertia\Response
+     */
+    public function print(Sale $sale)
+    {
+        // Reutilizamos la misma lógica de carga de datos que en el método `show`
+        // para asegurar que el componente de impresión tenga toda la información necesaria.
+        $sale->load([
+            'user:id,name',
+            'productions.saleProduct.product.media',
+            'productions.tasks.operator:id,name',
+        ]);
+
+        // Retornamos una vista de Inertia diferente, diseñada específicamente para la impresión.
+        return Inertia::render('Production/Print', [
+            'sale' => $sale
+        ]);
+    }
 }
