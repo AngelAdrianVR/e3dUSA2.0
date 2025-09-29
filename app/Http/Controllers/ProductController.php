@@ -276,21 +276,11 @@ class ProductController extends Controller
             'priceHistory.branch',
         ]);
 
-        // Obtiene una lista de todos los productos para el buscador/selector.
-        // Solo seleccionamos 'id' y 'name' para que la consulta sea ligera.
-        $all_products = Product::query()
-            ->select('id', 'name')
-            // ->where('product_type', 'Catálogo') // Asumiendo que solo quieres productos de catálogo en el selector
-            ->orderBy('name')
-            ->get();
-
         // Renderiza la vista de Inertia y le pasa los datos necesarios.
         return Inertia::render('CatalogProduct/Show', [
             // Pasamos el producto con todas sus relaciones ya cargadas.
             // Lo envolvemos en 'data' para que coincida con la estructura que espera el prop.
             'product' => $catalog_product,
-            // Pasamos la lista completa de productos para el selector.
-            // 'catalog_products' => $all_products,
         ]);
     }
 

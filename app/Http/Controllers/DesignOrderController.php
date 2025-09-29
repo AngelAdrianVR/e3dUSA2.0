@@ -39,7 +39,7 @@ class DesignOrderController extends Controller
             $query->whereNull('designer_id');
         }
         // Si el usuario es un diseñador
-        else if ($user->hasRole('Diseñador')) {
+        else if ($user->hasRole(['Diseñador', 'Jefe de Diseño'])) {
             $query->where('designer_id', $user->id);
         }
         // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
@@ -59,7 +59,7 @@ class DesignOrderController extends Controller
     public function create(Request $request)
     {
         $designCategories = DesignCategory::select('id', 'name')->get();
-        $designers = User::where('is_active', true)->role('Diseñador')->select('id', 'name')->get();
+        $designers = User::where('is_active', true)->role(['Diseñador', 'Jefe de Diseño'])->select('id', 'name')->get();
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
         // --- Handle design modification requests ---
@@ -208,7 +208,7 @@ class DesignOrderController extends Controller
         $designCategories = DesignCategory::select('id', 'name')->get();
 
         // Se obtienen los usuarios que son diseñadores.
-        $designers = User::where('is_active', true)->role('Diseñador')->select('id', 'name')->get();
+        $designers = User::where('is_active', true)->role(['Diseñador', 'Jefe de Diseño'])->select('id', 'name')->get();
 
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
@@ -455,7 +455,7 @@ class DesignOrderController extends Controller
             'assignedDesignOrders.designCategory:id,name,complexity',
         ])
         ->where('is_active', true) // O el criterio que uses para identificar diseñadores
-        ->role('Diseñador')
+        ->role(['Diseñador', 'Jefe de Diseño'])
         ->select('id', 'name')
         ->get();
 
