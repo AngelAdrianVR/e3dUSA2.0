@@ -112,6 +112,23 @@ class RoleSeeder extends Seeder
             'Ver catalogo de productos',
             'Ver tutoriales y manuales',
         ]);
+        // --- Rol: Jefe de diseño ---
+        $disenador = Role::create(['name' => 'Jefe de Diseño']);
+        $disenador->givePermissionTo([
+            'Chatear',
+            'Ver biblioteca de medios',
+            'Ver ordenes de diseño',
+            'Crear ordenes de diseño',
+            'Editar ordenes de diseño',
+            'Eliminar ordenes de diseño',
+            'Ver formatos de autorizacion de diseño',
+            'Crear formatos de autorizacion de diseño',
+            'Editar formatos de autorizacion de diseño',
+            'Ver catalogo de productos',
+            'Ver tutoriales y manuales',
+            'Ver almacenes',
+            'Crear almacenes',
+        ]);
 
         // --- Rol: Jefe de producción ---
         $jefeProduccion = Role::create(['name' => 'Jefe de producción']);

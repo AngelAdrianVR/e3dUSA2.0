@@ -84,7 +84,7 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.name" label="Cliente" width="150">
+                            <el-table-column prop="branch.name" label="Cliente" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center">
                                         <el-tooltip :content="scope.row.receiver" placement="top">
@@ -140,7 +140,7 @@
                                     </el-tooltip>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="user.name" label="Creado por" width="180">
+                            <el-table-column prop="user.name" label="Creado por" width="150">
                                 <template #default="scope">
                                     <div v-if="scope.row.created_by_customer"
                                         class="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
@@ -194,7 +194,7 @@
                                         ",") }} {{ scope.row.currency }}</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Autorizado" width="120" align="center">
+                            <el-table-column label="Autorizado" width="110" align="center">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.authorized_at" placement="top">
                                         <template #content>
