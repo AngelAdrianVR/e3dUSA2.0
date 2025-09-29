@@ -6,12 +6,16 @@ use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\StockMovement;
+use App\Models\Storage;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use App\Mail\EmailSupplierTemplateMarkdownMail;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PurchaseController extends Controller
 {
@@ -441,22 +445,85 @@ class PurchaseController extends Controller
         return back()->with('success', "El estatus de la compra se actualizó a \"{$newStatus}\".");
     }
 
-
     public function print(Purchase $purchase)
     {
+        // Carga las relaciones necesarias para la orden de compra específica
         $purchase->load([
-            'supplier',
+            'supplier.contacts',
+            'supplier.bankAccounts',
             'bankAccount',
             'contact',
             'authorizer',
-            'items.product',
             'items.product.media',
             'user',
         ]);
 
-        // return $purchase;
+        // Carga todos los proveedores con sus contactos y cuentas bancarias para el modal
+        $allSuppliers = Supplier::with(['contacts', 'bankAccounts'])->get();
+
+        // Renderiza la vista de Inertia pasando ambos conjuntos de datos
         return Inertia::render('Purchase/Print', [
-            'purchase' => $purchase
+            'purchase' => $purchase,
+            'allSuppliers' => $allSuppliers, // Nueva prop con todos los proveedores
         ]);
+    }
+
+    /**
+     * Envía la orden de compra por correo al proveedor.
+     * Esta función también marca la orden como autorizada.
+     */
+    public function sendEmail(Request $request, Purchase $purchase)
+    {
+        $request->validate([
+            'contact_id' => 'required|exists:contacts,id',
+            'supplier_bank_account_id' => 'required|exists:supplier_bank_accounts,id',
+            'subject' => 'required|string|max:255',
+            'content' => 'nullable|string',
+        ]);
+
+        // 1. Actualizar la orden de compra con la información del formulario
+        // y marcarla como autorizada.
+        $purchase->update([
+            'contact_id' => $request->contact_id,
+            'supplier_bank_account_id' => $request->supplier_bank_account_id,
+            'authorizer_id' => auth()->id(),
+            'authorized_at' => now(),
+            'status' => 'Autorizada', // Actualizamos el estado
+        ]);
+
+        // 2. Cargar las relaciones necesarias para generar el PDF
+        $purchase->load(['supplier', 'items.product.media', 'bankAccount']);
+
+        // 3. Generar el PDF usando la nueva plantilla moderna
+        $pdf = Pdf::loadView('pdf.purchase-order-modern', ['purchase' => $purchase]);
+        $fileName = 'OC-' . str_pad($purchase->id, 4, "0", STR_PAD_LEFT) . '.pdf';
+        $content = $pdf->download()->getOriginalContent();
+
+        // 4. Guardar el PDF en el almacenamiento
+        $path = "public/purchase-orders/{$fileName}";
+        Storage::put($path, $content);
+
+        // 5. Enviar el correo electrónico
+        $attachment = [
+            'path' => Storage::path($path),
+            'name' => $fileName,
+        ];
+
+        $contact = $purchase->supplier->contacts()->find($request->contact_id);
+
+        try {
+            // Mail::to($contact->email) // correo real
+            Mail::to('angelvazquez470@gmail.com') // correo de prueba
+                ->bcc(auth()->user()->email) // Opcional: enviar copia al usuario autenticado
+                ->send(new EmailSupplierTemplateMarkdownMail($request->subject, $request->content, $attachment));
+        } catch (\Exception $e) {
+            // Manejo de errores en caso de que el envío falle
+            return response()->json(['message' => 'Error al enviar el correo: ' . $e->getMessage()], 500);
+        }
+
+        // 6. Eliminar el archivo después de enviarlo (opcional)
+        Storage::delete($path);
+
+        return response()->json(['message' => 'Correo enviado exitosamente']);
     }
 }

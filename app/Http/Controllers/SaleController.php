@@ -672,7 +672,7 @@ class SaleController extends Controller
     {
         $sale->load([
             'branch:id,name',
-            'branch.contacts:id,name,branch_id', // Sucursal del cliente y sus contactos
+            'branch.contacts:id,name', // Sucursal del cliente y sus contactos
             'user:id,name',            // Usuario que creó la venta
             'saleProducts.product:id,name,code,measure_unit', // Productos de la venta y su info del catálogo
             'saleProducts.product.media', // Productos de la venta y su info del catálogo
