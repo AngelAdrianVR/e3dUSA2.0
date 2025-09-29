@@ -45,6 +45,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierProductController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -410,3 +411,14 @@ Route::delete('/media/{media}', function (Media $media) {
         return response()->json(['error' => 'Error al eliminar el archivo.'], 500);
     }
 })->name('media.delete-file');
+
+
+// ============== COMANDOS ARTISAN ==============
+Route::get('/clear-cache', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('route:clear');
+    Artisan::call('config:clear');
+    Artisan::call('view:clear');
+
+    return 'Cache, config, route y view limpiados correctamente ✔️';
+});

@@ -94,7 +94,7 @@ class SalesAnalysisController extends Controller
                 'cost' => $product->cost,
                 'base_price' => $product->base_price,
                 'total_quantity' => (int) $item->total_quantity,
-                'image_url' => $product->getFirstMediaUrl('images') ?: null,
+                'image_url' => $product->getFirstMediaUrl('default') ?: null,
             ];
         })->filter()->values();
 

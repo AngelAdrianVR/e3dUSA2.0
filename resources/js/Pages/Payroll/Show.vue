@@ -245,14 +245,16 @@
                     Seleccionar Todos / Deseleccionar Todos
                 </el-checkbox>
             </div>
-            <el-select-v2
+            <el-select
                 v-model="printForm.employees"
                 :options="employeeOptions"
+                collapse-tags
+                collapse-tags-tooltip
                 placeholder="Selecciona uno o más empleados"
                 multiple
                 filterable
                 clearable
-                class="w-full"
+                class="w-full custom-multi-select"
             />
             <InputError :message="printForm.errors.employees" class="mt-2" />
             <template #footer>
@@ -505,3 +507,11 @@ const submitPrintForm = () => {
 };
 
 </script>
+
+<style>
+.custom-multi-select .el-select__tags {
+    flex-wrap: wrap !important; /* permite que bajen a la siguiente línea */
+    max-height: none !important; /* evita que se recorte */
+    overflow: visible !important;
+}
+</style>

@@ -88,8 +88,8 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="order_title" label="Título" width="200" />
-                            <el-table-column label="Categoría" width="140">
+                            <el-table-column prop="order_title" label="Título" width="170" />
+                            <el-table-column label="Categoría" width="120">
                                 <template #default="scope">
                                     {{ scope.row.design_category?.name ?? 'N/A' }}
                                 </template>

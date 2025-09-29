@@ -6,7 +6,8 @@ use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\StockMovement;
-use App\Models\Storage;
+// use App\Models\Storage;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -495,7 +496,7 @@ class PurchaseController extends Controller
         $purchase->load(['supplier', 'items.product.media', 'bankAccount']);
 
         // 3. Generar el PDF usando la nueva plantilla moderna
-        $pdf = Pdf::loadView('pdf.purchase-order-modern', ['purchase' => $purchase]);
+        $pdf = Pdf::loadView('pdfTemplates.purchase-order', ['purchase' => $purchase]);
         $fileName = 'OC-' . str_pad($purchase->id, 4, "0", STR_PAD_LEFT) . '.pdf';
         $content = $pdf->download()->getOriginalContent();
 
@@ -512,8 +513,8 @@ class PurchaseController extends Controller
         $contact = $purchase->supplier->contacts()->find($request->contact_id);
 
         try {
-            // Mail::to($contact->email) // correo real
-            Mail::to('angelvazquez470@gmail.com') // correo de prueba
+            Mail::to($contact->email) // correo real
+            // Mail::to('angelvazquez470@gmail.com') // correo de prueba
                 ->bcc(auth()->user()->email) // Opcional: enviar copia al usuario autenticado
                 ->send(new EmailSupplierTemplateMarkdownMail($request->subject, $request->content, $attachment));
         } catch (\Exception $e) {
@@ -524,6 +525,6 @@ class PurchaseController extends Controller
         // 6. Eliminar el archivo después de enviarlo (opcional)
         Storage::delete($path);
 
-        return response()->json(['message' => 'Correo enviado exitosamente']);
+        // return response()->json(['message' => 'Correo enviado exitosamente']);
     }
 }

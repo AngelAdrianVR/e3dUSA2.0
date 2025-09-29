@@ -392,7 +392,7 @@ class DashboardController extends Controller
             })->filter()->sortByDesc('points')->values();
         }
 
-        if ($roleName === 'Diseñador') {
+        if ($roleName === 'Diseñador' || $roleName === 'Jefe de Diseño') {
             $weeklyDesigns = DesignOrder::where('status', 'Terminada')->whereNotNull('finished_at')->whereBetween('finished_at', [$startOfWeek, $endOfWeek])->select('id', 'designer_id', 'order_title', 'finished_at')->get();
             $designsByUser = $weeklyDesigns->groupBy('designer_id');
 
