@@ -41,7 +41,7 @@
                                 Reporte de precios
                                 <template #dropdown>
                                     <el-dropdown-menu>
-                                        <el-dropdown-item disabled @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
+                                        <el-dropdown-item @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
@@ -251,9 +251,9 @@ export default {
         },
         exportToExcel() {
             this.loadingExport = true;
-
+            // SE USA EL HELPER route() PARA LA URL CORRECTA
             axios({
-                url: '/export-catalog-products',
+                url: route('catalog-products.export-excel'),
                 method: 'GET',
                 responseType: 'blob',
             }).then(response => {

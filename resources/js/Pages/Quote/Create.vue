@@ -54,19 +54,6 @@
                                 <InputError :message="form.errors.branch_id" />
                             </div>
 
-                            <!-- Selector de Contacto con creación rápida -->
-                            <div>
-                                <InputLabel value="Contacto*" />
-                                <div class="flex items-center space-x-2">
-                                    <el-select v-model="selected_contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" @change="handleContactChange" :disabled="!form.branch_id">
-                                        <el-option v-for="contact in availableContacts" :key="contact.id" :label="contact.name" :value="contact.id" />
-                                    </el-select>
-                                    <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
-                                        <i class="fa-solid fa-plus"></i>
-                                    </el-button>
-                                </div>
-                                <InputError :message="form.errors.receiver" />
-                            </div>
                             <!-- Campos que se llenan con el contacto -->
                             <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Selecciona un contacto" />
                             <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Selecciona un contacto" />

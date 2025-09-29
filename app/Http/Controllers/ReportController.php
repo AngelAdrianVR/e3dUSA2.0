@@ -11,7 +11,8 @@ class ReportController extends Controller
 {
     public function index()
     {
-        $reports = Report::with('user')->latest()->paginate(10);
+        // Cargamos la relación 'media' para poder mostrar las imágenes en el index.
+        $reports = Report::with('user', 'media')->latest()->paginate(10);
 
         return Inertia::render('Report/Index', [
             'reports' => $reports,
@@ -29,15 +30,26 @@ class ReportController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'type' => 'required|in:Error,Sugerencia',
+            // Validación para los archivos adjuntos (máximo 3, tipos de imagen, 2MB por archivo)
+            'attachments' => 'nullable|array|max:3',
+            // 'attachments.*' => 'image|mimes:jpeg,png,jpg,gif,txt,pdf|max:2048',
         ]);
 
-        Report::create([
+        $report = Report::create([
             'user_id' => Auth::id(),
             'title' => $validated['title'],
             'description' => $validated['description'],
             'type' => $validated['type'],
             'status' => 'Pendiente', // Default status
         ]);
+
+        // Si hay archivos, los asociamos al reporte creado.
+        if ($request->hasFile('attachments')) {
+            $report->addMultipleMediaFromRequest(['attachments'])
+                   ->each(function ($fileAdder) {
+                       $fileAdder->toMediaCollection('reports');
+                   });
+        }
 
         return back()->with('status', '¡Reporte enviado con éxito!');
     }
