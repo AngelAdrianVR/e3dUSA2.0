@@ -22,7 +22,7 @@ class ProductionController extends Controller
         $user = Auth::user();
 
         // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
-        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador')) {
+        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel')) {
             $selectedStatus = $request->input('status');
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
@@ -110,7 +110,7 @@ class ProductionController extends Controller
     public function create()
     {
         // Obtener la lista de usuarios que son operadores
-        $operators = User::where('is_active', true)->role(['Auxiliar de producción', 'Jefe de producción'])->orderBy('name')->get();
+        $operators = User::where('is_active', true)->role(['Auxiliar de producción', 'Jefe de producción', 'Samuel'])->orderBy('name')->get();
 
         // Obtener la lista de procesos de producción predefinidos
         $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();

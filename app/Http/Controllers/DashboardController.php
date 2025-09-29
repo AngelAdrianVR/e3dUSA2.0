@@ -420,7 +420,7 @@ class DashboardController extends Controller
             })->filter()->sortByDesc('points')->values();
         }
 
-        if ($roleName === 'Auxiliar de producción') {
+        if ($roleName === 'Auxiliar de producción' || $roleName === 'Jefe de producción' || $roleName === 'Samuel') {
             return $users->map(function ($user) use ($startOfWeek, $endOfWeek) {
                 $dailyDetails = [];
                 for ($date = $startOfWeek->copy(); $date->lte($endOfWeek); $date->addDay()) {

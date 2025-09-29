@@ -282,9 +282,9 @@ export default {
                 : 'Precio Actual (Base)';
         },
         lastUpdateInfo() {
-            // if (!this.activeSpecialPrice) {
-            //     return null;
-            // }
+            if (!this.activeSpecialPrice) {
+                return null;
+            }
 
             const fromDate = new Date(this.activeSpecialPrice.valid_from);
             const now = new Date();
