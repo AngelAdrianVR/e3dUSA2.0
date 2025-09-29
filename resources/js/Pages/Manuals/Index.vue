@@ -37,6 +37,37 @@
                             <Empty />
                             <!-- <p class="text-center text-base dark:text-white">Registrar <button @click="$inertia.visit(route('manuals.create'))" class="hover:underline text-secondary dark:text-blue-300">aquí</button></p> -->
                         </div>
+
+                        <!-- Paginación -->
+                            <div v-if="manuals.total > manuals.per_page" class="mt-4 flex justify-between items-center">
+                                <!-- Información de Paginación -->
+                                <p class="text-sm text-gray-700 dark:text-gray-400">
+                                    Mostrando
+                                    <span class="font-medium">{{ manuals.from }}</span>
+                                    a
+                                    <span class="font-medium">{{ manuals.to }}</span>
+                                    de
+                                    <span class="font-medium">{{ manuals.total }}</span>
+                                    resultados
+                                </p>
+
+                                <!-- Links de Paginación -->
+                                <nav v-if="manuals.links.length > 3">
+                                    <div class="flex flex-wrap -mb-1">
+                                        <template v-for="(link, key) in manuals.links" :key="key">
+                                            <div v-if="link.url === null"
+                                                class="mr-1 mb-1 px-4 py-3 text-sm leading-4 text-gray-400 border rounded cursor-not-allowed"
+                                                v-html="link.label" />
+                                            <Link v-else
+                                                class="mr-1 mb-1 px-4 py-3 text-sm leading-4 border rounded hover:bg-white focus:border-indigo-500 focus:text-indigo-500 dark:hover:bg-slate-700 transition"
+                                                :class="{ 'bg-blue-700 text-white dark:bg-indigo-500': link.active }"
+                                                :href="link.url"
+                                                preserve-scroll
+                                                v-html="link.label" />
+                                        </template>
+                                    </div>
+                                </nav>
+                            </div>
                     </div>
 
                 </div>

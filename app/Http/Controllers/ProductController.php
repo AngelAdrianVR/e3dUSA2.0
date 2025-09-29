@@ -162,6 +162,7 @@ class ProductController extends Controller
             'T'   => 'TELA',
             'CAU' => 'CAUCHO',
             'VPL' => 'VINILPIEL',
+            'FC' => 'FIBRA DE CARBONO',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -388,6 +389,7 @@ class ProductController extends Controller
             'T'   => 'TELA',
             'CAU' => 'CAUCHO',
             'VPL' => 'VINILPIEL',
+            'FC' => 'FIBRA DE CARBONO',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -774,7 +776,7 @@ class ProductController extends Controller
             'M'   => 'METAL', 'PLS' => 'PLASTICO', 'PL'  => 'PIEL DE LUJO', 'O'   => 'ORIGINAL',
             'L'   => 'LUJO', 'P'   => 'PIEL', 'ZK'  => 'ZAMAK', 'SCH' => 'SOLIDCHROME',
             'MM'  => 'MICROMETAL', 'FCH' => 'FLEXCHROME', 'AL'  => 'ALUMINIO', 'ES'  => 'ESTIRENO',
-            'ABS' => 'ABS', 'PVC' => 'PVC', 'T'   => 'TELA', 'CAU' => 'CAUCHO', 'VPL' => 'VINILPIEL',
+            'ABS' => 'ABS', 'PVC' => 'PVC', 'T'   => 'TELA', 'CAU' => 'CAUCHO', 'VPL' => 'VINILPIEL', 'FC' => 'FIBRA DE CARBONO',
         ];
     }
 

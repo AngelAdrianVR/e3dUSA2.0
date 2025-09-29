@@ -35,7 +35,7 @@
 
                     <div class="col-span-full md:col-span-3">
                         <InputLabel :for="'material-' + product.id" value="Material" class="md:hidden mb-1" />
-                        <el-select v-model="product.material" :teleported="false" clearable placeholder="Material" class="w-full" :id="'material-' + product.id">
+                        <el-select v-model="product.material" filterable :teleported="false" clearable placeholder="Material" class="w-full" :id="'material-' + product.id">
                             <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
                         </el-select>
                         <InputError :message="form.errors[`products.${index}.material`]" class="mt-1" />

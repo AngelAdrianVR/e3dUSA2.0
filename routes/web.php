@@ -233,6 +233,7 @@ Route::post('/invoices/{invoice}/payments', [InvoicePaymentController::class, 's
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
 Route::get('/productions/{sale}', [ProductionController::class, 'show'])->middleware('auth')->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+Route::get('productions/print/{sale}', [ProductionController::class, 'print'])->middleware('auth')->name('productions.print');
 
 
 // ------- (Rutas de envíos)  ---------
@@ -272,6 +273,7 @@ Route::post('purchases-get-matches', [PurchaseController::class, 'getMatches'])-
 Route::put('purchases/authorize/{purchase}', [PurchaseController::class, 'authorizePurchase'])->middleware('auth')->name('purchases.authorize');
 Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->middleware('auth')->name('purchases.print');
 Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
+Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
 
 
 // ------- (Rutas de diseño)  ---------
