@@ -111,6 +111,18 @@
                         <h3 class="font-bold">Descripción:</h3>
                         <p class="whitespace-pre-wrap">{{ selectedReport.description }}</p>
                     </div>
+                    <!-- Sección para mostrar imágenes adjuntas -->
+                    <div v-if="selectedReport.media && selectedReport.media.length > 0">
+                        <h3 class="font-bold">Archivos adjuntos:</h3>
+                        <div class="mt-2 grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <div v-for="mediaItem in selectedReport.media" :key="mediaItem.id">
+                                <a :href="mediaItem.original_url" target="_blank" rel="noopener noreferrer" class="block">
+                                    <img :src="mediaItem.original_url" :alt="mediaItem.name" class="rounded-lg object-cover h-32 w-full hover:opacity-80 transition-opacity">
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Fin de la sección de imágenes -->
                     <div>
                         <h3 class="font-bold">Reportado por:</h3>
                         <p>{{ selectedReport.user?.name }}</p>

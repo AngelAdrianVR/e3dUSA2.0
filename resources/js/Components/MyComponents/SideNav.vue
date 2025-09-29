@@ -301,17 +301,52 @@
                         class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"></textarea>
                     <p v-if="reportForm.errors.description" class="text-red-500 text-xs mt-1">{{ reportForm.errors.description }}</p>
                 </div>
+                <!-- File Uploader Section -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Archivos adjuntos (Máximo 3)</label>
+                    <div @dragover.prevent @drop.prevent="handleFileDrop" class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-zinc-600 border-dashed rounded-md">
+                        <div class="space-y-1 text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div class="flex text-sm text-gray-600 dark:text-gray-400">
+                                <label for="file-upload" class="relative cursor-pointer bg-white dark:bg-zinc-800 rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-purple-500">
+                                    <span>Sube tus archivos</span>
+                                    <input id="file-upload" name="attachments" type="file" class="sr-only" multiple @change="handleFileChange">
+                                </label>
+                                <p class="pl-1">o arrástralos aquí</p>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">PNG, JPG, GIF hasta 2MB</p>
+                        </div>
+                    </div>
+                    <p v-if="reportForm.errors.attachments" class="text-red-500 text-xs mt-1">{{ reportForm.errors.attachments }}</p>
+                    
+                    <!-- File Preview -->
+                    <div v-if="filePreviews.length" class="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        <div v-for="(file, index) in filePreviews" :key="index" class="relative">
+                            <img :src="file.url" class="rounded-md object-cover h-24 w-full">
+                            <button @click="removeFile(index)" class="absolute top-0 right-0 -mt-2 -mr-2 bg-red-500 text-white rounded-full p-1 text-xs leading-none flex items-center justify-center size-5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            <p class="text-xs text-gray-500 dark:text-gray-300 truncate mt-1">{{ file.name }}</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- End of File Uploader Section -->
             </div>
         </template>
         <template #footer>
-            <div class="flex items-center justify-between w-full">
+             <div class="flex items-center justify-between w-full">
                 <button v-if="this.$page.props.auth.user.role === 'Super Administrador'" @click="$inertia.visit(route('reports.index'))" :disabled="reportForm.processing"
                     class="mr-10 inline-flex items-center justify-center px-4 py-2 bg-cyan-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-cyan-500 active:bg-purple-700 focus:outline-none focus:border-purple-700 focus:ring focus:ring-purple-200 disabled:opacity-25 transition">
                     Ver reportes
                 </button>
                 <span v-else></span>
                 <div>
-                    <CancelButton @click="closeReportModal">Cancelar</CancelButton>
+                    <!-- Asegúrate de que CancelButton esté registrado globalmente o importado aquí -->
+                    <button @click="closeReportModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 dark:bg-zinc-700 dark:text-gray-200 dark:border-zinc-600 dark:hover:bg-zinc-600">Cancelar</button>
                     <button @click="submitReport" :disabled="reportForm.processing"
                         class="ml-2 inline-flex items-center justify-center px-4 py-2 bg-purple-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-purple-500 active:bg-purple-700 focus:outline-none focus:border-purple-700 focus:ring focus:ring-purple-200 disabled:opacity-25 transition">
                         <span v-if="reportForm.processing" class="animate-spin mr-2">
@@ -343,6 +378,7 @@ export default {
             title: '',
             description: '',
             type: 'Error',
+            attachments: [],
         });
 
         return {
@@ -350,6 +386,7 @@ export default {
             showBasePriceModal: false,
             showReportModal: false,
             reportForm,
+            filePreviews: [],
             basePriceConfig: {
                 price: 7500,
                 width: 60,
@@ -742,6 +779,34 @@ export default {
         closeReportModal() {
             this.showReportModal = false;
             this.reportForm.reset();
+        },
+        processFiles(files) {
+            if (this.reportForm.attachments.length + files.length > 3) {
+                alert('No puedes subir más de 3 archivos.');
+                return;
+            }
+            
+            // Convertir FileList a Array y agregarlo
+            const filesArray = Array.from(files);
+            this.reportForm.attachments.push(...filesArray);
+
+            filesArray.forEach(file => {
+                this.filePreviews.push({
+                    name: file.name,
+                    url: URL.createObjectURL(file),
+                });
+            });
+        },
+        handleFileChange(event) {
+            this.processFiles(event.target.files);
+            event.target.value = null; // Permite seleccionar el mismo archivo de nuevo
+        },
+        handleFileDrop(event) {
+            this.processFiles(event.dataTransfer.files);
+        },
+        removeFile(index) {
+            this.reportForm.attachments.splice(index, 1);
+            this.filePreviews.splice(index, 1);
         },
         submitReport() {
             this.reportForm.post(route('reports.store'), {
