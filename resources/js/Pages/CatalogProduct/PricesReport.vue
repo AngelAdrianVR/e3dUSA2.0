@@ -4,7 +4,7 @@
 
         <!-- Botón de Imprimir Flotante -->
         <button @click="print" title="Imprimir Cotización"
-            class="fixed bottom-6 right-6 bg-sky-600 text-white rounded-full size-14 shadow-lg hover:bg-sky-700 transition-all z-50 flex items-center justify-center">
+            class="fixed bottom-6 right-6 bg-sky-600 text-white rounded-full size-14 shadow-lg hover:bg-sky-700 transition-all z-50 flex items-center justify-center print:hidden">
             <i class="fa-solid fa-print text-2xl"></i>
         </button>
 
@@ -41,11 +41,18 @@
                             <h2 class="font-bold text-lg text-gray-800 dark:text-gray-200">{{ product.name }}</h2>
                             <p class="text-sm text-gray-500 dark:text-gray-400">{{ product.code }}</p>
                             <p class="text-base font-semibold text-amber-600 dark:text-amber-500">
-                                Costo: ${{ product.base_price?.toFixed(2) ?? '0.00' }}
+                                Costo: ${{ product.cost?.toFixed(2) ?? '0.00' }}
                             </p>
-                            <p class="text-base font-semibold text-green-600 dark:text-green-500">
-                                Precio Base: ${{ product.cost?.toFixed(2) ?? '0.00' }}
-                            </p>
+                            <div class="flex items-center space-x-2">
+                                <p class="text-base font-semibold text-green-600 dark:text-green-500">
+                                    Precio Base: ${{ product.base_price?.toFixed(2) ?? '0.00' }}
+                                </p>
+                                <button @click="handleUpdateBasePrice(product)" title="Editar Precio Base" class="text-gray-400 hover:text-green-500 transition duration-200 print:hidden">
+                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Prices List -->
@@ -81,10 +88,10 @@
             </div>
         </div>
         
-        <!-- Modal to update price -->
+        <!-- Modal to update SPECIAL price -->
         <DialogModal :show="showUpdatePriceModal" @close="showUpdatePriceModal = false" maxWidth="2xl">
             <template #title>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Actualizar Precio</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Actualizar Precio Especial</h2>
                 <p v-if="itemToUpdatePrice" class="text-sm text-gray-600 dark:text-gray-400">
                     {{ itemToUpdatePrice.product_name }} para <span class="font-bold">{{ itemToUpdatePrice.branch_name }}</span>
                 </p>
@@ -124,8 +131,8 @@
                     </div>
                     <div>
                         <InputLabel value="Fecha de cambio (Vigente desde)*" for="valid_form" />
-                        <el-date-picker id="valid_form" v-model="priceForm.valid_form" :teleported="false" type="date" placeholder="Selecciona una fecha" class="w-full" />
-                        <InputError :message="priceForm.errors.valid_form" class="mt-1" />
+                        <el-date-picker id="valid_form" v-model="priceForm.valid_from" :teleported="false" type="date" placeholder="Selecciona una fecha" class="w-full" />
+                        <InputError :message="priceForm.errors.valid_from" class="mt-1" />
                     </div>
                      <!-- MENSAJE DE ERROR -->
                     <div v-if="isPriceInvalid && priceForm.amount" class="text-red-600 dark:text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md sm:col-span-2">
@@ -139,6 +146,36 @@
                     <SecondaryButton @click="showUpdatePriceModal = false" :disabled="priceForm.processing">Cancelar</SecondaryButton>
                     <PrimaryButton @click="updatePrice" :disabled="priceForm.processing || isPriceInvalid">
                         <span v-if="priceForm.processing">Guardando...</span>
+                        <span v-else>Actualizar Precio</span>
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
+
+        <!-- Modal to update BASE price -->
+        <DialogModal :show="showUpdateBasePriceModal" @close="showUpdateBasePriceModal = false">
+            <template #title>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Actualizar Precio Base</h2>
+                <p v-if="itemToUpdateBasePrice" class="text-sm text-gray-600 dark:text-gray-400">
+                    Editando: <span class="font-bold">{{ itemToUpdateBasePrice.name }}</span>
+                </p>
+            </template>
+            <template #content>
+                <section class="mt-4">
+                    <div>
+                        <InputLabel value="Nuevo Precio Base*" for="base_price" />
+                        <el-input id="base_price" v-model="basePriceForm.base_price" type="number" :min="0" step="0.01" placeholder="Ej. 120.50" class="mt-1">
+                            <template #prepend>$</template>
+                        </el-input>
+                        <InputError :message="basePriceForm.errors.base_price" class="mt-1" />
+                    </div>
+                </section>
+            </template>
+            <template #footer>
+                <div class="flex justify-end space-x-2">
+                    <SecondaryButton @click="showUpdateBasePriceModal = false" :disabled="basePriceForm.processing">Cancelar</SecondaryButton>
+                    <PrimaryButton @click="updateBasePrice" :disabled="basePriceForm.processing || !basePriceForm.base_price">
+                        <span v-if="basePriceForm.processing">Guardando...</span>
                         <span v-else>Actualizar Precio</span>
                     </PrimaryButton>
                 </div>
@@ -175,13 +212,12 @@ export default {
     },
     data() {
         return {
+            // Form for special prices
             priceForm: useForm({
                 amount: null,
                 percentage: null,
                 currency: 'MXN',
                 valid_from: new Date(),
-                current_base_price: 0,
-                min_allowed_price: 0,
                 product_id: null,
                 branch_id: null,
             }),
@@ -191,7 +227,16 @@ export default {
                 min_allowed_price: 0,
             },
             showUpdatePriceModal: false,
-            itemToUpdatePrice: null, // Objeto con información del producto y sucursal a actualizar
+            itemToUpdatePrice: null,
+            
+            // --- New data for base price update ---
+            basePriceForm: useForm({
+                base_price: null,
+            }),
+            showUpdateBasePriceModal: false,
+            itemToUpdateBasePrice: null,
+            // ------------------------------------
+
             currencies: [
                 { value: "MXN", label: "MXN" },
                 { value: "USD", label: "USD" },
@@ -214,10 +259,11 @@ export default {
         formatDate(date) {
             if (!date) return 'N/A';
             const dateObj = new Date(date);
-            // Ajuste de zona horaria para evitar que la fecha se muestre un día antes
             const userTimezoneOffset = dateObj.getTimezoneOffset() * 60000;
             return format(new Date(dateObj.getTime() + userTimezoneOffset), 'dd MMM, yyyy', { locale: es });
         },
+        
+        // --- Methods for SPECIAL price update ---
         handleUpdateProductPrice(history, product) {
             this.itemToUpdatePrice = {
                 product_name: product.name,
@@ -226,12 +272,12 @@ export default {
             
             const basePrice = history.price ?? product.base_price;
             this.priceLogic.current_base_price = basePrice;
-            this.priceLogic.min_allowed_price = basePrice * 1.04; // Regla de aumento del 4%
+            this.priceLogic.min_allowed_price = basePrice * 1.04;
             
             this.priceForm.product_id = product.id;
             this.priceForm.branch_id = history.branch_id;
             this.priceForm.currency = history.currency || 'MXN';
-            this.priceLogic.percentage = 5.0; // reset percentage
+            this.priceLogic.percentage = 5.0;
             this.updatePriceFromPercentage();
             
             this.showUpdatePriceModal = true;
@@ -258,32 +304,45 @@ export default {
                 return;
             }
             try {
-            // Definimos la ruta y los parámetros para la petición
-            const routeName = 'branches.products.price.store';
-            const routeParams = { branch: this.priceForm.branch_id, product: this.priceForm.product_id };
-            
-            const response = await axios.post(route(routeName, routeParams), this.priceForm);
+                const routeName = 'branches.products.price.store';
+                const routeParams = { branch: this.priceForm.branch_id, product: this.priceForm.product_id };
+                
+                const response = await axios.post(route(routeName, routeParams), this.priceForm);
 
-            if (response.status === 200) {
-                ElMessage.success('Precio actualizado correctamente.');
-                this.showUpdatePriceModal = false;
-                this.priceForm.reset();
-                router.reload({ only: ['catalog_products'] });
+                if (response.status === 200) {
+                    ElMessage.success('Precio especial actualizado correctamente.');
+                    this.showUpdatePriceModal = false;
+                    this.priceForm.reset();
+                    router.reload({ only: ['catalog_products'] });
+                }
+            } catch (error) {
+                console.error("Error al actualizar el precio especial:", error);
+                ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
-        } catch (error) {
-            console.error("Error al actualizar el precio:", error);
-            ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
-        }
+        },
 
-            // // La ruta espera 'valid_form', pero el formulario lo tiene como 'valid_form'. Está correcto.
-            // this.priceForm.post(route('branches.products.price.store'), {
-            //     preserveScroll: true,
-            //     onSuccess: () => {
-            //         this.showUpdatePriceModal = false;
-            //         this.priceForm.reset();
-            //         router.reload({ only: ['catalog_products'] });
-            //     },
-            // });
+        // --- New methods for BASE price update ---
+        handleUpdateBasePrice(product) {
+            this.itemToUpdateBasePrice = product;
+            this.basePriceForm.base_price = product.base_price;
+            this.showUpdateBasePriceModal = true;
+        },
+        updateBasePrice() {
+            if (!this.itemToUpdateBasePrice) return;
+
+            this.basePriceForm.put(route('products.simple-update', this.itemToUpdateBasePrice.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Precio base actualizado correctamente.');
+                    this.showUpdateBasePriceModal = false;
+                    this.basePriceForm.reset();
+                    router.reload({ only: ['catalog_products'] });
+                },
+                onError: (errors) => {
+                    console.error("Error al actualizar el precio base:", errors);
+                    ElMessage.error('Hubo un error al actualizar el precio base. Revisa los datos.');
+                }
+            });
         },
     },
 };

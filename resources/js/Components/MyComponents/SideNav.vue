@@ -583,6 +583,7 @@ export default {
                         this.$page.props.auth.user.permissions.includes('Ver roles y permisos')
                         || this.$page.props.auth.user.permissions.includes('Ver bonos')
                         || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
+                        || this.$page.props.auth.user.permissions.includes('Gestionar quioscos')
                 },
                 {
                     label: 'Diseño',
