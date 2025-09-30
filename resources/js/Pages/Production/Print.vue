@@ -19,7 +19,7 @@
 
         <!-- Contenido de la página para imprimir -->
         <!-- Cambiado max-w-4xl a max-w-2xl y p-8 a p-6 para un diseño más compacto -->
-        <main class="max-w-2xl mx-auto p-6 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
+        <main class="max-w-3xl mx-auto p-5 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
             <!-- Encabezado -->
             <header class="flex justify-between items-start pb-5 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">

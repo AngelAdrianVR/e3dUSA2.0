@@ -648,10 +648,10 @@ class ProductController extends Controller
             'base_price_updated_at' => now(),
         ]);
 
-        return response()->json([
-            'base_price' => $product->base_price,
-            'base_price_updated_at' => $product->base_price_updated_at,
-        ]);
+        // return response()->json([
+        //     'base_price' => $product->base_price,
+        //     'base_price_updated_at' => $product->base_price_updated_at,
+        // ]);
     }
 
     public function pricesReport()
