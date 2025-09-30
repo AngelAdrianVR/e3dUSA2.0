@@ -17,7 +17,6 @@ class CatalogProductPricesExport implements
     WithColumnWidths
 {
     /**
-     * Este escribe los productos aunque se repitan, el otro archivo que termina en Agrupado los agrupa
      * @return \Illuminate\Support\Collection
      */
     public function collection()
@@ -39,6 +38,7 @@ class CatalogProductPricesExport implements
             ->get();
 
         $data = [];
+        $lastProductName = null; // Variable para rastrear el último nombre de producto
 
         // Se itera sobre cada producto
         foreach ($products as $product) {
@@ -54,11 +54,23 @@ class CatalogProductPricesExport implements
                                         ->where('branch_id', $branch->id)
                                         ->first();
 
+                // Lógica para mostrar el nombre del producto y su info base solo una vez
+                if ($product->name !== $lastProductName) {
+                    $productNameForExcel = $product->name;
+                    $basePriceForExcel = $product->base_price ?? '-';
+                    $baseCurrencyForExcel = $product->currency ?? '-';
+                    $lastProductName = $product->name; // Actualizar el último nombre de producto
+                } else {
+                    $productNameForExcel = '';
+                    $basePriceForExcel = '';
+                    $baseCurrencyForExcel = '';
+                }
+
                 // Se construye el arreglo de datos con la nueva estructura
                 $data[] = [
-                    'Producto' => $product->name,
-                    'Precio Base' => $product->base_price ?? '-',
-                    'Moneda Base' => $product->currency ?? '-',
+                    'Producto' => $productNameForExcel,
+                    'Precio Base' => $basePriceForExcel,
+                    'Moneda Base' => $baseCurrencyForExcel,
                     'Cliente' => $branch->name,
                     'Precio Especial' => $specialPrice->price ?? '-',
                     'Moneda Especial' => $specialPrice->currency ?? '-',

@@ -580,11 +580,11 @@ export default {
                 // llamada al backend (ajusta la ruta a tu endpoint)
                 const response = await axios.put(
                 route("products.simple-update", this.product.id), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
-                { base_price: this.newBasePrice }
+                    { base_price: this.newBasePrice }
                 );
 
                 // actualizar localmente sin recargar la página
-                this.product.base_price = response.data.base_price;
+                router.reload({ only: ['product'] });
 
                 ElMessage.success("Precio actualizado correctamente");
                 this.editDialogVisible = false;
