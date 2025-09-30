@@ -178,11 +178,47 @@
                              </div>
                         </el-tab-pane>
                         <el-tab-pane label="Órdenes de Compra" name="orders">
-                           <div class="text-center text-sm text-gray-500 dark:text-gray-400 p-4">
-                                <p></p>
-                                <p class="mt-2">Próximamente: Historial de órdenes de compra.</p>
-                            </div>
-                        </el-tab-pane>
+                        <div v-if="supplier.purchases && supplier.purchases.length > 0" class="overflow-x-auto relative max-h-96 overflow-y-auto">
+                            <p class="my-1 text-gray-500 italic">---- Últimas 25 Órdenes de compra ----</p>
+                            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                    <tr>
+                                        <th scope="col" class="py-3 px-6">Folio</th>
+                                        <th scope="col" class="py-3 px-6">Estado</th>
+                                        <th scope="col" class="py-3 px-6">Fecha de Emisión</th>
+                                        <th scope="col" class="py-3 px-6">Total</th>
+                                        <th scope="col" class="py-3 px-6"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="purchase in supplier.purchases" :key="purchase.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
+                                        <td class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                            OC-{{ purchase.id ?? 'N/A' }}
+                                        </td>
+                                        <td class="py-4 px-6">
+                                            <span :class="getStatusClass(purchase.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                {{ purchase.status }}
+                                            </span>
+                                        </td>
+                                        <td class="py-4 px-6">
+                                            {{ formatDate(purchase.emited_at) }}
+                                        </td>
+                                        <td class="py-4 px-6">
+                                            {{ formatCurrency(purchase.total, purchase.currency) }}
+                                        </td>
+                                        <td class="py-4 px-6 text-right">
+                                            <Link :href="route('purchases.show', purchase.id)" class="text-primary hover:underline">
+                                                Ver Detalles
+                                            </Link>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div v-else class="text-center text-sm text-gray-500 dark:text-gray-400 p-4">
+                            <p>Este proveedor aún no tiene órdenes de compra registradas.</p>
+                        </div>
+                    </el-tab-pane>
                     </el-tabs>
                 </div>
             </div>
@@ -295,6 +331,25 @@ export default {
         catalog_products: Array,
     },
     methods: {
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            return format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
+        },
+        formatCurrency(value, currency) {
+            if (value === null || value === undefined) return 'N/A';
+            return new Intl.NumberFormat('es-MX', {
+                style: 'currency',
+                currency: currency || 'MXN',
+            }).format(value);
+        },
+        getStatusClass(status) {
+            const statusClasses = {
+                'Autorizada': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+                'Compra realizada': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                'Compra recibida': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+            };
+            return statusClasses[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        },
         // --- MÉTODOS GENERALES ---
         formatClabe(clabe) {
             if (!clabe) return '';

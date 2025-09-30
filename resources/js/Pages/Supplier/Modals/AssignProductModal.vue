@@ -5,7 +5,7 @@
         </template>
         <template #content>
             <form @submit.prevent="save">
-                <div class="grid grid-cols-2 gap-4 min-h-56">
+                <div class="grid grid-cols-2 gap-4 min-h-72">
                     <!-- Selector de producto (solo para crear) -->
                     <div class="col-span-2">
                          <InputLabel value="Producto*" />
