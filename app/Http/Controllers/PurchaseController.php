@@ -307,6 +307,12 @@ class PurchaseController extends Controller
                 })
                 ->orWhereHas('supplier', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
+                })
+                // --- MODIFICACIÓN ---
+                // Se agrega la condición para buscar también por el nombre del producto
+                // en los items de la compra.
+                ->orWhereHas('items.product', function ($productQuery) use ($query) {
+                    $productQuery->where('name', 'like', "%{$query}%");
                 });
             })
             ->get();

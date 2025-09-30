@@ -58,8 +58,8 @@ class SupplierController extends Controller
             'contacts' => 'present|array',
             'contacts.*.name' => 'required|string|max:255',
             'contacts.*.charge' => 'nullable|string|max:255', // Antes 'position'
-            'contacts.*.email' => 'required|email|max:255',
-            'contacts.*.phone' => 'required|string|max:20',
+            'contacts.*.email' => 'nullable|email|max:255',
+            'contacts.*.phone' => 'nullable|string|max:20',
 
             'bankAccounts' => 'nullable|array',
             'bankAccounts.*.bank_name' => 'required|string|max:255',
@@ -70,7 +70,7 @@ class SupplierController extends Controller
 
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
-            'products.*.last_price' => 'required|numeric|min:0',
+            'products.*.last_price' => 'nullable|numeric|min:0',
             'products.*.supplier_sku' => 'nullable|string|max:255',
             'products.*.min_quantity' => 'nullable|numeric|min:0',
         ]);
@@ -87,19 +87,23 @@ class SupplierController extends Controller
                         'charge' => $contactData['charge'], // Usamos 'charge'
                         'is_primary' => $index === 0, // El primero es el principal
                     ]);
+                    
+                    if ( $contactData['phone'] ) {
+                        // Se crean los detalles (teléfono y correo) para el contacto
+                        $contact->details()->create([
+                            'type' => 'Teléfono',
+                            'value' => $contactData['phone'],
+                            'is_primary' => true,
+                        ]);
+                    }
 
-                    // Se crean los detalles (teléfono y correo) para el contacto
-                    $contact->details()->create([
-                        'type' => 'Teléfono',
-                        'value' => $contactData['phone'],
-                        'is_primary' => true,
-                    ]);
-
-                    $contact->details()->create([
-                        'type' => 'Correo',
-                        'value' => $contactData['email'],
-                        'is_primary' => true,
-                    ]);
+                    if ( $contactData['email'] ) {
+                        $contact->details()->create([
+                            'type' => 'Correo',
+                            'value' => $contactData['email'],
+                            'is_primary' => true,
+                        ]);
+                    }
                 }
             }
 
@@ -119,12 +123,28 @@ class SupplierController extends Controller
 
     public function show(Supplier $supplier)
     {
-        $supplier->load('contacts.details', 'bankAccounts', 'products.media');
+        // Cargar las relaciones necesarias del proveedor
+        $supplier->load([ // <--- Se envuelve todo en un arreglo
+            'contacts.details', 
+            'bankAccounts', 
+            'products.media',
+            // Cargar solo las últimas 25 órdenes de compra con sus relaciones
+            'purchases' => function ($query) {
+                $query->latest('emited_at')->limit(25)->with(['user', 'items.product']);
+            },
+            // 'purchases.user', // Ya no son necesarios aquí
+            // 'purchases.items.product' // Se cargan dentro de la restricción para mayor eficiencia
+        ]);
+
+        // Obtener la lista de todos los proveedores para el selector
         $allSuppliers = Supplier::select('id', 'name')->get();
+
+        // Obtener productos que se pueden comprar para otros fines
         $purchasableProducts = Product::where('is_purchasable', true)
             ->select('id', 'name', 'code', 'measure_unit')
             ->get();
 
+        // Renderizar la vista de Inertia con los datos necesarios
         return Inertia::render('Supplier/Show', [
             'supplier' => $supplier,
             'suppliers' => $allSuppliers,
@@ -162,7 +182,7 @@ class SupplierController extends Controller
 
     public function update(Request $request, Supplier $supplier)
     {
-        // 3. Validación de actualización adaptada
+        // Validación de los datos de entrada
         $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('suppliers')->ignore($supplier->id)],
             'rfc' => ['nullable', 'string', 'max:13', Rule::unique('suppliers')->ignore($supplier->id)],
@@ -174,11 +194,11 @@ class SupplierController extends Controller
             'notes' => 'nullable|string',
 
             'contacts' => 'present|array',
-            'contacts.*.id' => 'nullable|exists:contacts,id', // Se valida contra la tabla 'contacts'
+            'contacts.*.id' => 'nullable|exists:contacts,id',
             'contacts.*.name' => 'required|string|max:255',
-            'contacts.*.charge' => 'nullable|string|max:255', // Antes 'position'
-            'contacts.*.email' => 'required|email|max:255',
-            'contacts.*.phone' => 'required|string|max:20',
+            'contacts.*.charge' => 'nullable|string|max:255',
+            'contacts.*.email' => 'nullable|email|max:255',
+            'contacts.*.phone' => 'nullable|string|max:20',
             
             'bankAccounts' => 'nullable|array',
             'bankAccounts.*.bank_name' => 'required|string|max:255',
@@ -189,15 +209,16 @@ class SupplierController extends Controller
 
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
-            'products.*.last_price' => 'required|numeric|min:0',
+            'products.*.last_price' => 'nullable|numeric|min:0',
             'products.*.supplier_sku' => 'nullable|string|max:255',
             'products.*.min_quantity' => 'nullable|numeric|min:0',
         ]);
 
         DB::transaction(function () use ($validatedData, $supplier) {
+            // Actualizar datos principales del proveedor
             $supplier->update(collect($validatedData)->except(['contacts', 'bankAccounts', 'products'])->all());
 
-            // 4. Lógica de sincronización de contactos mejorada
+            // --- Lógica de sincronización de contactos corregida ---
             $contactIdsToKeep = [];
             if (!empty($validatedData['contacts'])) {
                 foreach ($validatedData['contacts'] as $index => $contactData) {
@@ -210,9 +231,28 @@ class SupplierController extends Controller
                         ]
                     );
 
-                    $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone']]);
-                    $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email']]);
+                    // CORRECCIÓN: Verificar si la clave 'phone' existe y no está vacía
+                    if (!empty($contactData['phone'])) {
+                        $contact->details()->updateOrCreate(
+                            ['type' => 'Teléfono'], 
+                            ['value' => $contactData['phone']]
+                        );
+                    } else {
+                        // Opcional: Si no viene teléfono, elimina el detalle existente
+                        $contact->details()->where('type', 'Teléfono')->delete();
+                    }
 
+                    // CORRECCIÓN: Verificar si la clave 'email' existe y no está vacía
+                    if (!empty($contactData['email'])) {
+                        $contact->details()->updateOrCreate(
+                            ['type' => 'Correo'], 
+                            ['value' => $contactData['email']]
+                        );
+                    } else {
+                        // Opcional: Si no viene correo, elimina el detalle existente
+                        $contact->details()->where('type', 'Correo')->delete();
+                    }
+                    
                     $contactIdsToKeep[] = $contact->id;
                 }
             }
@@ -234,7 +274,7 @@ class SupplierController extends Controller
             $supplier->products()->sync($productsToSync);
         });
 
-        return to_route('suppliers.index')->with('success', 'Proveedor actualizado exitosamente.');
+        return to_route('suppliers.show', $supplier)->with('success', 'Proveedor actualizado exitosamente.');
     }
 
 

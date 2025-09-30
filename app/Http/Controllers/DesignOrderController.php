@@ -98,7 +98,6 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3', // Valida que sea un array y máximo 3 archivos
-            'media.*' => 'file',
             'modifies_design_id' => 'nullable|exists:designs,id', // --- Validation for modification
         ]);
 
@@ -155,7 +154,7 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        $designOrders = DesignOrder::select('id', 'order_title')->take(200)->get();
+        $designOrders = DesignOrder::select('id', 'order_title')->latest()->take(300)->get();
 
         $designOrder->load([
             'designAuthorization', 
@@ -236,7 +235,6 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3',
-            'media.*' => 'file' // 10MB
         ]);
 
         $previousDesignerId = $designOrder->designer_id;
