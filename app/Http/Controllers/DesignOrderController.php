@@ -154,7 +154,7 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        $designOrders = DesignOrder::select('id', 'order_title')->take(200)->get();
+        $designOrders = DesignOrder::select('id', 'order_title')->latest()->take(300)->get();
 
         $designOrder->load([
             'designAuthorization', 

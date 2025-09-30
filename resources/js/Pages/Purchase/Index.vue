@@ -82,80 +82,68 @@
                                 </template>
                             </el-table-column>
                             <!-- COLUMNA DE PRODUCTOS -->
-                            <el-table-column label="Productos" width="130">
-                                <template #default="scope">
-                                    <el-tooltip v-if="scope.row.items?.length" placement="right" effect="dark">
-                                        <template #content>
-                                            <div class="max-h-64 overflow-y-auto pr-2">
-                                            <ul class="list-disc list-inside text-xs space-y-3">
-                                                <li
-                                                v-for="item in scope.row.items"
-                                                :key="item.id"
-                                                class="flex items-start space-x-3"
-                                                >
-                                                <img
-                                                    draggable="false"
-                                                    :src="item.product.media[0]?.original_url"
-                                                    :alt="item.product.name"
-                                                    class="size-12 rounded-md object-cover flex-shrink-0"
-                                                />
-                                                <div class="leading-relaxed">
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Tipo: <span class="text-white dark:text-gray-700 ml-1">{{ item.type }}</span>
-                                                    </p>
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Nombre: <span class="text-white dark:text-gray-700 ml-1">{{ item.product.name }}</span>
-                                                    </p>
-                                                    <p class="text-amber-500 font-semibold">
-                                                    Cantidad:
-                                                    <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product.measure_unit }}
-                                                    </span>
-                                                    </p>
-
-                                                    <div v-if="scope.row.type === 'Venta'" class="mt-2">
-                                                    <h2 class="mb-1 text-center font-bold text-blue-300 text-xs">
-                                                        DISTRIBUCIÓN
-                                                    </h2>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        A favor:
-                                                        <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.additional_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        En avión:
-                                                        <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.plane_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    <p class="text-blue-400 font-semibold">
-                                                        En barco:
-                                                        <span class="text-white dark:text-gray-700 ml-1">
-                                                        {{ item.ship_stock }} {{ item.product.measure_unit }}
-                                                        </span>
-                                                    </p>
-                                                    </div>
-                                                </div>
-                                                </li>
-                                            </ul>
-                                            </div>
-                                        </template>
-
-                                        <span
-                                            class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300"
-                                        >
-                                            {{ scope.row.items?.length }} producto(s)
+                            <el-table-column label="Productos" width="350">
+                            <template #default="scope">
+                                <div v-if="scope.row.items?.length" class="max-h-64 overflow-y-auto pr-2">
+                                <ul class="list-disc list-inside text-xs space-y-3">
+                                    <li
+                                    v-for="item in scope.row.items"
+                                    :key="item.id"
+                                    class="flex items-start space-x-3"
+                                    >
+                                    <img
+                                        draggable="false"
+                                        :src="item.product.media[0]?.original_url"
+                                        :alt="item.product.name"
+                                        class="size-12 rounded-md object-cover flex-shrink-0"
+                                    />
+                                    <div class="leading-relaxed">
+                                        <p class="text-amber-500 font-semibold">
+                                        Tipo:
+                                        <span class="dark:text-gray-300 text-gray-700 ml-1">{{ item.type }}</span>
+                                        </p>
+                                        <p class="text-amber-500 font-semibold">
+                                        Nombre:
+                                        <span class="dark:text-gray-300 text-gray-700 ml-1">{{ item.product.name }}</span>
+                                        </p>
+                                        <p class="text-amber-500 font-semibold">
+                                        Cantidad:
+                                        <span class="dark:text-gray-300 text-gray-700 ml-1">
+                                            {{ item.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                            {{ item.product.measure_unit }}
                                         </span>
-                                    </el-tooltip>
+                                        </p>
 
-                                    <span v-else class="text-xs text-gray-400">N/A</span>
-                                </template>
-                            </el-table-column>
-                            <el-table-column label="Creado por" width="120">
-                                <template #default="scope">
-                                    {{ scope.row.user?.name ?? 'N/A' }}
-                                </template>
+                                        <div v-if="scope.row.type === 'Venta'" class="mt-2">
+                                        <h2 class="mb-1 text-center font-bold text-blue-300 text-xs">
+                                            DISTRIBUCIÓN
+                                        </h2>
+                                        <p class="text-blue-400 font-semibold">
+                                            A favor:
+                                            <span class="dark:text-gray-300 text-gray-700 ml-1">
+                                            {{ item.additional_stock }} {{ item.product.measure_unit }}
+                                            </span>
+                                        </p>
+                                        <p class="text-blue-400 font-semibold">
+                                            En avión:
+                                            <span class="dark:text-gray-300 text-gray-700 ml-1">
+                                            {{ item.plane_stock }} {{ item.product.measure_unit }}
+                                            </span>
+                                        </p>
+                                        <p class="text-blue-400 font-semibold">
+                                            En barco:
+                                            <span class="dark:text-gray-300 text-gray-700 ml-1">
+                                            {{ item.ship_stock }} {{ item.product.measure_unit }}
+                                            </span>
+                                        </p>
+                                        </div>
+                                    </div>
+                                    </li>
+                                </ul>
+                                </div>
+
+                                <span v-else class="text-xs text-gray-400">N/A</span>
+                            </template>
                             </el-table-column>
                             <el-table-column label="Creado el" width="180">
                                 <template #default="scope">
@@ -268,7 +256,7 @@ export default {
             selectedItems: [],
             tableData: this.purchases.data,
             showAllPurchases: this.filters.view === 'all',
-            SearchProps: ['ID', 'Proveedor', 'Creador', 'Estatus'],
+            SearchProps: ['ID', 'Proveedor', 'Creador', 'Estatus', 'productos'],
         };
     },
     components: {
@@ -306,7 +294,7 @@ export default {
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);
-            return format(date, "d 'de' MMMM, yyyy", { locale: es });
+            return format(date, "d 'de' MMM, yyy", { locale: es });
         },
         handleSelectionChange(selection) {
             this.selectedItems = selection;

@@ -1,6 +1,6 @@
 <template>
     <Head :title="'OP-' + sale.id.toString().padStart(4, '0')" />
-    <div class="bg-gray-100 dark:bg-gray-800 min-h-screen font-sans">
+    <div class="min-h-screen font-sans">
         <!-- Controles de la página (se ocultan al imprimir) -->
         <div class="p-4 bg-white dark:bg-slate-900 shadow-md print:hidden flex justify-between items-center">
             <h1 class="text-xl font-semibold text-gray-800 dark:text-gray-200">Imprimir Orden de Producción</h1>
