@@ -18,19 +18,20 @@
         </div>
 
         <!-- Contenido de la página para imprimir -->
-        <main class="max-w-4xl mx-auto p-8 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
+        <!-- Cambiado max-w-4xl a max-w-2xl y p-8 a p-6 para un diseño más compacto -->
+        <main class="max-w-2xl mx-auto p-6 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
             <!-- Encabezado -->
             <header class="flex justify-between items-start pb-5 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">Orden de Producción</h1>
-                    <p class="text-lg font-semibold text-blue-600">
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Orden de Producción</h1>
+                    <p class="text-md font-semibold text-blue-600">
                         {{ sale.type === 'venta' ? 'OV-' : 'OS-' }}{{ sale.id.toString().padStart(4, '0') }}
                     </p>
                 </div>
-                <div class="text-right">
+                <div class="text-right flex-shrink-0 ml-4">
                     <ApplicationLogo />
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">Fecha de Emisión: {{ formatDate(sale.created_at) }}</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Prioridad: 
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Emisión: {{ formatDate(sale.created_at) }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Prioridad:
                         <span :class="sale.is_high_priority ? 'text-red-500 font-bold' : ''">{{ sale.is_high_priority ? 'Alta' : 'Normal' }}</span>
                     </p>
                 </div>
@@ -38,45 +39,46 @@
 
             <!-- Lista de Producciones -->
             <section class="mt-6 space-y-6">
-                 <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">Productos a Fabricar</h2>
+                 <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Productos a Fabricar</h2>
                 <div v-for="production in sale.productions" :key="production.id" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border dark:border-slate-700">
                     <!-- Detalles del Producto -->
-                    <div class="flex flex-col md:flex-row gap-6">
+                    <div class="flex flex-col md:flex-row gap-4">
                         <div class="flex-shrink-0">
-                             <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/120x120/e2e8f0/e2e8f0?text=N/A'" 
-                                 alt="Imagen de producto" 
-                                 class="size-32 object-cover rounded-lg">
+                             <!-- Cambiado object-cover a object-contain y añadido un borde -->
+                             <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/128x128/e2e8f0/e2e8f0?text=N/A'"
+                                 alt="Imagen de producto"
+                                 class="size-32 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
                         </div>
                         <div class="flex-grow">
-                            <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ production.sale_product.product.name }}</h3>
-                            <p class="font-mono text-sm text-gray-500 dark:text-gray-400">{{ production.sale_product.product.code }}</p>
-                            
+                            <h3 class="text-md font-bold text-gray-900 dark:text-white">{{ production.sale_product.product.name }}</h3>
+                            <p class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ production.sale_product.product.code }}</p>
+
                             <div class="mt-3 grid grid-cols-2 gap-4 text-sm">
                                 <div>
-                                    <p class="font-semibold text-gray-600 dark:text-gray-300">Cantidad a Producir:</p>
-                                    <p class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ production.quantity_to_produce }} {{ production.sale_product.product.measure_unit }}</p>
+                                    <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Cantidad a Producir:</p>
+                                    <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ production.quantity_to_produce }} {{ production.sale_product.product.measure_unit }}</p>
                                 </div>
                                 <div>
-                                    <p class="font-semibold text-gray-600 dark:text-gray-300">Tiempo Estimado Total:</p>
-                                    <p class="text-lg font-bold text-gray-800 dark:text-gray-100">{{ formatMinutes(production.total_estimated_time_minutes) }}</p>
+                                    <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Tiempo Estimado:</p>
+                                    <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ formatMinutes(production.total_estimated_time_minutes) }}</p>
                                 </div>
                                  <div class="col-span-2">
-                                    <p class="font-semibold text-gray-600 dark:text-gray-300">Operadores Asignados:</p>
-                                    <p class="text-gray-800 dark:text-gray-100">{{ getOperatorsForProduction(production) }}</p>
+                                    <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Operadores Asignados:</p>
+                                    <p class="text-sm text-gray-800 dark:text-gray-100">{{ getOperatorsForProduction(production) }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <!-- Tareas de Producción -->
                     <div class="mt-4 border-t dark:border-slate-700 pt-4">
-                        <h4 class="font-semibold text-gray-700 dark:text-gray-200 mb-2">Tareas a Realizar</h4>
+                        <h4 class="font-semibold text-gray-700 dark:text-gray-200 mb-2 text-sm">Tareas a Realizar</h4>
                         <ul class="space-y-2">
-                            <li v-for="task in production.tasks" :key="task.id" class="flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-md">
+                            <li v-for="task in production.tasks" :key="task.id" class="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-md">
                                 <div>
-                                    <p class="font-medium text-gray-800 dark:text-gray-200">{{ task.name }}</p>
+                                    <p class="font-medium text-gray-800 dark:text-gray-200 text-sm">{{ task.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Asignado a: {{ task.operator?.name || 'No asignado' }}</p>
                                 </div>
-                                <div class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                <div class="text-xs font-semibold text-gray-700 dark:text-gray-300">
                                     {{ formatMinutes(task.estimated_time_minutes) }}
                                 </div>
                             </li>
