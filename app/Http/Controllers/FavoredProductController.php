@@ -45,14 +45,11 @@ class FavoredProductController extends Controller
                     throw new \Exception('El producto a favor no está asociado a ningún producto del inventario.');
                 }
 
-                // 1. Descontar la cantidad del producto a favor
-                $favoredProduct->decrement('quantity', $quantityToDiscount);
-
-                // 2. Agregar la cantidad al stock del producto principal
+                // 1. Agregar la cantidad al stock del producto principal
                 $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
                 $storage->increment('quantity', $quantityToDiscount);
 
-                // 3. Crear el movimiento de stock
+                // 2. Crear el movimiento de stock
                 StockMovement::create([
                     'product_id' => $product->id,
                     'storage_id' => $storage->id,
@@ -60,9 +57,24 @@ class FavoredProductController extends Controller
                     'type' => 'Entrada',
                     'notes' => 'Entrada por descuento de stock a favor'
                 ]);
+
+                // 3. MODIFICACIÓN: Si la cantidad a descontar es igual a la existente,
+                // se elimina el registro. De lo contrario, solo se descuenta.
+                // Usamos una comparación de floats para mayor precisión.
+                if (abs($favoredProduct->quantity - $quantityToDiscount) < 0.00001) {
+                    $favoredProduct->delete();
+                } else {
+                    $favoredProduct->decrement('quantity', $quantityToDiscount);
+                }
             });
 
-            // Devolver el producto actualizado
+            // MODIFICACIÓN: Comprobar si el modelo fue eliminado en la transacción
+            // La propiedad 'exists' será false si el registro ya no está en la base de datos.
+            if (!$favoredProduct->exists) {
+                return response()->json(['message' => 'Producto a favor utilizado en su totalidad y eliminado.']);
+            }
+
+            // Devolver el producto actualizado si no fue eliminado
             $favoredProduct->refresh()->load('product');
             return response()->json($favoredProduct);
 

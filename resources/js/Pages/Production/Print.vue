@@ -21,7 +21,7 @@
         <!-- Cambiado max-w-4xl a max-w-2xl y p-8 a p-6 para un diseño más compacto -->
         <main class="max-w-3xl mx-auto p-5 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
             <!-- Encabezado -->
-            <header class="flex justify-between items-start pb-5 border-b border-gray-200 dark:border-slate-700">
+            <header class="flex justify-between items-start pb-3 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Orden de Producción</h1>
                     <p class="text-md font-semibold text-blue-600">
@@ -29,7 +29,6 @@
                     </p>
                 </div>
                 <div class="text-right flex-shrink-0 ml-4">
-                    <ApplicationLogo />
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">Emisión: {{ formatDate(sale.created_at) }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Prioridad:
                         <span :class="sale.is_high_priority ? 'text-red-500 font-bold' : ''">{{ sale.is_high_priority ? 'Alta' : 'Normal' }}</span>
@@ -38,16 +37,17 @@
             </header>
 
             <!-- Lista de Producciones -->
-            <section class="mt-6 space-y-6">
+            <section class="mt-3 space-y-3">
                  <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Productos a Fabricar</h2>
-                <div v-for="production in sale.productions" :key="production.id" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border dark:border-slate-700">
+                <div v-for="production in sale.productions" :key="production.id" class="p-4 rounded-lg border dark:border-slate-700">
                     <!-- Detalles del Producto -->
-                    <div class="flex flex-col md:flex-row gap-4">
+                    <!-- MODIFICACIÓN: Se agrega 'print:flex-row' para forzar la vista horizontal al imprimir -->
+                    <div class="flex flex-col md:flex-row print:flex-row gap-4">
                         <div class="flex-shrink-0">
                              <!-- Cambiado object-cover a object-contain y añadido un borde -->
                              <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/128x128/e2e8f0/e2e8f0?text=N/A'"
                                  alt="Imagen de producto"
-                                 class="size-32 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
+                                 class="size-40 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
                         </div>
                         <div class="flex-grow">
                             <h3 class="text-md font-bold text-gray-900 dark:text-white">{{ production.sale_product.product.name }}</h3>
@@ -70,10 +70,10 @@
                         </div>
                     </div>
                     <!-- Tareas de Producción -->
-                    <div class="mt-4 border-t dark:border-slate-700 pt-4">
+                    <div class="mt-4 border-t pt-4">
                         <h4 class="font-semibold text-gray-700 dark:text-gray-200 mb-2 text-sm">Tareas a Realizar</h4>
                         <ul class="space-y-2">
-                            <li v-for="task in production.tasks" :key="task.id" class="flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-md">
+                            <li v-for="task in production.tasks" :key="task.id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-900 p-2 rounded-md">
                                 <div>
                                     <p class="font-medium text-gray-800 dark:text-gray-200 text-sm">{{ task.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Asignado a: {{ task.operator?.name || 'No asignado' }}</p>
@@ -88,7 +88,7 @@
             </section>
 
             <!-- Notas -->
-            <footer v-if="sale.notes" class="mt-7 pt-4 border-t border-gray-200 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-400">
+            <footer v-if="sale.notes" class="mt-7 pt-4 border-t border-gray-200 text-sm text-gray-600 dark:text-gray-400">
                 <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Notas Generales de la Orden</h3>
                 <p class="whitespace-pre-wrap">{{ sale.notes }}</p>
             </footer>
@@ -163,6 +163,9 @@ export default {
     }
     .print\:p-3 {
         padding: 0.75rem;
+    }
+    .print\:flex-row {
+        flex-direction: row;
     }
 }
 </style>
