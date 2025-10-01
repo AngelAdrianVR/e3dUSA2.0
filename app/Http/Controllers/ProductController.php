@@ -424,7 +424,7 @@ class ProductController extends Controller
 
             // Actualiza el producto principal
             $catalog_product->update($validatedData + [
-                'is_purchasable' =>  $request->filled('components') ? false : true, // si tiene componentes no se compra porque se tiene que producir
+                'is_purchasable' => $request->hasComponents ? false : true, // si tiene componentes no se compra porque se tiene que producir
                 'is_sellable' => $validatedData['product_type'] === 'Catálogo' ? true : false, // si es de catalogo es vendible
             ]);
 

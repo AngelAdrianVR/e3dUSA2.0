@@ -51,7 +51,7 @@ class CatalogProductPricesExport implements
                 // Se busca el precio especial para esta combinación de producto y sucursal
                 // de la colección que ya cargamos previamente (priceHistory)
                 $specialPrice = $product->priceHistory
-                                        ->where('branch_id', $branch->id)
+                                        ->where('branch_id', $branch?->id)
                                         ->first();
 
                 // Se construye el arreglo de datos con la nueva estructura
@@ -59,7 +59,7 @@ class CatalogProductPricesExport implements
                     'Producto' => $product->name,
                     'Precio Base' => $product->base_price ?? '-',
                     'Moneda Base' => $product->currency ?? '-',
-                    'Cliente' => $branch->name,
+                    'Cliente' => $branch?->name,
                     'Precio Especial' => $specialPrice->price ?? '-',
                     'Moneda Especial' => $specialPrice->currency ?? '-',
                 ];
