@@ -24,7 +24,8 @@ return new class extends Migration
             $table->decimal('ship_stock', 10, 2)->nullable(); // cantidad en barco
             $table->decimal('unit_price', 10, 2);
             $table->decimal('total_price', 12, 2);
-            $table->decimal('recieved_quantity', 10, 2)->default(0); // Cantidad que ya ha sido recibida
+            $table->decimal('mold_price', 12, 2)->nullable(); // Precio del molde (si aplica)
+            $table->boolean('needs_mold')->default(false); // si necesita molde
             $table->string('notes')->nullable(); // notas
             $table->timestamps();
         });

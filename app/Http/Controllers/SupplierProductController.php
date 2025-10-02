@@ -25,6 +25,12 @@ class SupplierProductController extends Controller
             'min_quantity' => 'nullable|numeric|min:0',
         ]);
 
+        // Actualizar costo del producto
+        $product = Product::findOrFail($validated['product_id']);
+        $product->update([
+            'cost' => $validated['last_price'],
+        ]);
+
         $supplier->products()->attach($validated['product_id'], [
             'last_price' => $validated['last_price'],
             'min_quantity' => $validated['min_quantity'],
@@ -40,6 +46,10 @@ class SupplierProductController extends Controller
             'min_quantity' => 'nullable|numeric|min:0',
         ]);
 
+        $product->update([
+            'cost' => $request->last_price    
+        ]);
+        
         $supplier->products()->updateExistingPivot($product->id, $validated);
 
         return back()->with('success', 'Producto actualizado para este proveedor.');
