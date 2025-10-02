@@ -90,9 +90,10 @@
                     <thead>
                         <tr class="bg-gray-100 text-left text-gray-600 uppercase">
                             <th class="p-4 font-bold rounded-l-lg">Imagen</th>
-                            <th class="p-4 font-bold">{{ purchase.is_spanish_template ? 'Producto' : 'Product' }}</th>
+                            <th class="p-4 font-bold w-[35%]">{{ purchase.is_spanish_template ? 'Producto' : 'Product' }}</th>
                             <th class="p-4 font-bold text-center">{{ purchase.is_spanish_template ? 'Cantidad' : 'Quantity' }}</th>
                             <th class="p-4 font-bold text-right">{{ purchase.is_spanish_template ? 'Precio Unitario' : 'Unit Price' }}</th>
+                            <th class="p-4 font-bold text-right">{{ purchase.is_spanish_template ? 'Molde' : 'New Mold fee' }}</th>
                             <th class="p-4 font-bold text-right rounded-r-lg">{{ purchase.is_spanish_template ? 'Importe' : 'Total' }}</th>
                         </tr>
                     </thead>
@@ -140,6 +141,7 @@
                             </td>
                             <td class="p-3 text-center align-top">{{ formatNumber(item.quantity) }} {{ item.product.measure_unit }}</td>
                             <td class="p-3 text-right align-top">{{ formatCurrency(item.unit_price) }}</td>
+                            <td class="p-3 text-right align-top">{{ item.needs_mold ? (item.mold_price ? formatCurrency(item.mold_price) : (purchase.is_spanish_template ? 'Por definir' : 'To be defined')) : 'No' }}</td>
                             <td class="p-3 text-right font-semibold align-top">{{ formatCurrency(item.total_price) }}</td>
                         </tr>
                     </tbody>
@@ -152,6 +154,10 @@
                     <div class="flex justify-between">
                         <span class="text-gray-500">Subtotal</span>
                         <span class="font-semibold text-gray-800">{{ formatCurrency(purchase.subtotal) }}</span>
+                    </div>
+                    <div v-if="purchase.items.some(item => item.needs_mold)" class="flex justify-between">
+                        <span class="text-gray-500">{{ purchase.is_spanish_template ? 'Nuevo molde' : 'New Mold Fee' }}</span>
+                        <span class="font-semibold text-gray-800">{{ moldsFee > 0 ? formatCurrency(moldsFee) : (purchase.is_spanish_template ? 'Por definir' : 'To be defined') }}</span>
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">{{ purchase.is_spanish_template ? 'Impuestos' : 'Tax' }}</span>
@@ -269,12 +275,23 @@ export default {
             form: useForm({
                 contact_id: this.purchase.contact_id,
                 supplier_bank_account_id: this.purchase.supplier_bank_account_id,
-                subject: `Orden de Compra | OC-${String(this.purchase.id).padStart(4, "0")} | Emblems 3D USA`,
-                content: `Estimado proveedor,\n\nAdjunto nuestra orden de compra para su gestión.\n\nQuedamos a la espera de su confirmación.\n\nSaludos cordiales.`,
+                // Asunto condicional (Español / Inglés)
+    subject: this.purchase.is_spanish_template 
+        ? `Orden de Compra | OC-${String(this.purchase.id).padStart(4, "0")} | Emblems 3D USA`
+        : `Purchase Order | PO-${String(this.purchase.id).padStart(4, "0")} | Emblems 3D USA`,
+    
+    // Contenido del mensaje condicional (Español / Inglés)
+    content: this.purchase.is_spanish_template 
+        ? `Estimado proveedor,\n\nAdjunto nuestra orden de compra para su gestión.\n\nQuedamos a la espera de su confirmación.\n\nSaludos cordiales.`
+        : `Dear Supplier,\n\nPlease find our purchase order attached for processing.\n\nWe look forward to your confirmation.\n\nBest regards.`,
             }),
         };
     },
     computed: {
+        moldsFee() {
+            const molds_fee = this.purchase.items.reduce((acc, item) => acc + item.mold_price, 0);
+            return molds_fee;
+        },
         getBankInfo() {
             if (!this.purchase.bank_account) {
                 return null;

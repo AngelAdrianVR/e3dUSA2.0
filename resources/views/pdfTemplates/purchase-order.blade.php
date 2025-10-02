@@ -177,6 +177,7 @@
                 <th>{{ $purchase->is_spanish_template ? 'Descripción' : 'Description' }}</th>
                 <th class="text-right">{{ $purchase->is_spanish_template ? 'Cantidad' : 'Quantity' }}</th>
                 <th class="text-right">{{ $purchase->is_spanish_template ? 'P. Unitario' : 'Unit Price' }}</th>
+                <th class="text-right">{{ $purchase->is_spanish_template ? 'Molde' : 'New Mold Fee' }}</th>
                 <th class="text-right">{{ $purchase->is_spanish_template ? 'Importe' : 'Total' }}</th>
             </tr>
         </thead>
@@ -186,7 +187,6 @@
                 <td>{{ $item->product->code }}</td>
                 <td>
                     {{ $item->description }}
-                    {{-- INICIO: Sección de Distribución --}}
                     @if($item->plane_stock > 0 || $item->ship_stock > 0 || $item->additional_stock > 0)
                         <div style="font-size: 8px; color: #555; margin-top: 5px; padding-left: 10px; border-left: 2px solid #eee;">
                             @if($item->plane_stock > 0)
@@ -200,21 +200,47 @@
                             @endif
                         </div>
                     @endif
-                    {{-- FIN: Sección de Distribución --}}
                 </td>
                 <td class="text-right">{{ number_format($item->quantity, 2) }} {{ $item->product->measure_unit }}</td>
                 <td class="text-right">${{ number_format($item->unit_price, 2) }}</td>
+                <td class="text-right">
+                    @if($item->needs_mold)
+                        @if($item->mold_price && $item->mold_price > 0)
+                            ${{ number_format($item->mold_price, 2) }}
+                        @else
+                            {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                        @endif
+                    @else
+                        No
+                    @endif
+                </td>
                 <td class="text-right">${{ number_format($item->total_price, 2) }}</td>
             </tr>
             @endforeach
         </tbody>
     </table>
 
+    @php
+        $totalMoldFee = $purchase->items->sum('mold_price');
+        $needsMold = $purchase->items->contains('needs_mold', true);
+    @endphp
     <table class="total-section">
         <tr>
             <td>Subtotal</td>
             <td class="text-right">${{ number_format($purchase->subtotal, 2) }}</td>
         </tr>
+        @if($needsMold)
+        <tr>
+            <td>{{ $purchase->is_spanish_template ? 'Nuevo molde' : 'New Mold Fee' }}</td>
+            <td class="text-right">
+                @if($totalMoldFee > 0)
+                    ${{ number_format($totalMoldFee, 2) }}
+                @else
+                    {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                @endif
+            </td>
+        </tr>
+        @endif
         <tr>
             <td>{{ $purchase->is_spanish_template ? 'Impuestos' : 'Tax' }} ({{ $purchase->tax > 0 ? '16%' : '0%' }})</td>
             <td class="text-right">${{ number_format($purchase->tax, 2) }}</td>
@@ -242,4 +268,3 @@
     </table>
 </body>
 </html>
-
