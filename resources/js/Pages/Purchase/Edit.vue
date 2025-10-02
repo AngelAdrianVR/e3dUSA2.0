@@ -203,14 +203,17 @@
                                         <el-table-column prop="unit_price" label="Precio Unitario" width="120">
                                             <template #default="scope">{{ formatCurrency(scope.row.unit_price) }}</template>
                                         </el-table-column>
-                                        <el-table-column prop="mold_price" label="Molde" width="100">
+                                        <el-table-column prop="mold_price" label="Molde" width="120">
                                             <template #default="scope">
-                                                <p v-if="scope.row.needs_mold">{{  scope.row.mold_price ? formatCurrency(scope.row.mold_price) : (form.is_spanish_template ? 'Por definir' : 'to be defined') }}</p>
+                                                <p v-if="scope.row.needs_mold">{{  scope.row.mold_price ? formatCurrency(scope.row.mold_price) : (form.is_spanish_template ? 'Por definir' : 'To be defined') }}</p>
+                                                <p v-else>No</p>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column label="Total" width="150">
-                                            <template #default="scope">{{ formatCurrency((scope.row.quantity * scope.row.unit_price) + parseFloat(scope.row.mold_price || 0)) }}</template>
+                                        <!-- INICIO: Corregido el total de la fila -->
+                                        <el-table-column label="Total" width="150" align="right">
+                                            <template #default="scope">{{ formatCurrency(scope.row.quantity * scope.row.unit_price) }}</template>
                                         </el-table-column>
+                                        <!-- FIN: Corregido el total de la fila -->
                                         <el-table-column label="Acciones" width="100" align="right">
                                              <template #default="scope">
                                                 <div class="flex items-center justify-end space-x-3">
@@ -231,29 +234,44 @@
                                     <InputError :message="form.errors.items" class="mt-2" />
                                 </div>
 
-                                <!-- Totales -->
+                                <!-- INICIO: Totales corregidos y reorganizados -->
                                 <div class="mt-6 flex justify-end">
                                     <div class="w-full max-w-sm space-y-2 text-gray-700 dark:text-gray-300">
-                                        <div class="flex justify-between"><span>Subtotal:</span> <span>{{ formatCurrency(totals.subtotal) }}</span></div>
+                                        <div class="flex justify-between">
+                                            <span>Subtotal:</span>
+                                            <span>{{ formatCurrency(totals.subtotal) }}</span>
+                                        </div>
+                                        <div v-if="form.items.some(item => item.needs_mold)" class="flex justify-between">
+                                            <span>{{ form.is_spanish_template ? 'Costo de Moldes:' : 'Molds Fee:' }}</span>
+                                            <span>
+                                                {{ totals.molds > 0 ? formatCurrency(totals.molds) : (form.is_spanish_template ? 'Por definir' : 'To be defined') }}
+                                            </span>
+                                        </div>
                                         <div class="flex justify-between items-center">
-                                            <label class="text-sm">IVA ({{ tax_percent }}%):</label>
+                                            <label class="text-sm">IVA:</label>
                                             <div class="w-28">
                                                 <TextInput v-model.number="tax_percent" type="number" placeholder="16">
                                                     <template #icon-right><i class="fa-solid fa-percentage"></i></template>
                                                 </TextInput>
                                             </div>
                                         </div>
-                                        <div class="flex justify-between"><span>Impuestos:</span> <span>{{ formatCurrency(totals.tax) }}</span></div>
-                                        <div class="flex justify-between"><span>Moldes:</span> <span>{{ formatCurrency(totals.molds || 0) }}</span></div>
-                                        <div class="flex justify-between font-bold text-lg border-t pt-2"><span>Total:</span> <span>{{ formatCurrency(totals.total) }}</span></div>
+                                        <div class="flex justify-between">
+                                            <span>Impuestos:</span>
+                                            <span>{{ formatCurrency(totals.tax) }}</span>
+                                        </div>
+                                        <div class="flex justify-between font-bold text-lg border-t pt-2 mt-2">
+                                            <span>Total:</span>
+                                            <span>{{ formatCurrency(totals.total) }}</span>
+                                        </div>
                                     </div>
                                 </div>
+                                <!-- FIN: Totales corregidos y reorganizados -->
                             </div>
                         </section>
                         
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :loading="form.processing" :disabled="form.items.length === 0">
+                            <SecondaryButton @click="update" :loading="form.processing" :disabled="form.items.length === 0">
                                 Guardar Cambios
                             </SecondaryButton>
                         </div>
@@ -317,7 +335,7 @@ export default {
             supplierBankAccounts: [],
             availableProducts: [],
             editProductIndex: null,
-            tax_percent: (this.purchase.tax / this.purchase.subtotal) * 100, // Calcula el porcentaje de impuesto inicial
+            tax_percent: this.purchase.tax > 0 ? (this.purchase.tax / this.purchase.subtotal) * 100 : 16, // Calcula el porcentaje o usa 16 por defecto
         };
     },
     components: {
@@ -340,13 +358,23 @@ export default {
         this.fetchSupplierDetails();
     },
     computed: {
+        // INICIO: Lógica de totales corregida
         totals() {
-            const subtotal = this.form.items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
-            const tax = subtotal * (this.tax_percent / 100);
-            const molds = this.form.items.reduce((acc, item) => acc + item.mold_price, 0);
-            const total = subtotal + tax + parseFloat(molds);
+            // Subtotal de productos (cantidad * precio)
+            const subtotal = this.form.items.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unit_price)), 0);
+
+            // Costo total de todos los moldes, manejando valores nulos o no numéricos
+            const molds = this.form.items.reduce((acc, item) => acc + (Number(item.mold_price) || 0), 0);
+
+            // El impuesto se calcula sobre el subtotal de los productos.
+            const tax = subtotal * ((Number(this.tax_percent) || 0) / 100);
+            
+            // El total final es la suma de todas las partes.
+            const total = subtotal + molds + tax;
+            
             return { subtotal, tax, molds, total };
         },
+        // FIN: Lógica de totales corregida
         isEditing() {
             return this.editProductIndex !== null;
         },
@@ -379,9 +407,6 @@ export default {
         },
         async fetchSupplierDetails() {
             if (!this.form.supplier_id) return;
-            
-            // No resetear el formulario si es la carga inicial
-            // this.resetFormOnSupplierChange();
             
             try {
                 const response = await axios.get(route('suppliers.get-details', { supplier: this.form.supplier_id }));
@@ -437,9 +462,10 @@ export default {
             this.editProductIndex = index;
             // Clonación profunda para evitar reactividad no deseada
             this.productForm = this.form.items[index];
-            this.productForm.additional_stock = 0;
-            this.productForm.plane_stock = 0;
-            this.productForm.ship_stock = 0;
+            this.productForm.additional_stock = parseInt(this.form.items[index].additional_stock) || 0;
+            this.productForm.plane_stock = parseInt(this.form.items[index].plane_stock) || 0;
+            this.productForm.ship_stock = parseInt(this.form.items[index].ship_stock) || 0;
+            this.productForm.needs_mold = !! this.form.items[index].needs_mold;
             // this.productForm = JSON.parse(JSON.stringify(this.form.items[index]));
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },

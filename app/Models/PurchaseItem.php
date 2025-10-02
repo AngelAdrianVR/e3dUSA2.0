@@ -33,6 +33,10 @@ class PurchaseItem extends Model
         'needs_mold',
     ];
 
+    protected $casts = [
+        'needs_mold' => 'boolean',
+    ];
+
     /**
      * Get the purchase that owns the item.
      */
