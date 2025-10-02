@@ -165,12 +165,28 @@
                                     </div>
 
                                     <!-- Tipo de compra -->
-                                    <div class="col-span-full">
-                                        <label class="text-gray-700 dark:text-gray-100 text-sm ml-1">Tipo de compra</label>
-                                        <el-radio-group v-model="productForm.type" class="!w-full">
-                                            <el-radio-button label="Venta">Para Venta</el-radio-button>
-                                            <el-radio-button label="Muestra">Para Muestras</el-radio-button>
-                                        </el-radio-group>
+                                    <div class="col-span-full grid grid-cols-1 md:grid-cols-3">
+                                        <div>
+                                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-1">Tipo de compra</label>
+                                            <el-radio-group v-model="productForm.type" class="!w-full">
+                                                <el-radio-button label="Venta">Para Venta</el-radio-button>
+                                                <el-radio-button label="Muestra">Para Muestras</el-radio-button>
+                                            </el-radio-group>
+                                        </div>
+                                        <div class="md:col-span-2 flex items-center space-x-3">
+                                            <el-checkbox v-model="productForm.needs_mold">¿Requiere molde?</el-checkbox>
+                                            <TextInput 
+                                                v-if="productForm.needs_mold" 
+                                                v-model.number="productForm.mold_price" 
+                                                label="Precio del molde" 
+                                                helpContent="En caso de no saber el costo, dejarlo vacío o en 0."
+                                                type="text" 
+                                                placeholder="0.00" 
+                                                :formatAsNumber="true"
+                                            >
+                                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                            </TextInput>
+                                        </div>
                                     </div>
 
                                     <!-- Notas del producto -->
@@ -195,7 +211,7 @@
                                 <div class="mt-4 overflow-x-auto">
                                     <el-table :data="form.items" stripe class="!w-full">
                                         <el-table-column prop="product_name" label="Producto" min-width="150" />
-                                        <el-table-column prop="notes" label="Notas" min-width="180">
+                                        <el-table-column prop="notes" label="Notas" min-width="120">
                                             <template #default="scope">
                                                 <el-tooltip v-if="scope.row.notes" :content="scope.row.notes" placement="top">
                                                     <span class="truncate">{{ scope.row.notes }}</span>
@@ -203,12 +219,17 @@
                                                 <span v-else class="text-gray-400">N/A</span>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column prop="quantity" label="Cantidad" width="120" />
-                                        <el-table-column prop="unit_price" label="Precio Unitario" width="150">
+                                        <el-table-column prop="quantity" label="Cantidad" width="100" />
+                                        <el-table-column prop="unit_price" label="Precio Unitario" width="120">
                                             <template #default="scope">{{ formatCurrency(scope.row.unit_price) }}</template>
                                         </el-table-column>
+                                        <el-table-column prop="mold_price" label="Molde" width="100">
+                                            <template #default="scope">
+                                                <p v-if="scope.row.needs_mold">{{  scope.row.mold_price ? formatCurrency(scope.row.mold_price) : (form.is_spanish_template ? 'Por definir' : 'to be defined') }}</p>
+                                            </template>
+                                        </el-table-column>
                                         <el-table-column label="Total" width="150">
-                                            <template #default="scope">{{ formatCurrency(scope.row.quantity * scope.row.unit_price) }}</template>
+                                            <template #default="scope">{{ formatCurrency((scope.row.quantity * scope.row.unit_price) + scope.row.mold_price) }}</template>
                                         </el-table-column>
                                         <el-table-column label="Acciones" width="100" align="right">
                                              <template #default="scope">
@@ -243,6 +264,7 @@
                                             </div>
                                         </div>
                                         <div class="flex justify-between"><span>Impuestos:</span> <span>{{ formatCurrency(totals.tax) }}</span></div>
+                                        <div class="flex justify-between"><span>Moldes:</span> <span>{{ formatCurrency(totals.molds) }}</span></div>
                                         <div class="flex justify-between font-bold text-lg border-t pt-2"><span>Total:</span> <span>{{ formatCurrency(totals.total) }}</span></div>
                                     </div>
                                 </div>
@@ -303,6 +325,8 @@ export default {
             unit_price: 0,
             additional_stock: 0,
             plane_stock: 0,
+            needs_mold: false,
+            mold_price: null,
             ship_stock: 0,
             type: 'Venta',
             notes: '',
@@ -339,8 +363,9 @@ export default {
         totals() {
             const subtotal = this.form.items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
             const tax = subtotal * (this.tax_percent / 100);
-            const total = subtotal + tax;
-            return { subtotal, tax, total };
+            const molds = this.form.items.reduce((acc, item) => acc + item.mold_price, 0);
+            const total = subtotal + tax + molds;
+            return { subtotal, tax, molds, total };
         },
         // Devuelve true si se está editando un producto
         isEditing() {
@@ -483,6 +508,8 @@ export default {
                 plane_stock: 0,
                 ship_stock: 0,
                 type: 'Venta',
+                needs_mold: false,
+                mold_price: null,
                 notes: '',
             };
             this.editProductIndex = null;

@@ -70,7 +70,6 @@ class PurchaseController extends Controller
             'currency' => 'required|string|max:3',
             'notes' => 'nullable|string|max:1000',
             'is_spanish_template' => 'required|boolean',
-            // 'type' => 'required|string|in:Venta,Muestra',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
@@ -98,7 +97,6 @@ class PurchaseController extends Controller
                 'currency' => $request->currency,
                 'notes' => $request->notes,
                 'is_spanish_template' => $request->is_spanish_template,
-                // 'type' => $request->type,
                 'subtotal' => $request->subtotal,
                 'tax' => $request->tax,
                 'total' => $request->total,
@@ -119,6 +117,8 @@ class PurchaseController extends Controller
                     'plane_stock' => $itemData['plane_stock'] ?? 0,
                     'ship_stock' => $itemData['ship_stock'] ?? 0,
                     'type' => $itemData['type'] ?? 'Venta',
+                    'needs_mold' => $itemData['needs_mold'],
+                    'mold_price' => $itemData['mold_price'],
                     'notes' => $itemData['notes'] ?? null,
                 ]);
 
@@ -246,6 +246,8 @@ class PurchaseController extends Controller
                     'plane_stock' => $itemData['plane_stock'] ?? 0,
                     'ship_stock' => $itemData['ship_stock'] ?? 0,
                     'type' => $itemData['type'] ?? 'Venta',
+                    'needs_mold' => $itemData['needs_mold'],
+                    'mold_price' => $itemData['mold_price'],
                     'notes' => $itemData['notes'] ?? null,
                 ]);
 
@@ -516,10 +518,24 @@ class PurchaseController extends Controller
             'name' => $fileName,
         ];
 
-        $contact = $purchase->supplier->contacts()->find($request->contact_id);
+        // Encuentra el contacto específico del proveedor y carga sus detalles (relación 'details')
+        $contact = $purchase->supplier->contacts()->with('details')->find($request->contact_id);
 
+        // 1. Validar si el contacto fue encontrado
+        if (!$contact) {
+            return response()->json(['message' => 'El contacto seleccionado no fue encontrado.'], 404);
+        }
+
+        // 2. Buscar en los detalles del contacto, el que sea de tipo 'Correo'.
+        //    Usamos first() para obtener el primer resultado que coincida.
+        $emailDetail = $contact->details->where('type', 'Correo')->first();
+
+        // 3. Validar si se encontró un detalle de correo para este contacto.
+        if (!$emailDetail) {
+            return response()->json(['message' => 'El contacto no tiene un correo electrónico registrado.'], 404);
+        }
         try {
-            Mail::to($contact->email) // correo real
+            Mail::to($emailDetail->value) // correo real
             // Mail::to('angelvazquez470@gmail.com') // correo de prueba
                 ->bcc(auth()->user()->email) // Opcional: enviar copia al usuario autenticado
                 ->send(new EmailSupplierTemplateMarkdownMail($request->subject, $request->content, $attachment));
@@ -531,6 +547,5 @@ class PurchaseController extends Controller
         // 6. Eliminar el archivo después de enviarlo (opcional)
         Storage::delete($path);
 
-        // return response()->json(['message' => 'Correo enviado exitosamente']);
     }
 }
