@@ -34,7 +34,7 @@
                                 </el-tag>
                             </template>
                         </el-table-column>
-                        <el-table-column label="Acciones" align="right" width="150">
+                        <el-table-column v-if="$page.props.auth.user.permissions.includes('Gestionar solicitudes de tiempo adicional')" label="Acciones" align="right" width="150">
                             <template #default="scope">
                                 <!-- Acciones visibles si tiene permiso de gestionar -->
                                 <div v-if="can.manage_requests && scope.row.status === 'pending'"

@@ -33,16 +33,19 @@ class NotifyInactiveClients extends Command
     public function handle()
     {
         $this->info('Starting the process to notify about inactive clients...');
+        Log::info('Starting the process to notify about inactive clients...');
 
         // Obtenemos solo los vendedores que tienen clientes asignados para optimizar la consulta.
         $salesUsers = $this->getSalesUsersWithClients();
 
         if ($salesUsers->isEmpty()) {
             $this->info('No sales users with assigned clients found. Process finished.');
+            Log::info('No sales users with assigned clients found. Process finished.');
             return self::SUCCESS;
         }
 
         $this->info("Found {$salesUsers->count()} sales user(s) to check.");
+        Log::info("Found {$salesUsers->count()} sales user(s) to check.");
 
         // Iterar sobre cada vendedor para notificarles sobre sus clientes inactivos
         foreach ($salesUsers as $user) {
@@ -56,6 +59,7 @@ class NotifyInactiveClients extends Command
                 $user->notify(new InactiveClientsNotification($inactiveClients));
                 
                 $this->info("Notification sent successfully to: {$user->name} with {$inactiveClients->count()} inactive client(s).");
+                Log::info("Notification sent successfully to: {$user->name} with {$inactiveClients->count()} inactive client(s).");
                 Log::info("Inactive clients notification sent to user {$user->id} ({$user->name}). Found {$inactiveClients->count()} inactive client(s).");
             } else {
                  $this->line("User {$user->name} has no inactive clients.");
@@ -63,6 +67,7 @@ class NotifyInactiveClients extends Command
         }
 
         $this->info('Inactive clients notification process completed successfully.');
+        Log::info('Inactive clients notification process completed successfully.');
         return self::SUCCESS;
     }
 

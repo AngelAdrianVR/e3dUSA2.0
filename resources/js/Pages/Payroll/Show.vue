@@ -119,7 +119,7 @@
                                         </el-table-column>
                                         <el-table-column prop="total_time" label="T. Total" align="center" width="90">
                                             <template #default="{ row }">
-                                                <el-tooltip v-if="row.unauthorized_overtime_seconds > 0"
+                                                <el-tooltip v-if="row.unauthorized_overtime_seconds > 60"
                                                     :content="`Tiempo adicional no autorizado: ${formatTime(row.unauthorized_overtime_seconds)}`"
                                                     placement="top">
                                                     <span class="text-red-500 font-bold border-b border-dashed border-red-500 cursor-help">{{ row.total_time }}</span>
