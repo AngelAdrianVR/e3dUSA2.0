@@ -422,3 +422,8 @@ Route::get('/clear-cache', function () {
 
     return 'Cache, config, route y view limpiados correctamente ✔️';
 });
+
+Route::get('/cerrar-nominas', function () {
+    Artisan::call('app:manage-weekly-payroll');
+    return 'Comando ejecutado correctamente.';
+});

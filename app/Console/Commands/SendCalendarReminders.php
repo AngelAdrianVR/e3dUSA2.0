@@ -9,6 +9,7 @@ use Carbon\Carbon;
 // Asegúrate de que los namespaces de tus modelos Task y Event sean correctos.
 use App\Models\Task;
 use App\Models\Event;
+use Illuminate\Support\Facades\Log;
 
 class SendCalendarReminders extends Command
 {
@@ -32,6 +33,7 @@ class SendCalendarReminders extends Command
     public function handle()
     {
         $this->info('Buscando eventos/tareas para hoy y mañana...');
+        Log::info('Buscando eventos/tareas para hoy y mañana...');
 
         $today = Carbon::today();
         $tomorrow = Carbon::tomorrow();
@@ -76,10 +78,12 @@ class SendCalendarReminders extends Command
 
         if ($entries->isEmpty()) {
             $this->info('No se encontraron eventos o tareas que cumplan los criterios para hoy o mañana.');
+            Log::info('No se encontraron eventos o tareas que cumplan los criterios para hoy o mañana.');
             return 0;
         }
 
         $this->info("Se encontraron {$entries->count()} eventos/tareas que cumplen los criterios.");
+        Log::info("Se encontraron {$entries->count()} eventos/tareas que cumplen los criterios.");
 
         foreach ($entries as $entry) {
             $user = $entry->owner;
@@ -92,6 +96,7 @@ class SendCalendarReminders extends Command
                 try {
                     $user->notify(new CalendarReminderNotification($entry, $reminderType));
                     $this->info("Notificación enviada a {$user->name} para '{$entry->title}' (evento es {$when}).");
+                   Log::info("Notificación enviada a {$user->name} para '{$entry->title}' (evento es {$when}).");
                 } catch (\Exception $e) {
                     $this->error("Error al notificar para el evento ID {$entry->id}: " . $e->getMessage());
                 }
@@ -101,6 +106,7 @@ class SendCalendarReminders extends Command
         }
 
         $this->info('Proceso de envío de recordatorios finalizado.');
+        Log::info('Proceso de envío de recordatorios finalizado.');
         return 0;
     }
 }

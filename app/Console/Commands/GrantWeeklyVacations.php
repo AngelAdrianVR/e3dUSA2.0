@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\EmployeeDetail;
 use App\Models\VacationLog;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class GrantWeeklyVacations extends Command
 {
@@ -29,6 +30,7 @@ class GrantWeeklyVacations extends Command
     public function handle()
     {
         $this->info('Iniciando el proceso de otorgamiento de vacaciones semanales...');
+        Log::info('Iniciando el proceso de otorgamiento de vacaciones semanales...');
 
         // Obtenemos todos los detalles de empleados cuyos usuarios están activos.
         $activeEmployees = EmployeeDetail::whereHas('user', function ($query) {
@@ -37,6 +39,7 @@ class GrantWeeklyVacations extends Command
 
         if ($activeEmployees->isEmpty()) {
             $this->info('No se encontraron empleados activos. Proceso finalizado.');
+            Log::info('No se encontraron empleados activos. Proceso finalizado.');
             return 0;
         }
 
@@ -61,6 +64,8 @@ class GrantWeeklyVacations extends Command
 
         $this->info("Se han otorgado vacaciones a {$count} empleados.");
         $this->info('Proceso de otorgamiento de vacaciones finalizado con éxito.');
+        Log::info("Se han otorgado vacaciones a {$count} empleados.");
+        Log::info('Proceso de otorgamiento de vacaciones finalizado con éxito.');
         return 0;
     }
 

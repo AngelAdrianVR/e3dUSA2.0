@@ -7,6 +7,7 @@ use App\Models\Quote; // Cambiado de Quotation a Quote según tu modelo
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class CheckPendingQuotations extends Command
 {
@@ -30,6 +31,7 @@ class CheckPendingQuotations extends Command
     public function handle()
     {
         $this->info('Iniciando la revisión de cotizaciones pendientes...');
+        Log::info('Iniciando la revisión de cotizaciones pendientes...');
 
         $threeDaysAgo = Carbon::now()->subDays(3);
 
@@ -69,9 +71,11 @@ class CheckPendingQuotations extends Command
                 // 5. Usar la función del modelo User para agregar o actualizar la alerta
                 $user->addActiveAlert('pending_quotations', $alertContent);
                 $this->info("Alerta de cotizaciones pendientes actualizada para el usuario: {$user->name} (ID: {$userId})");
+                Log::info("Alerta de cotizaciones pendientes actualizada para el usuario: {$user->name} (ID: {$userId})");
             }
         } else {
             $this->info('No se encontraron cotizaciones pendientes que cumplan con el criterio.');
+            Log::info('No se encontraron cotizaciones pendientes que cumplan con el criterio.');
         }
 
         // 6. Determinar qué usuarios ya no tienen cotizaciones pendientes para limpiar su alerta
@@ -83,10 +87,12 @@ class CheckPendingQuotations extends Command
                 if ($user) {
                     $user->removeActiveAlert('pending_quotations');
                     $this->info("Alerta de cotizaciones pendientes eliminada para el usuario: {$user->name} (ID: {$userId})");
+                    Log::info("Alerta de cotizaciones pendientes eliminada para el usuario: {$user->name} (ID: {$userId})");
                 }
             }
         }
 
         $this->info('Revisión de cotizaciones finalizada.');
+        Log::info('Revisión de cotizaciones finalizada.');
     }
 }

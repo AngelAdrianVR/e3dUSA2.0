@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use App\Models\Invoice;
 use App\Notifications\InvoiceOverdueNotification;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class CheckOverdueInvoices extends Command
 {
@@ -29,6 +30,7 @@ class CheckOverdueInvoices extends Command
     public function handle()
     {
         $this->info('Checking for overdue invoices...');
+        Log::info('Checking for overdue invoices...');
 
         // Obtenemos facturas pendientes o parcialmente pagadas cuya fecha de vencimiento ya pasó.
         $overdueInvoices = Invoice::with('user')
@@ -38,10 +40,12 @@ class CheckOverdueInvoices extends Command
 
         if ($overdueInvoices->isEmpty()) {
             $this->info('No overdue invoices found.');
+            Log::info('No overdue invoices found.');
             return;
         }
 
         $this->info($overdueInvoices->count() . ' overdue invoices found. Processing...');
+        Log::info($overdueInvoices->count() . ' overdue invoices found. Processing...');
 
         foreach ($overdueInvoices as $invoice) {
             // Actualizamos el estatus a 'Vencida'
@@ -62,5 +66,6 @@ class CheckOverdueInvoices extends Command
         }
 
         $this->info('Processing complete.');
+        Log::info('Processing complete.');
     }
 }

@@ -17,8 +17,8 @@ Schedule::command('app:send-calendar-reminders')->dailyAt('06:00');
 // revisa cotizaciones que no han tenido respuesta 3 dias o mas despues de haberse creado
 Schedule::command('quotations:check-pending')->dailyAt('06:00');
 
-// Cierra la nómina semanal actual y abre la siguiente cada jueves a las 11:55 PM
-Schedule::command('app:manage-weekly-payroll')->thursdays()->at('23:55');
+// Cierra la nómina semanal actual y abre la siguiente cada jueves a las 11:00 PM
+Schedule::command('app:manage-weekly-payroll')->thursdays()->at('23:00');
 
 // Otorga las vacaciones proporcionales a cada empleado activo.
 Schedule::command('app:grant-weekly-vacations')->weeklyOn(5, '01:00'); // Cada viernes a la 1:00 AM
