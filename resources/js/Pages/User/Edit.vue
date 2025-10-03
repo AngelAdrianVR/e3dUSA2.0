@@ -125,7 +125,8 @@ export default {
                                 </div>
                                 <div>
                                     <InputLabel value="Departamento*" />
-                                    <el-select v-model="form.department" placeholder="Selecciona el departamento"
+                                    <el-select collapse-tags
+                collapse-tags-tooltip v-model="form.department" placeholder="Selecciona el departamento"
                                         class="!w-full">
                                         <el-option v-for="department in ['Ventas', 'Producción', 'Diseño', 'Administración', 'Finanzas', 'Mercadotecnia']" :key="department"
                                             :label="department" :value="department" />
@@ -161,7 +162,8 @@ export default {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
                                 <div>
                                     <InputLabel value="Bonos aplicables" />
-                                    <el-select v-model="form.selected_bonuses" multiple
+                                    <el-select collapse-tags
+                collapse-tags-tooltip v-model="form.selected_bonuses" multiple
                                         placeholder="Selecciona uno o más bonos" class="!w-full">
                                         <el-option v-for="bonus in bonuses" :key="bonus.id" :label="bonus.name"
                                             :value="bonus.id" />
@@ -170,7 +172,8 @@ export default {
                                 </div>
                                 <div>
                                     <InputLabel value="Descuentos aplicables" />
-                                    <el-select v-model="form.selected_discounts" multiple
+                                    <el-select collapse-tags
+                collapse-tags-tooltip v-model="form.selected_discounts" multiple
                                         placeholder="Selecciona uno o más descuentos" class="!w-full">
                                         <el-option v-for="discount in discounts" :key="discount.id"
                                             :label="discount.name" :value="discount.id" />
@@ -249,7 +252,8 @@ export default {
                                 </div>
                                 <div>
                                     <InputLabel value="Rol del sistema*" />
-                                    <el-select v-model="form.role" placeholder="Selecciona un rol" class="!w-full">
+                                    <el-select collapse-tags
+                collapse-tags-tooltip v-model="form.role" placeholder="Selecciona un rol" class="!w-full">
                                         <el-option v-for="role in roles" :key="role.id" :label="role.name"
                                             :value="role.name" />
                                     </el-select>

@@ -16,7 +16,7 @@ class ProductionTaskController extends Controller
     public function updateStatus(Request $request, ProductionTask $production_task)
     {
         // Verificación de autorización: asegurar que el operador es dueño de la tarea o es un Admin.
-        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador')) {
+        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador') && !Auth::user()->hasRole('Samuel')) {
             return back()->withErrors('No tienes permiso para modificar esta tarea.');
         }
 
