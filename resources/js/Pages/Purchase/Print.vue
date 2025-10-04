@@ -140,9 +140,15 @@
                                 </el-collapse>
                             </td>
                             <td class="p-3 text-center align-top">{{ formatNumber(item.quantity) }} {{ item.product.measure_unit }}</td>
-                            <td class="p-3 text-right align-top">{{ formatCurrency(item.unit_price) }}</td>
+                            <td class="p-3 text-right align-top">
+                                <span v-if="item.unit_price && item.unit_price > 0">{{ formatCurrency(item.unit_price) }}</span>
+                                <span v-else>{{ purchase.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
+                            </td>
                             <td class="p-3 text-right align-top">{{ item.needs_mold ? (item.mold_price ? formatCurrency(item.mold_price) : (purchase.is_spanish_template ? 'Por definir' : 'To be defined')) : 'No' }}</td>
-                            <td class="p-3 text-right font-semibold align-top">{{ formatCurrency(item.total_price) }}</td>
+                            <td class="p-3 text-right font-semibold align-top">
+                                <span v-if="item.unit_price && item.unit_price > 0">{{ formatCurrency(item.total_price) }}</span>
+                                <span v-else>{{ purchase.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -153,7 +159,8 @@
                 <div class="w-full max-w-sm space-y-3 text-sm">
                     <div class="flex justify-between">
                         <span class="text-gray-500">Subtotal</span>
-                        <span class="font-semibold text-gray-800">{{ formatCurrency(purchase.subtotal) }}</span>
+                        <span v-if="hasUndefinedPrice" class="font-semibold text-gray-800">{{ purchase.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
+                        <span v-else class="font-semibold text-gray-800">{{ formatCurrency(purchase.subtotal) }}</span>
                     </div>
                     <div v-if="purchase.items.some(item => item.needs_mold)" class="flex justify-between">
                         <span class="text-gray-500">{{ purchase.is_spanish_template ? 'Nuevo molde' : 'New Mold Fee' }}</span>
@@ -161,11 +168,13 @@
                     </div>
                     <div class="flex justify-between">
                         <span class="text-gray-500">{{ purchase.is_spanish_template ? 'Impuestos' : 'Tax' }}</span>
-                        <span class="font-semibold text-gray-800">{{ formatCurrency(purchase.tax) }}</span>
+                        <span v-if="hasUndefinedPrice" class="font-semibold text-gray-800">{{ purchase.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
+                        <span v-else class="font-semibold text-gray-800">{{ formatCurrency(purchase.tax) }}</span>
                     </div>
                     <div class="flex justify-between text-lg font-bold text-blue-700 border-t-2 border-gray-200 pt-3 mt-2">
                         <span>Total</span>
-                        <span>{{ formatCurrency(purchase.total) }}</span>
+                        <span v-if="hasUndefinedPrice">{{ purchase.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
+                        <span v-else>{{ formatCurrency(purchase.total) }}</span>
                     </div>
                 </div>
             </section>
@@ -288,6 +297,9 @@ export default {
         };
     },
     computed: {
+        hasUndefinedPrice() {
+            return this.purchase.items.some(item => !item.unit_price || item.unit_price <= 0);
+        },
         moldsFee() {
             const molds_fee = this.purchase.items.reduce((acc, item) => acc + item.mold_price, 0);
             return molds_fee;
@@ -415,4 +427,3 @@ body {
     font-family: 'Inter', sans-serif;
 }
 </style>
-

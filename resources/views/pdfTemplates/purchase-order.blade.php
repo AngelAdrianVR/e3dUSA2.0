@@ -202,7 +202,13 @@
                     @endif
                 </td>
                 <td class="text-right">{{ number_format($item->quantity, 2) }} {{ $item->product->measure_unit }}</td>
-                <td class="text-right">${{ number_format($item->unit_price, 2) }}</td>
+                <td class="text-right">
+                    @if($item->unit_price && $item->unit_price > 0)
+                        ${{ number_format($item->unit_price, 2) }}
+                    @else
+                        {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                    @endif
+                </td>
                 <td class="text-right">
                     @if($item->needs_mold)
                         @if($item->mold_price && $item->mold_price > 0)
@@ -214,20 +220,33 @@
                         No
                     @endif
                 </td>
-                <td class="text-right">${{ number_format($item->total_price, 2) }}</td>
+                <td class="text-right">
+                    @if($item->unit_price && $item->unit_price > 0)
+                        ${{ number_format($item->total_price, 2) }}
+                    @else
+                        {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                    @endif
+                </td>
             </tr>
             @endforeach
         </tbody>
     </table>
 
     @php
+        $hasUndefinedPrice = $purchase->items->some(fn($item) => !$item->unit_price || $item->unit_price <= 0);
         $totalMoldFee = $purchase->items->sum('mold_price');
         $needsMold = $purchase->items->contains('needs_mold', true);
     @endphp
     <table class="total-section">
         <tr>
             <td>Subtotal</td>
-            <td class="text-right">${{ number_format($purchase->subtotal, 2) }}</td>
+            <td class="text-right">
+                @if($hasUndefinedPrice)
+                    {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                @else
+                    ${{ number_format($purchase->subtotal, 2) }}
+                @endif
+            </td>
         </tr>
         @if($needsMold)
         <tr>
@@ -243,11 +262,23 @@
         @endif
         <tr>
             <td>{{ $purchase->is_spanish_template ? 'Impuestos' : 'Tax' }} ({{ $purchase->tax > 0 ? '16%' : '0%' }})</td>
-            <td class="text-right">${{ number_format($purchase->tax, 2) }}</td>
+            <td class="text-right">
+                @if($hasUndefinedPrice)
+                    {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                @else
+                    ${{ number_format($purchase->tax, 2) }}
+                @endif
+            </td>
         </tr>
         <tr class="total">
             <td>Total ({{$purchase->currency}})</td>
-            <td class="text-right">${{ number_format($purchase->total, 2) }}</td>
+            <td class="text-right">
+                @if($hasUndefinedPrice)
+                    {{ $purchase->is_spanish_template ? 'Por definir' : 'To be defined' }}
+                @else
+                    ${{ number_format($purchase->total, 2) }}
+                @endif
+            </td>
         </tr>
     </table>
 
