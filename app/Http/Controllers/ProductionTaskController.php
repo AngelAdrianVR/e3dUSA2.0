@@ -16,7 +16,7 @@ class ProductionTaskController extends Controller
     public function updateStatus(Request $request, ProductionTask $production_task)
     {
         // Verificación de autorización: asegurar que el operador es dueño de la tarea o es un Admin.
-        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador') && !Auth::user()->hasRole('Samuel')) {
+        if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador') && !Auth::user()->hasRole('Jefe de producción') && !Auth::user()->hasRole('Samuel')) {
             return back()->withErrors('No tienes permiso para modificar esta tarea.');
         }
 
@@ -33,7 +33,7 @@ class ProductionTaskController extends Controller
 
         // --- INICIO: VALIDACIÓN DE TAREA ÚNICA EN PROCESO ---
         // Se aplica al intentar poner CUALQUIER tarea en "En Proceso".
-        if ($newStatus === 'En Proceso') {
+        if ($newStatus === 'En Proceso' && !Auth::user()->hasRole('Jefe de producción') && !Auth::user()->hasRole('Samuel')) {
             $hasTaskInProgress = ProductionTask::where('operator_id', Auth::id())
                                                ->where('status', 'En Proceso')
                                                ->exists();
