@@ -22,7 +22,7 @@ return new class extends Migration
             $table->decimal('additional_stock', 10, 2)->nullable(); // cantidad a favor
             $table->decimal('plane_stock', 10, 2)->nullable(); // cantidad en avion
             $table->decimal('ship_stock', 10, 2)->nullable(); // cantidad en barco
-            $table->decimal('unit_price', 10, 2);
+            $table->decimal('unit_price', 10, 2)->nullable();
             $table->decimal('total_price', 12, 2);
             $table->decimal('mold_price', 12, 2)->nullable(); // Precio del molde (si aplica)
             $table->boolean('needs_mold')->default(false); // si necesita molde
