@@ -15,7 +15,7 @@
 
         <!-- Formulario principal -->
         <div ref="formContainer" class="py-7">
-            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[60rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
                     <form @submit.prevent="update">
@@ -121,7 +121,7 @@
 
                             <label class="flex items-center col-span-full">
                                 <Checkbox v-model:checked="form.show_breakdown" class="bg-transparent border-gray-500" />
-                                <span class="ml-2 text-gray-400">Mostrar total sumando productos, flete y herramental</span>
+                                <span class="ml-2 text-gray-400">Mostrar totales</span>
                             </label>
                         </div>
 
@@ -288,11 +288,11 @@
                                                 <i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </el-tooltip>
-                                        <!-- <el-tooltip content="Editar" placement="top">
+                                        <el-tooltip content="Editar" placement="top">
                                             <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                                                 <i class="fa-solid fa-pencil"></i>
                                             </button>
-                                        </el-tooltip> -->
+                                        </el-tooltip>
                                         <el-tooltip content="Eliminar" placement="top">
                                             <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                                 <i class="fa-solid fa-trash"></i>
@@ -699,12 +699,56 @@ export default {
             }
             this.resetCurrentProduct();
         },
-        editProduct(index) {
+        async editProduct(index) {
+            this.loadingProductData = true; // Set loading state immediately
+
             // Clonado profundo para evitar reactividad no deseada al editar
-            this.currentProduct = JSON.parse(JSON.stringify(this.form.products[index]));
+            const productToEdit = JSON.parse(JSON.stringify(this.form.products[index]));
+            
+            // Asignar el producto a editar a currentProduct. Se le agregan las propiedades faltantes para que no truene el template.
+            this.currentProduct = {
+                ...{ 
+                    id: null, quantity: 1, unit_price: null, notes: '', customization_details: [], isClientProduct: false,
+                    current_price: null, media: null, storages: [], has_customization: false, base_price: null, show_image: true,
+                },
+                ...productToEdit
+            };
+
             this.editIndex = index;
+
             // Hacer scroll a la sección de productos para una mejor UX
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
+
+            // Ahora, obtener el resto de los datos del producto sin sobreescribir los datos importantes
+            try {
+                const response = await axios.get(route('products.get-media', this.currentProduct.id));
+
+                if ( response.status === 200 ) {
+                    const productData = response.data.product;
+                    // Fucionar datos cuidadosamente
+                    this.currentProduct.media = productData.media;
+                    this.currentProduct.storages = productData.storages;
+                    this.currentProduct.base_price = productData.base_price;
+
+                    // --- Re-validar la lógica de producto de cliente ---
+                    const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+                    if (clientProduct) {
+                        this.currentProduct.isClientProduct = true;
+                        this.currentProduct.current_price = 
+                        (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
+                            ? clientProduct.price_history[0].price 
+                            : clientProduct.base_price;
+                    } else {
+                        this.currentProduct.isClientProduct = false;
+                        this.currentProduct.current_price = null;
+                    }
+                }
+            } catch (error) {
+                console.log(error);
+                ElMessage.error('No se pudo cargar la información del producto')
+            } finally {
+                this.loadingProductData = false;
+            }
         },
         deleteProduct(index) {
             this.form.products.splice(index, 1);
@@ -987,3 +1031,4 @@ export default {
     },
 };
 </script>
+
