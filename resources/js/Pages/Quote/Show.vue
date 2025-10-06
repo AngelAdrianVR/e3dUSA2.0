@@ -181,10 +181,10 @@
                                         </div>
                                     </div>
                                 </div>
-                                        <div class="flex justify-between text-sm mt-1 pt-1 border-t">
-                                            <span class="font-bold">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
-                                            <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }}</span>
-                                        </div>
+                                <div v-if="quote.show_breakdown" class="flex justify-between text-sm mt-1 pt-1 border-t">
+                                    <span class="font-bold">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
+                                    <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }}</span>
+                                </div>
                                 
                                 <!-- Botones de Aprobación y Rechazo -->
                                 <div class="mt-auto pt-3 print:hidden flex items-center space-x-2" v-show="showAdditionalElements">
