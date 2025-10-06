@@ -143,11 +143,11 @@
                                 <div class="lg:col-span-2">
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <el-option v-for="product in localCatalogProducts" 
+                                        <el-option v-for="product in localCatalogProducts" class="!w-96"
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
                                             :value="product.id"
-                                            :disabled="form.products.some(p => p.id === product.id) && product.id !== this.form.products[editIndex]?.id" />
+                                            />
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />

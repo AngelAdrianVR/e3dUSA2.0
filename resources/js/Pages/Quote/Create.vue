@@ -157,7 +157,7 @@
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
                                             :value="product.id"
-                                            :disabled="form.products.some(p => p.id === product.id) && product.id !== this.form.products[editIndex]?.id" />
+                                             />
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
