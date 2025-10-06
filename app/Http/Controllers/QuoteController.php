@@ -114,37 +114,29 @@ class QuoteController extends Controller
                 'early_payment_discount_amount' => $request->early_payment_discount_amount ?? 0,
             ]);
 
-            // Preparar los datos de los productos para la tabla pivote.
-            $productsData = [];
+            // --- MODIFICADO: Adjuntar cada producto individualmente ---
+            // Esto permite agregar el mismo producto varias veces, ya que cada uno
+            // será un registro separado en la tabla pivote.
             foreach ($request->products as $product) {
-                $productsData[$product['id']] = [
+                $quote->products()->attach($product['id'], [
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
                     'notes' => $product['notes'],
                     'show_image' => $product['show_image'],
-                    // --- MODIFICADO: Codificar a JSON antes de guardar ---
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado', // Por defecto se aprueban al crear
-                ];
+                ]);
             }
-
-            // Adjuntar los productos a la cotización con sus datos pivote.
-            $quote->products()->attach($productsData);
             
             // --- INICIO: LÓGICA DE NOTIFICACIÓN ---
-            // Verificar que la cotización se haya creado correctamente.
             if ($quote) {
-                // Obtener todos los usuarios con el permiso para autorizar cotizaciones.
-                // Asegúrate de que el nombre del permiso sea exactamente 'Autorizar ordenes de venta'.
                 $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
     
-                // Enviar la notificación a todos los usuarios encontrados.
                 if ($usersToNotify->isNotEmpty()) {
                     Notification::send($usersToNotify, new NewQuoteForApprovalNotification($quote));
                 }
             }
         });
-
 
         return Redirect::route('quotes.index')->with('success', 'Cotización creada exitosamente.');
     }
@@ -241,27 +233,27 @@ class QuoteController extends Controller
                 'show_breakdown' => $request->show_breakdown,
                 'has_early_payment_discount' => $request->has_early_payment_discount,
                 'early_payment_discount_amount' => $request->early_payment_discount_amount ?? 0,
-                'user_id' => $quote->user_id ?? auth()->id(),// agrega al usuario si no lo tiene debido a que fue creado desde el portal de clientes
+                'user_id' => $quote->user_id ?? auth()->id(), // agrega al usuario si no lo tiene
             ]);
 
-            // Preparar los datos de los productos para la tabla pivote.
-            $productsData = [];
+            // --- MODIFICADO: Reemplazar sync() por detach() y un bucle de attach() ---
+            // 1. Eliminamos todas las relaciones de productos existentes.
+            $quote->products()->detach();
+
+            // 2. Adjuntamos cada producto del request, permitiendo duplicados.
             foreach ($request->products as $product) {
-                $productsData[$product['id']] = [
+                $quote->products()->attach($product['id'], [
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
                     'notes' => $product['notes'],
                     'show_image' => $product['show_image'],
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
-                    // El estado de aprobación se mantiene o se define según tu lógica de negocio al editar.
-                    // Aquí lo dejamos como estaba si ya existía, o 'Aprobado' si es nuevo.
-                    'customer_approval_status' => $quote->products()->find($product['id'])?->pivot->customer_approval_status ?? 'Aprobado',
-                ];
+                    // Al editar, cada línea es una nueva "verdad". Si necesitas mantener estados
+                    // de aprobación, el formulario debería enviar ese dato por cada producto.
+                    // Aquí asumimos 'Aprobado' por defecto para cada línea.
+                    'customer_approval_status' => 'Aprobado',
+                ]);
             }
-
-            // Sincronizar los productos a la cotización con sus datos pivote.
-            // sync() se encarga de agregar, actualizar o eliminar las relaciones necesarias.
-            $quote->products()->sync($productsData);
         });
 
         return Redirect::route('quotes.index')->with('success', 'Cotización actualizada exitosamente.');
