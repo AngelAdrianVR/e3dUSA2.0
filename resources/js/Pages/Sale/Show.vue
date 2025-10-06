@@ -61,14 +61,14 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top">
-                    <Link :href="sale.authorized_at ? '' : route('sales.edit', sale.id)">
-                        <button :disabled="sale.authorized_at" 
+                <!-- <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top"> -->
+                    <Link :href="route('sales.edit', sale.id)">
+                        <button 
                             class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <i class="fa-solid fa-pencil text-sm"></i>
                         </button>
                     </Link>
-                </el-tooltip>
+                <!-- </el-tooltip> -->
                 
                 <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
                     <template #trigger>
