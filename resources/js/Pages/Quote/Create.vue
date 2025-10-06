@@ -130,7 +130,7 @@
 
                             <label class="flex items-center col-span-full">
                                 <Checkbox v-model:checked="form.show_breakdown" class="bg-transparent border-gray-500" />
-                                <span class="ml-2 text-gray-400">Mostrar total sumando productos, flete y herramental</span>
+                                <span class="ml-2 text-gray-400">Mostrar totales</span>
                             </label>
                         </div>
 

@@ -1,7 +1,7 @@
 <template>
     <Head :title="tabTitle" />
     <div class="bg-gray-100 font-sans print:bg-white">
-        <div class="container mx-auto p-4 sm:p-8 print:p-1">
+        <div class="container mx-auto p-4 sm:p-8">
             <!-- Contenedor principal de la cotización -->
             <div class="bg-white rounded-lg shadow-lg p-6 sm:p-10 text-gray-800 relative print:shadow-none print:rounded-none print:p-0">
 
@@ -112,21 +112,22 @@
                 <!-- Tarjetas de Productos -->
                 <section>
                     <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2">{{ quote.is_spanish_template ? 'Conceptos de la Cotización' : 'Quote Concepts' }}</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 print:grid-cols-2 print:gap-2">
                         <div v-for="(item, productIndex) in quote.products" :key="item.id"
-                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-xl flex flex-col"
+                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-xl flex flex-col md:flex-row print:flex-row"
                              :class="{'print:hidden': item.pivot.customer_approval_status === 'Rechazado' }">
+                            
                             <!-- Imagen y Selector -->
-                            <div class="bg-gray-200 p-2 relative group">
+                            <div class="bg-gray-100 p-2 relative group md:w-40 print:w-36 flex-shrink-0 flex items-center justify-center">
                                 <img v-if="item.pivot.show_image" 
                                     draggable="false"
-                                    class="rounded-md w-full h-44 object-contain mx-auto"
+                                    class="rounded-md w-full h-40 md:h-full object-contain mx-auto"
                                     :src="item.media[item.activeImageIndex || 0]?.original_url"
                                     :alt="item.name">
 
                                 <!-- Contenedor alternativo si no hay imagen -->
-                                <div v-else class="flex items-center justify-center w-full h-44 rounded-md bg-gradient-to-br from-gray-300 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-600 dark:text-gray-300 text-sm font-semibold italic">
-                                    {{ quote.is_spanish_template ? 'Producto sin imagen' : 'No image available' }}
+                                <div v-else class="flex items-center justify-center w-full h-40 md:h-full rounded-md bg-gray-200 text-gray-500 text-sm font-semibold italic">
+                                    {{ quote.is_spanish_template ? 'Sin imagen' : 'No image' }}
                                 </div>
 
                                 <!-- Status Badge -->
@@ -153,41 +154,40 @@
                             </div>
 
                             <!-- Contenido de la tarjeta -->
-                            <div class="p-4 flex flex-col flex-grow">
+                            <div class="p-3 print:p-2 flex flex-col flex-grow">
                                 <h3 class="font-bold text-base text-gray-800 uppercase">{{ item.name }}</h3>
                                 <p v-if="item.pivot.notes" class="text-xs text-gray-600 mt-1 flex-grow italic">"{{ item.pivot.notes }}"</p>
                                 
-                                <div v-if="item.large || item.height || item.width || item.diameter" class="mt-3 pt-3 border-t">
-                                    <p class="text-xs uppercase text-gray-500 font-semibold">{{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}:</p>
-                                    <div class="text-xs text-gray-700 mt-1 space-y-1">
+                                <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-3 text-xs">
+                                    <!-- Dimensiones -->
+                                    <div class="space-y-1" v-if="item.large || item.height || item.width || item.diameter">
+                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">{{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}</p>
                                         <p v-if="item.large">Largo: <span class="font-semibold">{{ item.large }}mm</span></p>
                                         <p v-if="item.height">Alto: <span class="font-semibold">{{ item.height }}mm</span></p>
                                         <p v-if="item.width">Ancho: <span class="font-semibold">{{ item.width }}mm</span></p>
                                         <p v-if="item.diameter">Diámetro: <span class="font-semibold">{{ item.diameter }}mm</span></p>
                                     </div>
+
+                                    <!-- Precios -->
+                                    <div class="space-y-1">
+                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p>
+                                        <div class="flex justify-between">
+                                            <span>{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
+                                            <span class="font-semibold">{{ Number(item.pivot.quantity).toLocaleString() }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span>{{ quote.is_spanish_template ? 'P. Unit.' : 'Unit P.' }}</span>
+                                            <span class="font-semibold">${{ formatNumber(item.pivot.unit_price) }}</span>
+                                        </div>
+                                    </div>
                                 </div>
-
-                                <!-- Precios -->
-                                <div class="mt-4 pt-4 border-t text-xs space-y-2">
-                                     <div class="flex justify-between items-center">
-                                        <span class="text-gray-500">{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
-                                        <span class="font-semibold text-gray-800">
-                                            {{ Number(item.pivot.quantity).toLocaleString() }}
-                                        </span>
-
-                                    </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-gray-500">{{ quote.is_spanish_template ? 'Precio Unitario' : 'Unit price' }}</span>
-                                        <span class="font-semibold text-gray-800">${{ formatNumber(item.pivot.unit_price) }} {{ quote.currency }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-center text-sm mt-2 pt-2 border-t">
-                                        <span class="font-bold text-gray-600">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
-                                        <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }} {{ quote.currency }}</span>
-                                    </div>
+                                <div v-if="quote.show_breakdown" class="flex justify-between text-sm mt-1 pt-1 border-t">
+                                    <span class="font-bold">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
+                                    <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }}</span>
                                 </div>
                                 
                                 <!-- Botones de Aprobación y Rechazo -->
-                                <div class="mt-auto pt-4 flex items-center space-x-2" v-show="showAdditionalElements">
+                                <div class="mt-auto pt-3 print:hidden flex items-center space-x-2" v-show="showAdditionalElements">
                                     <!-- Botón de Aprobación -->
                                     <button @click="toggleApprovalStatus(item)"
                                         :disabled="item.pivot.customer_approval_status === 'Rechazado'"
@@ -477,4 +477,3 @@ export default {
     }
 };
 </script>
-
