@@ -22,8 +22,8 @@ class ProductionController extends Controller
         $user = Auth::user();
 
         // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
-        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel')) {
-            $selectedStatus = $request->input('status');
+        if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel') || $user->hasRole('Asistente de director')) {
+            $selectedStatus = $request->input('status'); 
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
             $query = Sale::query()

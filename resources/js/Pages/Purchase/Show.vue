@@ -36,9 +36,9 @@
                     </a>
                 </el-tooltip>
 
-                <el-tooltip :content="purchase.authorized_at ? 'No puedes editarla una vez realizada la compra' : 'Editar Orden'" placement="top">
-                    <Link :href="(purchase.status === 'Cancelada' || purchase.status === 'Compra realizada') ? '' : route('purchases.edit', purchase.id)">
-                        <button :disabled="!!purchase.status === 'Cancelada' || purchase.status === 'Compra realizada'" 
+                <el-tooltip :content="purchase.status == 'Compra recibida' ? 'No puedes editarla una vez recibida la compra' : 'Editar Orden'" placement="top">
+                    <Link :href="purchase.status === 'Compra recibida' ? '' : route('purchases.edit', purchase.id)">
+                        <button :disabled="purchase.status === 'Compra recibida'" 
                             class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <i class="fa-solid fa-pencil text-sm"></i>
                         </button>
