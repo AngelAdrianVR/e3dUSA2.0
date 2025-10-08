@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Arr;
 
 class SupplierController extends Controller
 {
@@ -43,7 +44,7 @@ class SupplierController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Validación adaptada para el nuevo modelo Contact
+        // 1. Validación de los datos de entrada
         $validatedData = $request->validate([
             'name' => 'required|string|max:255|unique:suppliers,name',
             'rfc' => 'nullable|string|max:13|unique:suppliers,rfc',
@@ -54,10 +55,9 @@ class SupplierController extends Controller
             'email' => 'nullable|email|max:255',
             'notes' => 'nullable|string',
 
-            // Se cambia 'position' por 'charge' para coincidir con el modelo Contact
             'contacts' => 'present|array',
             'contacts.*.name' => 'required|string|max:255',
-            'contacts.*.charge' => 'nullable|string|max:255', // Antes 'position'
+            'contacts.*.charge' => 'nullable|string|max:255',
             'contacts.*.email' => 'nullable|email|max:255',
             'contacts.*.phone' => 'nullable|string|max:20',
 
@@ -76,20 +76,19 @@ class SupplierController extends Controller
         ]);
 
         DB::transaction(function () use ($validatedData) {
+            // Crear el proveedor con los datos principales
             $supplier = Supplier::create(collect($validatedData)->except(['contacts', 'bankAccounts', 'products'])->all());
 
-            // 2. Lógica de creación de contactos adaptada
+            // 2. Lógica para crear y asociar los contactos
             if (!empty($validatedData['contacts'])) {
                 foreach ($validatedData['contacts'] as $index => $contactData) {
-                    // Se crea el contacto principal
                     $contact = $supplier->contacts()->create([
                         'name' => $contactData['name'],
-                        'charge' => $contactData['charge'], // Usamos 'charge'
+                        'charge' => $contactData['charge'],
                         'is_primary' => $index === 0, // El primero es el principal
                     ]);
                     
-                    if ( $contactData['phone'] ) {
-                        // Se crean los detalles (teléfono y correo) para el contacto
+                    if (!empty($contactData['phone'])) {
                         $contact->details()->create([
                             'type' => 'Teléfono',
                             'value' => $contactData['phone'],
@@ -97,7 +96,7 @@ class SupplierController extends Controller
                         ]);
                     }
 
-                    if ( $contactData['email'] ) {
+                    if (!empty($contactData['email'])) {
                         $contact->details()->create([
                             'type' => 'Correo',
                             'value' => $contactData['email'],
@@ -107,15 +106,33 @@ class SupplierController extends Controller
                 }
             }
 
+            // Crear y asociar las cuentas bancarias
             if (!empty($validatedData['bankAccounts'])) {
                 $supplier->bankAccounts()->createMany($validatedData['bankAccounts']);
             }
 
+            // --- INICIO: LÓGICA MODIFICADA PARA PRODUCTOS ---
             if (!empty($validatedData['products'])) {
-                $productsToSync = collect($validatedData['products'])->keyBy('product_id')
-                    ->map(fn ($p) => \Illuminate\Support\Arr::except($p, 'product_id'))->toArray();
+                // Usamos una colección para iterar sobre los productos enviados
+                $productsToSync = collect($validatedData['products'])
+                    ->each(function ($productData) {
+                        // Si se proporciona 'last_price' y es un número, actualizamos el costo del producto
+                        if (isset($productData['last_price']) && is_numeric($productData['last_price'])) {
+                            $product = Product::find($productData['product_id']);
+                            if ($product) {
+                                // Se actualiza el campo 'cost' en la tabla de productos
+                                $product->update(['cost' => $productData['last_price']]);
+                            }
+                        }
+                    })
+                    ->keyBy('product_id') // Agrupamos por ID de producto para la sincronización
+                    ->map(fn ($p) => Arr::except($p, 'product_id')) // Preparamos los datos para la tabla pivote
+                    ->toArray();
+                
+                // Asociamos los productos al proveedor en la tabla pivote
                 $supplier->products()->attach($productsToSync);
             }
+            // --- FIN: LÓGICA MODIFICADA PARA PRODUCTOS ---
         });
 
         return to_route('suppliers.index')->with('success', 'Proveedor creado exitosamente.');
@@ -218,7 +235,7 @@ class SupplierController extends Controller
             // Actualizar datos principales del proveedor
             $supplier->update(collect($validatedData)->except(['contacts', 'bankAccounts', 'products'])->all());
 
-            // --- Lógica de sincronización de contactos corregida ---
+            // Lógica de sincronización de contactos
             $contactIdsToKeep = [];
             if (!empty($validatedData['contacts'])) {
                 foreach ($validatedData['contacts'] as $index => $contactData) {
@@ -231,32 +248,27 @@ class SupplierController extends Controller
                         ]
                     );
 
-                    // CORRECCIÓN: Verificar si la clave 'phone' existe y no está vacía
                     if (!empty($contactData['phone'])) {
                         $contact->details()->updateOrCreate(
                             ['type' => 'Teléfono'], 
                             ['value' => $contactData['phone']]
                         );
                     } else {
-                        // Opcional: Si no viene teléfono, elimina el detalle existente
                         $contact->details()->where('type', 'Teléfono')->delete();
                     }
 
-                    // CORRECCIÓN: Verificar si la clave 'email' existe y no está vacía
                     if (!empty($contactData['email'])) {
                         $contact->details()->updateOrCreate(
                             ['type' => 'Correo'], 
                             ['value' => $contactData['email']]
                         );
                     } else {
-                        // Opcional: Si no viene correo, elimina el detalle existente
                         $contact->details()->where('type', 'Correo')->delete();
                     }
                     
                     $contactIdsToKeep[] = $contact->id;
                 }
             }
-            // Eliminar contactos que ya no están en la petición
             $supplier->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
 
             // Sincronizar cuentas bancarias
@@ -265,13 +277,28 @@ class SupplierController extends Controller
                 $supplier->bankAccounts()->createMany($validatedData['bankAccounts']);
             }
 
-            // Sincronizar productos
+            // --- INICIO: LÓGICA MODIFICADA PARA PRODUCTOS EN UPDATE ---
             $productsToSync = [];
             if (!empty($validatedData['products'])) {
-                $productsToSync = collect($validatedData['products'])->keyBy('product_id')
-                    ->map(fn ($p) => \Illuminate\Support\Arr::except($p, 'product_id'))->toArray();
+                $productsToSync = collect($validatedData['products'])
+                    ->each(function ($productData) {
+                        // Si se proporciona 'last_price' y es un número, actualizamos el costo del producto
+                        if (isset($productData['last_price']) && is_numeric($productData['last_price'])) {
+                            $product = Product::find($productData['product_id']);
+                            if ($product) {
+                                // Se actualiza el campo 'cost' en la tabla de productos
+                                $product->update(['cost' => $productData['last_price']]);
+                            }
+                        }
+                    })
+                    ->keyBy('product_id')
+                    ->map(fn ($p) => Arr::except($p, 'product_id'))
+                    ->toArray();
             }
+            // Sincronizamos los productos con el proveedor usando sync()
             $supplier->products()->sync($productsToSync);
+            // --- FIN: LÓGICA MODIFICADA PARA PRODUCTOS EN UPDATE ---
+
         });
 
         return to_route('suppliers.show', $supplier)->with('success', 'Proveedor actualizado exitosamente.');
