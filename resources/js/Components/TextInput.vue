@@ -70,7 +70,7 @@ const props = defineProps({
     },
     max: {
         type: Number,
-        default: 9999,
+        default: 999999,
     },
     step: {
         type: Number,
