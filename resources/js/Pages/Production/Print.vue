@@ -33,6 +33,9 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400">Prioridad:
                         <span :class="sale.is_high_priority ? 'text-red-500 font-bold' : ''">{{ sale.is_high_priority ? 'Alta' : 'Normal' }}</span>
                     </p>
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-400">Cliente:
+                        <span>{{ sale.branch.name }}</span>
+                    </p>
                 </div>
             </header>
 
@@ -62,9 +65,13 @@
                                     <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Tiempo Estimado:</p>
                                     <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ formatMinutes(production.total_estimated_time_minutes) }}</p>
                                 </div>
-                                 <div class="col-span-2">
+                                <div>
                                     <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Operadores Asignados:</p>
                                     <p class="text-sm text-gray-800 dark:text-gray-100">{{ getOperatorsForProduction(production) }}</p>
+                                </div>
+                                <div>
+                                        <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Solicitado por:</p>
+                                    <p class="text-sm text-gray-800 dark:text-gray-100">{{ sale.user.name }}</p>
                                 </div>
                             </div>
                         </div>
