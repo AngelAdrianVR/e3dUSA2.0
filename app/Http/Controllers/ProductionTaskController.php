@@ -15,7 +15,7 @@ class ProductionTaskController extends Controller
      */
     public function updateStatus(Request $request, ProductionTask $production_task)
     {
-        // Verificación de autorización: asegurar que el operador es dueño de la tarea o es un Admin.
+        // Verificación de autorización: asegurar que el operador es dueño de la tarea o es un Admin/rol permitido.
         if ($production_task->operator_id !== Auth::id() && !Auth::user()->hasRole('Super Administrador') && !Auth::user()->hasRole('Jefe de producción') && !Auth::user()->hasRole('Samuel')) {
             return back()->withErrors('No tienes permiso para modificar esta tarea.');
         }
@@ -58,20 +58,23 @@ class ProductionTaskController extends Controller
 
         if ($newStatus === 'Terminada') {
             // --- VALIDACIÓN DE TIEMPO (BACKEND) ---
-            if ($production_task->started_at) {
-                // Se convierte la fecha de inicio (que puede ser un string) a un objeto Carbon para asegurar un cálculo correcto.
-                $startTime = new Carbon($production_task->started_at);
-                
-                // Se calcula la diferencia de tiempo entre ahora y el inicio.
-                $elapsedMinutes = $startTime->diffInMinutes(Carbon::now());
-                $requiredMinutes = $production_task->estimated_time_minutes / 2;
+            // Se omite la validación si el usuario tiene uno de los roles especificados.
+            if (!Auth::user()->hasRole('Super Administrador') && !Auth::user()->hasRole('Jefe de producción') && !Auth::user()->hasRole('Samuel')) {
+                if ($production_task->started_at) {
+                    // Se convierte la fecha de inicio (que puede ser un string) a un objeto Carbon para asegurar un cálculo correcto.
+                    $startTime = new Carbon($production_task->started_at);
+                    
+                    // Se calcula la diferencia de tiempo entre ahora y el inicio.
+                    $elapsedMinutes = $startTime->diffInMinutes(Carbon::now());
+                    $requiredMinutes = $production_task->estimated_time_minutes / 2;
 
-                if ($elapsedMinutes < $requiredMinutes) {
-                    $remainingMinutes = ceil($requiredMinutes - $elapsedMinutes);
-                    return back()->withErrors(['error' => "No se puede finalizar. Debes esperar al menos {$remainingMinutes} minuto(s) más."]);
+                    if ($elapsedMinutes < $requiredMinutes) {
+                        $remainingMinutes = ceil($requiredMinutes - $elapsedMinutes);
+                        return back()->withErrors(['error' => "No se puede finalizar. Debes esperar al menos {$remainingMinutes} minuto(s) más."]);
+                    }
+                } else {
+                    return back()->withErrors(['error' => 'No se puede finalizar una tarea que no ha sido iniciada.']);
                 }
-            } else {
-                return back()->withErrors(['error' => 'No se puede finalizar una tarea que no ha sido iniciada.']);
             }
             // --- FIN DE LA VALIDACIÓN ---
 

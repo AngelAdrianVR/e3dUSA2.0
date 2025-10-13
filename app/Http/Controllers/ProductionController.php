@@ -295,6 +295,7 @@ class ProductionController extends Controller
         // para asegurar que el componente de impresión tenga toda la información necesaria.
         $sale->load([
             'user:id,name',
+            'branch:id,name',
             'productions.saleProduct.product.media',
             'productions.tasks.operator:id,name',
         ]);
