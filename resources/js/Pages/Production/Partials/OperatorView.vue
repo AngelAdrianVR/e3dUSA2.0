@@ -153,6 +153,12 @@
                                     Ver componentes
                                  </button>
                                  <div class="flex items-center space-x-2">
+                                    <el-tooltip content="Ver detalles de procucción" placement="top">
+                                        <button @click="$inertia.visit(route('productions.show', task.production.sale_product.sale_id))" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-8 w-8 rounded-full text-gray-500 hover:bg-green-100 hover:text-green-600 dark:hover:bg-green-900/50 transition">
+                                            <i class="fa-solid fa-eye"></i>
+                                        </button>
+                                    </el-tooltip>
+
                                     <el-tooltip content="Reportar Falta de Material" placement="top">
                                         <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-8 w-8 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition">
                                             <i class="fa-solid fa-triangle-exclamation"></i>
