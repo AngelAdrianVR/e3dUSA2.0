@@ -307,7 +307,7 @@
                                                 </div>
                                             </div>
                                             <!-- Action buttons -->
-                                            <div class="flex items-center space-x-1 mt-3">
+                                            <div v-if="task.operator.id === $page.props.auth.user.id || ['Jefe de producción', 'Samuel', 'Super Administrador'].includes($page.props.auth.user.role)" class="flex items-center space-x-1 mt-3">
                                                 <el-tooltip content="Reportar Falta de Material" placement="top">
                                                     <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-7 w-7 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition text-xs">
                                                         <i class="fa-solid fa-triangle-exclamation"></i>
