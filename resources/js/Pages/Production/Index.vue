@@ -21,23 +21,43 @@
             </div>
             
             <!-- Controles para el manager -->
-            <div v-if="viewType === 'manager'" class="flex items-center justify-start space-x-3 w-full">
-                 <!-- Filtro por Estatus -->
-                <el-select
-                    v-model="selectedStatus"
-                    @change="filterByStatus"
-                    placeholder="Filtrar por Estatus"
-                    clearable
-                    class="!w-64"
-                >
-                    <el-option label="Mostrar Todos" value="" />
-                    <el-option
-                        v-for="status in productionStatuses"
-                        :key="status.id"
-                        :label="status.label"
-                        :value="status.id"
-                    />
-                </el-select>
+            <div v-if="viewType === 'manager'" class="flex items-center justify-between space-x-3 w-full mt-3">
+                <div class="flex items-center space-x-3">
+                    <!-- Filtro por Estatus -->
+                    <el-select
+                        v-model="selectedStatus"
+                        @change="applyFilters"
+                        placeholder="Filtrar por Estatus"
+                        clearable
+                        class="!w-64"
+                    >
+                        <el-option label="Mostrar Todos" value="" />
+                        <el-option
+                            v-for="status in productionStatuses"
+                            :key="status.id"
+                            :label="status.label"
+                            :value="status.id"
+                        />
+                    </el-select>
+
+                    <!-- Filtro por Operador -->
+                    <el-select
+                        v-model="selectedOperator"
+                        @change="applyFilters"
+                        placeholder="Filtrar por Operador"
+                        clearable
+                        filterable
+                        class="!w-64"
+                    >
+                        <el-option label="Todos los operadores" value="" />
+                        <el-option
+                            v-for="operator in operators"
+                            :key="operator.id"
+                            :label="operator.name"
+                            :value="operator.id"
+                        />
+                    </el-select>
+                </div>
 
                 <!-- Botón para crear producción -->
                 <Link :href="route('productions.create')">
@@ -46,36 +66,33 @@
                         Crear
                     </SecondaryButton>
                 </Link>
-
-                <!-- Componente de Paginación -->
-                <div v-if="viewType === 'manager' && sales.links.length > 3" class="flex justify-center mt-6">
-                    <div class="flex flex-wrap gap-2">
-                        <template v-for="(link, key) in sales.links" :key="key">
-                        <!-- Botón deshabilitado -->
-                        <div
-                            v-if="link.url === null"
-                            class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg cursor-not-allowed select-none"
-                            v-html="link.label"
-                        />
-                        
-                        <!-- Botón activo o normal -->
-                        <Link
-                            v-else
-                            class="px-4 py-2 text-sm font-medium rounded-lg border transition-all duration-200
-                                hover:shadow-md hover:scale-105
-                                focus:outline-none focus:ring-2 focus:ring-primary/50"
-                            :class="{
-                            'bg-primary text-white border-primary shadow-md': link.active,
-                            'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800': !link.active
-                            }"
-                            :href="link.url"
-                            v-html="link.label"
-                        />
-                        </template>
-                    </div>
+            </div>
+            <!-- Componente de Paginación -->
+            <div v-if="viewType === 'manager' && sales.links.length > 3" class="flex justify-center mt-6">
+                <div class="flex flex-wrap gap-2">
+                    <template v-for="(link, key) in sales.links" :key="key">
+                    <!-- Botón deshabilitado -->
+                    <div
+                        v-if="link.url === null"
+                        class="px-4 py-2 text-sm font-medium text-gray-400 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg cursor-not-allowed select-none"
+                        v-html="link.label"
+                    />
+                    
+                    <!-- Botón activo o normal -->
+                    <Link
+                        v-else
+                        class="px-4 py-2 text-sm font-medium rounded-lg border transition-all duration-200
+                            hover:shadow-md hover:scale-105
+                            focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        :class="{
+                        'bg-primary text-white border-primary shadow-md': link.active,
+                        'bg-white dark:bg-slate-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800': !link.active
+                        }"
+                        :href="link.url"
+                        v-html="link.label"
+                    />
+                    </template>
                 </div>
-
-
             </div>
         </div>
         
@@ -122,6 +139,10 @@ export default {
             type: Object, 
             required: false 
         },
+        operators: {
+            type: Array,
+            required: false,
+        },
         filters: {
             type: Object,
             required: false
@@ -130,19 +151,18 @@ export default {
     data() {
         return {
             managerView: {
-                activeView: 'kanban'
+            activeView: 'kanban'
             },
-            // v-model para el nuevo filtro de estatus
             selectedStatus: this.filters?.status || '',
-            // Opciones para el dropdown de filtro
+            selectedOperator: this.filters?.operator_id || null, // v-model para filtro de operador
             productionStatuses: [
-                { id: 'Pendiente', label: 'Pendiente' },
-                { id: 'En Proceso', label: 'En Proceso' },
-                { id: 'Sin material', label: 'Sin material' },
-                { id: 'Pausada', label: 'Pausada' },
-                { id: 'Terminada', label: 'Terminada' },
+            { id: 'Pendiente', label: 'Pendiente' },
+            { id: 'En Proceso', label: 'En Proceso' },
+            { id: 'Sin material', label: 'Sin material' },
+            { id: 'Pausada', label: 'Pausada' },
+            { id: 'Terminada', label: 'Terminada' },
             ]
-        };
+            };
     },
     computed: {
         headerTitle() {
@@ -158,17 +178,25 @@ export default {
     },
     methods: {
         // Método para recargar la página con el filtro de estatus
-        filterByStatus() {
-            router.get(route('productions.index'),
-                { status: this.selectedStatus },
-                {
-                    preserveState: true,
-                    preserveScroll: true,
-                    replace: true,
+        applyFilters() {
+            const queryParams = {};
+            if (this.selectedStatus) {
+            queryParams.status = this.selectedStatus;
+            }
+            if (this.selectedOperator) {
+            queryParams.operator_id = this.selectedOperator;
+            }
+                    router.get(route('productions.index'),
+                        queryParams,
+                        {
+                            preserveState: true,
+                            preserveScroll: true,
+                            replace: true,
+                        }
+                    );
                 }
-            );
-        }
-    }
+            }
+
 };
 </script>
 

@@ -21,9 +21,10 @@ class ProductionController extends Controller
     {
         $user = Auth::user();
 
-        // --- Vista para el Jefe de Producción (Optimizada con filtro por Estatus) ---
+        // --- Vista para el Jefe de Producción (Optimizada con filtros) ---
         if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel') || $user->hasRole('Asistente de director')) {
-            $selectedStatus = $request->input('status'); 
+            $selectedStatus = $request->input('status');
+            $selectedOperatorId = $request->input('operator_id'); // Nuevo filtro
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
             $query = Sale::query()
@@ -38,40 +39,49 @@ class ProductionController extends Controller
                     'saleProducts.product:id,name,code,measure_unit',
                     'saleProducts.product.media',
                 ]);
+
             // --- Aplicar filtro por estatus general de producción ---
             if ($selectedStatus) {
                 $query->where(function ($query) use ($selectedStatus) {
                     if ($selectedStatus === 'Sin material') {
-                        // Ventas que tienen al menos una producción 'Sin material'
                         $query->whereHas('productions', fn($q) => $q->where('status', 'Sin material'));
                     } elseif ($selectedStatus === 'Terminada') {
-                        // Ventas donde TODAS sus producciones están 'Terminada'
                         $query->whereDoesntHave('productions', fn($q) => $q->where('status', '!=', 'Terminada'))
                               ->whereHas('productions');
                     } elseif ($selectedStatus === 'En Proceso') {
-                        // Tienen al menos una 'En Proceso' y NINGUNA 'Sin material'
                         $query->whereHas('productions', fn($q) => $q->where('status', 'En Proceso'))
                               ->whereDoesntHave('productions', fn($q) => $q->where('status', 'Sin material'));
                     } elseif ($selectedStatus === 'Pausada') {
-                         // Tienen al menos una 'Pausada' y NINGUNA 'Sin material' o 'En Proceso'
                          $query->whereHas('productions', fn($q) => $q->where('status', 'Pausada'))
                                ->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso']));
                     } elseif ($selectedStatus === 'Pendiente') {
-                         // No tienen producciones en estados de mayor prioridad y no están todas terminadas
                          $query->whereDoesntHave('productions', fn($q) => $q->whereIn('status', ['Sin material', 'En Proceso', 'Pausada']))
                                ->whereHas('productions', fn($q) => $q->where('status', '!=', 'Terminada'));
                     }
                 });
             }
 
+            // --- Aplicar filtro por operador asignado a una tarea ---
+            if ($selectedOperatorId) {
+                $query->whereHas('productions.tasks', function ($q) use ($selectedOperatorId) {
+                    $q->where('operator_id', $selectedOperatorId);
+                });
+            }
+
             // --- Paginación ---
             $sales = $query->latest()->paginate(20)->withQueryString();
 
-            // return $sales;
+            // --- Obtener operadores para el dropdown del filtro ---
+            $operators = User::where('is_active', true)
+                ->role(['Auxiliar de producción', 'Jefe de producción', 'Samuel'])
+                ->orderBy('name')
+                ->get(['id', 'name']);
+
             return Inertia::render('Production/Index', [
                 'viewType' => 'manager',
                 'sales' => $sales,
-                'filters' => $request->only(['status']), // Ahora el filtro es por status
+                'operators' => $operators, // Enviamos los operadores a la vista
+                'filters' => $request->only(['status', 'operator_id']), // Agregamos el nuevo filtro
             ]);
         }
 
