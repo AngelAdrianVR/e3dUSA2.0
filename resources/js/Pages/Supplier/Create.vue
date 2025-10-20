@@ -18,8 +18,8 @@
                         <TextInput v-model="form.name" label="Nombre del proveedor*" :error="form.errors.name" />
                         <TextInput v-model="form.rfc" label="RFC" :error="form.errors.rfc" />
                         <TextInput v-model="form.nickname" label="Apodo / Nombre corto" :error="form.errors.nickname" />
-                        <TextInput v-model="form.phone" label="Teléfono" :error="form.errors.phone" type="tel" />
-                        <TextInput v-model="form.email" label="Correo Electrónico" :error="form.errors.email" type="email" />
+                        <!-- <TextInput v-model="form.phone" label="Teléfono" :error="form.errors.phone" type="tel" /> -->
+                        <!-- <TextInput v-model="form.email" label="Correo Electrónico" :error="form.errors.email" type="email" /> -->
                         <TextInput v-model="form.address" label="Dirección" :error="form.errors.address" class="sm:col-span-2" />
                         <TextInput v-model="form.post_code" label="Código Postal" :error="form.errors.post_code" />
                         <TextInput v-model="form.notes" label="Notas" :error="form.errors.notes" :isTextarea="true" class="sm:col-span-2" />

@@ -269,6 +269,7 @@ const stepperClasses = computed(() => [
                 </button>
                 <input
                     :id="computedId"
+                    @wheel.prevent
                     type="text"
                     :value="modelValue"
                     :placeholder="placeholder"
@@ -287,6 +288,7 @@ const stepperClasses = computed(() => [
             <input
                 v-else
                 :id="computedId"
+                @wheel.prevent
                 :type="formatAsNumber ? 'text' : type"
                 ref="elementRef"
                 :class="baseClasses"
