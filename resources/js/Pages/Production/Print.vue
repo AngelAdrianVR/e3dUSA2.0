@@ -18,7 +18,6 @@
         </div>
 
         <!-- Contenido de la página para imprimir -->
-        <!-- Cambiado max-w-4xl a max-w-2xl y p-8 a p-6 para un diseño más compacto -->
         <main class="max-w-3xl mx-auto p-5 bg-white dark:bg-slate-900 my-8 shadow-lg print:shadow-none print:my-0 print:p-3">
             <!-- Encabezado -->
             <header class="flex justify-between items-start pb-3 border-b border-gray-200 dark:border-slate-700">
@@ -42,12 +41,13 @@
             <!-- Lista de Producciones -->
             <section class="mt-3 space-y-3">
                  <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Productos a Fabricar</h2>
-                <div v-for="production in sale.productions" :key="production.id" class="p-4 rounded-lg border dark:border-slate-700">
+                <!-- MODIFICACIÓN: Se añade el índice al v-for y clases para controlar los saltos de página -->
+                <div v-for="(production, index) in sale.productions" :key="production.id"
+                     class="p-4 rounded-lg border dark:border-slate-700 production-item"
+                     :class="{ 'page-break-after': (index + 1) % 2 === 0 && (index + 1) < sale.productions.length }">
                     <!-- Detalles del Producto -->
-                    <!-- MODIFICACIÓN: Se agrega 'print:flex-row' para forzar la vista horizontal al imprimir -->
                     <div class="flex flex-col md:flex-row print:flex-row gap-4">
                         <div class="flex-shrink-0">
-                             <!-- Cambiado object-cover a object-contain y añadido un borde -->
                              <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/128x128/e2e8f0/e2e8f0?text=N/A'"
                                  alt="Imagen de producto"
                                  class="size-40 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
@@ -57,6 +57,14 @@
                             <p class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ production.sale_product.product.code }}</p>
 
                             <div class="mt-3 grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Cantidad total de la venta:</p>
+                                    <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ production.sale_product.quantity }} {{ production.sale_product.product.measure_unit }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Cantidad tomada de stock:</p>
+                                    <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ production.sale_product.quantity - production.sale_product.quantity_to_produce }} {{ production.sale_product.product.measure_unit }}</p>
+                                </div>
                                 <div>
                                     <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Cantidad a Producir:</p>
                                     <p class="text-md font-bold text-gray-800 dark:text-gray-100">{{ production.quantity_to_produce }} {{ production.sale_product.product.measure_unit }}</p>
@@ -173,6 +181,17 @@ export default {
     }
     .print\:flex-row {
         flex-direction: row;
+    }
+
+    /* --- NUEVAS REGLAS PARA IMPRESIÓN --- */
+    .production-item {
+        break-inside: avoid-page; /* Estándar moderno para evitar cortes */
+        page-break-inside: avoid; /* Propiedad antigua para mayor compatibilidad */
+    }
+
+    .page-break-after {
+        break-after: page; /* Estándar moderno para forzar salto de página */
+        page-break-after: always; /* Propiedad antigua para mayor compatibilidad */
     }
 }
 </style>
