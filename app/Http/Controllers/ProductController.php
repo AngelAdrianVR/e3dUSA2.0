@@ -163,6 +163,7 @@ class ProductController extends Controller
             'CAU' => 'CAUCHO',
             'VPL' => 'VINILPIEL',
             'FC' => 'FIBRA DE CARBONO',
+            'OV' => 'OVERLAY',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -380,6 +381,7 @@ class ProductController extends Controller
             'CAU' => 'CAUCHO',
             'VPL' => 'VINILPIEL',
             'FC' => 'FIBRA DE CARBONO',
+            'OV' => 'OVERLAY',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
