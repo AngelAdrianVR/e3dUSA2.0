@@ -124,7 +124,6 @@ class Production extends Model implements Auditable
                     // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.
                     $storage->increment('quantity', $quantityToAdd);
                     
-                    // IMPORTANTE: Solo se crea el movimiento de stock si el tipo es 'stock'.
                     // if ($this->saleProduct->sale->type === 'stock') {
                         StockMovement::create([
                             'product_id' => $product->id,
