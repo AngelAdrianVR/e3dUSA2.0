@@ -237,7 +237,7 @@
                             </el-tooltip>
 
                              <!-- ===== BOTÓN MARCAR COMO ENVIADO ===== -->
-                            <button
+                            <button v-if="shipment.status === 'Pendiente' || shipment.status === 'Autorizado'"
                                 @click="openConfirmationDialog(shipment)"
                                 :disabled="!isShipmentReady(shipment)"
                                 class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600">

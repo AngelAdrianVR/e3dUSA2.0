@@ -27,7 +27,7 @@
                     </div>
 
                     <!-- Required Actions -->
-                    <div v-if="$page.props.auth.user.role === 'Super Administrador'" class="lg:col-span-3">
+                    <div v-if="$page.props.auth.user.role === 'Super Administrador' || $page.props.auth.user.role === 'amuel'" class="lg:col-span-3">
                         <RequiredActions :actions="requiredActions" />
                     </div>
 

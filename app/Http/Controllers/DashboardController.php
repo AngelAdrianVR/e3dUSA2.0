@@ -99,14 +99,17 @@ class DashboardController extends Controller
 
 
         // Required Actions Data
-        if ( $authUser->hasRole('Super Administrador') ) {
+        if ( $authUser->hasRole(['Super Administrador', 'Samuel']) ) {
             $requiredActions = [
                 'quotes_to_authorize' => Quote::whereNull('authorized_at')->count(),
                 'sales_to_authorize' => Sale::whereNull('authorized_at')->count(),
                 'designs_to_authorize' => DesignOrder::whereNull('authorized_at')->count(),
                 'purchases_to_authorize' => Purchase::whereNull('authorized_at')->count(),
                 'sample_trackings_to_authorize' => SampleTracking::whereNull('authorized_at')->count(),
-                'sales_without_ov' => Sale::with('productions')->whereDoesntHave('productions')->whereNotNull('authorized_at')->count(),
+                'sales_without_ov' => Sale::whereIn('status', ['Autorizada', 'En Proceso'])
+                                            ->whereHas('saleProducts', function ($query) {
+                                                $query->whereDoesntHave('production');
+                                            })->count(),
                 'pending_productions' => Production::where('status', 'Pendiente')->count(),
                 'unstarted_tasks' => ProductionTask::where('status', 'Pendiente')->count(),
                 'unstarted_design_orders' => DesignOrder::where('status', 'Autorizada')->whereNull('started_at')->count(),

@@ -105,20 +105,57 @@
                              <div></div> <!-- Espaciador -->
                             <div>
                                 <InputLabel value="Opción de flete*" />
-                                <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
-                                    <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
-                                    <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
-                                    <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
-                                    <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
+
+                                <el-select
+                                    v-model="form.freight_option"
+                                    :placeholder="form.is_spanish_template ? 'Selecciona el flete' : 'Select freight option (Selecciona el flete)'"
+                                    class="!w-full"
+                                >
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client (Por cuenta del cliente)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Cargo prorrateado en productos'
+                                            : 'Freight cost prorated across products (Cargo prorrateado en productos)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Cargo de flete prorrateado en productos'
+                                            : 'Freight cost prorated across products'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo'
+                                            : 'Company absorbs the cost (La empresa absorbe el costo)'"
+                                        :value="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo de flete'
+                                            : 'Company absorbs the freight cost'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'El cliente manda la guia'
+                                            : 'Client sends the shipping label (El cliente manda la guía)'"
+                                        :value="form.is_spanish_template
+                                            ? 'El cliente manda la guía'
+                                            : 'Client sends the shipping label'"
+                                    />
                                 </el-select>
+
                                 <InputError :message="form.errors.freight_option" />
                             </div>
-                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" 
-                                label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
+                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" 
+                                label="Costo de Flete" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
                                 :formatAsNumber="true" type="number" :placeholder="'Ej. 500.00'" :error="form.errors.freight_cost">
                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
-                            <div v-if="form.freight_option !== 'El cliente manda la guia'" class="flex items-center space-x-2 mt-8">
+                            <div v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
                                     <Checkbox v-model:checked="form.is_freight_cost_stroked" class="bg-transparent border-gray-500" />
                                     <span class="ml-2 text-gray-400">Tachar:</span>
