@@ -161,11 +161,29 @@
                                 <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-3 text-xs">
                                     <!-- Dimensiones -->
                                     <div class="space-y-1" v-if="item.large || item.height || item.width || item.diameter">
-                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">{{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}</p>
-                                        <p v-if="item.large">Largo: <span class="font-semibold">{{ item.large }}mm</span></p>
-                                        <p v-if="item.height">Alto: <span class="font-semibold">{{ item.height }}mm</span></p>
-                                        <p v-if="item.width">Ancho: <span class="font-semibold">{{ item.width }}mm</span></p>
-                                        <p v-if="item.diameter">Diámetro: <span class="font-semibold">{{ item.diameter }}mm</span></p>
+                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">
+                                            {{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}
+                                        </p>
+
+                                        <p v-if="item.large">
+                                            {{ quote.is_spanish_template ? 'Largo' : 'Length' }}:
+                                            <span class="font-semibold">{{ item.large }}mm</span>
+                                        </p>
+
+                                        <p v-if="item.height">
+                                            {{ quote.is_spanish_template ? 'Alto' : 'Height' }}:
+                                            <span class="font-semibold">{{ item.height }}mm</span>
+                                        </p>
+
+                                        <p v-if="item.width">
+                                            {{ quote.is_spanish_template ? 'Ancho' : 'Width' }}:
+                                            <span class="font-semibold">{{ item.width }}mm</span>
+                                        </p>
+
+                                        <p v-if="item.diameter">
+                                            {{ quote.is_spanish_template ? 'Diámetro' : 'Diameter' }}:
+                                            <span class="font-semibold">{{ item.diameter }}mm</span>
+                                        </p>
                                     </div>
 
                                     <!-- Precios -->
@@ -269,7 +287,7 @@
                         <li>{{ quote.is_spanish_template ? 'Precios antes de IVA' : 'Prices before taxes' }}.</li>
                         <li>{{ quote.is_spanish_template ? 'Costo de herramental' : 'Tooling cost' }}: <span class="font-bold text-blue-600" :class="{ 'line-through': quote.is_tooling_cost_stroked }">{{ formatNumber(quote.tooling_cost) }} {{ quote.currency }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Tiempo de entrega para la primer producción' : 'Lead time for first production' }}: <span class="font-bold text-blue-600">{{ quote.first_production_days }}</span>.</li>
-                        <li>{{ quote.is_spanish_template ? 'Fletes y acarreos' : 'Freight & handling' }}: <span class="font-bold text-blue-600">{{ quote.freight_option }}</span> <span :class="{ 'line-through': quote.is_freight_cost_stroked }">({{ formatNumber(quote.freight_cost) }} {{ quote.currency }})</span>.</li>
+                        <li>{{ quote.is_spanish_template ? 'Fletes y acarreos' : 'Freight & handling' }}: <span class="font-bold text-blue-600">{{ quote.freight_option }}</span> <span v-if="quote.freight_cost" :class="{ 'line-through': quote.is_freight_cost_stroked }">({{ formatNumber(quote.freight_cost) }} {{ quote.currency }})</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Precios en' : 'Prices in' }}: <span class="font-bold text-blue-600">{{ quote.currency }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Cotización válida por 21 días' : 'Quote valid for 21 days' }}.</li>
                     </ol>
