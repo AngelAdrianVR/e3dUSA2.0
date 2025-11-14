@@ -183,30 +183,30 @@
                             <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                 <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                                     <tr>
-                                        <th scope="col" class="py-3 px-6">Folio</th>
-                                        <th scope="col" class="py-3 px-6">Estado</th>
-                                        <th scope="col" class="py-3 px-6">Fecha de Emisión</th>
-                                        <th scope="col" class="py-3 px-6">Total</th>
-                                        <th scope="col" class="py-3 px-6"></th>
+                                        <th scope="col" class="py-3 px-5">Folio</th>
+                                        <th scope="col" class="py-3 px-5">Estado</th>
+                                        <th scope="col" class="py-3 px-5">Fecha de Emisión</th>
+                                        <th scope="col" class="py-3 px-5">Total</th>
+                                        <th scope="col" class="py-3 px-5"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr v-for="purchase in supplier.purchases" :key="purchase.id" class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                        <td class="py-4 px-6 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                        <td class="py-4 px-5 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                             OC-{{ purchase.id ?? 'N/A' }}
                                         </td>
-                                        <td class="py-4 px-6">
+                                        <td class="py-4 px-5">
                                             <span :class="getStatusClass(purchase.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
                                                 {{ purchase.status }}
                                             </span>
                                         </td>
-                                        <td class="py-4 px-6">
+                                        <td class="py-4 px-5">
                                             {{ formatDate(purchase.emited_at) }}
                                         </td>
-                                        <td class="py-4 px-6">
+                                        <td class="py-4 px-5">
                                             {{ formatCurrency(purchase.total, purchase.currency) }}
                                         </td>
-                                        <td class="py-4 px-6 text-right">
+                                        <td class="py-4 px-5 text-right">
                                             <Link :href="route('purchases.show', purchase.id)" class="text-primary hover:underline">
                                                 Ver Detalles
                                             </Link>
@@ -218,7 +218,89 @@
                         <div v-else class="text-center text-sm text-gray-500 dark:text-gray-400 p-4">
                             <p>Este proveedor aún no tiene órdenes de compra registradas.</p>
                         </div>
-                    </el-tab-pane>
+                        </el-tab-pane>
+
+                        <!-- ===== PESTAÑA DE HISTORIAL (MODIFICADA) ===== -->
+                        <el-tab-pane name="stock_history">
+                            <template #label>
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-clipboard-list mr-2"></i>
+                                    <span>Solicitudes de Stock</span>
+                                    <!-- MOSTRAR BADGE CON CONTEO PENDIENTE -->
+                                    <span v-if="pendingRequestsCount > 0" class="ml-2 bg-amber-200 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full" :title="`${pendingRequestsCount} solicitudes pendientes`">
+                                        {{ pendingRequestsCount }}
+                                    </span>
+                                </div>
+                            </template>
+                            <!-- Usar 'favoredStockRequests' -->
+                            <div v-if="supplier.favored_stock_requests && supplier.favored_stock_requests.length > 0" class="overflow-x-auto relative max-h-[60vh] overflow-y-auto">
+                                <p class="my-1 text-gray-500 italic">---- Últimas 100 solicitudes de stock a favor ----</p>
+                                <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                                    <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400 sticky top-0">
+                                        <tr>
+                                            <th scope="col" class="py-3 px-5">Fecha Solicitud</th>
+                                            <th scope="col" class="py-3 px-5">Producto</th>
+                                            <th scope="col" class="py-3 px-5 text-right">Q. Antes</th>
+                                            <th scope="col" class="py-3 px-5 text-right">Q. Solicitada</th>
+                                            <th scope="col" class="py-3 px-5 text-right">Q. Restante</th>
+                                            <th scope="col" class="py-3 px-5">Envío</th>
+                                            <th scope="col" class="py-3 px-5">Usuario</th>
+                                            <th scope="col" class="py-3 px-5">Estado</th>
+                                            <th scope="col" class="py-3 px-5"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                                        <!-- Iterar sobre 'favoredStockRequests' -->
+                                        <tr v-for="history in supplier.favored_stock_requests" :key="history.id" class="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+                                            <td class="py-3 px-5 whitespace-nowrap">
+                                                {{ formatRequestDate(history.created_at) }}
+                                            </td>
+                                            <td class="py-3 px-5 whitespace-nowrap">
+                                                <span class="font-medium dark:text-white">{{ history.favored_product?.product?.name ?? 'N/A' }}</span>
+                                                <span v-if="history.favored_product?.product?.code" class="block text-xs text-gray-400">{{ history.favored_product.product.code }}</span>
+                                            </td>
+                                            <td class="py-3 px-5 text-right font-mono text-gray-500 dark:text-gray-400">
+                                                {{ history.quantity_before_request.toLocaleString() }} pz
+                                            </td>
+                                            <td class="py-3 px-5 text-right font-mono font-bold text-amber-500">
+                                                {{ history.quantity_requested.toLocaleString() }} pz
+                                            </td>
+                                            <td class="py-3 px-5 text-right font-mono text-gray-500 dark:text-gray-400">
+                                                {{ history.quantity_after_request }}
+                                            </td>
+                                            <td class="py-3 px-5 capitalize">
+                                                <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="getShippingMethodClass(history.shipping_method)">
+                                                    {{ history.shipping_method }}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-5 whitespace-nowrap">
+                                                {{ history.user?.name ?? 'Sistema' }}
+                                            </td>
+                                            <td class="py-3 px-5 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getStatusRequestClass(history.status)">
+                                                    {{ history.status }}
+                                                </span>
+                                                <span v-if="history.status === 'Recibido'" class="block text-xs text-gray-400 mt-1">
+                                                    {{ formatRequestDate(history.received_at) }}
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-5 text-right">
+                                                <PrimaryButton
+                                                    v-if="history.status === 'Solicitado'"
+                                                    @click="confirmReceiveStock(history)"
+                                                    class="!text-xs !py-1 !px-2"
+                                                >
+                                                    Recibir
+                                                </PrimaryButton>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else class="text-center text-sm text-gray-500 dark:text-gray-400 p-4">
+                                <p>No hay solicitudes de stock registradas para este proveedor.</p>
+                            </div>
+                        </el-tab-pane>
                     </el-tabs>
                 </div>
             </div>
@@ -275,6 +357,31 @@
                 </div>
             </template>
         </ConfirmationModal>
+
+        <!-- --- NUEVO MODAL --- -->
+        <!-- Modal de Confirmación para RECIBIR STOCK -->
+        <ConfirmationModal :show="showConfirmReceiveModal" @close="showConfirmReceiveModal = false">
+            <template #title>
+                Confirmar Recepción de Stock
+            </template>
+            <template #content>
+                ¿Estás seguro de que deseas marcar como "Recibido" el stock solicitado?
+                <ul class="text-sm text-gray-700 dark:text-gray-300 mt-3 list-disc list-inside space-y-1">
+                    <li><strong>Producto:</strong> {{ stockToReceive?.favored_product?.product?.name }}</li>
+                    <li><strong>Cantidad:</strong> {{ stockToReceive?.quantity_requested }} pz</li>
+                    <li><strong>Envío:</strong> {{ stockToReceive?.shipping_method }}</li>
+                </ul>
+                <p class="mt-3 text-sm font-bold text-amber-600 dark:text-amber-400">Esta acción agregará la cantidad al inventario principal y no se puede deshacer.</p>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showConfirmReceiveModal = false" :disabled="isReceivingStock">Cancelar</CancelButton>
+                    <PrimaryButton @click="receiveStock" :disabled="isReceivingStock" :class="{ 'opacity-25': isReceivingStock }">
+                        {{ isReceivingStock ? 'Procesando...' : 'Confirmar y Recibir' }}
+                    </PrimaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
     </AppLayout>
 </template>
 
@@ -298,6 +405,7 @@ import { es } from 'date-fns/locale';
 export default {
     data() {
         return {
+            // 1. Establece el valor predeterminado
             activeTab: 'general',
             selectedSupplier: this.supplier.id,
             showConfirmDeleteSupplierModal: false,
@@ -310,7 +418,35 @@ export default {
             bankAccountToEdit: null,
             bankAccountToDelete: null,
             showConfirmDeleteBankAccountModal: false,
+            stockToReceive: null, // Objeto de la solicitud a recibir
+            showConfirmReceiveModal: false,
+            isReceivingStock: false,
         };
+    },
+    computed: {
+        pendingRequestsCount() {
+            if (!this.supplier.favoredStockRequests) return 0;
+            return this.supplier.favoredStockRequests.filter(req => req.status === 'Solicitado').length;
+        }
+    },
+    // --- LÓGICA PARA ESCRIBIR EN LA URL (AL CAMBIAR PESTAÑA) ---
+    watch: {
+        activeTab(newTab) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', newTab);
+            // Usamos 'replaceState' para no añadir una nueva entrada al historial de navegación
+            window.history.replaceState({}, '', url);
+        }
+    },
+    // --- LÓGICA PARA LEER LA URL (AL CARGAR PÁGINA) ---
+    created() {
+        const validTabs = ['general', 'products', 'orders', 'stock_history'];
+        const tabFromUrl = new URLSearchParams(window.location.search).get('tab');
+        
+        // 2. Si la pestaña en la URL es válida, la establece
+        if (validTabs.includes(tabFromUrl)) {
+            this.activeTab = tabFromUrl;
+        }
     },
     components: {
         Link,
@@ -335,6 +471,13 @@ export default {
             if (!dateString) return 'N/A';
             return format(new Date(dateString), "d 'de' MMMM, yyyy", { locale: es });
         },
+        formatRequestDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            if (isNaN(date)) return 'Fecha inválida';
+            // Formato más corto para la tabla
+            return format(date, "d/MMM/yy HH:mm", { locale: es });
+        },
         formatCurrency(value, currency) {
             if (value === null || value === undefined) return 'N/A';
             return new Intl.NumberFormat('es-MX', {
@@ -349,6 +492,23 @@ export default {
                 'Compra recibida': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
             };
             return statusClasses[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        },
+        // --- NUEVO MÉTODO DE CLASE DE ESTADO ---
+        getStatusRequestClass(status) {
+            const statusClasses = {
+                'Solicitado': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
+                'Recibido': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+            };
+            return statusClasses[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+        },
+        // --- MÉTODOS PARA HISTORIAL ---
+        getShippingMethodClass(method) {
+             const classes = {
+                'plane': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+                'ship': 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
+                'factory': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+            };
+            return classes[method] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
         },
         // --- MÉTODOS GENERALES ---
         formatClabe(clabe) {
@@ -429,6 +589,30 @@ export default {
                 },
                 onError: () => {
                     ElMessage.error('Ocurrió un error al eliminar el proveedor.');
+                }
+            });
+        },
+        // --- ¡NUEVOS MÉTODOS PARA RECIBIR STOCK! ---
+        confirmReceiveStock(historyItem) {
+            this.stockToReceive = historyItem;
+            this.showConfirmReceiveModal = true;
+        },
+        receiveStock() {
+            if (this.isReceivingStock) return;
+            this.isReceivingStock = true;
+
+            router.put(route('favored-stock-requests.receive', this.stockToReceive.id), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Stock recibido y agregado al inventario.');
+                    this.showConfirmReceiveModal = false;
+                    this.stockToReceive = null;
+                },
+                onError: (errors) => {
+                    ElMessage.error(errors.message || 'Ocurrió un error al procesar la recepción.');
+                },
+                onFinish: () => {
+                    this.isReceivingStock = false;
                 }
             });
         },

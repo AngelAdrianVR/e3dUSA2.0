@@ -36,4 +36,9 @@ class FavoredProduct extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function favoredStockRequests()
+    {
+        return $this->hasMany(FavoredStockRequest::class);
+    }
 }

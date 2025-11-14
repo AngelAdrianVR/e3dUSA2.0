@@ -141,16 +141,29 @@ class SupplierController extends Controller
     public function show(Supplier $supplier)
     {
         // Cargar las relaciones necesarias del proveedor
-        $supplier->load([ // <--- Se envuelve todo en un arreglo
+        $supplier->load([
             'contacts.details', 
             'bankAccounts', 
             'products.media',
+            
             // Cargar solo las últimas 25 órdenes de compra con sus relaciones
             'purchases' => function ($query) {
                 $query->latest('emited_at')->limit(25)->with(['user', 'items.product']);
             },
-            // 'purchases.user', // Ya no son necesarios aquí
-            // 'purchases.items.product' // Se cargan dentro de la restricción para mayor eficiencia
+            
+            // --- ¡NUEVO! ---
+            // Cargar el historial de solicitudes de stock
+            'favoredStockRequests' => function ($query) {
+                $query->with([
+                    'user:id,name', // Usuario que solicitó
+                    'favoredProduct' => function($q) { // El item de 'favored_product'
+                        $q->select('id', 'product_id'); // Seleccionar solo IDs
+                    },
+                    'favoredProduct.product:id,name,code' // El producto final (nombre, código)
+                ])
+                ->latest() // Más recientes primero
+                ->limit(100); // Limitar a las últimas 100 solicitudes
+            },
         ]);
 
         // Obtener la lista de todos los proveedores para el selector
@@ -161,6 +174,7 @@ class SupplierController extends Controller
             ->select('id', 'name', 'code', 'measure_unit')
             ->get();
 
+            // return $supplier;
         // Renderizar la vista de Inertia con los datos necesarios
         return Inertia::render('Supplier/Show', [
             'supplier' => $supplier,

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\FavoredProduct;
+use App\Models\FavoredStockRequest;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class FavoredProductController extends Controller
@@ -32,54 +34,47 @@ class FavoredProductController extends Controller
     {
         $request->validate([
             'quantity' => 'required|numeric|min:0.01|max:' . $favoredProduct->quantity,
+            'shipping_method' => 'required|string|in:plane,ship,factory',
         ]);
 
         try {
-            DB::transaction(function () use ($request, $favoredProduct) {
+            $favoredProduct = DB::transaction(function () use ($request, $favoredProduct) {
                 $quantityToDiscount = $request->input('quantity');
+                $shippingMethod = $request->input('shipping_method');
                 
-                // Cargar la relación con el producto principal
-                $product = $favoredProduct->product;
+                // 1. Snapshot de la cantidad ANTES
+                $quantityBefore = $favoredProduct->quantity;
 
-                if (!$product) {
-                    throw new \Exception('El producto a favor no está asociado a ningún producto del inventario.');
-                }
+                // 2. Descontar la cantidad del producto a favor
+                $favoredProduct->decrement('quantity', $quantityToDiscount);
 
-                // 1. Agregar la cantidad al stock del producto principal
-                $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
-                $storage->increment('quantity', $quantityToDiscount);
+                // 3. Snapshot de la cantidad DESPUÉS
+                $quantityAfter = $favoredProduct->quantity;
 
-                // 2. Crear el movimiento de stock
-                StockMovement::create([
-                    'product_id' => $product->id,
-                    'storage_id' => $storage->id,
-                    'quantity_change' => $quantityToDiscount,
-                    'type' => 'Entrada',
-                    'notes' => 'Entrada por descuento de stock a favor'
+                // 4. Crear el registro de la solicitud de stock
+                FavoredStockRequest::create([
+                    'favored_product_id' => $favoredProduct->id,
+                    'user_id' => Auth::id(),
+                    'quantity_requested' => $quantityToDiscount,
+                    'shipping_method' => $shippingMethod,
+                    'quantity_before_request' => $quantityBefore,
+                    'quantity_after_request' => $quantityAfter,
+                    'status' => 'Solicitado',
                 ]);
-
-                // 3. MODIFICACIÓN: Si la cantidad a descontar es igual a la existente,
-                // se elimina el registro. De lo contrario, solo se descuenta.
-                // Usamos una comparación de floats para mayor precisión.
-                if (abs($favoredProduct->quantity - $quantityToDiscount) < 0.00001) {
-                    $favoredProduct->delete();
-                } else {
-                    $favoredProduct->decrement('quantity', $quantityToDiscount);
-                }
+                
+                // 5. Devolver el producto a favor actualizado
+                return $favoredProduct;
             });
 
-            // MODIFICACIÓN: Comprobar si el modelo fue eliminado en la transacción
-            // La propiedad 'exists' será false si el registro ya no está en la base de datos.
-            if (!$favoredProduct->exists) {
-                return response()->json(['message' => 'Producto a favor utilizado en su totalidad y eliminado.']);
-            }
-
-            // Devolver el producto actualizado si no fue eliminado
-            $favoredProduct->refresh()->load('product');
+            // Devolver el producto actualizado
+            // Cargar product.media para consistencia con el frontend
+            $favoredProduct->load('product.media');
+            
+            // Si la cantidad es 0, el frontend lo manejará (lo quitará de la lista)
             return response()->json($favoredProduct);
 
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al descontar la cantidad: ' . $e->getMessage()], 500);
+            return response()->json(['message' => 'Error al solicitar el stock: ' . $e->getMessage()], 500);
         }
     }
 }

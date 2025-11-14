@@ -17,6 +17,9 @@ use Illuminate\Validation\Rule;
 use App\Mail\EmailSupplierTemplateMarkdownMail;
 use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\PurchaseReportExport; // Asegúrate de que la ruta sea correcta
+use Maatwebsite\Excel\Facades\Excel;
+
 
 class PurchaseController extends Controller
 {
@@ -547,5 +550,28 @@ class PurchaseController extends Controller
         // 6. Eliminar el archivo después de enviarlo (opcional)
         Storage::delete($path);
 
+    }
+
+    /**
+     * Descarga un reporte de compras en Excel basado en un rango de fechas.
+     * El reporte se agrupa por Proveedor, como se solicita "agrupado por cliente"
+     * en el contexto de un módulo de Compras (donde el "cliente" es el Proveedor).
+     */
+    public function downloadReport(Request $request)
+    {
+        // Validar las fecha
+        $request->validate([
+            'start_date' => 'required|date|date_format:Y-m-d',
+            'end_date' => 'required|date|date_format:Y-m-d|after_or_equal:start_date',
+        ]);
+
+        $startDate = $request->start_date;
+        // Sumar un día a la fecha final para incluir todo el día
+        $endDate = date('Y-m-d', strtotime($request->end_date . ' +1 day'));
+        
+        $fileName = 'reporte_compras_' . $startDate . '_a_' . $request->end_date . '.xlsx';
+
+        // Descargar el archivo Excel usando la clase Export
+        return Excel::download(new PurchaseReportExport($startDate, $endDate), $fileName);
     }
 }
