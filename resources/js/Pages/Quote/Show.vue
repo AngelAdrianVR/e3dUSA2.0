@@ -345,7 +345,7 @@
                 <section class="w-full border-t-4 border-amber-400 bg-amber-50 px-5 py-4 mt-10 rounded-b-lg text-gray-700" style="font-size: 11px;">
                     <h2 class="text-center font-extrabold text-base uppercase mb-3">{{ quote.is_spanish_template ? 'Información Importante' : 'Important Information' }}</h2>
                     <ol class="list-decimal list-inside space-y-2">
-                        <li v-if="quote.notes" class="font-bold text-blue-600 whitespace-pre-line">{{ quote.notes }}</li>
+                        <li v-if="quote.notes" v-html="quote.notes"></li>
                         <li>{{ quote.is_spanish_template ? 'Precios antes de IVA' : 'Prices before taxes' }}.</li>
                         <li>{{ quote.is_spanish_template ? 'Costo de herramental' : 'Tooling cost' }}: <span class="font-bold text-blue-600" :class="{ 'line-through': quote.is_tooling_cost_stroked }">{{ formatNumber(quote.tooling_cost) }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Tiempo de entrega para la primer producción' : 'Lead time for first production' }}: <span class="font-bold text-blue-600">{{ quote.first_production_days }}</span>.</li>
