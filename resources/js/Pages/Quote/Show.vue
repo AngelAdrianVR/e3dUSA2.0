@@ -18,24 +18,86 @@
                         <p class="text-gray-500 mt-2 text-sm">{{ quote.is_spanish_template ? 'Especialistas en Emblemas de alta calidad' : 'Specialists in High-Quality Emblems' }}</p>
                     </div>
                     <div class="text-right w-1/2">
-                        <h1 class="text-2xl sm:text-3xl font-bold text-sky-700 uppercase">{{ quote.is_spanish_template ? 'Cotización' : 'Quote' }}</h1>
-                        <p class="text-sm font-semibold text-gray-600 mt-1">
-                            <span class="text-lg">COT-{{ quote.id.toString().padStart(4, '0') }}</span>
-                        </p>
+                        <div class="flex items-center justify-end space-x-3 mb-2">
+                            <button @click="$inertia.visit(route('quotes.edit', quote.id))"
+                                class="flex items-center gap-2 px-3 py-1 bg-blue-400 text-white rounded-lg hover:bg-blue-500 text-sm transition shadow-sm print:hidden"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke-width="1.5" 
+                                    stroke="currentColor" 
+                                    class="w-5 h-5">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M16.862 3.487l3.651 3.651M4.5 20.25l4.125-.516a2.25 2.25 
+                                            0 001.266-.633L19.5 9.75a2.25 2.25 0 000-3.182l-2.568-2.568a2.25 
+                                            2.25 0 00-3.182 0L4.5 14.25v6z" />
+                                </svg>
+                                Editar
+                            </button>
+
+                            <h1 class="text-2xl sm:text-3xl font-bold text-sky-700 uppercase">{{ quote.is_spanish_template ? 'Cotización' : 'Quote' }}</h1>
+                        </div>
+
+                            <div class="text-sm font-semibold text-gray-600 flex items-center space-x-2 justify-end">
+                                
+                                <!-- --- MODIFICADO: Mostrar ID Raíz y Versión --- -->
+                                <span class="text-lg">COT-{{ quote.root_quote_id?.toString()?.padStart(4, '0') }}</span>
+                                <span class="ml-2 px-3 py-1 bg-sky-100 text-sky-700 text-xs font-bold rounded-full align-middle">
+                                    v{{ quote.version }}
+                                </span>
+                                <!-- --- FIN DE MODIFICACIÓN --- -->
+                                
+                                <!-- --- Navegación entre VERSIONES --- -->
+                                <div class="flex items-center justify-end space-x-4 pl-4 print:hidden">
+                                    <button @click="$inertia.visit(route('quotes.show', prev_version_id))" 
+                                            :disabled="!prev_version_id"
+                                            title="Versión Anterior"
+                                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 size-7 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </button>
+                                    <span class="px-2 py-1 !text-xs rounded-md bg-blue-100">Versión</span>
+                                    <button @click="$inertia.visit(route('quotes.show', next_version_id))" 
+                                            :disabled="!next_version_id"
+                                            title="Versión Siguiente"
+                                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 size-7 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+
+                        <!-- --- NUEVO: Selector de Versión --- -->
+                        <div class="mt-2 print:hidden" v-if="allVersions && allVersions.length > 1">
+                            <label for="version_select" class="text-xs text-gray-500 mr-2">Ver versión:</label>
+                            <select id="version_select"
+                                    :value="quote.id" 
+                                    @change="navigateToVersion($event.target.value)"
+                                    class="text-sm border-gray-300 rounded-md shadow-sm h-8 py-0 focus:border-sky-500 focus:ring-sky-500">
+                                <option v-for="version in allVersions" :key="version.id" :value="version.id">
+                                    Versión {{ version.version }} ({{ formatDate(version.created_at) }})
+                                </option>
+                            </select>
+                        </div>
+                        <!-- --- FIN DE NUEVO --- -->
+
+                        <!-- --- FIN DE MODIFICACIÓN --- -->
                         <p class="text-sm text-gray-500 mt-2">
                             {{ quote.is_spanish_template ? 'Fecha' : 'Date' }}: {{ formatDate(quote.created_at) }}
                         </p>
-                         <!-- Navegación entre cotizaciones (solo en pantalla) -->
+                        <!-- Navegación entre cotizaciones (solo en pantalla) -->
                         <div v-show="showAdditionalElements" class="flex items-center justify-end space-x-4 mt-4">
                             <button @click="$inertia.visit(route('quotes.show', prev_quote))" title="Anterior"
                                 class="bg-gray-200 hover:bg-gray-300 text-gray-700 size-7 rounded-full transition-colors">
                                 <i class="fa-solid fa-chevron-left"></i>
                             </button>
+                            <span class="px-2 py-1 text-xs rounded-md bg-blue-100 font-semibold text-gray-600">Cambiar cotización</span>
                             <button @click="$inertia.visit(route('quotes.show', next_quote))" title="Siguiente"
                                 class="bg-gray-200 hover:bg-gray-300 text-gray-700 size-7 rounded-full transition-colors">
                                 <i class="fa-solid fa-chevron-right"></i>
                             </button>
                         </div>
+
                     </div>
                 </header>
 
@@ -264,7 +326,7 @@
                         </div>
                          <div v-if="!quote.is_tooling_cost_stroked" class="flex justify-between p-2">
                             <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Herramental' : 'Tooling Cost' }}:</span>
-                            <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }} {{ quote.currency }}</span>
+                            <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }}</span>
                         </div>
                         <div v-if="quote.has_early_payment_discount" class="flex justify-between p-2 text-green-600 border-t border-dashed">
                             <span class="font-semibold">
@@ -285,9 +347,9 @@
                     <ol class="list-decimal list-inside space-y-2">
                         <li v-if="quote.notes" class="font-bold text-blue-600 whitespace-pre-line">{{ quote.notes }}</li>
                         <li>{{ quote.is_spanish_template ? 'Precios antes de IVA' : 'Prices before taxes' }}.</li>
-                        <li>{{ quote.is_spanish_template ? 'Costo de herramental' : 'Tooling cost' }}: <span class="font-bold text-blue-600" :class="{ 'line-through': quote.is_tooling_cost_stroked }">{{ formatNumber(quote.tooling_cost) }} {{ quote.currency }}</span>.</li>
+                        <li>{{ quote.is_spanish_template ? 'Costo de herramental' : 'Tooling cost' }}: <span class="font-bold text-blue-600" :class="{ 'line-through': quote.is_tooling_cost_stroked }">{{ formatNumber(quote.tooling_cost) }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Tiempo de entrega para la primer producción' : 'Lead time for first production' }}: <span class="font-bold text-blue-600">{{ quote.first_production_days }}</span>.</li>
-                        <li>{{ quote.is_spanish_template ? 'Fletes y acarreos' : 'Freight & handling' }}: <span class="font-bold text-blue-600">{{ quote.freight_option }}</span> <span v-if="quote.freight_cost" :class="{ 'line-through': quote.is_freight_cost_stroked }">({{ formatNumber(quote.freight_cost) }} {{ quote.currency }})</span>.</li>
+                        <li>{{ quote.is_spanish_template ? 'Fletes y acarreos' : 'Freight & handling' }}: <span class="font-bold text-blue-600">{{ quote.freight_option }}</span> <span v-if="quote.freight_cost > 0" :class="{ 'line-through': quote.is_freight_cost_stroked }">({{ formatNumber(quote.freight_cost) }} {{ quote.currency }})</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Precios en' : 'Prices in' }}: <span class="font-bold text-blue-600">{{ quote.currency }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Cotización válida por 21 días' : 'Quote valid for 21 days' }}.</li>
                     </ol>
@@ -365,15 +427,27 @@ export default {
     },
     props: {
         quote: Object,
+        allVersions: Array,
+        next_version_id: Number,
+        prev_version_id: Number,
         next_quote: Number,
         prev_quote: Number,
     },
     computed: {
         tabTitle() {
-            return `${this.quote.is_spanish_template ? 'Cotización' : 'Quote'} ${this.quote.id} - ${this.quote.branch.name}`;
+            // --- MODIFICADO: Título de pestaña con versión ---
+            return `Cot. ${this.quote.root_quote_id}-v${this.quote.version} - ${this.quote.branch.name}`;
+            // --- FIN DE MODIFICACIÓN ---
         },
     },
     methods: {
+        navigateToVersion(selectedId) {
+            if (selectedId != this.quote.id) {
+                router.visit(route('quotes.show', selectedId), {
+                    preserveScroll: true,
+                });
+            }
+        },
         async updateProductStatus(product, newStatus) {
             try {
                 // Asume que tienes una ruta para actualizar el estatus del producto en la cotización.
@@ -445,10 +519,22 @@ export default {
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
         },
         formatNumber(value) {
-            if (value === null || value === undefined) return '0.00';
+            // --- INICIO DE LA MODIFICACIÓN ---
+            if (value === null || value === undefined || value === '') {
+                 return '0.00';
+            }
+
+            // Intentar convertir el valor a número
             const num = Number(value);
-            if (isNaN(num)) return '0.00';
+
+            if (isNaN(num)) {
+                // Si no es un número (ej. "A consultar"), devolver el texto original
+                return value;
+            }
+            
+            // Si es un número, formatearlo
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+            // --- FIN DE LA MODIFICACIÓN ---
         },
         async authorize() {
             if (this.quote.authorized_by) return;

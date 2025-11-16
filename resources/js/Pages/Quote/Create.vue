@@ -86,12 +86,11 @@
                         </el-divider>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-                             <TextInput label="Costo de Herramental*" 
-                                v-model="form.tooling_cost" type="number" 
-                                :formatAsNumber="true" 
+                             <TextInput label="Costo de Herramental" 
+                                v-model="form.tooling_cost" 
                                 :error="form.errors.tooling_cost" 
-                                :placeholder="'Ej. 500.00'" :helpContent="'Si no tiene costo, escribe 0 (Cero)'">
-                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                :placeholder="'Ej. 500.00'" :helpContent="'(Agregar Moneda manualmente $MXN/$USD)'">
+                                <!-- <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template> -->
                              </TextInput>
                              <div class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
@@ -99,7 +98,7 @@
                                     <span class="ml-2 text-gray-400">Tachar:</span>
                                 </label>
                                 <span class="text-gray-500" :class="{ 'line-through': form.is_tooling_cost_stroked }">
-                                    ${{ formatNumber(form.tooling_cost) }} {{ form.currency }}
+                                    {{ form.tooling_cost }}
                                 </span>
                              </div>
                              <div></div> <!-- Espaciador -->

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
@@ -23,7 +24,7 @@ class Quote extends Model implements Auditable
         'receiver',
         'department',
         'currency',
-        'tooling_cost',
+        'tooling_cost', // <--- Ya lo tenías fillable, está bien
         'is_tooling_cost_stroked',
         'is_freight_cost_stroked',
         'freight_option',
@@ -43,6 +44,11 @@ class Quote extends Model implements Auditable
         'branch_id',
         'user_id',
         'sale_id',
+
+        // --- CAMPOS NUEVOS PARA VERSIONADO ---
+        'root_quote_id',
+        'version',
+        'is_active',
     ];
 
     /**
@@ -51,9 +57,13 @@ class Quote extends Model implements Auditable
      * @var array<string, string>
      */
     protected $casts = [
-        'tooling_cost' => 'decimal:2',
-        'is_tooling_cost_waived' => 'boolean',
-        'freight_cost' => 'decimal:2',
+        // --- CAMBIO 1: 'tooling_cost' ahora es un 'string' ---
+        // Ya no intentará convertirlo a decimal, previniendo el error 'Unable to cast value'.
+        'tooling_cost' => 'string', 
+        'is_tooling_cost_waived' => 'boolean', // ¿Esta línea está en uso? la dejé por si acaso
+        'is_tooling_cost_stroked' => 'boolean', // Agregué esta que faltaba en tu $casts original
+        'is_freight_cost_stroked' => 'boolean', // Agregué esta que faltaba en tu $casts original
+        'freight_cost' => 'decimal:2', // Asumo que freight_cost sigue siendo decimal
         'customer_responded_at' => 'datetime',
         'authorized_at' => 'datetime',
         'is_spanish_template' => 'boolean',
@@ -62,6 +72,10 @@ class Quote extends Model implements Auditable
         'has_early_payment_discount' => 'boolean',
         'early_payment_discount_amount' => 'decimal:2',
         'early_paid_at' => 'datetime',
+
+        // --- CASTS NUEVOS ---
+        'version' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     // Accesor para obtener el total de la cotizacion. ()
@@ -123,13 +137,45 @@ class Quote extends Model implements Auditable
     {
         return $this->belongsTo(Sale::class);
     }
+
+     // --- RELACIONES DE VERSIONADO ---
+
+    /**
+     * Relación a la cotización raíz.
+     * Para una cotización v3, esto apunta a la v1.
+     * Para la v1, esto apunta a sí misma.
+     */
+    public function rootQuote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class, 'root_quote_id');
+    }
+
+    /**
+     * Relación para obtener TODAS las versiones de este hilo.
+     * Si estás en la v3, esto te dará la v1, v2, v3, v4...
+     */
+    public function allVersions(): HasMany
+    {
+        // Se relaciona usando el root_quote_id de esta instancia.
+        return $this->hasMany(Quote::class, 'root_quote_id', 'root_quote_id')
+                    ->orderBy('version', 'asc');
+    }
+
+    /**
+     * Relación para obtener solo la versión activa.
+     */
+    public function activeVersion(): HasMany
+    {
+        return $this->hasMany(Quote::class, 'root_quote_id', 'root_quote_id')
+                    ->where('is_active', true);
+    }
     
     // ------------------ ACCESORS & MUTATORS ------------------
 
     /**
      * Calcula el costo total de la cotización dinámicamente.
      * Suma solo los productos aprobados por el cliente.
-     * @return float
+     * @return array
      */
     public function getTotalDataAttribute(): array
     {
@@ -140,11 +186,17 @@ class Quote extends Model implements Auditable
 
         // 2. Suma costos adicionales (herramental y flete).
         $totalBeforeDiscount = $subtotal;
-        if (!$this->is_tooling_cost_stroked) {
-            $totalBeforeDiscount += $this->tooling_cost;
+
+        // --- CAMBIO 2: Comprobar si 'tooling_cost' es numérico ANTES de sumarlo ---
+        // Si no está tachado Y ES UN NÚMERO, se suma. Si es texto (ej. "A consultar"), se ignora.
+        if (!$this->is_tooling_cost_stroked && is_numeric($this->tooling_cost)) {
+            $totalBeforeDiscount += (float) $this->tooling_cost;
         }
-        if ($this->freight_option && !$this->is_freight_cost_stroked) {
-            $totalBeforeDiscount += $this->freight_cost;
+
+        // --- (Mejora): Hago lo mismo para freight_cost por seguridad ---
+        // Asumo que freight_cost sigue siendo numérico, pero esta comprobación no hace daño.
+        if ($this->freight_option && !$this->is_freight_cost_stroked && is_numeric($this->freight_cost)) {
+            $totalBeforeDiscount += (float) $this->freight_cost;
         }
 
         // 3. Calcula el descuento si aplica.
