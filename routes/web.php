@@ -15,6 +15,7 @@ use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\FavoredProductController;
+use App\Http\Controllers\FavoredStockRequestController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoicePaymentController;
@@ -265,7 +266,9 @@ Route::delete('suppliers/{supplier}/products/{product}', [SupplierProductControl
 Route::middleware(['auth'])->group(function () {
     Route::get('/suppliers/{supplier}/favored-products', [FavoredProductController::class, 'index'])->name('suppliers.favored-products.index');
     Route::put('/favored-products/{favoredProduct}/discount', [FavoredProductController::class, 'discount'])->name('favored-products.discount');
+    Route::put('favored-stock-requests/{favoredStockRequest}/receive', [FavoredStockRequestController::class, 'receive'])->name('favored-stock-requests.receive');
 });
+
 
 // ------- (Rutas de compras)  ---------
 Route::resource('purchases', PurchaseController::class)->middleware('auth');
@@ -275,6 +278,7 @@ Route::put('purchases/authorize/{purchase}', [PurchaseController::class, 'author
 Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->middleware('auth')->name('purchases.print');
 Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
 Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
+Route::get('purchases-download-report', [PurchaseController::class, 'downloadReport'])->middleware('auth')->name('purchases.download-report');
 
 
 // ------- (Rutas de diseño)  ---------

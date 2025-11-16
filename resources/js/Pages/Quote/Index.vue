@@ -70,6 +70,8 @@
                             :row-class-name="tableRowClassName" class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="35" />
+                            
+                            <!-- --- COLUMNA DE FOLIO MODIFICADA --- -->
                             <el-table-column prop="id" label="Folio" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-1">
@@ -80,10 +82,23 @@
                                             </template>
                                             <span v-html="getStatusIcon(scope.row.status)" class="text-sm mr-2"></span>
                                         </el-tooltip>
-                                        <span class="text-sm">{{ 'COT-' + String(scope.row.id).padStart(4, '0') }}</span>
+                                        
+                                        <!-- Folio (usa root_quote_id para consistencia) -->
+                                        <span class="text-xs">{{ 'COT-' + String(scope.row.root_quote_id).padStart(4, '0') }}</span>
+                                        
+                                        <!-- Badge de Versiones -->
+                                        <el-tooltip v-if="scope.row.all_versions_count > 1"
+                                                    :content="`Viendo la versión ${scope.row.version} de ${scope.row.all_versions_count} totales`" 
+                                                    placement="top">
+                                            <span class="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                                v{{ scope.row.version }}/{{ scope.row.all_versions_count }}
+                                            </span>
+                                        </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
+                            <!-- --- FIN DE COLUMNA MODIFICADA --- -->
+
                             <el-table-column prop="branch.name" label="Cliente" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center">

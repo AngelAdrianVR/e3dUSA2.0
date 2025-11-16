@@ -73,4 +73,20 @@ class Supplier extends Model implements Auditable
     {
         return $this->hasMany(FavoredProduct::class);
     }
+
+    /**
+     * Obtener todas las solicitudes de stock a favor
+     * a través de los productos a favor del proveedor.
+     */
+    public function favoredStockRequests()
+    {
+        return $this->hasManyThrough(
+            FavoredStockRequest::class, // Modelo final al que queremos acceder
+            FavoredProduct::class,      // Modelo intermedio
+            'supplier_id',              // Llave foránea en 'favored_products' (Supplier -> FavoredProduct)
+            'favored_product_id',       // Llave foránea en 'favored_stock_requests' (FavoredProduct -> Request)
+            'id',                       // Llave local en 'suppliers'
+            'id'                        // Llave local en 'favored_products'
+        );
+    }
 }

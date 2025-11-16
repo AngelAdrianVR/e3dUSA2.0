@@ -27,17 +27,25 @@ class QuoteController extends Controller
         
         $query = Quote::query();
 
+        // --- MODIFICACIÓN 1: Solo mostrar cotizaciones ACTIVAS ---
+        // Esto evita que el index se llene de v1, v2, v3...
+        $query->where('is_active', true);
+
         // Si no se solicita ver todo, filtra por el usuario autenticado.
         if (!$showAll) {
             $query->where('user_id', Auth::id());
         }
 
-        // Se obtienen las cotizaciones paginadas con la consulta ya filtrada.
+        // --- MODIFICACIÓN 2: Cargar conteo de versiones ---
+        // Esto agrega un atributo 'all_versions_count' a cada cotización
+        $query->withCount('allVersions');
+
+        // Se obtienen las cotizaciones paginadas
         $quotes = $query->with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'products:id,name,cost'])
-            ->latest() // Ordena por los más recientes primero
-            ->select(['id', 'status', 'receiver', 'department', 'currency', 'rejection_reason', 'customer_responded_at', 'authorized_by_user_id', 'authorized_at',
-            'created_by_customer', 'has_early_payment_discount', 'early_payment_discount_amount', 'early_paid_at', 'branch_id', 'user_id', 'sale_id', 'created_at'])
-            ->paginate(20) // O el número que prefieras por página
+            ->latest()
+            // Se eliminó el ->select() para asegurar que 'withCount' y
+            // los accessors del modelo (como total_data) funcionen correctamente.
+            ->paginate(20)
             ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación
 
         // Retornamos la vista de Inertia, pasando los datos y los filtros.
@@ -61,15 +69,18 @@ class QuoteController extends Controller
         ]);
     }
 
+    /**
+     * Guarda una cotización por PRIMERA VEZ (Crea la v1).
+     */
     public function store(Request $request)
     {
-        // Validación de los datos principales de la cotización.
+        // Tu validación (sin cambios)
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => 'required|numeric|min:0',
+            'tooling_cost' => 'nullable|string|min:0',
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
@@ -82,7 +93,7 @@ class QuoteController extends Controller
                 'max:100'
             ],
             'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:products,id',
+            'products.*.id' => 'required|exists:products,id', // 'id' es correcto según tu lógica
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
             'products.*.notes' => 'nullable|string',
@@ -92,31 +103,41 @@ class QuoteController extends Controller
             'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
-        // Usamos una transacción para asegurar la integridad de los datos.
-        DB::transaction(function () use ($request) {
-            // Crear la cotización con los datos validados.
-            $quote = Quote::create([
-                'user_id' => auth()->id(),
-                'branch_id' => $request->branch_id,
-                'receiver' => $request->receiver,
-                'department' => $request->department,
-                'currency' => $request->currency,
-                'tooling_cost' => $request->tooling_cost,
-                'is_tooling_cost_stroked' => $request->is_tooling_cost_stroked,
-                'freight_cost' => $request->freight_cost,
-                'is_freight_cost_stroked' => $request->is_freight_cost_stroked,
-                'freight_option' => $request->freight_option,
-                'first_production_days' => $request->first_production_days,
-                'notes' => $request->notes,
-                'is_spanish_template' => $request->is_spanish_template,
-                'show_breakdown' => $request->show_breakdown,
-                'has_early_payment_discount' => $request->has_early_payment_discount,
-                'early_payment_discount_amount' => $request->early_payment_discount_amount ?? 0,
-            ]);
+        $quote = null;
 
-            // --- MODIFICADO: Adjuntar cada producto individualmente ---
-            // Esto permite agregar el mismo producto varias veces, ya que cada uno
-            // será un registro separado en la tabla pivote.
+        // Usamos una transacción para asegurar la integridad de los datos.
+        DB::transaction(function () use ($request, &$quote) { // Pasamos $quote por referencia
+            // 1. Crear la cotización (v1)
+            $quote = new Quote();
+            $quote->user_id = auth()->id();
+            $quote->branch_id = $request->branch_id;
+            $quote->receiver = $request->receiver;
+            $quote->department = $request->department;
+            $quote->currency = $request->currency;
+            $quote->tooling_cost = $request->tooling_cost;
+            $quote->is_tooling_cost_stroked = $request->is_tooling_cost_stroked;
+            $quote->freight_cost = $request->freight_cost;
+            $quote->is_freight_cost_stroked = $request->is_freight_cost_stroked;
+            $quote->freight_option = $request->freight_option;
+            $quote->first_production_days = $request->first_production_days;
+            $quote->notes = $request->notes;
+            $quote->is_spanish_template = $request->is_spanish_template;
+            $quote->show_breakdown = $request->show_breakdown;
+            $quote->has_early_payment_discount = $request->has_early_payment_discount;
+            $quote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
+            
+            // --- CAMPOS DE VERSIONADO (NUEVO) ---
+            $quote->version = 1;
+            $quote->is_active = true;
+            $quote->status = 'Esperando respuesta'; // Status inicial
+
+            $quote->save(); // Guardamos una vez para obtener el ID
+
+            // 2. Asignar su ID como el root_quote_id
+            $quote->root_quote_id = $quote->id;
+            $quote->save(); // Guardamos de nuevo para setear el root_quote_id
+
+            // 3. Adjuntar productos (Tu lógica, sin cambios)
             foreach ($request->products as $product) {
                 $quote->products()->attach($product['id'], [
                     'quantity' => $product['quantity'],
@@ -124,11 +145,11 @@ class QuoteController extends Controller
                     'notes' => $product['notes'],
                     'show_image' => $product['show_image'],
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
-                    'customer_approval_status' => 'Aprobado', // Por defecto se aprueban al crear
+                    'customer_approval_status' => 'Aprobado',
                 ]);
             }
             
-            // --- INICIO: LÓGICA DE NOTIFICACIÓN ---
+            // 4. Lógica de Notificación (Tu lógica, sin cambios)
             if ($quote) {
                 $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
     
@@ -138,11 +159,29 @@ class QuoteController extends Controller
             }
         });
 
-        return Redirect::route('quotes.index')->with('success', 'Cotización creada exitosamente.');
+        return Redirect::route('quotes.index')->with('success', 'Cotización (v1) creada exitosamente.');
     }
 
     public function show(Quote $quote)
     {
+        // Cargar relaciones base de la cotización actual
+        $quote->load(['branch', 'user', 'products.media', 'authorizedBy']);
+        
+        // Cargar TODAS las versiones de este hilo (para el dropdown)
+        // Optimizamos seleccionando solo los campos necesarios para el selector
+        $allVersions = $quote->allVersions()
+                            ->select('id', 'version', 'created_at', 'root_quote_id', 'status') 
+                            ->get();
+
+        // Encontrar la posición de la cotización actual en la lista de versiones
+        $currentIndex = $allVersions->search(function ($v) use ($quote) {
+            return $v->id == $quote->id;
+        });
+
+        // Determinar ID de versión previa y siguiente (null si no existen)
+        $prev_version_id = $allVersions->get($currentIndex - 1)?->id; // Null safe
+        $next_version_id = $allVersions->get($currentIndex + 1)?->id; // Null safe
+
         // Obtener todas las cotizaciones ordenadas por ID
         $quotes = Quote::orderBy('id')->get();
 
@@ -150,19 +189,19 @@ class QuoteController extends Controller
         $currentIndex = $quotes->search(function ($q) use ($quote) {
             return $q->id == $quote->id;
         });
-
-        // Obtener el ID de la siguiente cotización, manejando el caso en el que estamos en la última cotización
+        
+         // Obtener el ID de la siguiente cotización, manejando el caso en el que estamos en la última cotización
         $nextQuote = $quotes->get(($currentIndex + 1) % $quotes->count());
 
         // Obtener el ID de la cotización anterior, manejando el caso en el que estamos en la primera cotización
         $prevQuote = $quotes->get(($currentIndex - 1 + $quotes->count()) % $quotes->count());
 
-        // Preparar los recursos de la cotización actual
-        $quote = Quote::with(['branch', 'user', 'products.media', 'authorizedBy'])->findOrFail($quote->id);
-
-        // Retornar la vista de Inertia con los datos de la cotización
+        // Retornar la vista de Inertia
         return Inertia::render('Quote/Show', [
-            'quote' => $quote,
+            'quote' => $quote, // La cotización completa que se está viendo
+            'allVersions' => $allVersions, // La lista de todas las versiones
+            'next_version_id' => $next_version_id,
+            'prev_version_id' => $prev_version_id,
             'next_quote' => $nextQuote->id,
             'prev_quote' => $prevQuote->id,
         ]);
@@ -183,15 +222,21 @@ class QuoteController extends Controller
         ]);
     }
 
+    /**
+     * Crea una NUEVA VERSIÓN de una cotización existente (Crea v2, v3...).
+     *
+     * @param Request $request
+     * @param Quote $quote (Esta es la versión *anterior* que se está editando)
+     */
     public function update(Request $request, Quote $quote)
     {
-        // Validación de los datos principales de la cotización.
+        // Tu validación (sin cambios)
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => 'required|numeric|min:0',
+            'tooling_cost' => 'nullable|string|min:0',
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
@@ -204,7 +249,7 @@ class QuoteController extends Controller
                 'max:100'
             ],
             'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:products,id',
+            'products.*.id' => 'required|exists:products,id', // 'id' es correcto según tu lógica
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
             'products.*.notes' => 'nullable|string',
@@ -214,49 +259,79 @@ class QuoteController extends Controller
             'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
+        $newQuote = null;
+
         // Usamos una transacción para asegurar la integridad de los datos.
-        DB::transaction(function () use ($request, $quote) {
-            // Actualizar la cotización con los datos validados.
-            $quote->update([
-                'branch_id' => $request->branch_id,
-                'receiver' => $request->receiver,
-                'department' => $request->department,
-                'currency' => $request->currency,
-                'tooling_cost' => $request->tooling_cost,
-                'is_tooling_cost_stroked' => $request->is_tooling_cost_stroked,
-                'freight_cost' => $request->freight_cost,
-                'is_freight_cost_stroked' => $request->is_freight_cost_stroked,
-                'freight_option' => $request->freight_option,
-                'first_production_days' => $request->first_production_days,
-                'notes' => $request->notes,
-                'is_spanish_template' => $request->is_spanish_template,
-                'show_breakdown' => $request->show_breakdown,
-                'has_early_payment_discount' => $request->has_early_payment_discount,
-                'early_payment_discount_amount' => $request->early_payment_discount_amount ?? 0,
-                'user_id' => $quote->user_id ?? auth()->id(), // agrega al usuario si no lo tiene
-            ]);
+        DB::transaction(function () use ($request, $quote, &$newQuote) {
+            
+            // 1. Encontrar el ID raíz y la última versión
+            $rootId = $quote->root_quote_id ?? $quote->id; // Si la v1 no tiene, usa su propio id
+            $latestVersionNum = Quote::where('root_quote_id', $rootId)->max('version');
 
-            // --- MODIFICADO: Reemplazar sync() por detach() y un bucle de attach() ---
-            // 1. Eliminamos todas las relaciones de productos existentes.
-            $quote->products()->detach();
+            // 2. Desactivar TODAS las versiones anteriores de este hilo
+            Quote::where('root_quote_id', $rootId)->update(['is_active' => false]);
 
-            // 2. Adjuntamos cada producto del request, permitiendo duplicados.
+            // 3. Replicar (clonar) la cotización base
+            $newQuote = $quote->replicate();
+
+            // 4. Aplicar los nuevos datos del request a la cotización REPLICADA
+            $newQuote->branch_id = $request->branch_id;
+            $newQuote->receiver = $request->receiver;
+            $newQuote->department = $request->department;
+            $newQuote->currency = $request->currency;
+            $newQuote->tooling_cost = $request->tooling_cost;
+            $newQuote->is_tooling_cost_stroked = $request->is_tooling_cost_stroked;
+            $newQuote->freight_cost = $request->freight_cost;
+            $newQuote->is_freight_cost_stroked = $request->is_freight_cost_stroked;
+            $newQuote->freight_option = $request->freight_option;
+            $newQuote->first_production_days = $request->first_production_days;
+            $newQuote->notes = $request->notes;
+            $newQuote->is_spanish_template = $request->is_spanish_template;
+            $newQuote->show_breakdown = $request->show_breakdown;
+            $newQuote->has_early_payment_discount = $request->has_early_payment_discount;
+            $newQuote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
+            $newQuote->user_id = auth()->id(); // El autor de la NUEVA versión es el usuario actual
+
+            // 5. Asignar los nuevos valores de versión
+            $newQuote->version = $latestVersionNum + 1;
+            $newQuote->is_active = true;
+            $newQuote->root_quote_id = $rootId;
+            
+            // 6. Reiniciar campos de estado/respuesta
+            $newQuote->status = 'Esperando respuesta'; // Reiniciar status
+            $newQuote->sale_id = null; // Una nueva versión no está ligada a una venta anterior
+            $newQuote->customer_responded_at = null;
+            $newQuote->rejection_reason = null;
+            $newQuote->authorized_at = null;
+            $newQuote->authorized_by_user_id = null;
+            $newQuote->created_at = now(); // `replicate` copia el created_at, lo reseteamos
+            
+            $newQuote->save(); // Guardar la nueva versión (v2, v3...)
+
+            // 7. Adjuntar los productos a la NUEVA versión
+            // (Tu misma lógica de attach, pero apuntando a $newQuote)
             foreach ($request->products as $product) {
-                $quote->products()->attach($product['id'], [
+                $newQuote->products()->attach($product['id'], [
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
                     'notes' => $product['notes'],
                     'show_image' => $product['show_image'],
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
-                    // Al editar, cada línea es una nueva "verdad". Si necesitas mantener estados
-                    // de aprobación, el formulario debería enviar ese dato por cada producto.
-                    // Aquí asumimos 'Aprobado' por defecto para cada línea.
                     'customer_approval_status' => 'Aprobado',
                 ]);
             }
+
+            // 8. Lógica de Notificación (para la nueva versión)
+            if ($newQuote) {
+                $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
+    
+                if ($usersToNotify->isNotEmpty()) {
+                    Notification::send($usersToNotify, new NewQuoteForApprovalNotification($newQuote));
+                }
+            }
         });
 
-        return Redirect::route('quotes.index')->with('success', 'Cotización actualizada exitosamente.');
+        return Redirect::route('quotes.index')->with('success', 'Cotización actualizada. Se ha creado la versión ' . $newQuote->version);
     }
 
     public function destroy(Quote $quote)

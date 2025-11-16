@@ -8,14 +8,22 @@
             <div class="max-w-[95rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <!-- Botón para crear nueva compra -->
-                        <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de compra')"
-                            :href="route('purchases.create')">
-                            <SecondaryButton>
-                                <i class="fa-solid fa-plus mr-2"></i>
-                                Nueva Orden
+                        <div class="flex space-x-2">
+                            <!-- Botón para crear nueva compra -->
+                            <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de compra')"
+                                :href="route('purchases.create')">
+                                <SecondaryButton>
+                                    <i class="fa-solid fa-plus mr-2"></i>
+                                    Nueva Orden
+                                </SecondaryButton>
+                            </Link>
+                            
+                            <!-- Nuevo Botón para Reporte -->
+                            <SecondaryButton @click="showReportModal = true">
+                                <i class="fa-solid fa-file-excel mr-2"></i>
+                                Descargar Reporte
                             </SecondaryButton>
-                        </Link>
+                        </div>
 
                         <div class="flex items-center space-x-2">
                              <!-- Botón para eliminar seleccionados -->
@@ -233,6 +241,32 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal para Reporte -->
+        <el-dialog v-model="showReportModal" title="Descargar Reporte de Compras" width="500" :center="true">
+            <div class="flex flex-col items-center space-y-4">
+                <p class="text-gray-700 dark:text-gray-300">Selecciona un rango de fechas para el reporte:</p>
+                <el-date-picker
+                    v-model="dateRange"
+                    type="daterange"
+                    range-separator="a"
+                    start-placeholder="Fecha de inicio"
+                    end-placeholder="Fecha de fin"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    :disabled-date="disabledDate"
+                />
+            </div>
+            <template #footer>
+                <div class="flex justify-center space-x-3">
+                    <el-button @click="showReportModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="downloadReport" :disabled="!dateRange || dateRange.length < 2">
+                        Descargar
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -257,6 +291,9 @@ export default {
             tableData: this.purchases.data,
             showAllPurchases: this.filters.view === 'all',
             SearchProps: ['ID', 'Proveedor', 'Creador', 'Estatus', 'productos'],
+            // --- Nuevas propiedades para el modal ---
+            showReportModal: false,
+            dateRange: null,
         };
     },
     components: {
@@ -271,6 +308,36 @@ export default {
         filters: Object,
     },
     methods: {
+        // --- Nuevo método para descargar reporte ---
+        downloadReport() {
+            if (!this.dateRange || this.dateRange.length < 2) {
+                ElMessage.warning('Por favor, selecciona un rango de fechas válido.');
+                return;
+            }
+
+            const [startDate, endDate] = this.dateRange;
+            
+            // Construir la URL para la descarga
+            const reportUrl = route('purchases.download-report', {
+                start_date: startDate,
+                end_date: endDate,
+            });
+
+            // Iniciar la descarga
+            // Usar window.location.href es la forma más simple de iniciar una descarga de archivo desde el backend
+            window.location.href = reportUrl;
+
+            ElMessage.success('Iniciando descarga del reporte...');
+            this.showReportModal = false;
+            this.dateRange = null;
+        },
+        
+        disabledDate(time) {
+            // No permitir seleccionar fechas futuras
+            return time.getTime() > Date.now();
+        },
+        
+        // --- Métodos existentes ---
         async handleSearch() {
             this.loading = true;
             try {
@@ -403,5 +470,56 @@ export default {
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
+}
+
+/* Estilos para el modal en modo oscuro */
+.dark .el-dialog {
+    background-color: #1f2937; /* bg-slate-800 */
+}
+.dark .el-dialog__title {
+    color: #e5e7eb; /* text-gray-200 */
+}
+.dark .el-dialog__body {
+    color: #d1d5db; /* text-gray-300 */
+}
+
+/* Estilos para el date picker en modo oscuro */
+.dark .el-date-editor {
+    background-color: #374151; /* bg-gray-700 */
+    border-color: #4b5563; /* border-gray-600 */
+}
+.dark .el-date-editor .el-range-input {
+    color: #e5e7eb;
+    background-color: transparent;
+}
+.dark .el-date-editor .el-range-separator {
+    color: #9ca3af; /* text-gray-400 */
+}
+.dark .el-date-range-picker {
+    background-color: #1f2937;
+    border-color: #4b5563;
+}
+.dark .el-date-range-picker__time-header,
+.dark .el-date-range-picker__header,
+.dark .el-date-table th {
+    color: #e5e7eb;
+}
+.dark .el-date-table td.available:not(.disabled) {
+    color: #d1d5db;
+}
+.dark .el-date-table td.today .el-date-table-cell__text {
+    color: #3b82f6; /* text-blue-500 */
+}
+.dark .el-date-table td.in-range .el-date-table-cell {
+    background-color: #2563eb; /* bg-blue-600 */
+}
+.dark .el-date-table td.end-date .el-date-table-cell,
+.dark .el-date-table td.start-date .el-date-table-cell {
+    background-color: #3b82f6; /* bg-blue-500 */
+    color: #ffffff;
+}
+.dark .el-picker-panel__footer {
+    background-color: #1f2937;
+    border-top-color: #4b5563;
 }
 </style>

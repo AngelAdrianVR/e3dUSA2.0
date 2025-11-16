@@ -19,7 +19,8 @@ return new class extends Migration
             
             // Costos y Moneda
             $table->char('currency', 3)->default('MXN');
-            $table->decimal('tooling_cost', 12, 2)->default(0);
+            $table->string('tooling_cost')->nullable();
+            // $table->decimal('tooling_cost', 12, 2)->default(0); // se cambio por string porque quieren agregar textos
             $table->boolean('is_tooling_cost_stroked')->default(false); // costo de herramental condonado (tacha la cantidad)
             
             // Lógica de Flete
@@ -51,6 +52,31 @@ return new class extends Migration
             $table->foreignId('branch_id')->nullable()->constrained()->onDelete('set null');
             $table->foreignId('user_id')->nullable()->constrained()->onDelete('cascade'); // usuario que creó la cotización (nullable porque puede que se creé desde portal de clientes)
             $table->unsignedBigInteger('sale_id')->nullable();
+
+            // Adicion para versionar cotizaciiones =========================================
+            // ==============================================================================
+
+            // El ID de la cotización "raíz" o "padre" de todas las versiones.
+            // Permite agrupar COT-001 (v1), COT-001 (v2), etc.
+            $table->foreignId('root_quote_id')
+                  ->nullable()
+                  ->comment('El ID de la cotización raíz para agrupar versiones.')
+                  ->constrained('quotes') // Se relaciona con la misma tabla
+                  ->onDelete('set null');
+            
+            // El número de versión (1, 2, 3...).
+            $table->unsignedInteger('version')
+                  ->default(1)
+                  ->comment('Número de versión de la cotización.');
+
+            // Para identificar rápidamente cuál es la versión activa/vigente.
+            // Solo una versión por root_quote_id debe tener esto en true.
+            $table->boolean('is_active')
+                  ->default(true)
+                  ->comment('Indica si esta es la versión activa/vigente.');
+
+            // Agregamos un índice para búsquedas rápidas de versiones activas por raíz.
+            $table->index(['root_quote_id', 'is_active']);
             
             $table->timestamps();
         });

@@ -75,8 +75,16 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" />
                             </div>
+
                             <div class="col-span-1 md:col-span-full">
-                                <TextInput :label="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'"  :isTextarea="true" :withMaxLength="true" :maxLength="500" v-model="form.notes" type="textarea" :error="form.errors.notes" />
+                                <InputLabel :value="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'" />
+                            
+                                <editor
+                                    api-key="6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc" 
+                                    v-model="form.notes"
+                                    id="quote-notes-editor"
+                                    :init="tinymceInit"
+                                />
                             </div>
                         </div>
 
@@ -86,12 +94,11 @@
                         </el-divider>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-                             <TextInput label="Costo de Herramental*" 
-                                v-model="form.tooling_cost" type="number" 
-                                :formatAsNumber="true" 
+                             <TextInput label="Costo de Herramental" 
+                                v-model="form.tooling_cost" 
                                 :error="form.errors.tooling_cost" 
-                                :placeholder="'Ej. 500.00'" :helpContent="'Si no tiene costo, escribe 0 (Cero)'">
-                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                :placeholder="'Ej. 500.00'" :helpContent="'(Agregar Moneda manualmente $MXN/$USD)'">
+                                <!-- <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template> -->
                              </TextInput>
                              <div class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
@@ -99,7 +106,7 @@
                                     <span class="ml-2 text-gray-400">Tachar:</span>
                                 </label>
                                 <span class="text-gray-500" :class="{ 'line-through': form.is_tooling_cost_stroked }">
-                                    ${{ formatNumber(form.tooling_cost) }} {{ form.currency }}
+                                    {{ form.tooling_cost }}
                                 </span>
                              </div>
                              <div></div> <!-- Espaciador -->
@@ -641,6 +648,7 @@ import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
+import Editor from '@tinymce/tinymce-vue'; // editor de TinyMCE Texto enriquecido
 
 export default {
     // Usando Options API
@@ -773,10 +781,13 @@ export default {
                 '15 to 16 weeks',
                 '17 to 18 weeks',
             ],
+            tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
         };
+        
     },
     components: {
         Back,
+        Editor,
         Checkbox,
         TextInput,
         AppLayout,
@@ -798,9 +809,86 @@ export default {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
+        },
+        tinymceInit() {
+            const apiKey = '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc'; // Tu API key
+
+            return {
+                height: 250,
+                menubar: false,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | formatselect | ' +
+                    'bold italic backcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | help',
+                
+                // --- Piel y CSS ---
+                // Empezamos con 'oxide' y 'default'. El observer se encargará de cambiarlos.
+                skin: 'oxide',
+                content_css: 'default',
+
+                // --- Estilos para el modo oscuro DENTRO del editor ---
+                // Agregamos estilos que solo se activan cuando el <body> del iframe tiene la clase 'dark'.
+                content_style: `
+                    body { font-family:Helvetica,Arial,sans-serif; font-size:14px; }
+                    body.dark { background-color: #2d3748; color: #e2e8f0; }
+                    body.dark p { color: #e2e8f0; }
+                    body.dark strong { color: #fff; }
+                `,
+                
+                language_url: `https://cdn.tiny.cloud/1/${apiKey}/tinymce/7/langs/es_MX.js`,
+                language: 'es_MX',
+
+                // --- El 'setup' es clave ---
+                // Se ejecuta antes de que el editor se renderice.
+                // Lo usamos para conectarnos al evento 'init' del editor.
+                setup: (editor) => {
+                    editor.on('init', () => {
+                        // En 'init', el iframe está listo.
+                        // Llamamos a nuestra función de tema *inmediatamente*
+                        // para sincronizar el estado al cargar.
+                        this.syncEditorTheme();
+                    });
+                }
+            };
         }
     },
     methods: {
+        syncEditorTheme() {
+            // Revisa si tu app está en modo oscuro (chequeando la clase de Tailwind)
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // 1. Sincronizar la UI (Toolbar, menús, etc.)
+            // TinyMCE añade 'tinymce-dark' a su contenedor para volverse oscuro
+            const editorContainer = document.querySelector('.tox-tinymce'); 
+            if (editorContainer) {
+                if (isDark) {
+                    editorContainer.classList.add('tinymce-dark');
+                } else {
+                    editorContainer.classList.remove('tinymce-dark');
+                }
+            }
+
+            // 2. Sincronizar el Contenido (el iframe donde escribes)
+            // Obtenemos la instancia del editor por su ID
+            const editor = tinymce.get('quote-notes-editor'); 
+            if (editor) {
+                const editorBody = editor.getBody();
+                if (editorBody) {
+                    // Añadimos/quitamos la clase 'dark' al body *dentro* del iframe
+                    // Esto activa los estilos de 'content_style' que definimos en init
+                    if (isDark) {
+                        editorBody.classList.add('dark');
+                    } else {
+                        editorBody.classList.remove('dark');
+                    }
+                }
+            }
+        },
         store() {
             this.form.post(route("quotes.store"), {
                 onSuccess: () => {
