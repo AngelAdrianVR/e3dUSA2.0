@@ -202,6 +202,12 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>Editar
                                                 </el-dropdown-item>
+                                                <!-- OPCION CLONAR -->
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                                                    :command="'clone-' + scope.row.id">
+                                                    <i class="fa-solid fa-copy mr-2 text-xs"></i>Clonar
+                                                </el-dropdown-item>
                                                 <el-dropdown-item
                                                     v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de venta') && !scope.row.authorized_at"
                                                     :command="`authorize-${scope.row.id}`">
@@ -248,7 +254,7 @@ import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link, router } from "@inertiajs/vue3";
 import axios from 'axios';
 
@@ -315,10 +321,37 @@ export default {
                 window.open(route('sales.print', id), '_blank');
             } else if ( action === 'createInvoice' ) {
                 this.$inertia.visit(route('invoices.create', { sale_id: id }))
+            } else if ( action === 'clone' ) {
+                this.clone(id);
             }
             else {
                 router.get(route(`sales.${action}`, id));
             }
+        },
+        // --- Método para clonar ---
+        clone(sale_id) {
+            ElMessageBox.confirm(
+                '¿Estás seguro de clonar esta orden? Se creará una copia exacta con estatus "Pendiente" y se apartará el stock disponible de los productos.',
+                'Clonar Orden',
+                {
+                    confirmButtonText: 'Sí, clonar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            )
+            .then(() => {
+                this.$inertia.post(route('sales.clone', sale_id), {}, {
+                    onSuccess: () => {
+                        ElMessage.success('Orden clonada y creada exitosamente.');
+                    },
+                    onError: () => {
+                        ElMessage.error('No se pudo clonar la orden.');
+                    }
+                });
+            })
+            .catch(() => {
+                // Acción cancelada
+            });
         },
         // --- Método para autorizar ---
         async authorize(sale_id) {
