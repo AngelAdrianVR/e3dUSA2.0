@@ -209,6 +209,7 @@ Route::put('/quotes/products/{quoteProduct}/updateStatus', [QuoteController::cla
 
 // ------- CRM(Ordenes de venta Routes)  ---------
 Route::resource('sales', SaleController::class)->middleware('auth');
+Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
 Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');

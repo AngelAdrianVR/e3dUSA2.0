@@ -778,4 +778,153 @@ class SaleController extends Controller
             'sale' => $sale
         ]);
     }
+
+    public function clone(Sale $sale)
+    {
+        DB::beginTransaction();
+
+        try {
+            // 1. REPLICAR LA ORDEN PRINCIPAL
+            $newSale = $sale->replicate();
+            $newSale->status = 'Pendiente';
+            $newSale->user_id = auth()->id();
+            $newSale->authorized_at = null;
+            $newSale->authorized_user_name = null;
+            $newSale->created_at = now();
+            $newSale->updated_at = now();
+            
+            // Opcional: Agregar indicador de copia en notas u OCE name
+            // $newSale->notes = $newSale->notes . " (Copia de #{$sale->id})";
+
+            $newSale->save();
+
+            // Mapa para relacionar ID producto original -> ID nuevo sale_product (para envíos)
+            $productToNewSaleProductId = [];
+
+            // 2. REPLICAR PRODUCTOS Y RECALCULAR STOCK
+            // Cargamos los productos originales
+            $originalProducts = $sale->saleProducts;
+
+            foreach ($originalProducts as $originalItem) {
+                // Crear copia del item
+                $newItem = $originalItem->replicate();
+                $newItem->sale_id = $newSale->id;
+                $newItem->quantity_produced = 0;
+                $newItem->quantity_shipped = 0;
+                // Inicialmente ponemos todo para producir, la lógica de abajo ajustará esto
+                $newItem->quantity_to_produce = $newItem->quantity; 
+                $newItem->created_at = now();
+                $newItem->updated_at = now();
+                $newItem->save();
+
+                $productToNewSaleProductId[$originalItem->product_id] = $newItem->id;
+
+                // --- LÓGICA DE STOCK (Idéntica a store) ---
+                // Determinar si es venta o stock para ajustar la lógica
+                $isSaleType = $newSale->type === 'venta';
+
+                $product = Product::with(['storages', 'components.storages'])->find($newItem->product_id);
+                $quantityInTransaction = $newItem->quantity;
+                $quantityToProduce = 0;
+
+                if ($isSaleType) {
+                    $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
+
+                    // Calcular cuánto se toma de stock y cuánto se produce
+                    $takenFromStock = min($quantityInTransaction, $stockFinishedProduct);
+                    $quantityToProduce = $quantityInTransaction - $takenFromStock;
+                    
+                    // Actualizar el item con lo que realmente falta por producir
+                    $newItem->update(['quantity_to_produce' => $quantityToProduce]);
+
+                    // Descontar stock del producto terminado
+                    if ($takenFromStock > 0) {
+                        $storage = $product->storages->first();
+                        $storage->decrement('quantity', $takenFromStock);
+                        
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'storage_id' => $storage->id,
+                            'quantity_change' => $takenFromStock,
+                            'type' => 'Salida',
+                            'notes' => "Descuento por Orden de venta (Clon) #{$newSale->id}"
+                        ]);
+                    }
+                } else {
+                    // Si es tipo stock, todo es para producir
+                    $quantityToProduce = $quantityInTransaction;
+                }
+
+                // Descontar stock de componentes (materia prima)
+                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
+                    foreach ($product->components as $component) {
+                        $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+                        $componentStorage = $component->storages->first();
+
+                        if ($componentStorage) {
+                            $currentStock = $componentStorage->quantity;
+                            $discountQuantity = min($requiredQuantity, $currentStock);
+
+                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+
+                            if ($discountQuantity > 0) {
+                                $notes = $isSaleType 
+                                    ? "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$newSale->id})"
+                                    : "Descuento para producir {$quantityToProduce} de {$product->name} para stock (Clon).";
+
+                                StockMovement::create([
+                                    'product_id' => $component->id,
+                                    'storage_id' => $componentStorage->id,
+                                    'quantity_change' => $discountQuantity,
+                                    'type' => 'Salida',
+                                    'notes' => $notes
+                                ]);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. REPLICAR ENVÍOS (Solo si existen)
+            if ($sale->shipments->isNotEmpty()) {
+                foreach ($sale->shipments as $shipment) {
+                    $newShipment = $shipment->replicate();
+                    $newShipment->sale_id = $newSale->id;
+                    $newShipment->status = 'Pendiente';
+                    $newShipment->tracking_guide = null; // Limpiamos guía por si acaso
+                    $newShipment->created_at = now();
+                    $newShipment->updated_at = now();
+                    $newShipment->save();
+
+                    // Replicar productos del envío
+                    foreach ($shipment->shipmentProducts as $sp) {
+                        // Necesitamos saber qué producto era para buscar su nuevo ID en la nueva venta
+                        // Asumimos que shipmentProduct tiene relación 'saleProduct' definida
+                        $originalProductId = $sp->saleProduct->product_id;
+
+                        if (isset($productToNewSaleProductId[$originalProductId])) {
+                            $newSp = $sp->replicate();
+                            $newSp->shipment_id = $newShipment->id;
+                            $newSp->sale_product_id = $productToNewSaleProductId[$originalProductId];
+                            $newSp->created_at = now();
+                            $newSp->updated_at = now();
+                            $newSp->save();
+                        }
+                    }
+                }
+            }
+
+            DB::commit();
+            
+            Log::info("Órden #{$sale->id} clonada exitosamente a nueva orden #{$newSale->id} por usuario " . auth()->id());
+
+            // Redirigir a la vista de edición o detalle de la nueva venta
+            return redirect()->route('sales.show', $newSale->id);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error al clonar la orden {$sale->id}: " . $e->getMessage());
+            return back()->withErrors(['error' => 'Ocurrió un error al clonar la orden: ' . $e->getMessage()]);
+        }
+    }
 }
