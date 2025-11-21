@@ -4,7 +4,7 @@
             <div class="p-2">
                 <img v-if="isImage" :src="file.original_url" class="rounded-md max-w-xs max-h-32 object-contain"
                     alt="Previsualización">
-                <div v-else class="flex flex-col items-center space-y-2 text-white">
+                <div v-else class="flex flex-col items-center space-y-2 text-white dark:text-gray-500">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                         stroke="currentColor" class="size-8">
                         <path stroke-linecap="round" stroke-linejoin="round"

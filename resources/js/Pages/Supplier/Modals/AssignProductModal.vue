@@ -5,7 +5,7 @@
         </template>
         <template #content>
             <form @submit.prevent="save">
-                <div class="grid grid-cols-2 gap-4 min-h-56">
+                <div class="grid grid-cols-2 gap-4 min-h-72">
                     <!-- Selector de producto (solo para crear) -->
                     <div class="col-span-2">
                          <InputLabel value="Producto*" />
@@ -18,7 +18,7 @@
                                 no-data-text="No hay productos"
                                 no-match-text="No se encontraron coincidencias"
                                 :disabled="isEditing">
-                            <el-option v-for="item in catalogProducts"
+                            <el-option v-for="item in catalogProducts" class="!w-96"
                                 :key="item.id"
                                 :label="item.name"
                                 :value="item.id" />

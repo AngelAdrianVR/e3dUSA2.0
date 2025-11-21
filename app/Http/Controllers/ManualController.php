@@ -22,9 +22,9 @@ class ManualController extends Controller
               });
         });
 
-        // Paginamos los resultados, obteniendo 10 por página
+        // Paginamos los resultados, obteniendo 15 por página
         // withQueryString() asegura que los links de paginación mantengan el parámetro de búsqueda
-        $manuals = $query->latest()->paginate(10)->withQueryString();
+        $manuals = $query->latest()->paginate(15)->withQueryString();
 
         return inertia('Manuals/Index', [
             'manuals' => $manuals,

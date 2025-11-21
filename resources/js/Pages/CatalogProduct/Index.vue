@@ -36,15 +36,23 @@
                         </div>
 
                         <!-- Acciones y Reportes -->
-                        <div class="flex items-center space-x-2">
+                        <div v-if="$page.props.auth.user.permissions.includes('Descargar reporte de precios')" class="flex items-center space-x-2">
                              <el-dropdown split-button type="primary" @click="openReport" plain>
                                 Reporte de precios
                                 <template #dropdown>
                                     <el-dropdown-menu>
-                                        <el-dropdown-item disabled @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
+                                        <el-dropdown-item @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
+
+                            <!-- ====== BOTÓN NUEVO PARA EDICIÓN MASIVA ====== -->
+                             <el-button v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')"
+                                type="warning" plain @click="showMassiveEditModal = true" :disabled="!selectedItems.length">
+                                Editar selección
+                            </el-button>
+                            <!-- ============================================= -->
+
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
                                 confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
                                 title="¿Estás seguro de eliminar los productos seleccionados?" @confirm="deleteSelections">
@@ -97,11 +105,11 @@
                                     <span>${{ scope.row.cost?.toFixed(2) ?? '0.00' }}</span>
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Stock" width="130">
+                             <el-table-column label="Stock" width="170">
                                 <template #default="scope">
                                     <span :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold' : 'text-green-600'" 
                                           class="text-lg">
-                                        {{ (getProductStock(scope.row).quantity).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                        {{ (getProductStock(scope.row).quantity).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
                                     </span>
                                     <span class="text-xs text-gray-500 ml-1">{{ scope.row.measure_unit }}</span>
                                 </template>
@@ -143,6 +151,14 @@
                                                     </svg>
                                                     Producto obsoleto
                                                 </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos') && scope.row.archived_at"
+                                                    :command="'obsolet-' + scope.row.id">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                                                    </svg>
+                                                    Reestablecer
+                                                </el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
                                     </el-dropdown>
@@ -159,6 +175,15 @@
                 </div>
             </div>
         </div>
+
+        <!-- ====== MODAL PARA EDICIÓN MASIVA ====== -->
+        <MassiveEditModal 
+            :show="showMassiveEditModal"
+            :selected_products="selectedItems"
+            :product_families="product_families"
+            @close="showMassiveEditModal = false"
+        />
+        <!-- ======================================= -->
     </AppLayout>
 </template>
 
@@ -167,6 +192,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import MassiveEditModal from './Partials/MassiveEditModal.vue'; // <-- AÑADIR IMPORTACIÓN
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { Link, router } from "@inertiajs/vue3";
@@ -180,6 +206,7 @@ export default {
             search: this.filters.search,
             productType: this.filters.product_type ?? 'Catálogo',
             selectedItems: [],
+            showMassiveEditModal: false, // <-- AÑADIR ESTADO PARA EL MODAL
             productTypes: [
                 { value: 'Catálogo', label: 'Productos de Catálogo' },
                 { value: 'Materia prima', label: 'Materia Prima' },
@@ -194,10 +221,12 @@ export default {
         SearchInput,
         AppLayout,
         Link,
+        MassiveEditModal, // <-- AÑADIR COMPONENTE
     },
     props: {
         products: Object,
         filters: Object,
+        product_families: Array, // <-- AÑADIR PROP
     },
     computed:{
         totalInventoryCost() {
@@ -222,9 +251,9 @@ export default {
         },
         exportToExcel() {
             this.loadingExport = true;
-
+            // SE USA EL HELPER route() PARA LA URL CORRECTA
             axios({
-                url: '/export-catalog-products',
+                url: route('catalog-products.export-excel'),
                 method: 'GET',
                 responseType: 'blob',
             }).then(response => {
@@ -267,13 +296,14 @@ export default {
             this.$inertia.get(route('catalog-products.show', row));
         },
         handleCommand(command) {
-            const commandName = command.split('-')[0];
-            const rowId = command.split('-')[1];
-
-            if (commandName === 'clone') {
+            const commandParts = command.split('-');
+            const commandName = commandParts[0];
+            const rowId = commandParts[1];
+        
+            if (commandName === 'show' || commandName === 'edit' || commandName === 'obsolet') {
+                 router.get(route('catalog-products.' + commandName, rowId));
+            } else if (commandName === 'clone') {
                 this.clone(rowId);
-            } else {
-                this.$inertia.get(route('catalog-products.' + commandName, rowId));
             }
         },
         deleteSelections() {
@@ -307,31 +337,7 @@ export default {
             } catch (error) {
                 ElMessage.error(error.response.data.message || 'No se pudo clonar el producto');
             }
-        },
-        openReport() {
-            window.open(route('catalog-products.prices-report'), '_blank');
-        },
-        exportToExcel() {
-            this.loadingExport = true;
-            axios({
-                url: route('catalog-products.export-excel'),
-                method: 'GET',
-                responseType: 'blob',
-            }).then(response => {
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', 'catalogo_productos.xlsx');
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }).catch(error => {
-                console.error('Error al exportar:', error);
-                ElMessage.error('No se pudo generar el archivo de Excel');
-            }).finally(() => {
-                this.loadingExport = false;
-            });
-        },
+        }
     },
     watch: {
         search: debounce(function () {
@@ -356,3 +362,4 @@ export default {
     background-color: #3b82f6 !important; /* bg-blue-600 */
 }
 </style>
+

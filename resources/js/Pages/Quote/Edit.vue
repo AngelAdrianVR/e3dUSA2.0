@@ -15,7 +15,7 @@
 
         <!-- Formulario principal -->
         <div ref="formContainer" class="py-7">
-            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[60rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
                     <form @submit.prevent="update">
@@ -67,7 +67,14 @@
                                 <InputError :message="form.errors.currency" />
                             </div>
                             <div class="col-span-1 md:col-span-full">
-                                <TextInput :label="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'"  :isTextarea="true" :withMaxLength="true" :maxLength="500" v-model="form.notes" type="textarea" :error="form.errors.notes" />
+                                <InputLabel :value="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'" />
+                            
+                                <editor
+                                    api-key="6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc" 
+                                    v-model="form.notes"
+                                    id="quote-notes-editor"
+                                    :init="tinymceInit"
+                                />
                             </div>
                         </div>
 
@@ -77,12 +84,11 @@
                         </el-divider>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-                             <TextInput label="Costo de Herramental*" 
-                                v-model="form.tooling_cost" type="number" 
-                                :formatAsNumber="true" 
+                             <TextInput label="Costo de Herramental" 
+                                v-model="form.tooling_cost" 
                                 :error="form.errors.tooling_cost" 
-                                :placeholder="'Ej. 500.00'" :helpContent="'Si no tiene costo, escribe 0 (Cero)'">
-                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                :placeholder="'Ej. 500.00'" :helpContent="'(Agregar Moneda manualmente $MXN/$USD)'">
+                                <!-- <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template> -->
                              </TextInput>
                              <div class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
@@ -90,26 +96,63 @@
                                     <span class="ml-2 text-gray-400">Tachar:</span>
                                 </label>
                                 <span class="text-gray-500" :class="{ 'line-through': form.is_tooling_cost_stroked }">
-                                    ${{ formatNumber(form.tooling_cost) }} {{ form.currency }}
+                                    {{ form.tooling_cost }}
                                 </span>
                              </div>
                              <div></div> <!-- Espaciador -->
                             <div>
-                                 <InputLabel value="Opción de flete*" />
-                                <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
-                                    <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
-                                    <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
-                                    <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
-                                    <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
+                                <InputLabel value="Opción de flete*" />
+
+                                <el-select
+                                    v-model="form.freight_option"
+                                    :placeholder="form.is_spanish_template ? 'Selecciona el flete' : 'Select freight option (Selecciona el flete)'"
+                                    class="!w-full"
+                                >
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client (Por cuenta del cliente)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Cargo prorrateado en productos'
+                                            : 'Freight cost prorated across products (Cargo prorrateado en productos)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Cargo de flete prorrateado en productos'
+                                            : 'Freight cost prorated across products'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo'
+                                            : 'Company absorbs the cost (La empresa absorbe el costo)'"
+                                        :value="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo de flete'
+                                            : 'Company absorbs the freight cost'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'El cliente manda la guía'
+                                            : 'Client sends the shipping label (El cliente manda la guía)'"
+                                        :value="form.is_spanish_template
+                                            ? 'El cliente manda la guía'
+                                            : 'Client sends the shipping label'"
+                                    />
                                 </el-select>
+
                                 <InputError :message="form.errors.freight_option" />
                             </div>
-                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" 
-                                label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
+                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" 
+                                label="Costo de Flete" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
                                 :formatAsNumber="true" type="number" :placeholder="'Ej. 500.00'" :error="form.errors.freight_cost">
                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
-                            <div v-if="form.freight_option !== 'El cliente manda la guia'" class="flex items-center space-x-2 mt-8">
+                            <div v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
                                     <Checkbox v-model:checked="form.is_freight_cost_stroked" class="bg-transparent border-gray-500" />
                                     <span class="ml-2 text-gray-400">Tachar:</span>
@@ -121,7 +164,7 @@
 
                             <label class="flex items-center col-span-full">
                                 <Checkbox v-model:checked="form.show_breakdown" class="bg-transparent border-gray-500" />
-                                <span class="ml-2 text-gray-400">Mostrar total sumando productos, flete y herramental</span>
+                                <span class="ml-2 text-gray-400">Mostrar totales</span>
                             </label>
                         </div>
 
@@ -143,11 +186,11 @@
                                 <div class="lg:col-span-2">
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <el-option v-for="product in localCatalogProducts" 
+                                        <el-option v-for="product in localCatalogProducts" class="!w-96"
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
                                             :value="product.id"
-                                            :disabled="form.products.some(p => p.id === product.id) && product.id !== this.form.products[editIndex]?.id" />
+                                            />
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
@@ -288,11 +331,11 @@
                                                 <i class="fa-solid fa-xmark"></i>
                                             </button>
                                         </el-tooltip>
-                                        <!-- <el-tooltip content="Editar" placement="top">
+                                        <el-tooltip content="Editar" placement="top">
                                             <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                                                 <i class="fa-solid fa-pencil"></i>
                                             </button>
-                                        </el-tooltip> -->
+                                        </el-tooltip>
                                         <el-tooltip content="Eliminar" placement="top">
                                             <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                                 <i class="fa-solid fa-trash"></i>
@@ -392,20 +435,21 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                             Código: {{ product.code }}
                             </p>
+                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
                         </div>
                         </div>
 
                         <!-- Precios -->
                         <div class="mt-4 flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
-                        <p class="font-medium text-secondary">${{ product.base_price }}</p>
+                        <p class="font-medium text-blue-400">${{ product.base_price }} {{ product.currency }}</p>
                         </div>
                         <div class="flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
                         <p class="font-semibold text-green-600 dark:text-green-400">
                         ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
-                                ? product.price_history[0].price 
-                                : product.base_price }}
+                                ? product.price_history[0].price + ' ' + product.price_history[0].currency
+                                : product.base_price + ' ' + product.currency }}
                         </p>
                         </div>
 
@@ -415,7 +459,7 @@
                             class="mt-2 text-sm rounded-sm py-1 px-2"
                             :class="getPriceChangeClass(product.price_history[0].valid_from)"
                             >
-                            Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}
+                            <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
                         </div>
 
                         <!-- Historial de precios (MODIFICADO CON ETIQUETAS) -->
@@ -538,6 +582,7 @@ import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
+import Editor from '@tinymce/tinymce-vue'; // editor de TinyMCE Texto enriquecido
 
 export default {
     // Usando Options API
@@ -647,10 +692,12 @@ export default {
                 '15 to 16 weeks',
                 '17 to 18 weeks',
             ],
+            tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
         };
     },
     components: {
         Back,
+        Editor,
         Checkbox,
         TextInput,
         AppLayout,
@@ -673,9 +720,86 @@ export default {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
+        },
+        tinymceInit() {
+            const apiKey = '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc'; // Tu API key
+
+            return {
+                height: 250,
+                menubar: false,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | formatselect | ' +
+                    'bold italic backcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | help',
+                
+                // --- Piel y CSS ---
+                // Empezamos con 'oxide' y 'default'. El observer se encargará de cambiarlos.
+                skin: 'oxide',
+                content_css: 'default',
+
+                // --- Estilos para el modo oscuro DENTRO del editor ---
+                // Agregamos estilos que solo se activan cuando el <body> del iframe tiene la clase 'dark'.
+                content_style: `
+                    body { font-family:Helvetica,Arial,sans-serif; font-size:14px; }
+                    body.dark { background-color: #2d3748; color: #e2e8f0; }
+                    body.dark p { color: #e2e8f0; }
+                    body.dark strong { color: #fff; }
+                `,
+                
+                language_url: `https://cdn.tiny.cloud/1/${apiKey}/tinymce/7/langs/es_MX.js`,
+                language: 'es_MX',
+
+                // --- El 'setup' es clave ---
+                // Se ejecuta antes de que el editor se renderice.
+                // Lo usamos para conectarnos al evento 'init' del editor.
+                setup: (editor) => {
+                    editor.on('init', () => {
+                        // En 'init', el iframe está listo.
+                        // Llamamos a nuestra función de tema *inmediatamente*
+                        // para sincronizar el estado al cargar.
+                        this.syncEditorTheme();
+                    });
+                }
+            };
         }
     },
     methods: {
+        syncEditorTheme() {
+            // Revisa si tu app está en modo oscuro (chequeando la clase de Tailwind)
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // 1. Sincronizar la UI (Toolbar, menús, etc.)
+            // TinyMCE añade 'tinymce-dark' a su contenedor para volverse oscuro
+            const editorContainer = document.querySelector('.tox-tinymce'); 
+            if (editorContainer) {
+                if (isDark) {
+                    editorContainer.classList.add('tinymce-dark');
+                } else {
+                    editorContainer.classList.remove('tinymce-dark');
+                }
+            }
+
+            // 2. Sincronizar el Contenido (el iframe donde escribes)
+            // Obtenemos la instancia del editor por su ID
+            const editor = tinymce.get('quote-notes-editor'); 
+            if (editor) {
+                const editorBody = editor.getBody();
+                if (editorBody) {
+                    // Añadimos/quitamos la clase 'dark' al body *dentro* del iframe
+                    // Esto activa los estilos de 'content_style' que definimos en init
+                    if (isDark) {
+                        editorBody.classList.add('dark');
+                    } else {
+                        editorBody.classList.remove('dark');
+                    }
+                }
+            }
+        },
         update() {
             this.form.put(route("quotes.update", this.quote), {
                 onSuccess: () => {
@@ -698,12 +822,56 @@ export default {
             }
             this.resetCurrentProduct();
         },
-        editProduct(index) {
+        async editProduct(index) {
+            this.loadingProductData = true; // Set loading state immediately
+
             // Clonado profundo para evitar reactividad no deseada al editar
-            this.currentProduct = JSON.parse(JSON.stringify(this.form.products[index]));
+            const productToEdit = JSON.parse(JSON.stringify(this.form.products[index]));
+            
+            // Asignar el producto a editar a currentProduct. Se le agregan las propiedades faltantes para que no truene el template.
+            this.currentProduct = {
+                ...{ 
+                    id: null, quantity: 1, unit_price: null, notes: '', customization_details: [], isClientProduct: false,
+                    current_price: null, media: null, storages: [], has_customization: false, base_price: null, show_image: true,
+                },
+                ...productToEdit
+            };
+
             this.editIndex = index;
+
             // Hacer scroll a la sección de productos para una mejor UX
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
+
+            // Ahora, obtener el resto de los datos del producto sin sobreescribir los datos importantes
+            try {
+                const response = await axios.get(route('products.get-media', this.currentProduct.id));
+
+                if ( response.status === 200 ) {
+                    const productData = response.data.product;
+                    // Fucionar datos cuidadosamente
+                    this.currentProduct.media = productData.media;
+                    this.currentProduct.storages = productData.storages;
+                    this.currentProduct.base_price = productData.base_price;
+
+                    // --- Re-validar la lógica de producto de cliente ---
+                    const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+                    if (clientProduct) {
+                        this.currentProduct.isClientProduct = true;
+                        this.currentProduct.current_price = 
+                        (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
+                            ? clientProduct.price_history[0].price 
+                            : clientProduct.base_price;
+                    } else {
+                        this.currentProduct.isClientProduct = false;
+                        this.currentProduct.current_price = null;
+                    }
+                }
+            } catch (error) {
+                console.log(error);
+                ElMessage.error('No se pudo cargar la información del producto')
+            } finally {
+                this.loadingProductData = false;
+            }
         },
         deleteProduct(index) {
             this.form.products.splice(index, 1);
@@ -720,6 +888,7 @@ export default {
                 current_price: null,
                 media: null,
                 storages: [],
+                has_customization: false,
                 base_price: null,
                 show_image: true,
             };
@@ -985,3 +1154,4 @@ export default {
     },
 };
 </script>
+

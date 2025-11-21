@@ -70,6 +70,8 @@
                             :row-class-name="tableRowClassName" class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="35" />
+                            
+                            <!-- --- COLUMNA DE FOLIO MODIFICADA --- -->
                             <el-table-column prop="id" label="Folio" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-1">
@@ -80,28 +82,41 @@
                                             </template>
                                             <span v-html="getStatusIcon(scope.row.status)" class="text-sm mr-2"></span>
                                         </el-tooltip>
-                                        <span class="text-sm">{{ 'COT-' + String(scope.row.id).padStart(4, '0') }}</span>
+                                        
+                                        <!-- Folio (usa root_quote_id para consistencia) -->
+                                        <span class="text-xs">{{ 'COT-' + String(scope.row.root_quote_id).padStart(4, '0') }}</span>
+                                        
+                                        <!-- Badge de Versiones -->
+                                        <el-tooltip v-if="scope.row.all_versions_count > 1"
+                                                    :content="`Viendo la versión ${scope.row.version} de ${scope.row.all_versions_count} totales`" 
+                                                    placement="top">
+                                            <span class="ml-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full dark:bg-blue-900 dark:text-blue-300">
+                                                v{{ scope.row.version }}/{{ scope.row.all_versions_count }}
+                                            </span>
+                                        </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.name" label="Cliente" width="150">
+                            <!-- --- FIN DE COLUMNA MODIFICADA --- -->
+
+                            <el-table-column prop="branch.name" label="Cliente" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center">
                                         <el-tooltip :content="scope.row.receiver" placement="top">
                                             <template #content>
-                                                <p class="text-blue-300">Receptor: <span class="text-white">{{ scope.row.receiver }}</span></p>
-                                                <p class="text-blue-300">Depto: <span class="text-white">{{ scope.row.department }}</span></p>
+                                                <p class="text-blue-300 dark:text-blue-600">Receptor: <span class="text-white dark:text-gray-700">{{ scope.row.receiver }}</span></p>
+                                                <p class="text-blue-300 dark:text-blue-600">Depto: <span class="text-white dark:text-gray-700">{{ scope.row.department }}</span></p>
                                             </template>
                                             <div class="flex items-center">
                                                 <i class="fa-solid fa-circle text-[8px] mr-2"
-                                                    :class="scope.row.branch.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
-                                                <span>{{ scope.row.branch.name }}</span>
+                                                    :class="scope.row.branch?.status === 'Cliente' ? 'text-green-500' : 'text-blue-500'"></i>
+                                                <span>{{ scope.row.branch?.name }}</span>
                                             </div>
                                         </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.products" label="Productos" width="130">
+                            <el-table-column prop="branch.products" label="Productos" width="140">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.products?.length" placement="top">
                                         <template #content>
@@ -120,13 +135,13 @@
                             </el-table-column>
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Utilidad cotizaciones')" label="Utilidad" width="90">
                                 <template #default="scope">
-                                    <el-tooltip placement="top">
+                                    <el-tooltip placement="right">
                                         <template #content>
                                             <div class="text-xs">
-                                                <p class="text-white font-bold mb-2">No se toma en cuenta herramental ni flete</p>
-                                                <p class="text-blue-300">Venta: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
-                                                <p class="text-amber-400">Costo: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
-                                                <p class="text-green-400">Utilidad: <strong class="text-white">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                                <p class="text-white dark:text-gray-600 font-bold mb-2">No se toma en cuenta herramental ni flete</p>
+                                                <p class="text-blue-300 dark:text-blue-700">Venta: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_sale) }} {{ scope.row.currency }}</strong></p>
+                                                <p class="text-amber-400 dark:text-amber-700">Costo: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_cost) }} {{ scope.row.currency }}</strong></p>
+                                                <p class="text-green-400 dark:text-green-700">Utilidad: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.profit) }} {{ scope.row.currency }}</strong></p>
                                             </div>
                                         </template>
                                         <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">
@@ -140,7 +155,7 @@
                                     </el-tooltip>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="user.name" label="Creado por" width="180">
+                            <el-table-column prop="user.name" label="Creado por" width="150">
                                 <template #default="scope">
                                     <div v-if="scope.row.created_by_customer"
                                         class="flex items-center space-x-1 text-gray-500 dark:text-gray-400">
@@ -194,7 +209,7 @@
                                         ",") }} {{ scope.row.currency }}</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Autorizado" width="120" align="center">
+                            <el-table-column label="Autorizado" width="110" align="center">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.authorized_at" placement="top">
                                         <template #content>

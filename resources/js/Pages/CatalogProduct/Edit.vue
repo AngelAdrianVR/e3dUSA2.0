@@ -78,14 +78,14 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div v-if="form.product_type_key !== 'I'">
                                 <InputLabel value="Material*" />
-                                <el-select v-model="form.material" placeholder="Selecciona" class="w-full">
+                                <el-select v-model="form.material" filterable placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
                                 </el-select>
                                 <InputError :message="form.errors.material" class="mt-1" />
                             </div>
                             <div>
                                 <InputLabel value="Unidad de medida" />
-                                <el-select v-model="form.measure_unit" clearable placeholder="Selecciona la unidad de medida"
+                                <el-select v-model="form.measure_unit" filterable clearable placeholder="Selecciona la unidad de medida"
                                     no-data-text="No hay unidades de medida registradas"
                                     no-match-text="No se encontraron coincidencias">
                                     <el-option v-for="(item, index) in mesureUnits" :key="index" :label="item" :value="item" />
@@ -97,7 +97,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                              <TextInput v-model="form.min_quantity" label="Cantidad mínima" :error="form.errors.min_quantity" type="number" placeholder="Ej. 100" />
                              <TextInput v-model="form.max_quantity" label="Cantidad máxima" :error="form.errors.max_quantity" type="number" placeholder="Ej. 1000" />
-                             <TextInput v-model="form.current_stock" label="Estock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
+                             <TextInput v-model="form.current_stock" label="Stock inicial" :error="form.errors.current_stock" type="number" placeholder="Ej. 3,000" />
                              <TextInput v-model="form.location" label="Ubicación en almacén" :error="form.errors.location" type="text" placeholder="Ej. Rack A estante 2" />
                              <TextInput 
                                 v-model="form.cost" 
@@ -140,7 +140,7 @@
 
                         <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
-                                <Checkbox v-model:checked="form.is_circular" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
+                                <Checkbox v-model:checked="form.is_circular" @change="resetDimentions" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
                             </label>
                             
@@ -350,8 +350,10 @@
 
                         <div v-if="catalog_product.media?.length < 3">
                             <InputLabel value="Imágenes del producto (máx. 3)" />
-                            <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" class="mt-1" />
-                            <InputError :message="form.errors.media" :maxFiles="3 - catalog_product.media.length" class="mt-2" />
+                            <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" :maxFiles="3 - catalog_product.media.length" class="mt-1" />
+                            <InputError :message="form.errors['media.0']" class="mt-2" />
+                            <InputError :message="form.errors['media.1']" class="mt-2" />
+                            <InputError :message="form.errors['media.2']" class="mt-2" />
                         </div>
 
                         <p class="text-amber-600 text-sm col-span-full" v-else>*Has alcanzado el límite de imágenes. Elimina alguna para poder agregar más.</p>
@@ -472,12 +474,13 @@ export default {
                 measure_unit: this.catalog_product.measure_unit,
                 min_quantity: this.catalog_product.min_quantity,
                 max_quantity: this.catalog_product.max_quantity,
-                is_circular: !! this.catalog_product.is_circular,
+                is_circular: this.catalog_product.diameter ? true : false,
                 is_used_as_component: this.catalog_product.is_used_as_component,
                 width: this.catalog_product.width,
                 large: this.catalog_product.large,
                 height: this.catalog_product.height,
                 diameter: this.catalog_product.diameter,
+                current_stock: this.catalog_product.storages[0]?.quantity,
                 location: this.catalog_product.storages[0]?.location,
                 media: [], // Para archivos nuevos
                 hasComponents: this.catalog_product.components.length ? true : false,
@@ -514,7 +517,7 @@ export default {
                 { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
                 { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
                 { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-                { label: 'VINILPIEL', key: 'VPL' }
+                { label: 'VINILPIEL', key: 'VPL', label: 'FIBRA DE CARBONO', key: 'FC', label: 'OVERLAY', key: 'OV' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
@@ -571,6 +574,12 @@ export default {
         },
     },
     methods: {
+        resetDimentions() {
+            this.form.width = null;
+            this.form.large = null;
+            this.form.height = null;
+            this.form.diameter = null;
+        },
         openProcessessCreate() {
             const url = route('production-costs.index');
             window.open(url, '_blank');

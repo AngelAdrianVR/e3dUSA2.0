@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\MorphMany; // 1. Importar MorphMany
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
 
@@ -20,6 +20,7 @@ class Supplier extends Model implements Auditable
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'name',
         'rfc',
         'nickname',
@@ -31,11 +32,12 @@ class Supplier extends Model implements Auditable
     ];
 
     /**
-     * Get the contacts for the supplier.
+     * Obtiene todos los contactos del proveedor (relación polimórfica).
      */
-    public function contacts(): HasMany
+    public function contacts(): MorphMany // 2. Cambiar HasMany por MorphMany
     {
-        return $this->hasMany(SupplierContact::class);
+        // 3. Apuntar al modelo Contact y definir el nombre de la relación 'contactable'
+        return $this->morphMany(Contact::class, 'contactable');
     }
 
     /**
@@ -62,5 +64,29 @@ class Supplier extends Model implements Auditable
         return $this->belongsToMany(Product::class, 'product_supplier')
             ->withPivot('last_price', 'supplier_sku', 'min_quantity')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the favored products for the supplier.
+     */
+    public function favoredProducts(): HasMany
+    {
+        return $this->hasMany(FavoredProduct::class);
+    }
+
+    /**
+     * Obtener todas las solicitudes de stock a favor
+     * a través de los productos a favor del proveedor.
+     */
+    public function favoredStockRequests()
+    {
+        return $this->hasManyThrough(
+            FavoredStockRequest::class, // Modelo final al que queremos acceder
+            FavoredProduct::class,      // Modelo intermedio
+            'supplier_id',              // Llave foránea en 'favored_products' (Supplier -> FavoredProduct)
+            'favored_product_id',       // Llave foránea en 'favored_stock_requests' (FavoredProduct -> Request)
+            'id',                       // Llave local en 'suppliers'
+            'id'                        // Llave local en 'favored_products'
+        );
     }
 }

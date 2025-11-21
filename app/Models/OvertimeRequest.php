@@ -10,6 +10,7 @@ class OvertimeRequest extends Model
     use HasFactory;
 
     protected $fillable = [
+        'id',
         'employee_detail_id',
         'date',
         'requested_minutes',

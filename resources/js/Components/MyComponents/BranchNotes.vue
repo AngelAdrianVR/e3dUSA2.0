@@ -16,7 +16,7 @@
                     class="group relative flex items-center justify-center w-8 h-16 bg-slate-800/80 backdrop-blur-sm text-white rounded-l-2xl shadow-2xl hover:bg-slate-700/90 transition-all transform hover:-translate-x-1 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                     aria-label="Mostrar notas"
                 >
-                    <span 
+                    <span v-if="notes.length" 
                         class="absolute -top-1 -left-2 flex items-center justify-center 
                             size-5 text-xs font-bold text-white bg-red-500 rounded-full 
                             ring-2 ring-red-800 shadow-md"
@@ -45,9 +45,9 @@
             
             <!-- Encabezado del Panel -->
             <div class="flex justify-between items-center p-4 border-b border-slate-700 flex-shrink-0">
-                <h3 class="font-bold text-lg flex items-center text-white">
+                <h3 class="font-bold text-base flex items-center text-white">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 mr-3 text-cyan-400"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"></path><path d="M15 3v6h6"></path></svg>
-                    Notas del Cliente
+                    Notas de {{ branchName }}
                 </h3>
                 <button @click="isOpen = false" class="text-slate-400 hover:text-white transition-colors" aria-label="Cerrar notas">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -127,6 +127,7 @@ const props = defineProps({
 
 const isLoading = ref(false);
 const notes = ref([]);
+const branchName = ref([]);
 const isOpen = ref(false); // El panel inicia cerrado por defecto
 const newNoteContent = ref('');
 const editingNoteId = ref(null);
@@ -148,11 +149,12 @@ const fetchNotes = async () => {
   isLoading.value = true
   try {
     const response = await axios.get(route('branch-notes.index', props.branchId))
-    notes.value = response.data
+    notes.value = response.data.notes;
+    branchName.value = response.data.branchName;
 
-    if (notes.value.length > 0) {
-      isOpen.value = true // abre el panel si hay notas
-    }
+    // if (notes.value.length > 0) {
+    //   isOpen.value = true // abre el panel si hay notas
+    // }
   } catch (error) {
     console.error("Error al recuperar las notas:", error)
     ElMessage.error('No se pudieron recuperar las notas.')

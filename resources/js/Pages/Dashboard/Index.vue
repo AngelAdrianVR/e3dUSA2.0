@@ -10,18 +10,24 @@
                         <ProductionOrdersChart :theme="theme" />
                     </div>
 
-                    <!-- Calendar -->
-                    <div class="lg:col-span-1 xl:col-span-1 row-span-1 lg:row-span-1">
+                    <!-- Columna Derecha -->
+                    <div class="lg:col-span-1 xl:col-span-1 gap-5">
                        <CalendarWidget :events="calendarEvents" />
                     </div>
                     
+                    <!-- Panel de Órdenes de Venta Autorizadas -->
+                    <div class="grid grid-cols-3 gap-5 lg:col-span-3 xl:col-span-4">
+                        <OvertimeRequestPanel class="col-span-1" v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :pending-requests="pendingOvertimeRequests" />
+                        <AvailableSalesPanel class="col-span-2" :orders="availableSales" />
+                    </div>
+
                     <!-- Warehouse Status -->
                     <div class="lg:col-span-1">
                         <WarehouseStatusChart :theme="theme" :warehouse-stats="warehouseStats" />
                     </div>
 
                     <!-- Required Actions -->
-                    <div v-if="$page.props.auth.user.role === 'Super Administrador'" class="lg:col-span-3">
+                    <div v-if="$page.props.auth.user.role === 'Super Administrador' || $page.props.auth.user.role === 'amuel'" class="lg:col-span-3">
                         <RequiredActions :actions="requiredActions" />
                     </div>
 
@@ -41,8 +47,12 @@
                     
                     <!-- Personal Panels Column -->
                     <div class="flex flex-col lg:col-span-2 gap-5">
-                       <MySalesOrders v-if="$page.props.auth.user.role === 'Vendedor' || $page.props.auth.user.role === 'Super Administrador'" :orders="mySalesOrders" />
+                       <MySalesOrders v-if="this.$page.props.auth.user.permissions.includes('Crear ordenes de venta')" :orders="mySalesOrders" />
                        <UpcomingBirthdays :contacts="upcomingBirthdays" />
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <MyPendingInvoices v-if="this.$page.props.auth.user.permissions.includes('Crear facturas') && myPendingInvoices.length" :invoices="myPendingInvoices" />
                     </div>
 
                     <!-- My Pending Tasks -->
@@ -63,24 +73,28 @@ import WarehouseStatusChart from './Components/WarehouseStatusChart.vue';
 import RequiredActions from './Components/RequiredActions.vue';
 import EmployeePerformance from './Components/EmployeePerformance.vue';
 import UpcomingBirthdays from './Components/UpcomingBirthdays.vue';
+import MyPendingInvoices from './Components/MyPendingInvoices.vue';
 import MySalesOrders from './Components/MySalesOrders.vue';
 import MyPendingTasks from './Components/MyPendingTasks.vue';
 import NewsPanel from './Components/NewsPanel.vue';
-// import OvertimePanel from './Components/OvertimePanel.vue';
+import OvertimeRequestPanel from './Components/OvertimeRequestPanel.vue';
+import AvailableSalesPanel from './Components/AvailableSalesPanel.vue';
 
 export default {
     components: {
-        AppLayout,
-        ProductionOrdersChart,
-        CalendarWidget,
-        WarehouseStatusChart,
-        RequiredActions,
-        EmployeePerformance,
-        UpcomingBirthdays,
-        MySalesOrders,
-        MyPendingTasks,
         NewsPanel,
-        // Overtime Panel,
+        AppLayout,
+        MySalesOrders,
+        CalendarWidget,
+        MyPendingTasks,
+        RequiredActions,
+        UpcomingBirthdays,
+        MyPendingInvoices,
+        EmployeePerformance,
+        AvailableSalesPanel,
+        OvertimeRequestPanel,
+        WarehouseStatusChart,
+        ProductionOrdersChart,
     },
     props: {
         calendarEvents: Array,
@@ -91,10 +105,13 @@ export default {
         myPendingTasks: Array,
         authUserName: String,
         news: Array,
+        myPendingInvoices: Array,
         overtimeOpportunity: Object,
         productionPerformance: Object,
         salesPerformance: Object,
         designPerformance: Object,
+        availableSales: Array,
+        pendingOvertimeRequests: Array,
     },
     data() {
         return {

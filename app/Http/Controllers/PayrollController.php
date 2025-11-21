@@ -36,8 +36,24 @@ class PayrollController extends Controller
 
     public function show(Payroll $payroll)
     {
+        // IDs de usuario a excluir de la nómina - Edgar, norberto, fernando maldonado y samuel pedroza
+        $excludedUserIds = [5, 11, 12, 49];
+
         // Eager load all necessary relationships, including the bonus rules.
-        $employees = EmployeeDetail::with('user', 'bonuses.rules', 'discounts')->get();
+        $employees = EmployeeDetail::with(['user', 'bonuses.rules', 'discounts'])
+            ->whereHas('user', function ($query) use ($excludedUserIds) {
+                $query->where('is_active', true)
+                    // --- INICIO DE LA MODIFICACIÓN ---
+                    // Excluimos los IDs de usuario específicos
+                    ->whereNotIn('id', $excludedUserIds)
+                    // Excluimos a los usuarios que tengan el rol 'Super Administrador'
+                    ->whereDoesntHave('roles', function ($roleQuery) {
+                        $roleQuery->where('name', 'Super Administrador');
+                    });
+                // --- FIN DE LA MODIFICACIÓN ---
+            })
+            ->get();
+
         $payrollData = $this->calculatePayrollData($payroll, $employees);
 
         $grandTotal = $payrollData->sum(function ($data) {

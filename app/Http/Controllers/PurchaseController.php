@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\StockMovement;
+// use App\Models\Storage;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use App\Mail\EmailSupplierTemplateMarkdownMail;
+use Illuminate\Support\Facades\Mail;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\PurchaseReportExport; // Asegúrate de que la ruta sea correcta
+use Maatwebsite\Excel\Facades\Excel;
+
 
 class PurchaseController extends Controller
 {
@@ -58,17 +67,16 @@ class PurchaseController extends Controller
         // Validación de los datos del formulario, incluyendo los nuevos campos
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'supplier_contact_id' => 'nullable|exists:supplier_contacts,id',
+            'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
             'expected_delivery_date' => 'required|date',
             'currency' => 'required|string|max:3',
             'notes' => 'nullable|string|max:1000',
             'is_spanish_template' => 'required|boolean',
-            // 'type' => 'required|string|in:Venta,Muestra',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
             'items.*.additional_stock' => 'nullable|numeric|min:0',
             'items.*.plane_stock' => 'nullable|numeric|min:0',
             'items.*.ship_stock' => 'nullable|numeric|min:0',
@@ -92,7 +100,6 @@ class PurchaseController extends Controller
                 'currency' => $request->currency,
                 'notes' => $request->notes,
                 'is_spanish_template' => $request->is_spanish_template,
-                // 'type' => $request->type,
                 'subtotal' => $request->subtotal,
                 'tax' => $request->tax,
                 'total' => $request->total,
@@ -113,8 +120,22 @@ class PurchaseController extends Controller
                     'plane_stock' => $itemData['plane_stock'] ?? 0,
                     'ship_stock' => $itemData['ship_stock'] ?? 0,
                     'type' => $itemData['type'] ?? 'Venta',
+                    'needs_mold' => $itemData['needs_mold'],
+                    'mold_price' => $itemData['mold_price'],
                     'notes' => $itemData['notes'] ?? null,
                 ]);
+
+                // 3. Lógica para sumar el stock a favor
+                $favoredQuantity = $itemData['additional_stock'] ?? 0;
+                if ($favoredQuantity > 0) {
+                    $favoredProduct = FavoredProduct::firstOrNew([
+                        'supplier_id' => $request->supplier_id,
+                        'product_id' => $itemData['product_id'],
+                    ]);
+
+                    $favoredProduct->quantity += $favoredQuantity;
+                    $favoredProduct->save();
+                }
             }
 
             // manejo de media (archivos extra)
@@ -140,16 +161,16 @@ class PurchaseController extends Controller
     public function show(Purchase $purchase)
     {
         $purchase->load([
-            'user:id,name', // Usuario que creó la orden
-            'authorizer:id,name', // Usuario que autorizó
-            'supplier:id,name,address,phone', // Información del proveedor
-            'contact:id,name', // Contacto del proveedor
-            'items.product.media', // Items de la compra, con su producto y la imagen del producto
-            'bankAccount'
+            'user:id,name', 
+            'authorizer:id,name',
+            'supplier:id,name,address,phone',
+            'contact:id,name',
+            'contact.details',
+            'items.product.media',
+            'bankAccount',
+            'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
-        // return $purchase;
-        // Renderizamos el componente de Vue y le pasamos la orden de compra con sus relaciones.
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
         ]);
@@ -174,7 +195,7 @@ class PurchaseController extends Controller
         // Validación de los datos del formulario
         $request->validate([
             'supplier_id' => 'required|exists:suppliers,id',
-            'supplier_contact_id' => 'nullable|exists:supplier_contacts,id',
+            'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
             'expected_delivery_date' => 'required|date',
             'currency' => 'required|string|max:3',
@@ -183,21 +204,38 @@ class PurchaseController extends Controller
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|numeric|min:0.01',
-            'items.*.unit_price' => 'required|numeric|min:0',
+            'items.*.unit_price' => 'nullable|numeric|min:0',
+            'items.*.additional_stock' => 'nullable|numeric|min:0',
             'subtotal' => 'required|numeric',
             'tax' => 'required|numeric',
             'total' => 'required|numeric',
-            'media.*' => 'nullable|file|max:10240', // max 10MB
-            'current_media_ids' => 'nullable|array', // IDs de los archivos existentes a conservar
+            'media.*' => 'nullable|file',
+            'current_media_ids' => 'nullable|array',
         ]);
 
         try {
             DB::beginTransaction();
 
-            // 1. Actualizar la orden de compra principal
+            // 1. RESPALDAR Y REVERTIR CANTIDADES A FAVOR ANTERIORES
+            // Obtenemos los items originales antes de cualquier cambio.
+            $originalItems = $purchase->items()->get();
+            foreach ($originalItems as $item) {
+                if ($item->additional_stock > 0) {
+                    $favoredProduct = FavoredProduct::where('supplier_id', $purchase->supplier_id)
+                                                    ->where('product_id', $item->product_id)
+                                                    ->first();
+                    if ($favoredProduct) {
+                        // Descontamos la cantidad que se había agregado previamente.
+                        $favoredProduct->quantity = max(0, $favoredProduct->quantity - $item->additional_stock);
+                        $favoredProduct->save();
+                    }
+                }
+            }
+
+            // 2. Actualizar la orden de compra principal
             $purchase->update($request->except(['items', 'media', 'current_media_ids']));
 
-            // 2. Sincronizar los items: Eliminar los antiguos e insertar los nuevos
+            // 3. Eliminar los items antiguos y crear los nuevos
             $purchase->items()->delete();
             foreach ($request->items as $itemData) {
                 PurchaseItem::create([
@@ -211,19 +249,33 @@ class PurchaseController extends Controller
                     'plane_stock' => $itemData['plane_stock'] ?? 0,
                     'ship_stock' => $itemData['ship_stock'] ?? 0,
                     'type' => $itemData['type'] ?? 'Venta',
+                    'needs_mold' => $itemData['needs_mold'],
+                    'mold_price' => $itemData['mold_price'],
                     'notes' => $itemData['notes'] ?? null,
                 ]);
+
+                // 4. AGREGAR LAS NUEVAS CANTIDADES A FAVOR
+                $newFavoredQuantity = $itemData['additional_stock'] ?? 0;
+                if ($newFavoredQuantity > 0) {
+                    // Usamos firstOrNew para encontrar el registro o prepararlo si no existe.
+                    $favoredProduct = FavoredProduct::firstOrNew([
+                        'supplier_id' => $purchase->supplier_id,
+                        'product_id' => $itemData['product_id'],
+                    ]);
+                    // Sumamos la nueva cantidad.
+                    $favoredProduct->quantity += $newFavoredQuantity;
+                    $favoredProduct->save();
+                }
             }
 
-            // 3. Manejo de media
-            // Agregar nuevos archivos
+            // 5. Manejo de media
             if ($request->hasFile('media')) {
                 $purchase->addMediaFromRequest('media')->toMediaCollection();
             }
 
             DB::commit();
 
-            return redirect()->route('purchases.index')->with('success', 'Órden de compra actualizada exitosamente.');
+            return redirect()->route('purchases.show', $purchase->id)->with('success', 'Órden de compra actualizada exitosamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -260,6 +312,12 @@ class PurchaseController extends Controller
                 })
                 ->orWhereHas('supplier', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
+                })
+                // --- MODIFICACIÓN ---
+                // Se agrega la condición para buscar también por el nombre del producto
+                // en los items de la compra.
+                ->orWhereHas('items.product', function ($productQuery) use ($query) {
+                    $productQuery->where('name', 'like', "%{$query}%");
                 });
             })
             ->get();
@@ -282,16 +340,24 @@ class PurchaseController extends Controller
 
     public function updateStatus(Request $request, Purchase $purchase)
     {
-        // Validamos que el estatus enviado sea uno de los permitidos
         $request->validate([
-            'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida'])],
+            'status' => ['required', 'string', Rule::in(['Compra realizada', 'Compra recibida', 'Cancelada'])],
+            'rating' => 'nullable|array',
+            'rating.q1' => 'required_with:rating|string',
+            'rating.q2' => 'required_with:rating|string',
+            'rating.q3_1' => 'required_with:rating|string',
+            'rating.q4' => 'required_with:rating|string',
+            'rating.q5' => 'required_with:rating|string',
+            'rating.notes' => 'nullable|string',
+            'evidence_files' => 'nullable|array|max:4',
+            'evidence_files.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $newStatus = $request->input('status');
         $currentStatus = $purchase->status;
 
         try {
-            DB::transaction(function () use ($newStatus, $currentStatus, $purchase) {
+            DB::transaction(function () use ($request, $newStatus, $currentStatus, $purchase) {
                 switch ($newStatus) {
                     case 'Compra realizada':
                         if ($currentStatus !== 'Autorizada') {
@@ -305,33 +371,79 @@ class PurchaseController extends Controller
                             throw new \Exception('La compra debe estar marcada como "Realizada" para poder recibirla.');
                         }
 
-                        // 1. Actualizar el estado y la fecha de recepción de la compra
-                        $purchase->update([
+                        $updateData = [
                             'status' => $newStatus,
                             'recieved_at' => now(),
-                        ]);
+                        ];
 
-                        // 2. Cargar la relación items con sus productos para evitar N+1 queries
-                        $purchase->load('items.product');
+                        if ($request->has('rating')) {
+                            $ratingData = $request->input('rating');
+                            $user = auth()->user();
+                            $pointsMap = [
+                                'q1' => ['Si' => 30],
+                                'q2' => ['Sí, cumplió con todo' => 15, 'No, no se cumplieron las especificaciones' => 0],
+                                'q3' => ['No se requirió soporte' => 15, 'Atención inmediata' => 10, 'Atención tardía (2 o más días para atender)' => 5, 'No brindó soporte' => 0],
+                                'q4' => ['No se presentó ninguna urgencia' => 15, '1 día de atraso' => 10, '2 a 3 días de atraso' => 8, '4 a 5 días de atraso' => 5, 'Más de 6 días de atraso' => 0],
+                                'q5' => ['0 avisos de rechazo' => 15, '1 aviso de rechazo' => 5, '2 o más avisos de rechazo' => 0]
+                            ];
+                            $q3_answer = $ratingData['q3_1'];
+                             if ($ratingData['q3_1'] !== 'No se requirió soporte' && !empty($ratingData['q3_2'])) {
+                                $q3_answer .= ' (' . $ratingData['q3_2'] . ')';
+                            }
+                            $questions = [
+                                ['answer' => $ratingData['q1'], 'points' => $pointsMap['q1'][$ratingData['q1']] ?? 0],
+                                ['answer' => $ratingData['q2'], 'points' => $pointsMap['q2'][$ratingData['q2']] ?? 0],
+                                ['answer' => $q3_answer, 'points' => $pointsMap['q3'][$ratingData['q3_2'] ?? $ratingData['q3_1']] ?? 0],
+                                ['answer' => $ratingData['q4'], 'points' => $pointsMap['q4'][$ratingData['q4']] ?? 0],
+                                ['answer' => $ratingData['q5'], 'points' => $pointsMap['q5'][$ratingData['q5']] ?? 0],
+                                ['answer' => $ratingData['notes'], 'points' => 0],
+                            ];
+                             $updateData['rating'] = [
+                                'questions' => $questions,
+                                'created_at' => now()->format('Y-m-d H:i:s'),
+                                'created_by' => $user->name,
+                            ];
+                        }
+                        
+                        $purchase->update($updateData);
 
-                        // 3. Iterar sobre los productos de la compra para actualizar el stock
-                        foreach ($purchase->items as $item) {
-                            if ($item->product) {
-
-                                $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-
-                                // Incrementar el stock con la cantidad del item de la compra
-                                $storage->increment('quantity', $item->quantity);
-
-                                StockMovement::create([
-                                    'product_id' => $item->product->id,
-                                    'storage_id' => $storage->id,
-                                    'quantity_change' => $item->quantity,
-                                    'type' => 'Entrada',
-                                    'notes' => 'Entrada por orden de compra recibida OC- ' . $purchase->id
-                                ]);
+                        if ($request->hasFile('evidence_files')) {
+                            foreach ($request->file('evidence_files') as $file) {
+                                $purchase->addMedia($file)->toMediaCollection('evidence_files');
                             }
                         }
+
+                        $purchase->load('items.product');
+
+                        // --- INICIO DE LA MODIFICACIÓN ---
+                        foreach ($purchase->items as $item) {
+                            if ($item->product) {
+                                // Se calcula la cantidad a agregar sumando lo que llega por avión y barco.
+                                $quantityToAdd = ($item->plane_stock ?? 0) + ($item->ship_stock ?? 0);
+
+                                // Solo se ejecuta la actualización si la cantidad es mayor a cero.
+                                if ($quantityToAdd > 0) {
+                                    $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
+                                    $storage->increment('quantity', $quantityToAdd);
+                                    
+                                    StockMovement::create([
+                                        'product_id' => $item->product->id,
+                                        'storage_id' => $storage->id,
+                                        'quantity_change' => $quantityToAdd, // Se usa la nueva cantidad calculada.
+                                        'type' => 'Entrada',
+                                        'notes' => 'Entrada por orden de compra recibida OC-' . $purchase->id
+                                    ]);
+                                }
+                            }
+                        }
+                        // --- FIN DE LA MODIFICACIÓN ---
+                        break;
+
+                    case 'Cancelada':
+                        if (in_array($currentStatus, ['Compra recibida', 'Cancelada'])) {
+                            throw new \Exception('No se puede cancelar una compra que ya ha sido recibida o que ya está cancelada.');
+                        }
+                        $purchase->update(['status' => $newStatus]);
                         break;
 
                     default:
@@ -347,19 +459,119 @@ class PurchaseController extends Controller
 
     public function print(Purchase $purchase)
     {
+        // Carga las relaciones necesarias para la orden de compra específica
         $purchase->load([
-            'supplier',
+            'supplier.contacts',
+            'supplier.bankAccounts',
             'bankAccount',
             'contact',
             'authorizer',
-            'items.product',
             'items.product.media',
             'user',
         ]);
 
-        // return $purchase;
+        // Carga todos los proveedores con sus contactos y cuentas bancarias para el modal
+        $allSuppliers = Supplier::with(['contacts', 'bankAccounts'])->get();
+
+        // Renderiza la vista de Inertia pasando ambos conjuntos de datos
         return Inertia::render('Purchase/Print', [
-            'purchase' => $purchase
+            'purchase' => $purchase,
+            'allSuppliers' => $allSuppliers, // Nueva prop con todos los proveedores
         ]);
+    }
+
+    /**
+     * Envía la orden de compra por correo al proveedor.
+     * Esta función también marca la orden como autorizada.
+     */
+    public function sendEmail(Request $request, Purchase $purchase)
+    {
+        $request->validate([
+            'contact_id' => 'required|exists:contacts,id',
+            'supplier_bank_account_id' => 'required|exists:supplier_bank_accounts,id',
+            'subject' => 'required|string|max:255',
+            'content' => 'nullable|string',
+        ]);
+
+        // 1. Actualizar la orden de compra con la información del formulario
+        // y marcarla como autorizada.
+        $purchase->update([
+            'contact_id' => $request->contact_id,
+            'supplier_bank_account_id' => $request->supplier_bank_account_id,
+            'authorizer_id' => auth()->id(),
+            'authorized_at' => now(),
+            'status' => 'Autorizada', // Actualizamos el estado
+        ]);
+
+        // 2. Cargar las relaciones necesarias para generar el PDF
+        $purchase->load(['supplier', 'items.product.media', 'bankAccount']);
+
+        // 3. Generar el PDF usando la nueva plantilla moderna
+        $pdf = Pdf::loadView('pdfTemplates.purchase-order', ['purchase' => $purchase]);
+        $fileName = 'OC-' . str_pad($purchase->id, 4, "0", STR_PAD_LEFT) . '.pdf';
+        $content = $pdf->download()->getOriginalContent();
+
+        // 4. Guardar el PDF en el almacenamiento
+        $path = "public/purchase-orders/{$fileName}";
+        Storage::put($path, $content);
+
+        // 5. Enviar el correo electrónico
+        $attachment = [
+            'path' => Storage::path($path),
+            'name' => $fileName,
+        ];
+
+        // Encuentra el contacto específico del proveedor y carga sus detalles (relación 'details')
+        $contact = $purchase->supplier->contacts()->with('details')->find($request->contact_id);
+
+        // 1. Validar si el contacto fue encontrado
+        if (!$contact) {
+            return response()->json(['message' => 'El contacto seleccionado no fue encontrado.'], 404);
+        }
+
+        // 2. Buscar en los detalles del contacto, el que sea de tipo 'Correo'.
+        //    Usamos first() para obtener el primer resultado que coincida.
+        $emailDetail = $contact->details->where('type', 'Correo')->first();
+
+        // 3. Validar si se encontró un detalle de correo para este contacto.
+        if (!$emailDetail) {
+            return response()->json(['message' => 'El contacto no tiene un correo electrónico registrado.'], 404);
+        }
+        try {
+            Mail::to($emailDetail->value) // correo real
+            // Mail::to('angelvazquez470@gmail.com') // correo de prueba
+                ->bcc(auth()->user()->email) // Opcional: enviar copia al usuario autenticado
+                ->send(new EmailSupplierTemplateMarkdownMail($request->subject, $request->content, $attachment));
+        } catch (\Exception $e) {
+            // Manejo de errores en caso de que el envío falle
+            return response()->json(['message' => 'Error al enviar el correo: ' . $e->getMessage()], 500);
+        }
+
+        // 6. Eliminar el archivo después de enviarlo (opcional)
+        Storage::delete($path);
+
+    }
+
+    /**
+     * Descarga un reporte de compras en Excel basado en un rango de fechas.
+     * El reporte se agrupa por Proveedor, como se solicita "agrupado por cliente"
+     * en el contexto de un módulo de Compras (donde el "cliente" es el Proveedor).
+     */
+    public function downloadReport(Request $request)
+    {
+        // Validar las fecha
+        $request->validate([
+            'start_date' => 'required|date|date_format:Y-m-d',
+            'end_date' => 'required|date|date_format:Y-m-d|after_or_equal:start_date',
+        ]);
+
+        $startDate = $request->start_date;
+        // Sumar un día a la fecha final para incluir todo el día
+        $endDate = date('Y-m-d', strtotime($request->end_date . ' +1 day'));
+        
+        $fileName = 'reporte_compras_' . $startDate . '_a_' . $request->end_date . '.xlsx';
+
+        // Descargar el archivo Excel usando la clase Export
+        return Excel::download(new PurchaseReportExport($startDate, $endDate), $fileName);
     }
 }

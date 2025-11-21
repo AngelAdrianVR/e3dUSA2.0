@@ -3,23 +3,30 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Contact extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
-        'branch_id',
+        'id',
         'name',
         'charge',
         'birthdate',
         'is_primary',
+        'contactable_id',
     ];
 
     /**
-     * Obtiene la sucursal a la que pertenece el contacto.
+     * Obtiene el modelo padre al que pertenece el contacto (Branch, Customer, etc.).
      */
-    public function branch()
+    public function contactable(): MorphTo
     {
-        return $this->belongsTo(Branch::class);
+        return $this->morphTo();
     }
 
     /**

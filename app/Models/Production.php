@@ -16,6 +16,7 @@ class Production extends Model implements Auditable
     use HasFactory, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'sale_product_id',
         'created_by_user_id',
         'quantity_to_produce',
@@ -107,14 +108,14 @@ class Production extends Model implements Auditable
         if ($newStatus === 'Terminada' && is_null($this->finished_at)) {
             $this->finished_at = now();
 
-            // Logica para sumar al stock si la venta es de tipo "stock"
-            if ($this->saleProduct->sale->type === 'stock') {
+            // Si la venta es de tipo "stock" O "venta", se procede a agregar al inventario.
+            if ($this->saleProduct->sale->type === 'stock' || $this->saleProduct->sale->type === 'venta') {
                 $product = $this->saleProduct->product;
                 // Priorizamos las unidades buenas, si no, la cantidad que se mandó a producir.
                 $quantityToAdd = $this->good_units ?? $this->quantity_to_produce;
 
                 if ($product && ($quantityToAdd > 0)) {
-                    // Busca el registro de stock para el producto en el almacén principal o lo crea con 0 si no existe.
+                    // Busca el registro de stock para el producto o lo crea con 0 si no existe.
                     $storage = $product->storages()->firstOrCreate(
                         [], // Busca el primer registro existente sin condiciones específicas.
                         ['quantity' => 0] // Si no existe, lo crea con cantidad inicial 0.
@@ -123,13 +124,15 @@ class Production extends Model implements Auditable
                     // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.
                     $storage->increment('quantity', $quantityToAdd);
                     
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'storage_id' => $storage->id,
-                        'quantity_change' => $quantityToAdd,
-                        'type' => 'Entrada',
-                        'notes' => 'Entrada por orden de stock terminada OS- ' . $this->saleProduct->sale->id
-                    ]);
+                    // if ($this->saleProduct->sale->type === 'stock') {
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'storage_id' => $storage->id,
+                            'quantity_change' => $quantityToAdd,
+                            'type' => 'Entrada',
+                            'notes' => 'Entrada por orden terminada ' . $this->saleProduct->sale->type === 'stock' ? 'OS-' : 'OV-' . $this->saleProduct->sale->id
+                        ]);
+                    // }
                 }
             }
         }

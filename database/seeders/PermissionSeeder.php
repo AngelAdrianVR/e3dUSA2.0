@@ -16,8 +16,8 @@ class PermissionSeeder extends Seeder
 
         // Definir permisos por módulo
         $permissions = [
-            'Super Admin' => ['Ver costos de productos', 'Ver cantidades de dinero'],
-            'Generales' => ['Chatear'],
+            'Super Admin' => ['Ver costos de productos', 'Ver cantidades de dinero', 'Descargar reporte de precios'],
+            'Generales' => ['Chatear', 'Ver biblioteca de medios'],
             'Nóminas' => ['Ver nominas', 'Editar nominas'],
             'Solicitudes de tiempo adicional' => ['Ver solicitudes de tiempo adicional', 'Crear solicitudes de tiempo adicional', 'Gestionar solicitudes de tiempo adicional'],
             'Quioscos' => ['Gestionar quioscos'],
@@ -37,12 +37,12 @@ class PermissionSeeder extends Seeder
             'Insumos' => ['Ver insumos', 'Crear insumos', 'Editar insumos', 'Eliminar insumos'],
             'Productos obsoletos' => ['Ver obsoletos', 'Crear obsoletos', 'Editar obsoletos', 'Eliminar obsoletos'],
             'Scrap' => ['Ver scrap', 'Crear scrap', 'Editar scrap', 'Eliminar scrap'],
-            'Costo de producción' => ['Ver costos de produccion', 'Crear costos de produccion', 'Editar costos de produccion', 'Eliminar costos de produccion', 'Ver todas las cotizaciones'],
-            'Cotizaciones' => ['Ver cotizaciones', 'Crear cotizaciones', 'Editar cotizaciones', 'Eliminar cotizaciones', 'Autorizar cotizaciones', 'Descuentos cotizaciones', 'Utilidad cotizaciones'],
+            'Costo de producción' => ['Ver costos de produccion', 'Crear costos de produccion', 'Editar costos de produccion', 'Eliminar costos de produccion'],
+            'Cotizaciones' => ['Ver cotizaciones', 'Crear cotizaciones', 'Editar cotizaciones', 'Eliminar cotizaciones', 'Autorizar cotizaciones', 'Descuentos cotizaciones', 'Utilidad cotizaciones', 'Ver todas las cotizaciones'],
             'Ordenes de venta' => ['Ver ordenes de venta', 'Crear ordenes de venta', 'Editar ordenes de venta', 'Eliminar ordenes de venta', 'Ver todas las ventas', 'Ver utilidad ventas', 'Autorizar ordenes de venta'],
             'Ordenes de producción' => ['Ver ordenes de produccion', 'Crear ordenes de produccion', 'Editar ordenes de produccion', 'Eliminar ordenes de produccion', 'Ver todas las ordenes de produccion'],
-            'Envíos' => ['Ver envios', 'Crear envios', 'Editar envios', 'Eliminar envios'],
-            'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas'],
+            'Envíos' => ['Ver envios'],
+            'Facturas' => ['Ver facturas', 'Crear facturas', 'Editar facturas', 'Eliminar facturas', 'Cancelar facturas'],
             'Proveedores' => ['Ver proveedores', 'Crear proveedores', 'Editar proveedores', 'Eliminar proveedores'],
             'Compras' => ['Ver ordenes de compra', 'Crear ordenes de compra', 'Editar ordenes de compra', 'Eliminar ordenes de compra', 'Autorizar ordenes de compra', 'Ver todas las compras'],
             'Diseño' => ['Ver ordenes de diseño', 'Crear ordenes de diseño', 'Editar ordenes de diseño', 'Eliminar ordenes de diseño', 'Ver todas las ordenes de diseño', 'Asignar diseños', 'Autorizar ordenes de diseño'],

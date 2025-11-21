@@ -16,7 +16,7 @@
                     <form @submit.prevent="store">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 border-b dark:border-gray-600 pb-2">Datos Generales</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre del cliente o prospecto" />
+                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
                             <TextInput label="RFC" v-model="form.rfc" type="text" :error="form.errors.rfc" placeholder="Registro Federal de Contribuyentes" />
                             <div class="md:col-span-2">
                                 <TextInput label="Dirección" v-model="form.address" type="text" :error="form.errors.address" placeholder="Calle, número, colonia" />
@@ -44,7 +44,13 @@
                                 </el-select>
                                 <InputError :message="form.errors.parent_branch_id" />
                             </div>
-                             <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" />
+                            <div>
+                                <InputLabel value="Cómo nos conoció el cliente*" />
+                                <el-select v-model="form.meet_way" placeholder="Selecciona">
+                                    <el-option v-for="item in meetWays" :key="item" :value="item" :label="item" />
+                                </el-select>
+                            </div>
+                             <!-- <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" /> -->
                         </div>
                         
                         <div class="flex justify-between items-center mt-8 mb-4 border-b dark:border-gray-600 pb-2">
@@ -88,11 +94,11 @@
                         </div>
                         
                         <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
                                     <el-select @change="getProductMedia" v-model="currentProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
-                                        <el-option v-for="item in catalog_products" 
+                                        <el-option class="!w-96" v-for="item in catalog_products" 
                                             :key="item.id" 
                                             :label="item.name" 
                                             :value="item.id"
@@ -102,6 +108,14 @@
                                 </div>
                                 <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
                                     :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+
+                                <div>
+                                    <label>Moneda*</label>
+                                    <el-select v-model="currentProduct.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
+                                        <el-option label="MXN" value="MXN" />
+                                        <el-option label="USD" value="USD" />
+                                    </el-select>
+                                </div>
                             </div>
 
                             <div v-if="loadingProductMedia" class="flex items-center justify-center h-32">
@@ -187,6 +201,7 @@
                                     :key="item.id"
                                     :label="item.name"
                                     :value="item.id"
+                                    :disabled="isProductInForm(item.id)"
                                 />
                             </el-select>
                             <InputError :message="form.errors.suggested_products" />
@@ -210,6 +225,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
+import InputLabel from "@/Components/InputLabel.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
@@ -238,6 +254,7 @@ export default {
                 product_id: null,
                 price: null,
                 media: null,
+                currency: 'MXN',
                 base_price: null,
                 current_stock: null,
                 location: null
@@ -251,12 +268,24 @@ export default {
                 { label: 'Septiembre', value: 9 }, { label: 'Octubre', value: 10 },
                 { label: 'Noviembre', value: 11 }, { label: 'Diciembre', value: 12 },
             ],
+            meetWays: [
+                'Recomendación',
+                'Búsqueda en línea',
+                'Publicidad ',
+                'Evento o feria comercial',
+                'Correo electrónico',
+                'Llamada telefónica ',
+                'Sitio web de la empresa',
+                'Tocamos puerta',
+                'Otro',
+            ],
         };
     },
     components: {
         Back,
         AppLayout,
         TextInput,
+        InputLabel,
         InputError,
         PrimaryButton,
         SecondaryButton,
@@ -347,6 +376,7 @@ export default {
                 price: null,
                 media: null,
                 base_price: null,
+                currency: 'MXN',
                 current_stock: null,
                 location: null
             };
@@ -361,4 +391,3 @@ export default {
     }
 };
 </script>
-

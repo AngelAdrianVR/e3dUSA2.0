@@ -16,7 +16,7 @@
                 </el-select>
             </div>
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip content="Editar Cliente" placement="top">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar clientes')" content="Editar Cliente" placement="top">
                     <Link :href="route('branches.edit', branch.id)">
                         <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                             <i class="fa-solid fa-pencil text-sm"></i>
@@ -31,14 +31,14 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink :href="route('branches.create')">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear clientes')" :href="route('branches.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nuevo Cliente
                         </DropdownLink>
                         <DropdownLink @click="showAddProductsModal = true" as="button">
                             <i class="fa-solid fa-tags w-4 mr-2"></i> Agregar Productos
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar clientes')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar
                         </DropdownLink>
                     </template>
@@ -60,6 +60,10 @@
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Información Clave</h3>
                     <ul class="space-y-3 text-sm">
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">ID:</span>
+                            <span class="font-semibold text-green-600 dark:text-green-400">{{ branch.id }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
                             <el-tag :type="branch.status === 'Cliente' ? 'success' : 'info'" size="small">{{ branch.status }}</el-tag>
                         </li>
@@ -78,6 +82,18 @@
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Ultima compra:</span>
                             <span>{{ formatRelative(branch.last_purchase_date) }}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Card de Sucursales -->
+                <div v-if="branch.children && branch.children.length > 0" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Sucursales</h3>
+                    <ul class="space-y-3 text-sm">
+                        <li v-for="child in branch.children" :key="child.id">
+                            <Link :href="route('branches.show', child.id)" class="font-semibold text-blue-500 hover:underline">
+                                ID:{{ child.id }} - {{ child.name }}
+                            </Link>
                         </li>
                     </ul>
                 </div>
@@ -109,7 +125,10 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
                                 <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
-                                <p v-if="getPrimaryDetail(contact, 'Teléfono')"><i class="fa-solid fa-phone mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Teléfono') }}</p>
+                                <p v-if="getPrimaryDetail(contact, 'Teléfono')">
+                                    <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
+                                    {{ formatPhone(getPrimaryDetail(contact, 'Teléfono')) }}
+                                </p>
                                 <p v-if="contact.birthdate">
                                     <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
                                 </p>
@@ -172,7 +191,8 @@
         </main>
 
         <!-- Modals -->
-        <ModalCrearEditarContacto :show="showContactModal" :contact="contactToEdit" :branchId="branch.id" @close="showContactModal = false" />
+        <ModalCrearEditarContacto :show="showContactModal" :contactable-id="branch.id" :contact="contactToEdit"
+    :contactable-type="'App\\Models\\Branch'" @close="showContactModal = false" />
         <AddProductsModal :show="showAddProductsModal" :branch="branch" :catalog_products="catalog_products" @close="showAddProductsModal = false" />
 
         <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
@@ -300,6 +320,13 @@ export default {
         }
     },
     methods: {
+        formatPhone(number) {
+            if (!number) return '';
+            // Eliminamos todo lo que no sea dígito
+            const digits = number.toString().replace(/\D/g, '');
+            // Agrupamos cada 2 dígitos y unimos con guiones
+            return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
         openContactModal(contact = null) {
             this.contactToEdit = contact;
             this.showContactModal = true;
@@ -319,8 +346,14 @@ export default {
         },
         getPrimaryDetail(contact, type) {
             if (!contact.details) return 'No disponible';
-            const detail = contact.details.find(d => d.type === type && d.is_primary);
-            return detail ? detail.value : 'No disponible';
+
+            // Buscar detalle primario
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+
+            // Si no hay primario, tomar el primero que coincida con el tipo
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : 'No disponible';
         },
         saveProducts() {
             this.form.post(route('branches.add-products', this.branch.id), {

@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Models\Shipment;
+use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class ShipmentController extends Controller
@@ -21,7 +23,7 @@ class ShipmentController extends Controller
             ]) // Carga las relaciones de envíos y sucursal (cliente)
             ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
             ->latest() // Ordena por los más recientes
-            ->paginate(10); // Pagina los resultados
+            ->paginate(20); // Pagina los resultados
 
             // return $salesWithShipments;
         // Renderiza la vista de Inertia, pasando los datos de las ventas.
@@ -46,14 +48,16 @@ class ShipmentController extends Controller
         // Esto optimiza las consultas a la base de datos.
         $sale->load([
             'branch:id,name,rfc,address,post_code,status', // Información del cliente
-            'contact:id,name', // Información del contacto
+            'contact:id,name',
             'contact.details', // Información del contacto
             'user:id,name', // Usuario que creó la venta
             'shipments' => function ($query) {
                 // Para cada envío, cargar los productos correspondientes
                 $query->with([
-                    'shipmentProducts.saleProduct.product.media' // Carga el producto de la venta, el producto maestro y sus imágenes
-                ])->latest(); // Ordenar los envíos por los más recientes
+                    'shipmentProducts.saleProduct.product:id,name,code,measure_unit',
+                    'shipmentProducts.saleProduct.product.media', // Carga el producto de la venta, el producto maestro y sus imágenes
+                    'shipmentProducts.saleProduct.product.storages' // Carga el stock
+                ])->oldest(); // Ordenar los envíos por los más recientes
             }
         ]);
 
@@ -76,19 +80,57 @@ class ShipmentController extends Controller
             'sent_by' => 'required|string|max:255', // El nombre de quien envía es requerido
         ]);
 
-        // Actualiza los campos del envío con la nueva información
-        $shipment->update([
-            'status' => 'Enviado',
-            'sent_at' => now(),
-            'notes' => $request->notes,
-            'sent_by' => $request->sent_by, // Se guarda el nombre del formulario
-        ]);
+        // --- INICIO DE LA LÓGICA MODIFICADA ---
+        // Se envuelve la lógica en una transacción para asegurar la integridad de los datos.
+        // Si algo falla al descontar el stock, no se marcará como enviado.
+        DB::transaction(function () use ($request, $shipment) {
+            
+            // 1. Actualiza los campos del envío con la nueva información
+            $shipment->update([
+                'status' => 'Enviado',
+                'sent_at' => now(),
+                'notes' => $request->notes,
+                'sent_by' => $request->sent_by,
+            ]);
 
-        // Esta línea se mantiene para tu lógica de negocio de actualizar el estatus de la venta.
-        $shipment->sale->updateStatus();
+            // 2. Lógica para descontar stock
+            // Cargar las relaciones necesarias para acceder a los productos y su stock.
+            $shipment->load('shipmentProducts.saleProduct.product.storages');
+
+            foreach ($shipment->shipmentProducts as $shipmentProduct) {
+                $product = $shipmentProduct->saleProduct->product;
+
+                // descuenta unicamente la cantidad producida, ya que el resto tomado del stock del producto terminado ya fue descontado
+                $quantityToDecrement = $shipmentProduct->saleProduct->quantity_to_produce; 
+
+                // Asegurarse de que el producto existe y la cantidad a descontar es mayor a cero.
+                if ($product && $quantityToDecrement > 0) {
+                    // Se asume que el descuento se hace del primer almacén (storage) asociado al producto.
+                    // Si tienes una lógica de múltiples almacenes, deberás ajustarla aquí.
+                    $storage = $product->storages()->first();
+
+                    if ($storage) {
+                        // Utiliza decrement() para una operación atómica y segura en la base de datos.
+                        $storage->decrement('quantity', $quantityToDecrement);
+
+                        StockMovement::create([
+                            'product_id' => $product->id,
+                            'storage_id' => $storage->id,
+                            'quantity_change' => $quantityToDecrement,
+                            'type' => 'Salida',
+                            'notes' => 'Salida por envío de OV-' . $shipment->sale_id
+                        ]);
+                    }
+                }
+            }
+            
+            // 3. Actualiza el estatus general de la venta.
+            $shipment->sale->updateStatus();
+        });
+        // --- FIN DE LA LÓGICA MODIFICADA ---
 
         // Redirige de vuelta a la página anterior con un mensaje de éxito.
-        return redirect()->back()->with('success', 'El envío parcial ha sido marcado como "Enviado".');
+        return redirect()->back()->with('success', 'El envío parcial ha sido marcado como "Enviado" y el stock ha sido actualizado.');
     }
 
     public function destroy(Shipment $shipment)

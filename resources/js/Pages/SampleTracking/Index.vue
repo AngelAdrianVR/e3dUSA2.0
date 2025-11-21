@@ -5,7 +5,7 @@
         </h2>
 
         <div class="py-7">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[90rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
                         <!-- Botón para crear nueva solicitud de muestra -->
@@ -53,6 +53,7 @@
 
                             <el-table-column type="selection" width="30" />
                             <el-table-column prop="id" label="ID" width="60" />
+                            <el-table-column prop="name" label="Nombre" width="150" />
                             <el-table-column prop="status" label="Estatus" width="120">
                                 <template #default="scope">
                                     <el-tag :type="getStatusTagType(scope.row.status)" disable-transitions>
@@ -60,7 +61,7 @@
                                     </el-tag>
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Cliente" width="170">
+                             <el-table-column label="Cliente" width="180">
                                 <template #default="scope">
                                     {{ scope.row.branch?.name ?? 'N/A' }}
                                 </template>
@@ -70,7 +71,7 @@
                                     {{ scope.row.contact?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Solicitante" width="150">
+                            <el-table-column label="Solicitante" width="170">
                                 <template #default="scope">
                                     {{ scope.row.requester?.name ?? 'N/A' }}
                                 </template>
@@ -80,7 +81,7 @@
                                     {{ formatDate(scope.row.created_at) }}
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Devolución esperada" width="180">
+                             <el-table-column label="Devolución esperada" width="150">
                                <template #default="scope">
                                     {{ scope.row.expected_devolution_date ? formatDate(scope.row.expected_devolution_date) : 'No aplica' }}
                                 </template>
@@ -146,7 +147,7 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.sampleTrackings.data,
-            SearchProps: ['ID', 'Cliente', 'Contacto', 'Estatus', 'Solicitante'], // propiedades por las que se puede buscar
+            SearchProps: ['ID', 'Nombre', 'Cliente', 'Contacto', 'Estatus', 'Solicitante'], // propiedades por las que se puede buscar
         };
     },
     components: {

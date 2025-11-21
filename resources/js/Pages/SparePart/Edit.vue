@@ -49,7 +49,7 @@
 
             <TextInput
               v-model="form.location"
-              label="Ubicación*"
+              label="Lugar donde lo almacenas*"
               placeholder="Ej. Estante A, Nivel 3"
               :error="form.errors.location"
             />

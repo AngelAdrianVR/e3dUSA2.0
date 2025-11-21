@@ -1,7 +1,7 @@
 <template>
     <div class="p-5 bg-white rounded-lg shadow-md dark:bg-gray-800 h-full">
         <h3 class="mb-4 text-base font-semibold text-gray-800 dark:text-white">Novedades</h3>
-        <ul v-if="news && news.length > 0" class="space-y-4">
+        <ul v-if="news && news.length > 0" class="space-y-4 max-h-96 overflow-y-auto">
             <li v-for="(item, index) in news" :key="index" class="flex items-center">
                 <div class="flex-shrink-0 w-10 h-10 mr-3 rounded-full flex items-center justify-center" :class="iconBackground(item.type)">
                     <span class="text-lg font-bold text-white">{{ item.user_name.charAt(0) }}</span>

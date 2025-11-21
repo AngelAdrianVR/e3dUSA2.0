@@ -90,13 +90,19 @@ export default {
     props: {
         show: Boolean,
         contact: Object,
-        branchId: Number,
+        // ANTES: branchId: Number,
+        // AHORA: Recibimos el ID y el tipo del modelo padre.
+        contactableId: Number,
+        contactableType: String, // ej. 'App\\Models\\Branch'
     },
     data() {
         return {
             form: useForm({
                 id: null,
-                branch_id: this.branchId,
+                // ANTES: branch_id: this.branchId,
+                // AHORA: Enviamos los campos polimórficos.
+                contactable_id: this.contactableId,
+                contactable_type: this.contactableType,
                 name: '',
                 charge: '',
                 birthdate: '',
@@ -107,7 +113,7 @@ export default {
     methods: {
         submit() {
             if (this.form.id) {
-                // Actualizar
+                // La actualización funciona igual, ya que Inertia enviará todos los datos del formulario.
                 this.form.put(route('contacts.update', this.form.id), {
                     preserveScroll: true,
                     onSuccess: () => {
@@ -119,7 +125,7 @@ export default {
                     }
                 });
             } else {
-                // Crear
+                // El método post enviará los nuevos campos 'contactable_id' y 'contactable_type'.
                 this.form.post(route('contacts.store'), {
                     preserveScroll: true,
                     onSuccess: () => {
@@ -154,18 +160,23 @@ export default {
     watch: {
         show(newVal) {
             if (newVal) {
-                this.form.branch_id = this.branchId;
+                // Asignamos los nuevos props al formulario cuando se abre el modal.
+                this.form.contactable_id = this.contactableId;
+                this.form.contactable_type = this.contactableType;
+                
                 if (this.contact) {
+                    // Lógica para editar un contacto existente.
                     this.form.id = this.contact.id;
                     this.form.name = this.contact.name;
                     this.form.charge = this.contact.charge;
                     this.form.birthdate = this.contact.birthdate;
-                    // Clona profundamente los detalles para evitar mutaciones no deseadas
                     this.form.details = JSON.parse(JSON.stringify(this.contact.details || []));
                 } else {
+                    // Reseteamos el formulario para crear uno nuevo.
                     this.form.reset();
-                    this.form.branch_id = this.branchId;
-                    // Añadir un detalle por defecto al crear
+                    this.form.contactable_id = this.contactableId;
+                    this.form.contactable_type = this.contactableType;
+
                     if (this.form.details.length === 0) {
                         this.addDetail();
                     }

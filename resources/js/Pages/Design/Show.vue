@@ -18,10 +18,12 @@
             <div class="flex items-center space-x-2 dark:text-white mr-4">
                 <!-- ACCIONES PARA EL DISEÑADOR -->
                 <div v-if="isAssignedDesigner">
-                    <PrimaryButton v-if="canStartWork" @click="startWork">
-                        <i class="fa-solid fa-play mr-2"></i>
-                        Iniciar Trabajo
-                    </PrimaryButton>
+                    <el-tooltip v-if="!designOrder.started_at" :content="canStartWork ? 'Iniciar trabajo' : 'No puedes iniciar si no está autorizada'" placement="top">
+                        <PrimaryButton :disabled="!canStartWork" @click="startWork">
+                            <i class="fa-solid fa-play mr-2"></i>
+                            Iniciar Trabajo
+                        </PrimaryButton>
+                    </el-tooltip>
                     <PrimaryButton v-if="canFinishWork" @click="promptFinishWork" class="!bg-green-600 hover!bg-green-700"> <i class="fa-solid fa-check-double mr-2"></i>
                         Terminar Diseño
                     </PrimaryButton>
@@ -74,11 +76,11 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink :href="route('design-orders.create')">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de diseño')" :href="route('design-orders.create')">
                             <i class="fa-solid fa-plus w-4 mr-2"></i> Nueva Orden
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de diseño')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar orden
                         </DropdownLink>
                     </template>
@@ -166,6 +168,10 @@
                             <span>{{ designOrder.requester?.name ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Solicitado el:</span>
+                            <span>{{ formatDate(designOrder.created_at) }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Diseñador:</span>
                             <span v-if="designOrder.designer_id">{{ designOrder.designer?.name }}</span>
                             <span class="text-amber-500" v-else>No asignado</span>
@@ -173,10 +179,6 @@
                          <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Categoría:</span>
                             <span>{{ designOrder.design_category?.name ?? 'N/A' }}</span>
-                        </li>
-                        <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Sucursal:</span>
-                            <span>{{ designOrder.branch_name ?? 'No especificada' }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha Límite:</span>
@@ -217,9 +219,9 @@
                             <p>Especificaciones:</p>
                             <p class="text-sm mt-2 whitespace-pre-wrap">{{ designOrder.specifications }}</p>
                             
-                            <div class="col-span-2 mt-5">
+                            <div v-if="$page.props.auth.user.id === designOrder.designer_id && (designOrder.started_at && !designOrder.finished_at)" class="col-span-2 mt-5">
                                 <InputLabel value="Archivos Finales (obligatorio para terminar)" />
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
+                                <p class="text-xs text-amber-500 dark:text-amber-400 mb-2">Sube aquí el o los archivos resultantes de tu trabajo. Este paso es requerido para marcar la orden como "Terminada".</p>
                                 <FileUploader @files-selected="finishForm.final_files = $event" :multiple="true" acceptedFormat="cualquier" />
                                 <div v-if="finishForm.errors.final_files" class="text-red-500 text-xs mt-1">
                                     {{ finishForm.errors.final_files }}
@@ -485,6 +487,7 @@ export default {
                 onSuccess: () => {
                     this.showFinishModal = false;
                     this.finishForm.reset(); // Limpiar el formulario
+                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
                     ElMessage.success('¡Excelente! Diseño terminado y archivado.');
                 },
                 onError: (errors) => {

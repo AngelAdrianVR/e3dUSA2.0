@@ -33,7 +33,7 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip v-if="sale.authorized_at === null" content="Autorizar Órden" placement="top">
+                <el-tooltip v-if="sale.authorized_at === null && $page.props.auth.user.permissions.includes('Autorizar ordenes de venta')" content="Autorizar Órden" placement="top">
                     <button @click="authorize" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
                         <i class="fa-solid fa-check-double"></i>
                     </button>
@@ -45,38 +45,48 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip content="Imprimir Órden" placement="top">
-                    <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
-                        <i class="fa-solid fa-print"></i>
+                <el-tooltip v-if="sale.invoice_id && $page.props.auth.user.permissions.includes('Ver facturas')" content="Ver factura(s)" placement="top">
+                    <button @click="$inertia.visit(route('invoices.show', sale.invoice_id))" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v7.5m2.25-6.466a9.016 9.016 0 0 0-3.461-.203c-.536.072-.974.478-1.021 1.017a4.559 4.559 0 0 0-.018.402c0 .464.336.844.775.994l2.95 1.012c.44.15.775.53.775.994 0 .136-.006.27-.018.402-.047.539-.485.945-1.021 1.017a9.077 9.077 0 0 1-3.461-.203M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                        </svg>
                     </button>
                 </el-tooltip>
 
-                <el-tooltip :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top">
-                    <Link :href="sale.authorized_at ? '' : route('sales.edit', sale.id)">
-                        <button :disabled="sale.authorized_at" 
+                <el-tooltip content="Imprimir Órden" placement="top">
+                    <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+                        </svg>
+                    </button>
+                </el-tooltip>
+
+                <!-- <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top"> -->
+                    <Link :href="route('sales.edit', sale.id)">
+                        <button 
                             class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
                             <i class="fa-solid fa-pencil text-sm"></i>
                         </button>
                     </Link>
-                </el-tooltip>
+                <!-- </el-tooltip> -->
                 
-                <Dropdown align="right" width="48">
+                <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
                     <template #trigger>
                         <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                             Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink @click="$inertia.visit(route('sales.create'))" as="button">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
                            <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
-                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM')) || true" as="button">
+                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM'))" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
                                 <p>Ver certificado de calidad</p>
                             </a>
                         </DropdownLink>
                         <div class="border-t border-gray-200 dark:border-gray-600" />
-                        <DropdownLink @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
+                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
                             <i class="fa-regular fa-trash-can w-4 mr-2"></i> Eliminar Órden
                         </DropdownLink>
                     </template>
@@ -106,7 +116,7 @@
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
 
                                 <!-- Tooltip de cliente -->
-                                <el-tooltip placement="top-start" effect="light" raw-content>
+                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
                                     <template #content>
                                         <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
                                         <!-- Header -->
@@ -145,6 +155,7 @@
                                         {{ sale.branch?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
+                                <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
                             </li>
 
                             <!-- Contacto -->
@@ -211,6 +222,10 @@
                             <el-tag v-if="sale.is_high_priority" type="danger" size="small">Alta</el-tag>
                             <el-tag v-else type="info" size="small">Normal</el-tag>
                         </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Notas generales:</span>
+                            <span>{{ sale.notes ?? '-' }}</span>
+                        </li>
                          <li v-if="sale.type === 'venta'" class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
                             <span>${{ parseFloat(sale.total_amount)?.toFixed(2)?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
@@ -252,16 +267,17 @@
                             </span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Inicio:</span>
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Inicio:</span>
                             <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.started_at) }}
+                                {{ sale.production_summary.started_at ? formatDateTime(sale.production_summary.started_at) : 'No iniciada' }}
                             </span>
                         </div>
                         <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fin:</span>
-                            <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.finished_at) }}
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">Fin:</span>
+                            <span v-if="['Preparando Envío', 'Terminada'].includes(sale.status)" class="font-bold px-2 rounded-md text-xs">
+                                {{ sale.production_summary.finished_at ? formatDateTime(sale.production_summary.finished_at) : 'No finalizada' }}
                             </span>
+                            <span class="text-xs" v-else>No finalizada</span>
                         </div>
 
                         <!-- Barra de Progreso Futurista -->
@@ -277,7 +293,13 @@
                             </div>
                         </div>
 
+
                     </div>
+                    <button @click="printProductionOrder" class="w-full mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 mr-3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+                        </svg> Imprimir Orden de Producción
+                    </button>
                 </div>
 
                 <!-- Card de Archivos adjuntos de Órden -->
@@ -305,6 +327,7 @@
                             :sale-product="product"
                             :is-high-priority="sale.is_high_priority"
                             :branch-id="sale.branch_id"
+                            :saleCurrency="sale.currency"
                         />
                     </div>
                     <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
@@ -388,6 +411,9 @@ export default {
         }
     },
     methods: {
+        printProductionOrder() {
+            window.open(route('productions.print', this.sale.id), '_blank');
+        },
         printOrder() {
             window.open(route('sales.print', this.sale.id), '_blank');
         },

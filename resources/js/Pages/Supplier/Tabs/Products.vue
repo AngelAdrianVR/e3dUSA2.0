@@ -25,7 +25,7 @@
                     <div class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                         <p>
                             <span class="font-semibold">Último precio:</span>
-                            <span class="text-green-600 dark:text-green-400 font-bold ml-1">${{ product.pivot?.last_price }}</span>
+                            <span class="text-green-600 dark:text-green-400 font-bold ml-1">${{ product.pivot?.last_price?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
                         </p>
                         <p>
                             <span class="font-semibold">Cant. Mínima:</span>

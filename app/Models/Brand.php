@@ -13,6 +13,7 @@ class Brand extends Model implements Auditable
     use AuditableTrait;
     
     protected $fillable = [
+        'id',
         'name',
         'is_luxury',
     ];

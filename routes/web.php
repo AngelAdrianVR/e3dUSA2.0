@@ -14,10 +14,15 @@ use App\Http\Controllers\DesignAuthorizationController;
 use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
 use App\Http\Controllers\DiscountController;
+use App\Http\Controllers\FavoredProductController;
+use App\Http\Controllers\FavoredStockRequestController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoicePaymentController;
 use App\Http\Controllers\MachineController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\ManualController;
+use App\Http\Controllers\MediaLibraryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
@@ -27,6 +32,7 @@ use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\ProductionTaskController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SalesAnalysisController;
@@ -40,6 +46,7 @@ use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SupplierProductController;
 use App\Http\Controllers\UserController;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -94,6 +101,14 @@ Route::get('/global-search', [AppLayoutController::class, 'globalSearch'])->midd
 Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
 Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->middleware('auth')->name('notifications.destroy');
+Route::post('/notifications/destroy-selected', [NotificationController::class, 'destroySelected'])->middleware('auth')->name('notifications.destroy-selected');
+
+
+// Rutas de Biblioteca de medios
+// routes/web.php
+Route::post('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index');
+// También es buena idea tener una ruta GET para la carga inicial
+Route::get('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index.get');
 
 
 // ------- Products Routes ---------
@@ -110,6 +125,8 @@ Route::post('catalog-products/QR-search-catalog-product', [ProductController::cl
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
 Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
 Route::get('catalog-products-export-excel', [ProductController::class, 'exportExcel'])->name('catalog-products.export-excel');
+Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
+Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
 
 
 // ------- product families Routes ---------
@@ -132,6 +149,8 @@ Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
+Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
+Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
@@ -190,6 +209,7 @@ Route::put('/quotes/products/{quoteProduct}/updateStatus', [QuoteController::cla
 
 // ------- CRM(Ordenes de venta Routes)  ---------
 Route::resource('sales', SaleController::class)->middleware('auth');
+Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
 Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');
@@ -199,10 +219,24 @@ Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales']
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->middleware('auth')->name('sales.quality-certificate');
 
 
+// ------- CRM(Rutas de facturación)  ---------
+Route::resource('invoices', InvoiceController::class)->middleware('auth');
+Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->name('invoices.cancel');
+Route::post('invoices-get-matches', [InvoiceController::class, 'getMatches'])->middleware('auth')->name('invoices.get-matches');
+Route::post('invoices-store-media/{invoice}', [InvoiceController::class, 'storeMedia'])->middleware('auth')->name('invoices.media.store');
+Route::get('/invoices-pending-report', [InvoiceController::class, 'pendingReport'])->name('invoices.pending-report')->middleware(['auth']);
+
+
+// ------- CRM(Rutas de pagos de facturación)  ---------
+Route::post('/invoices/{invoice}/payments', [InvoicePaymentController::class, 'store'])->middleware('auth')->name('invoices.payments.store');
+
+
+
 // ------- (Produccion Routes)  ---------
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
 Route::get('/productions/{sale}', [ProductionController::class, 'show'])->middleware('auth')->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+Route::get('productions/print/{sale}', [ProductionController::class, 'print'])->middleware('auth')->name('productions.print');
 
 
 // ------- (Rutas de envíos)  ---------
@@ -217,12 +251,6 @@ Route::post('suppliers/massive-delete', [SupplierController::class, 'massiveDele
 Route::get('/suppliers/{supplier}/details', [SupplierController::class, 'getDetails'])->name('suppliers.get-details');
 
 
-// ------- (rutas de contactos de proveedores)  ---------
-Route::post('supplier-contacts', [SupplierContactController::class, 'store'])->middleware('auth')->name('supplier-contacts.store');
-Route::put('supplier-contacts/{contact}', [SupplierContactController::class, 'update'])->middleware('auth')->name('supplier-contacts.update');
-Route::delete('supplier-contacts/{contact}', [SupplierContactController::class, 'destroy'])->middleware('auth')->name('supplier-contacts.destroy');
-
-
 // ------- (Rutas de Cuentas Bancarias de Proveedores) ---------
 Route::post('supplier-bank-accounts', [SupplierBankAccountController::class, 'store'])->middleware('auth')->name('supplier-bank-accounts.store');
 Route::put('supplier-bank-accounts/{bankAccount}', [SupplierBankAccountController::class, 'update'])->middleware('auth')->name('supplier-bank-accounts.update');
@@ -235,6 +263,14 @@ Route::put('suppliers/{supplier}/products/{product}', [SupplierProductController
 Route::delete('suppliers/{supplier}/products/{product}', [SupplierProductController::class, 'destroy'])->middleware('auth')->name('suppliers.products.destroy');
 
 
+// Rutas para gestionar los productos a favor
+Route::middleware(['auth'])->group(function () {
+    Route::get('/suppliers/{supplier}/favored-products', [FavoredProductController::class, 'index'])->name('suppliers.favored-products.index');
+    Route::put('/favored-products/{favoredProduct}/discount', [FavoredProductController::class, 'discount'])->name('favored-products.discount');
+    Route::put('favored-stock-requests/{favoredStockRequest}/receive', [FavoredStockRequestController::class, 'receive'])->name('favored-stock-requests.receive');
+});
+
+
 // ------- (Rutas de compras)  ---------
 Route::resource('purchases', PurchaseController::class)->middleware('auth');
 Route::post('purchases/massive-delete', [PurchaseController::class, 'massiveDelete'])->middleware('auth')->name('purchases.massive-delete');
@@ -242,6 +278,8 @@ Route::post('purchases-get-matches', [PurchaseController::class, 'getMatches'])-
 Route::put('purchases/authorize/{purchase}', [PurchaseController::class, 'authorizePurchase'])->middleware('auth')->name('purchases.authorize');
 Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->middleware('auth')->name('purchases.print');
 Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
+Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
+Route::get('purchases-download-report', [PurchaseController::class, 'downloadReport'])->middleware('auth')->name('purchases.download-report');
 
 
 // ------- (Rutas de diseño)  ---------
@@ -254,6 +292,7 @@ Route::get('design-orders-get-designers', [DesignOrderController::class, 'getDes
 Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController::class, 'assignDesigner'])->middleware('auth')->name('design-orders.assign-designer');
 Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
 Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
+Route::get('/design-orders-reports/designers-activity', [DesignOrderController::class, 'getDesignersActivityReport'])->middleware('auth')->name('design-orders.reports.designers-activity');
 
 
 // Ruta para almacenar las categorías de diseño creadas desde el modal
@@ -275,26 +314,13 @@ Route::put('/production-tasks/{production_task}/status', [ProductionTaskControll
 Route::get('/production-tasks/{task}/details', [ProductionTaskController::class, 'getTaskDetails'])->name('production-tasks.details')->middleware('auth');
 
 
-// ------- Recursos humanos(users routes)  ---------
-// Route::get('users-get-next-attendance', [UserController::class, 'getNextAttendance'])->middleware('auth')->name('users.get-next-attendance');
-// Route::get('users-get-pause-status', [UserController::class, 'getPauseStatus'])->middleware('auth')->name('users.get-pause-status');
-// Route::get('users-set-attendance', [UserController::class, 'setAttendance'])->middleware('auth')->name('users.set-attendance');
-// Route::get('users-set-pause', [UserController::class, 'setPause'])->middleware('auth')->name('users.set-pause');
-// Route::get('users-get-additional-time-requested-days/{user_id}/{payroll_id}', [UserController::class, 'getRequestedDays'])->middleware('auth')->name('users.get-additional-time-requested-days');
-// Route::get('users-get-pendent-tasks', [UserController::class, 'getPendentTasks'])->middleware('auth')->name('users.get-pendent-tasks');
-// Route::put('users-reset-pass/{user}', [UserController::class, 'resetPass'])->middleware('auth')->name('users.reset-pass');
-// Route::put('users-update-pausas/{payroll_user}', [UserController::class, 'updatePausas'])->middleware('auth')->name('users.update-pausas');
-// Route::put('users-update-vacations/{user}', [UserController::class, 'updateVacations'])->middleware('auth')->name('users.update-vacations');
-// Route::post('users-get-notifications', [UserController::class, 'getNotifications'])->middleware('auth')->name('users.get-notifications');
-// Route::post('users-read-notifications', [UserController::class, 'readNotifications'])->middleware('auth')->name('users.read-notifications');
-// Route::post('users-delete-notifications', [UserController::class, 'deleteNotifications'])->middleware('auth')->name('users.delete-notifications');
-// Route::get('users-get-all', [UserController::class, 'getAllUsers'])->middleware('auth')->name('users.get-all');
-// Route::get('users-get-operators', [UserController::class, 'getOperators'])->middleware('auth')->name('users.get-operators');
-
-
 // ------- Recursos humanos(Bonuses Routes)  ---------
 Route::resource('bonuses', BonusController::class)->except(['create', 'edit', 'show', 'destroy'])->middleware('auth');
 Route::post('bonuses/massive-delete', [BonusController::class, 'massiveDelete'])->middleware('auth')->name('bonuses.massive-delete');
+
+
+// ------- Rutas de reportes (sugerencias y quejas)  ---------
+Route::resource('reports', ReportController::class)->only(['index', 'store', 'update'])->middleware('auth');
 
 
 // ------- Recursos humanos(Discounts Routes)  ---------
@@ -343,6 +369,8 @@ Route::post('sample-trackings/massive-delete', [SampleTrackingController::class,
 Route::post('sample-trackings-get-matches', [SampleTrackingController::class, 'getMatches'])->middleware('auth')->name('sample-trackings.get-matches');
 Route::put('sample-trackings/authorize/{sampleTracking}', [SampleTrackingController::class, 'authorizeSample'])->middleware('auth')->name('sample-trackings.authorize');
 Route::put('sample-trackings-update-status/{sampleTracking}', [SampleTrackingController::class, 'updateStatus'])->middleware('auth')->name('sample-trackings.update-status');
+Route::post('/sample-trackings/quick-store-branch', [SampleTrackingController::class, 'quickStoreBranch'])->name('sample-trackings.quick-store.branch');
+Route::post('/sample-trackings/{branch}/quick-store-contact', [SampleTrackingController::class, 'quickStoreContact'])->name('sample-trackings.quick-store.contact');
 
 
 // ------- Maintenances routes  -------------
@@ -388,3 +416,19 @@ Route::delete('/media/{media}', function (Media $media) {
         return response()->json(['error' => 'Error al eliminar el archivo.'], 500);
     }
 })->name('media.delete-file');
+
+
+// ============== COMANDOS ARTISAN ==============
+Route::get('/clear-cache', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('route:clear');
+    Artisan::call('config:clear');
+    Artisan::call('view:clear');
+
+    return 'Cache, config, route y view limpiados correctamente ✔️';
+});
+
+Route::get('/cerrar-nominas', function () {
+    Artisan::call('app:manage-weekly-payroll');
+    return 'Comando ejecutado correctamente.';
+});

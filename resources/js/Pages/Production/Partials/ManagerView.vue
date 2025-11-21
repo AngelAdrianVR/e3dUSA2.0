@@ -86,24 +86,24 @@
                                                 </template>
                                                 <div class="space-y-1 px-2 pb-2">
                                                     <div v-for="item in sale.sale_products" :key="item.id">
-                                                        <el-tooltip effect="dark" placement="right-start" :hide-after="0" popper-class="tasks-tooltip">
+                                                        <el-tooltip placement="right-start" :hide-after="0" popper-class="tasks-tooltip">
                                                             <template #content>
-                                                                <h5 class="font-semibold text-xs text-gray-300 mb-2 border-b border-slate-600 pb-1">TAREAS ASIGNADAS</h5>
+                                                                <h5 class="font-semibold text-xs text-gray-300 dark:text-gray-600 mb-2 border-b border-slate-600 pb-1">TAREAS ASIGNADAS</h5>
                                                                 <div v-if="getProductionForProduct(sale, item.id) && getProductionForProduct(sale, item.id).tasks.length > 0" class="space-y-2">
                                                                     <div v-for="task in getProductionForProduct(sale, item.id).tasks" :key="task.id" class="text-xs">
                                                                         <div class="flex items-center justify-between">
                                                                             <div class="flex items-center space-x-2">
                                                                                 <img :src="task.operator.profile_photo_url" class="size-7 object-cover rounded-full">
                                                                                 <div>
-                                                                                    <p class="font-semibold text-gray-200">{{ task.operator.name }}</p>
+                                                                                    <p class="font-semibold text-gray-200 dark:text-gray-500">{{ task.operator.name }}</p>
                                                                                     <p class="text-gray-400">{{ task.name }}</p>
                                                                                 </div>
                                                                             </div>
                                                                             <el-tag size="small" :type="statusTagType(task.status)">{{ task.status }}</el-tag>
                                                                         </div>
                                                                         <div class="text-xs text-gray-400 mt-1 pl-8">
-                                                                            <p class="text-white"><b class="text-amber-500">Inicio:</b> {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
-                                                                            <p class="text-white"><b class="text-amber-500">Fin:</b> {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No terminado' }}</p>
+                                                                            <p class="text-white dark:text-gray-600"><b class="text-amber-500">Inicio:</b> {{ task.started_at ? new Date(task.started_at).toLocaleString() : 'Sin iniciar' }}</p>
+                                                                            <p class="text-white dark:text-gray-600"><b class="text-amber-500">Fin:</b> {{ task.finished_at ? new Date(task.finished_at).toLocaleString() : 'No terminado' }}</p>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -190,7 +190,7 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Cliente" #default="scope">
+                    <el-table-column label="Cliente" #default="scope" width="180">
                         {{ scope.row.branch?.name ?? 'N/A' }}
                     </el-table-column>
                     <el-table-column label="Creado por" width="200">
@@ -206,7 +206,7 @@
                             <el-tag :type="statusTagType(scope.row.production_summary.status)" class="!text-xs !font-bold">{{ scope.row.production_summary.status }}</el-tag>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Productos Terminados" width="180" align="center">
+                    <el-table-column label="Productos Terminados" width="120" align="center">
                          <template #default="scope">
                             <span class="font-semibold text-gray-700 dark:text-gray-200 text-sm">
                                 {{ scope.row.production_summary.completed_productions }} / {{ scope.row.production_summary.total_productions }}

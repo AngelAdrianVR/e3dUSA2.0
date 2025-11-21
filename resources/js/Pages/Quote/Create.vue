@@ -15,7 +15,7 @@
 
         <!-- Formulario principal -->
         <div ref="formContainer" class="py-7">
-            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[60rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     
                     <form @submit.prevent="store">
@@ -40,15 +40,24 @@
                                     <el-radio-button :label="false">Plantilla en Inglés</el-radio-button>
                                 </el-radio-group>
                             </div>
+                            <!-- Selector de Cliente con creación rápida -->
                             <div>
                                 <InputLabel value="Cliente*" />
-                                <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full">
-                                    <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                                </el-select>
+                                <div class="flex items-center space-x-2">
+                                    <el-select v-model="form.branch_id" filterable placeholder="Selecciona un cliente" class="!w-full">
+                                        <el-option v-for="branch in localBranches" :key="branch.id" :label="branch.name" :value="branch.id" />
+                                    </el-select>
+                                    <el-button @click="branchModalVisible = true" type="primary" circle plain>
+                                        <i class="fa-solid fa-plus"></i>
+                                    </el-button>
+                                </div>
                                 <InputError :message="form.errors.branch_id" />
                             </div>
-                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Ej. Juan Pérez" />
-                            <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Ej. Gerente de Compras" />
+
+                            <!-- Campos que se llenan con el contacto -->
+                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Selecciona un contacto" />
+                            <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Selecciona un contacto" />
+                            
                             <div>
                                 <InputLabel value="Dias para primera producción*" />
                                 <el-select v-model="form.first_production_days" placeholder="Selecciona">
@@ -66,8 +75,16 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" />
                             </div>
+
                             <div class="col-span-1 md:col-span-full">
-                                <TextInput :label="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'"  :isTextarea="true" :withMaxLength="true" :maxLength="500" v-model="form.notes" type="textarea" :error="form.errors.notes" />
+                                <InputLabel :value="form.is_spanish_template ? 'Notas generales (opcional)' : 'Notas generales (opcional)(En inglés)'" />
+                            
+                                <editor
+                                    api-key="6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc" 
+                                    v-model="form.notes"
+                                    id="quote-notes-editor"
+                                    :init="tinymceInit"
+                                />
                             </div>
                         </div>
 
@@ -77,12 +94,11 @@
                         </el-divider>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 items-start">
-                             <TextInput label="Costo de Herramental*" 
-                                v-model="form.tooling_cost" type="number" 
-                                :formatAsNumber="true" 
+                             <TextInput label="Costo de Herramental" 
+                                v-model="form.tooling_cost" 
                                 :error="form.errors.tooling_cost" 
-                                :placeholder="'Ej. 500.00'" :helpContent="'Si no tiene costo, escribe 0 (Cero)'">
-                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                :placeholder="'Ej. 500.00'" :helpContent="'(Agregar Moneda manualmente $MXN/$USD)'">
+                                <!-- <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template> -->
                              </TextInput>
                              <div class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
@@ -90,26 +106,63 @@
                                     <span class="ml-2 text-gray-400">Tachar:</span>
                                 </label>
                                 <span class="text-gray-500" :class="{ 'line-through': form.is_tooling_cost_stroked }">
-                                    ${{ formatNumber(form.tooling_cost) }} {{ form.currency }}
+                                    {{ form.tooling_cost }}
                                 </span>
                              </div>
                              <div></div> <!-- Espaciador -->
                             <div>
                                 <InputLabel value="Opción de flete*" />
-                                <el-select v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
-                                    <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
-                                    <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
-                                    <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
-                                    <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
+
+                                <el-select
+                                    v-model="form.freight_option"
+                                    :placeholder="form.is_spanish_template ? 'Selecciona el flete' : 'Select freight option (Selecciona el flete)'"
+                                    class="!w-full"
+                                >
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client (Por cuenta del cliente)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Por cuenta del cliente'
+                                            : 'Paid by the client'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'Cargo prorrateado en productos'
+                                            : 'Freight cost prorated across products (Cargo prorrateado en productos)'"
+                                        :value="form.is_spanish_template
+                                            ? 'Cargo de flete prorrateado en productos'
+                                            : 'Freight cost prorated across products'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo'
+                                            : 'Company absorbs the cost (La empresa absorbe el costo)'"
+                                        :value="form.is_spanish_template
+                                            ? 'La empresa absorbe el costo de flete'
+                                            : 'Company absorbs the freight cost'"
+                                    />
+
+                                    <el-option
+                                        :label="form.is_spanish_template
+                                            ? 'El cliente manda la guia'
+                                            : 'Client sends the shipping label (El cliente manda la guía)'"
+                                        :value="form.is_spanish_template
+                                            ? 'El cliente manda la guía'
+                                            : 'Client sends the shipping label'"
+                                    />
                                 </el-select>
+
                                 <InputError :message="form.errors.freight_option" />
                             </div>
-                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" 
-                                label="Costo de Flete*" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
+                            <TextInput v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" 
+                                label="Costo de Flete" v-model="form.freight_cost" :helpContent="'Si no tiene costo, escribe 0 (Cero)'" 
                                 :formatAsNumber="true" type="number" :placeholder="'Ej. 500.00'" :error="form.errors.freight_cost">
                                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                             </TextInput>
-                            <div v-if="form.freight_option !== 'El cliente manda la guia'" class="flex items-center space-x-2 mt-8">
+                            <div v-if="form.freight_option !== 'El cliente manda la guia' || form.freight_option !== 'Client sends the shipping label'" class="flex items-center space-x-2 mt-8">
                                 <label class="flex items-center">
                                     <Checkbox v-model:checked="form.is_freight_cost_stroked" class="bg-transparent border-gray-500" />
                                     <span class="ml-2 text-gray-400">Tachar:</span>
@@ -121,7 +174,7 @@
 
                             <label class="flex items-center col-span-full">
                                 <Checkbox v-model:checked="form.show_breakdown" class="bg-transparent border-gray-500" />
-                                <span class="ml-2 text-gray-400">Mostrar total sumando productos, flete y herramental</span>
+                                <span class="ml-2 text-gray-400">Mostrar totales</span>
                             </label>
                         </div>
 
@@ -144,11 +197,11 @@
                                     <InputLabel value="Producto" />
                                     <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
                                         <!-- Itera sobre los productos disponibles y los deshabilita si ya han sido agregados -->
-                                        <el-option v-for="product in localCatalogProducts" 
+                                        <el-option class="!w-96" v-for="product in localCatalogProducts" 
                                             :key="product.id" 
                                             :label="`${product.name} (${product.code})`" 
                                             :value="product.id"
-                                            :disabled="form.products.some(p => p.id === product.id) && product.id !== this.form.products[editIndex]?.id" />
+                                             />
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
@@ -412,20 +465,21 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                             Código: {{ product.code }}
                             </p>
+                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
                         </div>
                         </div>
 
                         <!-- Precios -->
                         <div class="mt-4 flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
-                        <p class="font-medium text-secondary">${{ product.base_price }}</p>
+                        <p class="font-medium text-blue-400">${{ product.base_price }} {{product.currency}}</p>
                         </div>
                         <div class="flex items-center justify-between">
                         <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
                         <p class="font-semibold text-green-600 dark:text-green-400">
                         ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
-                                ? product.price_history[0].price 
-                                : product.base_price }}
+                                ? product.price_history[0].price + ' ' + product.price_history[0].currency
+                                : product.base_price + ' ' + product.currency }}
                         </p>
                         </div>
 
@@ -435,7 +489,7 @@
                             class="mt-2 text-sm rounded-sm py-1 px-2"
                             :class="getPriceChangeClass(product.price_history[0].valid_from)"
                             >
-                            Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}
+                            <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
                         </div>
 
                         <!-- Historial de precios (MODIFICADO CON ETIQUETAS) -->
@@ -495,7 +549,7 @@
                             </el-input>
                         </div>
                     </div>
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="font-semibold">Moneda*</label>
                             <el-select v-model="priceForm.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
@@ -538,6 +592,41 @@
             </template>
         </ConfirmationModal>
 
+        <!-- MODALES DE CREACIÓN RÁPIDA -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
+            <form @submit.prevent="storeQuickContact">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
+                    <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="contactModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickContact" :loading="quickContactForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -559,6 +648,7 @@ import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
+import Editor from '@tinymce/tinymce-vue'; // editor de TinyMCE Texto enriquecido
 
 export default {
     // Usando Options API
@@ -583,6 +673,25 @@ export default {
                 has_customization: false,
                 products: [],
             }),
+
+            // --- PROPIEDADES PARA CREACIÓN RÁPIDA ---
+            localBranches: [],
+            availableContacts: [],
+            selected_contact_id: null,
+            branchModalVisible: false,
+            contactModalVisible: false,
+            quickBranchForm: {
+                name: '',
+                rfc: '',
+                processing: false,
+                errors: {},
+            },
+            quickContactForm: {
+                name: '',
+                charge: '',
+                processing: false,
+                errors: {},
+            },
 
             //Notas importantes
             branchNotes: [],
@@ -672,10 +781,13 @@ export default {
                 '15 to 16 weeks',
                 '17 to 18 weeks',
             ],
+            tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
         };
+        
     },
     components: {
         Back,
+        Editor,
         Checkbox,
         TextInput,
         AppLayout,
@@ -697,9 +809,86 @@ export default {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
+        },
+        tinymceInit() {
+            const apiKey = '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc'; // Tu API key
+
+            return {
+                height: 250,
+                menubar: false,
+                plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
+                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
+                ],
+                toolbar: 'undo redo | formatselect | ' +
+                    'bold italic backcolor | alignleft aligncenter ' +
+                    'alignright alignjustify | bullist numlist outdent indent | ' +
+                    'removeformat | help',
+                
+                // --- Piel y CSS ---
+                // Empezamos con 'oxide' y 'default'. El observer se encargará de cambiarlos.
+                skin: 'oxide',
+                content_css: 'default',
+
+                // --- Estilos para el modo oscuro DENTRO del editor ---
+                // Agregamos estilos que solo se activan cuando el <body> del iframe tiene la clase 'dark'.
+                content_style: `
+                    body { font-family:Helvetica,Arial,sans-serif; font-size:14px; }
+                    body.dark { background-color: #2d3748; color: #e2e8f0; }
+                    body.dark p { color: #e2e8f0; }
+                    body.dark strong { color: #fff; }
+                `,
+                
+                language_url: `https://cdn.tiny.cloud/1/${apiKey}/tinymce/7/langs/es_MX.js`,
+                language: 'es_MX',
+
+                // --- El 'setup' es clave ---
+                // Se ejecuta antes de que el editor se renderice.
+                // Lo usamos para conectarnos al evento 'init' del editor.
+                setup: (editor) => {
+                    editor.on('init', () => {
+                        // En 'init', el iframe está listo.
+                        // Llamamos a nuestra función de tema *inmediatamente*
+                        // para sincronizar el estado al cargar.
+                        this.syncEditorTheme();
+                    });
+                }
+            };
         }
     },
     methods: {
+        syncEditorTheme() {
+            // Revisa si tu app está en modo oscuro (chequeando la clase de Tailwind)
+            const isDark = document.documentElement.classList.contains('dark');
+            
+            // 1. Sincronizar la UI (Toolbar, menús, etc.)
+            // TinyMCE añade 'tinymce-dark' a su contenedor para volverse oscuro
+            const editorContainer = document.querySelector('.tox-tinymce'); 
+            if (editorContainer) {
+                if (isDark) {
+                    editorContainer.classList.add('tinymce-dark');
+                } else {
+                    editorContainer.classList.remove('tinymce-dark');
+                }
+            }
+
+            // 2. Sincronizar el Contenido (el iframe donde escribes)
+            // Obtenemos la instancia del editor por su ID
+            const editor = tinymce.get('quote-notes-editor'); 
+            if (editor) {
+                const editorBody = editor.getBody();
+                if (editorBody) {
+                    // Añadimos/quitamos la clase 'dark' al body *dentro* del iframe
+                    // Esto activa los estilos de 'content_style' que definimos en init
+                    if (isDark) {
+                        editorBody.classList.add('dark');
+                    } else {
+                        editorBody.classList.remove('dark');
+                    }
+                }
+            }
+        },
         store() {
             this.form.post(route("quotes.store"), {
                 onSuccess: () => {
@@ -744,6 +933,7 @@ export default {
                 current_price: null,
                 media: null,
                 storages: [],
+                has_customization: false,
                 base_price: null,
                 show_image: true,
             };
@@ -968,15 +1158,105 @@ export default {
                 ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
         },
+
+        // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
+        handleBranchChange(branchId) {
+            this.selected_contact_id = null;
+            this.form.receiver = '';
+            this.form.department = '';
+            this.availableContacts = [];
+
+            if (branchId) {
+                const selectedBranch = this.localBranches.find(b => b.id === branchId);
+                this.availableContacts = selectedBranch?.contacts ?? [];
+            }
+        },
+        handleContactChange(contactId) {
+            const selectedContact = this.availableContacts.find(c => c.id === contactId);
+            if (selectedContact) {
+                this.form.receiver = selectedContact.name;
+                this.form.department = selectedContact.charge;
+            }
+        },
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    this.form.branch_id = newBranch.id;
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.quickBranchForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
+        async storeQuickContact() {
+            if (!this.form.branch_id) {
+                 ElMessage.warning('Primero debes seleccionar un cliente.');
+                 return;
+            }
+            this.quickContactForm.processing = true;
+            this.quickContactForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store.contact', { branch: this.form.branch_id }), this.quickContactForm);
+                if (response.status === 200) {
+                    const newContact = response.data;
+                    this.availableContacts.push(newContact);
+                    
+                    const parentBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+                    if (parentBranch) {
+                        parentBranch.contacts.push(newContact);
+                    }
+
+                    this.selected_contact_id = newContact.id;
+                    this.handleContactChange(newContact.id);
+
+                    this.contactModalVisible = false;
+                    this.quickContactForm.name = '';
+                    this.quickContactForm.charge = '';
+                    ElMessage.success('Contacto creado exitosamente');
+                }
+            } catch (error)
+            {
+                if (error.response && error.response.status === 422) {
+                    this.quickContactForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el contacto.');
+                }
+            } finally {
+                this.quickContactForm.processing = false;
+            }
+        },
+    },
+    created() {
+        this.localBranches = [...this.branches];
     },
     watch: {
-        // Observador para cargar productos del cliente cuando se selecciona uno
+        // Observador para cargar productos y contactos del cliente cuando se selecciona uno
         'form.branch_id'(newVal) {
             this.clientProducts = []; // Limpiar la lista anterior
+            this.handleBranchChange(newVal); // Poblar/limpiar contactos
             if (newVal) {
                 this.fetchClientProducts(newVal);
             }
-        }
+        },
+        branches(newVal) {
+            this.localBranches = [...newVal];
+        },
     },
     mounted() {
         this.updateDrawerSize();

@@ -16,9 +16,12 @@ class SampleTracking extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
+        'name',
         'status', // 'Pendiente', 'Autorizado', 'Enviado', 'Aprobado', 'Rechazado', 'Devuelto', 'Completado', 'Modificación'
         'branch_id',
         'contact_id',
+        // 'contact_name',
         'requester_user_id',
         'authorized_by_user_id',
         'sale_id',

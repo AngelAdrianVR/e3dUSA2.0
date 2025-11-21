@@ -16,6 +16,7 @@ class Machine extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'name',
         'serial_number',
         'weight',

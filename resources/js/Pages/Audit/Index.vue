@@ -162,7 +162,32 @@ export default {
         formatTableName(modelPath) {
             if (!modelPath) return 'desconocido';
             const modelName = modelPath.split('\\').pop();
-            const translations = { User: 'Usuarios', Bonus: 'Bonos', Product: 'Productos' };
+            const translations = {
+                Bonus: 'Bonos',
+                Branch: 'Clientes',
+                BranchPriceHistory: 'Historial de precios especiales',
+                Brand: 'Marcas',
+                DesignAuthorization: 'Formato de autorización de diseño',
+                DesignOrder: 'Orden de diseños',
+                Discount: 'Descuentos',
+                Holiday: 'Días festivos',
+                Machine: 'Maquinas',
+                Maintenance: 'Mantenimientos',
+                Manual: 'Manual/Tutorial',
+                Permission: 'Permisos',
+                Product: 'Productos',
+                ProductFamily: 'Familia de productos',
+                Production: 'Producción',
+                ProductionCost: 'Proceso de producción',
+                Purchase: 'Compras',
+                Quote: 'Cotización',
+                Sale: 'Ventas',
+                SampleTracking: 'Seguimiento de muestra',
+                Shipment: 'Envíos',
+                SparePart: 'Refacciónes',
+                Supplier: 'Proveedores',
+                User: 'Usuarios',
+            };
             return translations[modelName] || modelName;
         },
         formatDateTime(dateString) {

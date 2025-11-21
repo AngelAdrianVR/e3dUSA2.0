@@ -103,13 +103,13 @@
                             <!-- COLUMNA DE UTILIDAD -->
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver utilidad ventas')" label="Utilidad" width="100">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.type === 'venta'" placement="top" effect="dark">
+                                    <el-tooltip v-if="scope.row.type === 'venta'" placement="right" effect="dark">
                                         <template #content>
                                             <div class="text-xs">
-                                                <p class="text-white font-bold mb-2">No se toma en cuenta flete</p>
-                                                <p class="text-blue-300">Venta: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_sale) }}</strong></p>
-                                                <p class="text-amber-400">Costo: <strong class="text-white">${{ formatNumber(scope.row.utility_data.total_cost) }}</strong></p>
-                                                <p class="text-green-400">Utilidad: <strong class="text-white">${{ formatNumber(scope.row.utility_data.profit) }}</strong></p>
+                                                <p class="text-white dark:text-gray-700 font-bold mb-2">No se toma en cuenta flete</p>
+                                                <p class="text-blue-300 dark:text-blue-700">Venta: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_sale) }} {{ scope.row.currency }}</strong></p>
+                                                <p class="text-amber-400 dark:text-amber-700">Costo: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.total_cost) }} {{ scope.row.currency }}</strong></p>
+                                                <p class="text-green-400 dark:text-green-700">Utilidad: <strong class="text-white dark:text-gray-500">${{ formatNumber(scope.row.utility_data.profit) }} {{ scope.row.currency }}</strong></p>
                                             </div>
                                         </template>
                                         <div class="flex flex-col justify-center items-center space-x-2" :class="getProfitabilityClass(scope.row.utility_data.percentage)">
@@ -171,9 +171,9 @@
                             <el-table-column label="Factura" width="100">
                                  <template #default="scope">
                                     <a v-if="scope.row.invoice_id" @click.stop
-                                        :href="route('quotes.show', scope.row.invoice_id)" target="_blank"
+                                        :href="route('invoices.show', scope.row.invoice_id)" target="_blank"
                                         class="text-blue-500 hover:underline">
-                                        FACT-{{ String(scope.row.invoice_id).padStart(4, '0') }}
+                                        {{ scope.row.invoice.folio }}
                                     </a>
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>
@@ -196,11 +196,17 @@
                                                     </svg>Ver
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta') && scope.row.authorized_at === null"
+                                                    v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')"
                                                     :command="'edit-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>Editar
+                                                </el-dropdown-item>
+                                                <!-- OPCION CLONAR -->
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                                                    :command="'clone-' + scope.row.id">
+                                                    <i class="fa-solid fa-copy mr-2 text-xs"></i>Clonar
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
                                                     v-if="$page.props.auth.user.permissions.includes('Autorizar ordenes de venta') && !scope.row.authorized_at"
@@ -210,19 +216,12 @@
                                                     </svg>
                                                     Autorizar
                                                 </el-dropdown-item>
-                                                <!-- <el-dropdown-item
-                                                    v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')"
-                                                    :command="'clone-' + scope.row.id">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                                                    </svg>
-                                                    Clonar</el-dropdown-item> -->
                                                 <el-dropdown-item :command="'print-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
                                                     </svg>
                                                     Imprimir</el-dropdown-item>
-                                                <el-dropdown-item v-if="$page.props.auth.user.permissions.includes('Crear facturas') && !scope.row.invoices?.length" :command="'create-' + scope.row.id">
+                                                <el-dropdown-item v-if="$page.props.auth.user.permissions.includes('Crear facturas') && !scope.row.invoice_id" :command="'createInvoice-' + scope.row.id">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                     </svg>
@@ -255,7 +254,7 @@ import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link, router } from "@inertiajs/vue3";
 import axios from 'axios';
 
@@ -320,6 +319,8 @@ export default {
                 this.authorize(id);
             } else if ( action === 'print' ) {
                 window.open(route('sales.print', id), '_blank');
+            } else if ( action === 'createInvoice' ) {
+                this.$inertia.visit(route('invoices.create', { sale_id: id }))
             } else if ( action === 'clone' ) {
                 this.clone(id);
             }
@@ -327,26 +328,31 @@ export default {
                 router.get(route(`sales.${action}`, id));
             }
         },
-        // async clone(sale_id) {
-        //     this.loading = true; // Muestra el indicador de carga
-        //     try {
-        //         const response = await axios.get(route('sales.clone', sale_id));
-
-        //         if (response.status === 200) {
-        //             // Agrega la nueva orden de venta al inicio de la tabla
-        //             this.tableData.unshift(response.data.newItem);
-                    
-        //             // Muestra un mensaje de éxito
-        //             ElMessage.success(response.data.message);
-        //         }
-        //     } catch (err) {
-        //         // Muestra un mensaje de error si algo sale mal
-        //         ElMessage.error('Ocurrió un error al clonar la orden de venta.');
-        //         console.error(err);
-        //     } finally {
-        //         this.loading = false; // Oculta el indicador de carga
-        //     }
-        // },
+        // --- Método para clonar ---
+        clone(sale_id) {
+            ElMessageBox.confirm(
+                '¿Estás seguro de clonar esta orden? Se creará una copia exacta con estatus "Pendiente" y se apartará el stock disponible de los productos.',
+                'Clonar Orden',
+                {
+                    confirmButtonText: 'Sí, clonar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            )
+            .then(() => {
+                this.$inertia.post(route('sales.clone', sale_id), {}, {
+                    onSuccess: () => {
+                        ElMessage.success('Orden clonada y creada exitosamente.');
+                    },
+                    onError: () => {
+                        ElMessage.error('No se pudo clonar la orden.');
+                    }
+                });
+            })
+            .catch(() => {
+                // Acción cancelada
+            });
+        },
         // --- Método para autorizar ---
         async authorize(sale_id) {
             try {

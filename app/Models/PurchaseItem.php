@@ -16,6 +16,7 @@ class PurchaseItem extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'purchase_id',
         'product_id',
         'description',
@@ -24,11 +25,16 @@ class PurchaseItem extends Model
         'notes',
         // 'unit', // unidad de medida
         'unit_price',
-        'additional_stock', // a favor
+        'additional_stock', // a favor (se queda en fabrica)
         'plane_stock', // en avion
         'ship_stock', // en barco
         'total_price',
-        'recieved_quantity',
+        'mold_price',
+        'needs_mold',
+    ];
+
+    protected $casts = [
+        'needs_mold' => 'boolean',
     ];
 
     /**

@@ -7,6 +7,8 @@ use App\Models\CalendarEntry;
 use App\Models\Contact;
 use App\Models\DesignOrder;
 use App\Models\EmployeeDetail;
+use App\Models\Event;
+use App\Models\Invoice;
 use App\Models\OvertimeRequest;
 use App\Models\Product;
 use App\Models\Production;
@@ -33,11 +35,48 @@ class DashboardController extends Controller
         $authUserId = Auth::id();
         $authUser = Auth::user();
         
-        // Calendar Widget Data
         $calendarEvents = CalendarEntry::where('start_datetime', '>=', now())
+            ->where(function ($query) use ($authUserId) {
+                $query->where('user_id', $authUserId)
+                    ->orWhereHasMorph(
+                        'entryable',
+                        [Event::class],
+                        function ($q) use ($authUserId) {
+                            $q->whereHas('participants', function ($subQ) use ($authUserId) {
+                                $subQ->where('users.id', $authUserId);
+                            });
+                        }
+                    );
+            })
+            ->with([
+                // Eager load para optimizar consultas a la base de datos
+                'entryable' => function ($morphTo) use ($authUserId) {
+                    $morphTo->morphWith([
+                        Event::class => [
+                            // De la relación 'participants', solo trae al usuario actual
+                            'participants' => function ($query) use ($authUserId) {
+                                $query->where('users.id', $authUserId);
+                            }
+                        ]
+                    ]);
+                }
+            ])
             ->orderBy('start_datetime')
             ->limit(5)
-            ->get(['id', 'title', 'start_datetime', 'is_full_day', 'entryable_type']);
+            ->get()
+            // Transforma la colección para añadir el estado del participante
+            ->map(function ($entry) {
+                // Busca si se cargó la información del participante
+                $participant = $entry->entryable?->participants?->first();
+
+                // Si existe, añade el estado. Si no, déjalo como null.
+                $entry->participant_status = $participant ? $participant->pivot->status : null;
+                
+                // Opcional: Remueve la relación para no cargar datos innecesarios en la vista
+                unset($entry->entryable);
+
+                return $entry;
+            });
 
         // Warehouse Status Chart
         // Se calcula la cantidad de productos con stock bajo.
@@ -60,14 +99,17 @@ class DashboardController extends Controller
 
 
         // Required Actions Data
-        if ( $authUser->hasRole('Super Administrador') ) {
+        if ( $authUser->hasRole(['Super Administrador', 'Samuel']) ) {
             $requiredActions = [
                 'quotes_to_authorize' => Quote::whereNull('authorized_at')->count(),
                 'sales_to_authorize' => Sale::whereNull('authorized_at')->count(),
                 'designs_to_authorize' => DesignOrder::whereNull('authorized_at')->count(),
                 'purchases_to_authorize' => Purchase::whereNull('authorized_at')->count(),
                 'sample_trackings_to_authorize' => SampleTracking::whereNull('authorized_at')->count(),
-                'sales_without_ov' => Sale::with('productions')->whereDoesntHave('productions')->whereNotNull('authorized_at')->count(),
+                'sales_without_ov' => Sale::whereIn('status', ['Autorizada', 'En Proceso'])
+                                            ->whereHas('saleProducts', function ($query) {
+                                                $query->whereDoesntHave('production');
+                                            })->count(),
                 'pending_productions' => Production::where('status', 'Pendiente')->count(),
                 'unstarted_tasks' => ProductionTask::where('status', 'Pendiente')->count(),
                 'unstarted_design_orders' => DesignOrder::where('status', 'Autorizada')->whereNull('started_at')->count(),
@@ -81,22 +123,55 @@ class DashboardController extends Controller
         $designPerformance = $this->getPerformanceData('Diseñador');
 
         // 1. Upcoming Birthdays (next 30 days)
-        $upcomingBirthdays = Contact::with(['branch', 'details'])
+        $upcomingBirthdays = Contact::with(['contactable', 'details']) // 1. Cambiado 'branch' por 'contactable'
             ->whereNotNull('birthdate')
             ->whereRaw('DAYOFYEAR(birthdate) BETWEEN DAYOFYEAR(CURDATE()) AND DAYOFYEAR(CURDATE() + INTERVAL 30 DAY)')
             ->orderByRaw('DAYOFYEAR(birthdate)')
             ->get()
             ->map(function ($contact) {
-                // Find primary email or first email
+                // La lógica para el email no cambia
                 $email = $contact->details->firstWhere('is_primary', true)->value ?? $contact->details->firstWhere('type', 'email')->value ?? null;
+
+                // 2. Lógica para obtener el nombre de la compañía de forma segura
+                $company_name = 'N/A'; // Valor por defecto
+                
+                // Verificamos que el "contactable" existe y es una instancia de Branch
+                if ($contact->contactable && $contact->contactable instanceof \App\Models\Branch) {
+                    $company_name = $contact->contactable->name;
+                } else if ($contact->contactable && $contact->contactable instanceof \App\Models\Supplier) {
+                    $company_name = $contact->contactable->name;
+                }
+
                 return [
                     'id' => $contact->id,
                     'name' => $contact->name,
-                    'company_name' => $contact->branch->name ?? 'N/A',
+                    'company_name' => $company_name,
                     'birthdate' => $contact->birthdate,
                     'email' => $email,
                 ];
-            });
+        });
+
+        // --- INICIA NUEVA CONSULTA: Mis Facturas Pendientes de Pago ---
+        $myPendingInvoices = collect();
+        if ($authUser->hasRole(['Vendedor', 'Super Administrador', 'Asistente de director'])) {
+            $myPendingInvoices = Invoice::where('user_id', $authUserId)
+                ->whereIn('status', ['Pendiente', 'Parcialmente pagada'])
+                ->with('payments') // Eager load payments para optimizar cálculo de pendiente
+                ->latest('due_date')
+                ->limit(10)
+                ->get()
+                ->map(function ($invoice) {
+                    return [
+                        'id' => $invoice->id,
+                        'folio' => $invoice->folio,
+                        'status' => $invoice->status,
+                        'pending_amount' => $invoice->pending_amount, // Usa el accesor del modelo
+                        'total_amount' => $invoice->amount,
+                        'currency' => $invoice->currency,
+                        'due_date' => $invoice->due_date->isoFormat('D MMM, YYYY'),
+                    ];
+                });
+        }
 
         // 2. My Sales Orders
         $mySalesOrders = Sale::where('user_id', $authUserId)
@@ -142,6 +217,9 @@ class DashboardController extends Controller
         // 1. Birthdays for the current month, sorted by day
         $birthdays = EmployeeDetail::whereNotNull('birthdate')
             ->whereMonth('birthdate', $currentMonth)
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->birthdate->format('d'));
@@ -149,7 +227,10 @@ class DashboardController extends Controller
         // 2. Anniversaries for the current month, sorted by day
         $anniversaries = EmployeeDetail::whereNotNull('join_date')
             ->whereMonth('join_date', $currentMonth)
-            ->whereYear('join_date', '<', now()->year) // Exclude new hires from this year
+            ->whereYear('join_date', '<', now()->year) // Excluye contrataciones de este año
+            ->whereHas('user', function ($query) {
+                $query->where('is_active', true);
+            })
             ->with('user')
             ->get()
             ->sortBy(fn($detail) => $detail->join_date->format('d'));
@@ -199,11 +280,64 @@ class DashboardController extends Controller
         }
         $news = $news->sortBy('sort_date')->values();
 
+        // ------------- Órdenes de Venta Autorizadas y Pendientes -------------
+        $availableSales = Sale::with(['contact', 'user', 'saleProducts.product.storages', 'saleProducts.product.media']) // Carga anticipada de relaciones
+            ->whereIn('status', ['Autorizada', 'Pendiente'])
+            ->latest('authorized_at')
+            ->limit(8)
+            ->get()
+            ->map(function ($sale) {
+                return [
+                    'id' => $sale->id,
+                    'folio' => 'OV-' . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
+                    'contact_name' => $sale->contact?->name,
+                    'user_name' => $sale->user->name,
+                    'total' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
+                    'date' => Carbon::parse($sale->authorized_at)->isoFormat('D MMM, YYYY'),
+                    'status' => $sale->status,
+                    'products' => $sale->saleProducts->map(function ($saleProduct) {
+                        // Asegurarse de que el producto existe para evitar errores
+                        if (!$saleProduct->product) {
+                            return null;
+                        }
+                        return [
+                            'id' => $saleProduct->id,
+                            'name' => $saleProduct->product->name,
+                            'media' => $saleProduct->product->media,
+                            'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                            'stock_available' => $saleProduct->product->storages->sum('quantity') ?? 0,
+                        ];
+                    })->filter(), // Elimina cualquier producto nulo si la relación falla
+                ];
+            });
+
+            // ------------- NUEVA CONSULTA: Solicitudes de tiempo extra pendientes del usuario -------------
+            $pendingOvertimeRequests = collect();
+            // Asegurarse de que el usuario autenticado es un empleado con detalles
+            if ($authUser->hasRole('Auxiliar de producción')) {
+                // cargar detalles de personal
+                $authUser->load('employeeDetail');
+
+                $pendingOvertimeRequests = OvertimeRequest::where('employee_detail_id', $authUser->employeeDetail->id)
+                    ->where('date', '>=', now()->startOfDay()) // Solicitudes de hoy en adelante
+                    ->orderBy('date')
+                    ->get(['id', 'date', 'requested_minutes', 'status'])
+                    ->map(function($request) {
+                        return [
+                            'id' => $request->id,
+                            'date' => $request->date->isoFormat('D MMMM, YYYY'), // Formatear fecha
+                            'requested_minutes' => $request->requested_minutes,
+                            'status' => $request->status,
+                        ];
+                    });
+            }
+
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
             'warehouseStats' => $warehouseStats,
             'requiredActions' => $requiredActions ?? null,
             'upcomingBirthdays' => $upcomingBirthdays,
+            'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
             'authUserName' => $authUser?->name,
@@ -211,6 +345,8 @@ class DashboardController extends Controller
             'productionPerformance' => $productionPerformance,
             'salesPerformance' => $salesPerformance,
             'designPerformance' => $designPerformance,
+            'availableSales' => $availableSales,
+            'pendingOvertimeRequests' => $pendingOvertimeRequests,
         ]);
 
     }
@@ -259,7 +395,7 @@ class DashboardController extends Controller
             })->filter()->sortByDesc('points')->values();
         }
 
-        if ($roleName === 'Diseñador') {
+        if ($roleName === 'Diseñador' || $roleName === 'Jefe de Diseño') {
             $weeklyDesigns = DesignOrder::where('status', 'Terminada')->whereNotNull('finished_at')->whereBetween('finished_at', [$startOfWeek, $endOfWeek])->select('id', 'designer_id', 'order_title', 'finished_at')->get();
             $designsByUser = $weeklyDesigns->groupBy('designer_id');
 
@@ -287,7 +423,7 @@ class DashboardController extends Controller
             })->filter()->sortByDesc('points')->values();
         }
 
-        if ($roleName === 'Auxiliar de producción') {
+        if ($roleName === 'Auxiliar de producción' || $roleName === 'Jefe de producción' || $roleName === 'Samuel') {
             return $users->map(function ($user) use ($startOfWeek, $endOfWeek) {
                 $dailyDetails = [];
                 for ($date = $startOfWeek->copy(); $date->lte($endOfWeek); $date->addDay()) {

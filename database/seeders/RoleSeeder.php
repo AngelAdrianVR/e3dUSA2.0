@@ -23,10 +23,17 @@ class RoleSeeder extends Seeder
         $auxProduccion->givePermissionTo([
             'Chatear',
             'Ver ordenes de produccion',
+            'Ver solicitudes de tiempo adicional',
+            'Crear solicitudes de tiempo adicional',
             'Editar ordenes de produccion',
+            'Ver historial de acciones',
+            'Ver obsoletos',
+            'Ver scrap',
+            'Ver almacenes',
             'Ver catalogo de productos',
             'Ver materia prima',
             'Ver insumos',
+            'Crear movimientos de stock',
             'Ver tutoriales y manuales',
         ]);
 
@@ -37,27 +44,41 @@ class RoleSeeder extends Seeder
             'Ver materia prima',
             'Crear materia prima',
             'Editar materia prima',
+            'Eliminar materia prima',
+            'Ver solicitudes de tiempo adicional',
+            'Crear solicitudes de tiempo adicional',
             'Ver insumos',
+            'Ver historial de acciones',
+            'Ver tutoriales y manuales',
             'Crear insumos',
             'Editar insumos',
+            'Eliminar insumos',
             'Ver refacciones',
             'Crear refacciones',
             'Editar refacciones',
             'Ver envios',
-            'Crear envios',
-            'Editar envios',
             'Ver almacenes',
             'Crear almacenes',
             'Ver obsoletos',
             'Crear obsoletos',
             'Ver scrap',
             'Crear scrap',
+            'Crear movimientos de stock',
         ]);
 
         // --- Rol: Asistente de director ---
         $asistenteDirector = Role::create(['name' => 'Asistente de director']);
         $asistenteDirector->givePermissionTo([
             'Chatear',
+            'Ver facturas',
+            'Editar facturas',
+            'Crear facturas',
+            'Eliminar facturas',
+            'Cancelar facturas',
+            'Ver biblioteca de medios',
+            'Descargar reporte de precios',
+            'Ver cantidades de dinero',
+            'Ver costos de productos',
             'Ver personal',
             'Ver historial de acciones',
             'Ver clientes',
@@ -69,7 +90,6 @@ class RoleSeeder extends Seeder
             'Ver ordenes de produccion',
             'Ver todas las ordenes de produccion',
             'Ver envios',
-            'Ver facturas',
             'Ver proveedores',
             'Ver ordenes de compra',
             'Ver todas las compras',
@@ -82,21 +102,39 @@ class RoleSeeder extends Seeder
         $disenador = Role::create(['name' => 'Diseñador']);
         $disenador->givePermissionTo([
             'Chatear',
+            'Ver biblioteca de medios',
             'Ver ordenes de diseño',
             'Crear ordenes de diseño',
             'Editar ordenes de diseño',
-            'Asignar diseños',
             'Ver formatos de autorizacion de diseño',
             'Crear formatos de autorizacion de diseño',
             'Editar formatos de autorizacion de diseño',
             'Ver catalogo de productos',
             'Ver tutoriales y manuales',
         ]);
+        // --- Rol: Jefe de diseño ---
+        $disenador = Role::create(['name' => 'Jefe de Diseño']);
+        $disenador->givePermissionTo([
+            'Chatear',
+            'Ver biblioteca de medios',
+            'Ver ordenes de diseño',
+            'Crear ordenes de diseño',
+            'Editar ordenes de diseño',
+            'Eliminar ordenes de diseño',
+            'Ver formatos de autorizacion de diseño',
+            'Crear formatos de autorizacion de diseño',
+            'Editar formatos de autorizacion de diseño',
+            'Ver catalogo de productos',
+            'Ver tutoriales y manuales',
+            'Ver almacenes',
+            'Crear almacenes',
+        ]);
 
         // --- Rol: Jefe de producción ---
         $jefeProduccion = Role::create(['name' => 'Jefe de producción']);
         $jefeProduccion->givePermissionTo([
             'Chatear',
+            'Ver biblioteca de medios',
             'Ver ordenes de produccion',
             'Crear ordenes de produccion',
             'Editar ordenes de produccion',
@@ -171,6 +209,12 @@ class RoleSeeder extends Seeder
             'Ver muestras',
             'Crear muestras',
             'Editar muestras',
+            'Ver biblioteca de medios',
+            'Ver facturas',
+            'Editar facturas',
+            'Crear facturas',
+            'Eliminar facturas',
+            'Cancelar facturas',
         ]);
 
         // --- Rol: Compras ---
@@ -191,6 +235,7 @@ class RoleSeeder extends Seeder
             'Editar ordenes de compra',
             'Autorizar ordenes de compra',
             'Ver todas las compras',
+            'Ver biblioteca de medios',
         ]);
     }
 }

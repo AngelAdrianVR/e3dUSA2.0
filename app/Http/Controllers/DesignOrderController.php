@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Notifications\designOrderAuthorizedNotification;
 use App\Notifications\DesignOrderFinishedNotification;
 use App\Notifications\NewDesignOrderAssignedNotification;
+use Carbon\Carbon;
+use Carbon\CarbonInterval;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -37,7 +39,7 @@ class DesignOrderController extends Controller
             $query->whereNull('designer_id');
         }
         // Si el usuario es un diseñador
-        else if ($user->hasRole('Diseñador')) {
+        else if ($user->hasRole(['Diseñador', 'Jefe de Diseño'])) {
             $query->where('designer_id', $user->id);
         }
         // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
@@ -57,7 +59,7 @@ class DesignOrderController extends Controller
     public function create(Request $request)
     {
         $designCategories = DesignCategory::select('id', 'name')->get();
-        $designers = User::where('is_active', true)->role('Diseñador')->select('id', 'name')->get();
+        $designers = User::where('is_active', true)->role(['Diseñador', 'Jefe de Diseño'])->select('id', 'name')->get();
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
         // --- Handle design modification requests ---
@@ -96,7 +98,6 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3', // Valida que sea un array y máximo 3 archivos
-            'media.*' => 'file|max:10240', // Límite de 10MB por archivo (10240 KB), puedes ajustarlo
             'modifies_design_id' => 'nullable|exists:designs,id', // --- Validation for modification
         ]);
 
@@ -130,7 +131,7 @@ class DesignOrderController extends Controller
                 'previous_designer_id' => null, // No hay diseñador previo
                 'new_designer_id' => $designOrder->designer_id,
                 'changed_by_user_id' => Auth::id(), // El solicitante hizo la asignación inicial
-                'reason' => 'Asignación inicial al crear la solicitud.',
+                'reason' => 'Asignación inicial al crear la orden.',
                 'changed_at' => now(),
             ]);
         }
@@ -153,7 +154,7 @@ class DesignOrderController extends Controller
 
     public function show(DesignOrder $designOrder)
     {
-        $designOrders = DesignOrder::select('id', 'order_title')->get();
+        $designOrders = DesignOrder::select('id', 'order_title')->latest()->take(300)->get();
 
         $designOrder->load([
             'designAuthorization', 
@@ -189,6 +190,7 @@ class DesignOrderController extends Controller
             }
         }
 
+        // return $designOrder;
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
@@ -205,15 +207,7 @@ class DesignOrderController extends Controller
         $designCategories = DesignCategory::select('id', 'name')->get();
 
         // Se obtienen los usuarios que son diseñadores.
-        // Asumiendo que los diseñadores tienen un campo 'designer_level' no nulo como indica el flujo.
-        // $designers = User::whereNotNull('designer_level')
-        //                  ->where('status', 'active') // O cualquier otro criterio para usuarios activos
-        //                  ->select('id', 'name')
-        //                  ->get();
-
-        $designers = User::where('is_active', true) // O cualquier otro criterio para usuarios activos
-                         ->select('id', 'name')
-                         ->get();
+        $designers = User::where('is_active', true)->role(['Diseñador', 'Jefe de Diseño'])->select('id', 'name')->get();
 
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
@@ -241,7 +235,6 @@ class DesignOrderController extends Controller
             'due_date' => 'nullable|date',
             'is_hight_priority' => 'required|boolean',
             'media' => 'nullable|array|max:3',
-            'media.*' => 'file|max:10240' // 10MB
         ]);
 
         $previousDesignerId = $designOrder->designer_id;
@@ -460,7 +453,7 @@ class DesignOrderController extends Controller
             'assignedDesignOrders.designCategory:id,name,complexity',
         ])
         ->where('is_active', true) // O el criterio que uses para identificar diseñadores
-        ->role('Diseñador')
+        ->role(['Diseñador', 'Jefe de Diseño'])
         ->select('id', 'name')
         ->get();
 
@@ -560,6 +553,83 @@ class DesignOrderController extends Controller
             ->get();
 
         return response()->json($similarOrders);
+    }
+
+    public function getDesignersActivityReport(Request $request)
+    {
+        $request->validate([
+            'month' => 'required|date_format:Y-m',
+            'designers' => 'required|array',
+            'designers.*' => 'exists:users,id',
+        ]);
+
+        $month = Carbon::createFromFormat('Y-m', $request->month);
+        $designersIds = $request->designers;
+
+        $designers = User::whereIn('id', $designersIds)->get();
+        $reportData = [];
+
+        setlocale(LC_TIME, 'es_ES.UTF-8');
+        $monthName = ucfirst($month->translatedFormat('F'));
+        $year = $month->year;
+
+        foreach ($designers as $designer) {
+            $orders = DesignOrder::where('designer_id', $designer->id)
+                ->where('status', 'Terminada')
+                ->whereYear('finished_at', $year)
+                ->whereMonth('finished_at', $month->month)
+                ->get();
+
+            $totalDurationInSeconds = 0;
+            $processedOrders = [];
+            $canCalculateAnyDuration = false; // Flag to check if any order has dates
+
+            foreach ($orders as $order) {
+                $duration = 'N/A';
+                if ($order->started_at && $order->finished_at) {
+                    $canCalculateAnyDuration = true; // We can calculate for at least one order
+                    
+                    $start = $order->started_at; // Casts to Carbon automatically
+                    $finish = $order->finished_at;
+                    $diffInSeconds = $finish->diffInSeconds($start);
+                    $totalDurationInSeconds += $diffInSeconds;
+
+                    $duration = CarbonInterval::seconds($diffInSeconds)->cascade()->forHumans(['short' => true]);
+                     if ($diffInSeconds === 0) {
+                        $duration = '0s';
+                    }
+                }
+                $processedOrders[] = [
+                    'id' => $order->id,
+                    'order_title' => $order->order_title,
+                    'started_at' => $order->started_at?->format('d/m/Y H:i'),
+                    'finished_at' => $order->finished_at?->format('d/m/Y H:i'),
+                    'duration' => $duration,
+                ];
+            }
+            
+            $totalDurationFormatted = 'N/A';
+            if ($canCalculateAnyDuration) {
+                 $totalDurationFormatted = CarbonInterval::seconds($totalDurationInSeconds)->cascade()->forHumans();
+                 if (empty($totalDurationFormatted)) {
+                    // If total is 0 seconds, forHumans() might return empty string.
+                    $totalDurationFormatted = '0 minutos';
+                }
+            }
+
+            $reportData[] = [
+                'designer_name' => $designer->name,
+                'orders' => $processedOrders,
+                'total_orders' => count($processedOrders),
+                'total_duration' => $totalDurationFormatted,
+            ];
+        }
+
+        return Inertia::render('Design/DesignersActivityReport', [
+            'reportData' => $reportData,
+            'monthName' => $monthName,
+            'year' => $year,
+        ]);
     }
 
 }

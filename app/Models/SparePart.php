@@ -15,6 +15,7 @@ class SparePart extends Model implements HasMedia, Auditable
     use HasFactory, InteractsWithMedia, AuditableTrait;
 
     protected $fillable = [
+        'id',
         'name',
         'quantity',
         'supplier',

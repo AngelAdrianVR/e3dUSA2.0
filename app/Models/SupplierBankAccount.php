@@ -16,6 +16,7 @@ class SupplierBankAccount extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'supplier_id',
         'bank_name',
         'account_holder',

@@ -13,6 +13,13 @@
             </div>
 
             <div class="flex items-center space-x-2 dark:text-white">
+                <el-tooltip content="Imprimir Órden" placement="top">
+                    <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+                        </svg>
+                    </button>
+                </el-tooltip>
                 <Link :href="route('sales.show', sale.id)"
                     class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                 <i class="fa-solid fa-eye mr-2 text-xs"></i> Ver Órden de Venta
@@ -41,40 +48,48 @@
                         <template v-if="sale.type === 'venta'">
                             <li class="flex justify-between items-center">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-                                <el-tooltip placement="right" effect="light" raw-content>
+
+                                <!-- Tooltip de cliente -->
+                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
                                     <template #content>
-                                        <div
-                                            class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                            <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                                <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                                    {{ sale.branch?.name }}
-                                                </h4>
-                                                <span
-                                                    class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                                    {{ sale.branch?.status ?? 'N/A' }}
-                                                </span>
-                                            </div>
-                                            <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                                <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                                <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                                <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                                <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                                <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                            </div>
-                                            <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                                <Link :href="route('branches.show', sale.branch?.id)">
-                                                <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                    <i class="fa-solid fa-eye"></i> Ver Cliente
-                                                </SecondaryButton>
-                                                </Link>
-                                                <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                            </div>
+                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
+                                        <!-- Header -->
+                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
+                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
+                                            {{ sale.branch?.name }}
+                                            </h4>
+                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
+                                            {{ sale.branch?.status ?? 'N/A' }}
+                                            </span>
+                                        </div>
+
+                                        <!-- Datos principales -->
+                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
+                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
+                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
+                                        </div>
+
+                                        <!-- Footer -->
+                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
+                                            <Link :href="route('branches.show', sale.branch?.id)">
+                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
+                                                <i class="fa-solid fa-eye"></i> Ver Cliente
+                                            </SecondaryButton>
+                                            </Link>
+                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
+                                        </div>
                                         </div>
                                     </template>
+
+                                    <!-- Nombre clickable -->
                                     <span class="text-blue-500 hover:underline cursor-pointer">
                                         {{ sale.branch?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
+                                <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
                             </li>
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
@@ -82,19 +97,18 @@
                                 <el-tooltip
                                     v-if="sale.contact"
                                     placement="right"
-                                    effect="dark"
                                 >
                                     <template #content>
-                                    <div class="space-y-2 text-sm">
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-envelope text-blue-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
-                                        </p>
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-phone text-green-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
-                                        </p>
-                                    </div>
+                                        <div class="space-y-2 text-sm">
+                                            <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
+                                            <i class="fa-solid fa-envelope text-blue-400"></i>
+                                            <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
+                                            </p>
+                                            <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
+                                            <i class="fa-solid fa-phone text-green-400"></i>
+                                            <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+                                            </p>
+                                        </div>
                                     </template>
 
                                     <span
@@ -175,9 +189,10 @@
                         </div>
                         <div class="flex justify-between items-center text-sm">
                             <span class="font-semibold text-amber-600 dark:text-amber-400">Fin:</span>
-                            <span class="font-bold px-2 rounded-md text-xs">
+                            <span v-if="['Preparando Envío', 'Terminada'].includes(sale.status)" class="font-bold px-2 rounded-md text-xs">
                                 {{ sale.production_summary.finished_at ? formatDateTime(sale.production_summary.finished_at) : 'No finalizada' }}
                             </span>
+                            <span class="text-xs" v-else>No finalizada</span>
                         </div>
                     </div>
                 </div>
@@ -216,7 +231,7 @@
                     </div>
 
                     <!-- Kanban Body Grid -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-5">
                         <!-- Main Column: Timeline Chart -->
                         <div class="lg:col-span-2">
                             <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Línea de Tiempo de Tareas</h3>
@@ -254,34 +269,69 @@
                         </div>
 
                         <!-- Sidebar Column: Details -->
-                        <div class="lg:col-span-1 space-y-5 h-[550px] overflow-y-auto overflow-x-hidden">
+                        <div class="lg:col-span-1 space-y-5 h-[55vh] overflow-y-auto overflow-x-hidden">
                              <!-- Quantities -->
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Cantidad a Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce.toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
-                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce }}</p>
+                                        <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ (selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-red-600 dark:text-red-300">Merma</p>
-                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap }}</p>
+                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap.toLocaleString() }}</p>
                                     </div>
                                 </div>
                             </div>
-                             <!-- Production Tasks -->
+                            <!-- Production Tasks -->
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Tareas y Operadores</h3>
+                                <div class="flex justify-between items-center mb-3">
+                                    <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200">Tareas y Operadores</h3>
+                                    <button @click="openHistoryModal" class="px-3 py-1.5 bg-gray-200 dark:bg-slate-600 hover:bg-gray-300 dark:hover:bg-slate-500 rounded-md text-xs font-semibold transition">
+                                        <i class="fa-solid fa-clock-rotate-left mr-2"></i>Historial de Acciones
+                                    </button>
+                                </div>
                                 <div v-if="selectedProduction?.tasks?.length" class="space-y-3">
-                                    <div @click="openLogModal(task)" v-for="task in selectedProduction.tasks" :key="task.id" class="flex items-center space-x-3 bg-gray-100 dark:bg-slate-700/50 p-2 rounded-lg cursor-pointer hover:scale-[1.02] transition-transform ease-linear duration-200">
-                                        <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800  transition-transform object-cover" :class="taskStatusRingColor(task.status)">
-                                        <div>
-                                            <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
-                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ task.operator?.name }}</p>
+                                    <div v-for="task in selectedProduction.tasks" :key="task.id" class="bg-gray-100 dark:bg-slate-700/50 p-3 rounded-lg">
+                                        <div class="flex flex-col items-start">
+                                            <div class="flex items-center space-x-3">
+                                                <img :src="task.operator?.profile_photo_url" :alt="task.operator?.name" class="size-10 rounded-full ring-2 ring-offset-2 dark:ring-offset-slate-800 transition-transform object-cover" :class="taskStatusRingColor(task.status)">
+                                                <div>
+                                                    <p class="font-semibold text-sm text-gray-800 dark:text-gray-200">{{ task.name }}</p>
+                                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ task.operator?.name }}</p>
+                                                </div>
+                                            </div>
+                                            <!-- Action buttons -->
+                                            <div v-if="task.operator.id === $page.props.auth.user.id || ['Jefe de producción', 'Samuel', 'Super Administrador'].includes($page.props.auth.user.role)" class="flex items-center space-x-1 mt-3">
+                                                <el-tooltip content="Reportar Falta de Material" placement="top">
+                                                    <button @click="reportIssue(task)" v-if="['Pendiente', 'En Proceso', 'Pausada'].includes(task.status)" class="h-7 w-7 rounded-full text-gray-500 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Pausar Tarea" placement="top">
+                                                    <button @click="pauseTask(task)" v-if="task.status === 'En Proceso'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-pause"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Iniciar Tarea" placement="top">
+                                                    <button @click="startTask(task)" v-if="task.status === 'Pendiente'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-play"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <el-tooltip content="Reanudar Tarea" placement="top">
+                                                    <button @click="resumeTask(task)" v-if="task.status === 'Pausada' || task.status === 'Sin material'" class="h-7 w-7 rounded-full text-gray-500 hover:bg-blue-100 hover:text-blue-600 dark:hover:bg-blue-900/50 transition text-xs">
+                                                        <i class="fa-solid fa-play"></i>
+                                                    </button>
+                                                </el-tooltip>
+                                                <button @click="finishTask(task)" v-if="['En Proceso', 'Pausada'].includes(task.status)" class="px-2 py-1 bg-green-600 border border-transparent rounded-md text-xs font-semibold text-white uppercase hover:bg-green-500 transition">
+                                                    Finalizar
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -309,21 +359,25 @@
             </div>
         </main>
 
-        <!-- Log Modal -->
-        <el-dialog v-model="logModalVisible" :title="`Historial de acciones de ${selectedOperatorName}`" width="500px">
+        <!-- History Modal -->
+        <el-dialog v-model="historyModalVisible" title="Historial de Acciones de Producción" width="500px">
             <div class="space-y-4 max-h-[60vh] overflow-y-auto p-2">
-                 <div v-for="log in selectedOperatorLogs" :key="log.id" class="flex items-start space-x-3 text-sm">
+                 <div v-for="log in fullProductionLogs" :key="log.id" class="flex items-start space-x-3 text-sm">
                     <div class="flex-shrink-0 size-8 rounded-full flex items-center justify-center" :class="logTypeBgColor(log.type)">
                         <i class="fa-solid text-xs" :class="logTypeIcon(log.type)"></i>
                     </div>
                     <div class="flex-grow">
-                        <p class="text-gray-800 dark:text-gray-200">{{ log.notes }}</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                        <div class="flex items-center space-x-2 mb-1">
+                            <img :src="log.operator?.profile_photo_url" :alt="log.operator?.name" class="size-5 rounded-full object-cover">
+                            <span class="font-semibold text-gray-600 dark:text-gray-300">{{ log.operator?.name }}</span>
+                        </div>
+                        <p class="text-gray-800 dark:text-gray-200 pl-7">{{ log.notes }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 pl-7">
                            {{ formatDistanceToNowWithLocale(log.created_at) }}
                         </p>
                     </div>
                 </div>
-                <Empty v-if="!selectedOperatorLogs.length" text="No hay eventos registrados para este operador." />
+                <Empty v-if="!fullProductionLogs.length" text="No hay eventos registrados para esta producción." />
             </div>
         </el-dialog>
     </AppLayout>
@@ -333,7 +387,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
-import { Link } from "@inertiajs/vue3";
+import { Link, router } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { es } from 'date-fns/locale';
@@ -351,9 +405,8 @@ export default {
     data() {
         return {
             selectedSaleProduct: null,
-            logModalVisible: false,
-            selectedOperatorLogs: [],
-            selectedOperatorName: '',
+            historyModalVisible: false,
+            fullProductionLogs: [],
         };
     },
     computed: {
@@ -433,27 +486,41 @@ export default {
         }
     },
     methods: {
+        printOrder() {
+            window.open(route('productions.print', this.sale.id), '_blank');
+        },
         selectProduct(product) {
             this.selectedSaleProduct = product;
         },
-        openLogModal(task) {
-            if (!task?.operator) return;
+        openHistoryModal() {
+            if (!this.selectedProduction?.logs) {
+                this.fullProductionLogs = [];
+                this.historyModalVisible = true;
+                return;
+            }
 
-            this.selectedOperatorName = `${task.operator.name} (${task.name})`;
-            const taskStart = new Date(task.started_at);
-            const taskEnd = task.finished_at ? new Date(task.finished_at) : new Date();
+            const operatorMap = this.selectedProduction.tasks.reduce((map, task) => {
+                if (task.operator) {
+                    map[task.operator.id] = task.operator;
+                }
+                return map;
+            }, {});
 
-            this.selectedOperatorLogs = this.selectedProduction?.logs?.filter(log => {
-                const logDate = new Date(log.created_at);
-                return log.user_id === task.operator.id && logDate >= taskStart && logDate <= taskEnd;
-            }) ?? [];
-            
-            this.logModalVisible = true;
+            this.fullProductionLogs = this.selectedProduction.logs
+                .map(log => ({
+                    ...log,
+                    operator: operatorMap[log.user_id] || { name: 'Operador Desconocido', profile_photo_url: 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=?' }
+                }))
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Sort recent first
+
+            this.historyModalVisible = true;
         },
         getPrimaryDetail(contact, type) {
-            if (!contact.details) return 'No disponible';
-            const detail = contact.details.find(d => d.type === type && d.is_primary);
-            return detail ? detail.value : 'No disponible';
+            if (!contact.details) return null;
+            const primary = contact.details.find(d => d.type === type && d.is_primary);
+            if (primary) return primary.value;
+            const first = contact.details.find(d => d.type === type);
+            return first ? first.value : null;
         },
         formatDateTime(dateString) {
             const date = new Date(dateString);
@@ -583,7 +650,95 @@ export default {
                     console.error('Error deleting sale:', errors);
                 },
             });
-        }
+        },
+        updateTaskStatus(taskId, newStatus, additionalData = {}) {
+            this.$inertia.put(route('production-tasks.updateStatus', taskId), {
+                status: newStatus,
+                ...additionalData
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success(`Tarea actualizada a "${newStatus}"`);
+                },
+                onError: (errors) => {
+                    const errorMessage = Object.values(errors)[0] || 'No se pudo actualizar la tarea.';
+                    ElMessage.error(errorMessage);
+                },
+            });
+        },
+        startTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        resumeTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        pauseTask(task) {
+            ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
+                confirmButtonText: 'Confirmar Pausa',
+                cancelButtonText: 'Cancelar',
+                inputType: 'textarea',
+                inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
+                inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
+            }).then(({ value: pause_reason }) => {
+                this.updateTaskStatus(task.id, 'Pausada', { pause_reason });
+            }).catch(() => ElMessage.info('Acción cancelada'));
+        },
+        reportIssue(task) {
+             ElMessageBox.confirm(
+                `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
+                { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
+            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
+            ).catch(() => ElMessage.info('Acción cancelada'));
+        },
+        async finishTask(task) {
+            if ((task.status === 'En Proceso' || task.status === 'Pausada') && task.started_at) {
+                const startTime = new Date(task.started_at);
+                const now = new Date();
+                const elapsedTimeMinutes = (now.getTime() - startTime.getTime()) / (1000 * 60);
+                const requiredTimeMinutes = task.estimated_time_minutes / 2;
+
+                if (elapsedTimeMinutes < requiredTimeMinutes) {
+                    const remainingMinutes = Math.ceil(requiredTimeMinutes - elapsedTimeMinutes);
+                    ElMessage.warning(`Aún no puedes finalizar. Debes esperar al menos ${remainingMinutes} minuto(s) más.`);
+                    return;
+                }
+            }
+
+            const quantityToProduce = this.selectedSaleProduct.quantity_to_produce;
+
+            try {
+                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
+                    confirmButtonText: 'Siguiente',
+                    cancelButtonText: 'Cancelar',
+                    inputType: 'number',
+                    inputValue: quantityToProduce,
+                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
+                });
+
+                const { value: scrap } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
+                    confirmButtonText: 'Siguiente',
+                    cancelButtonText: 'Cancelar',
+                    inputType: 'number',
+                    inputValue: 0,
+                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
+                });
+
+                let scrap_reason = '';
+                if (scrap > 0) {
+                    const { value: reason } = await ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
+                        confirmButtonText: 'Finalizar Tarea',
+                        cancelButtonText: 'Cancelar',
+                        inputType: 'textarea',
+                        inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
+                    });
+                    scrap_reason = reason;
+                }
+
+                this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
+
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('Error al finalizar la tarea:', error);
+                }
+                ElMessage.info('Acción cancelada');
+            }
+        },
     }
 };
 </script>

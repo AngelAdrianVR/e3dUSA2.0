@@ -4,11 +4,12 @@
             <!-- Encabezado con buscador y acciones -->
             <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-slate-700">
                 <div class="w-full lg:w-1/3">
-                    <el-select @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
+                    <LoadingIsoLogo v-if="loadingProductList" />
+                    <el-select v-else @change="$inertia.get(route('catalog-products.show', selectedCatalogProduct))"
                         v-model="selectedCatalogProduct" filterable placeholder="Buscar otro producto..."
                         class="!w-full"
                         no-data-text="No hay productos registrados" no-match-text="No se encontraron coincidencias">
-                        <el-option v-for="item in catalog_products" :key="item.id"
+                        <el-option class="!w-96" v-for="item in catalog_products" :key="item.id"
                             :label="item.name" :value="item.id" />
                     </el-select>
                 </div>
@@ -105,7 +106,7 @@
                         <p class="text-base text-gray-500 dark:text-gray-400 font-mono mt-1">Código: {{ product.code }}</p>
                     </div>
 
-                    <article class="max-h-[600px] overflow-auto space-y-5">
+                    <article class="max-h-[62vh] overflow-auto space-y-5">
                         <!-- Tarjeta de Detalles Generales -->
                         <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Información General</h2>
@@ -201,7 +202,7 @@
                                             <tbody>
                                                 <tr v-for="pricing in pricings" 
                                                     :key="pricing.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
-                                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }}</td>
+                                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }} {{ pricing.currency }}</td>
                                                     <td class="px-4 py-2">{{ formatDate(pricing.valid_from) }}</td>
                                                     <td class="px-4 py-2 flex items-center justify-between">
                                                         <span>{{ pricing.valid_to ? formatDate(pricing.valid_to) : 'Indefinido' }}</span>
@@ -348,7 +349,7 @@
             <template #footer>
                 <div class="flex space-x-2">
                     <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
+                    <SecondaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</SecondaryButton>
                 </div>
             </template>
         </ConfirmationModal>
@@ -449,6 +450,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import Modal from "@/Components/Modal.vue";
@@ -473,12 +475,12 @@ export default {
         CancelButton,
         DropdownLink,
         PrimaryButton,
+        LoadingIsoLogo,
         SecondaryButton,
         ConfirmationModal,
     },
     props: {
         product: Object,
-        catalog_products: Array, // Es mejor que sea un Array para el select
     },
     data() {
         return {
@@ -502,6 +504,8 @@ export default {
                 notes: '',
                 type: '', // 'Entrada' o 'Salida'
             }),
+            catalog_products: [],
+            loadingProductList: false,
         };
     },
     computed: {
@@ -526,7 +530,7 @@ export default {
         formattedDimensions() {
             const safe = (val) => val ?? "-";
 
-            if (this.product.is_circular) {
+            if (this.product.diameter) {
                 return `Ø ${safe(this.product.diameter)} mm (Diámetro) x ${safe(this.product.width)} mm (Grosor)`;
             }
 
@@ -576,11 +580,11 @@ export default {
                 // llamada al backend (ajusta la ruta a tu endpoint)
                 const response = await axios.put(
                 route("products.simple-update", this.product.id), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
-                { base_price: this.newBasePrice }
+                    { base_price: this.newBasePrice }
                 );
 
                 // actualizar localmente sin recargar la página
-                this.product.base_price = response.data.base_price;
+                router.reload({ only: ['product'] });
 
                 ElMessage.success("Precio actualizado correctamente");
                 this.editDialogVisible = false;
@@ -589,6 +593,25 @@ export default {
                 ElMessage.error("Ocurrió un error al actualizar el precio");
             } finally {
                 this.loadingUpdate = false;
+            }
+        },
+        async fetchProductsList() {
+            try {
+                this.loadingProductList = true;
+
+                // llamada al backend (ajusta la ruta a tu endpoint)
+                const response = await axios.get(route("products.fetch-products-list", { type: 'Todos' }), // se puede modificar el metodo del controlador para actualizar otras variables (queda flexible)
+                );
+
+                if ( response.status === 200 ) {
+                    this.catalog_products = response.data;
+                }
+
+            } catch (error) {
+                console.error(error);
+                ElMessage.error("Error al cargar lista de productos");
+            } finally {
+                this.loadingProductList = false;
             }
         },
         openStockModal(type) {
@@ -667,6 +690,9 @@ export default {
                 this.showConfirmModal = false;
             }
         },
+    },
+    mounted() {
+     this.fetchProductsList();
     },
     watch: {
         // Observador para resetear la imagen actual si el producto cambia
