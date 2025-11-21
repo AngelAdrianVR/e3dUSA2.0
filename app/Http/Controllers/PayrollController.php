@@ -257,7 +257,6 @@ class PayrollController extends Controller
                             break;
                         case 'Incapacidad por trabajo':
                         case 'Permiso con goce':
-                        case 'Día festivo':
                             $totalToPay += $dailySalary;
                             break;
                         case 'Vacaciones':
