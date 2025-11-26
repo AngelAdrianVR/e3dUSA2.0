@@ -159,6 +159,12 @@
                                                     </svg>
                                                     Reestablecer
                                                 </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
+                                                    :command="'delete-' + scope.row.id">
+                                                    <i class="fa-regular fa-trash-can mr-2"></i>
+                                                    Eliminar
+                                                </el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
                                     </el-dropdown>
@@ -192,8 +198,8 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
-import MassiveEditModal from './Partials/MassiveEditModal.vue'; // <-- AÑADIR IMPORTACIÓN
-import { ElMessage } from 'element-plus';
+import MassiveEditModal from './Partials/MassiveEditModal.vue';
+import { ElMessage, ElMessageBox } from 'element-plus'; // <-- AÑADIDO ElMessageBox
 import axios from 'axios';
 import { Link, router } from "@inertiajs/vue3";
 import { debounce } from 'lodash';
@@ -206,7 +212,7 @@ export default {
             search: this.filters.search,
             productType: this.filters.product_type ?? 'Catálogo',
             selectedItems: [],
-            showMassiveEditModal: false, // <-- AÑADIR ESTADO PARA EL MODAL
+            showMassiveEditModal: false,
             productTypes: [
                 { value: 'Catálogo', label: 'Productos de Catálogo' },
                 { value: 'Materia prima', label: 'Materia Prima' },
@@ -221,12 +227,12 @@ export default {
         SearchInput,
         AppLayout,
         Link,
-        MassiveEditModal, // <-- AÑADIR COMPONENTE
+        MassiveEditModal,
     },
     props: {
         products: Object,
         filters: Object,
-        product_families: Array, // <-- AÑADIR PROP
+        product_families: Array,
     },
     computed:{
         totalInventoryCost() {
@@ -251,7 +257,6 @@ export default {
         },
         exportToExcel() {
             this.loadingExport = true;
-            // SE USA EL HELPER route() PARA LA URL CORRECTA
             axios({
                 url: route('catalog-products.export-excel'),
                 method: 'GET',
@@ -302,6 +307,41 @@ export default {
         
             if (commandName === 'show' || commandName === 'edit' || commandName === 'obsolet') {
                  router.get(route('catalog-products.' + commandName, rowId));
+            } else if (commandName === 'delete') {
+                // Confirmación antes de eliminar
+                ElMessageBox.confirm(
+                    '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
+                    'Advertencia',
+                    {
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar',
+                        type: 'warning',
+                        iconColor: '#EF4444'
+                    }
+                )
+                .then(() => {
+                    // Se asume que la ruta RESTful estandar es 'destroy'
+                    router.delete(route('catalog-products.destroy', rowId), {
+                        onSuccess: () => {
+                            ElMessage({
+                                type: 'success',
+                                message: 'Producto eliminado correctamente',
+                            });
+                        },
+                        onError: () => {
+                            ElMessage({
+                                type: 'error',
+                                message: 'No se pudo eliminar el producto',
+                            });
+                        }
+                    });
+                })
+                .catch(() => {
+                    ElMessage({
+                        type: 'info',
+                        message: 'Eliminación cancelada',
+                    });
+                });
             } else if (commandName === 'clone') {
                 this.clone(rowId);
             }
@@ -362,4 +402,3 @@ export default {
     background-color: #3b82f6 !important; /* bg-blue-600 */
 }
 </style>
-

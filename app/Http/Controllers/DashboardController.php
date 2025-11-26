@@ -101,7 +101,7 @@ class DashboardController extends Controller
         // Required Actions Data
         if ( $authUser->hasRole(['Super Administrador', 'Samuel']) ) {
             $requiredActions = [
-                'quotes_to_authorize' => Quote::whereNull('authorized_at')->count(),
+                'quotes_to_authorize' => Quote::where('is_active', true)->whereNull('authorized_at')->count(),
                 'sales_to_authorize' => Sale::whereNull('authorized_at')->count(),
                 'designs_to_authorize' => DesignOrder::whereNull('authorized_at')->count(),
                 'purchases_to_authorize' => Purchase::whereNull('authorized_at')->count(),
