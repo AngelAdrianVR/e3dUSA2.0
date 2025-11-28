@@ -539,6 +539,7 @@ class QuoteController extends Controller
         $threeDaysAgo = Carbon::now()->subDays(3);
         $remainingPendingQuotes = Quote::where('user_id', $user->id)
             ->where('status', 'Esperando respuesta')
+            ->where('is_active', true)
             ->where('created_at', '<=', $threeDaysAgo)
             ->get();
 
