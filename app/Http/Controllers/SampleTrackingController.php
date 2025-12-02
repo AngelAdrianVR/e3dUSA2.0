@@ -125,17 +125,19 @@ class SampleTrackingController extends Controller
 
     public function show(SampleTracking $sampleTracking)
     {
-        $sampleTracking->load(['branch', 'contact.details', 'requester', 'items.itemable']);
+        // 1. Cargamos 'items.itemable.media' para optimizar la consulta y traer las imagenes
+        $sampleTracking->load(['branch', 'contact.details', 'requester', 'items.itemable.media']);
 
         $sampleTracking->items->each(function ($item) {
             $imageUrl = null;
-            if ($item->itemable) {
-                $collectionName = $item->itemable instanceof NewProductProposal ? 'images' : 'images';
-                $media = $item->itemable->getFirstMedia($collectionName);
-                if ($media) {
-                    $imageUrl = $media->getUrl();
-                }
+            
+            // Verificamos si existe el itemable y si tiene el trait de media library o método getFirstMediaUrl
+            if ($item->itemable && method_exists($item->itemable, 'getFirstMediaUrl')) {
+                // Obtenemos la URL directamente. Si no hay imagen, devolverá string vacío o null.
+                // Usamos 'images' ya que vimos en el store que ahí se guardan.
+                $imageUrl = $item->itemable->getFirstMediaUrl('images');
             }
+
             $item->image_url = $imageUrl;
         });
 

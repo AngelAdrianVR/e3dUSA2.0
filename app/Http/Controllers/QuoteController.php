@@ -377,7 +377,7 @@ class QuoteController extends Controller
                 $alertContent = [
                     'type' => 'pending_quotations',
                     'title' => 'Cotizaciones Pendientes',
-                    'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
+                    'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días. Marca como aceptadas o rechazadas para quitar mensaje',
                     'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
                 ];
                 $user->addActiveAlert('pending_quotations', $alertContent);
@@ -549,7 +549,7 @@ class QuoteController extends Controller
             $alertContent = [
                 'type' => 'pending_quotations',
                 'title' => 'Cotizaciones Pendientes',
-                'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
+                'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días. Marca como aceptadas o rechazadas para quitar mensaje',
                 'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
             ];
             $user->addActiveAlert('pending_quotations', $alertContent);

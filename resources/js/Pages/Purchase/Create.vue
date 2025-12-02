@@ -174,7 +174,7 @@
                                             </el-radio-group>
                                         </div>
                                         <div class="md:col-span-2 flex items-center space-x-3">
-                                            <el-checkbox v-model="productForm.needs_mold">¿Requiere molde?</el-checkbox>
+                                            <el-checkbox @change="!productForm.needs_mold ? productForm.mold_price = 0 : ''" v-model="productForm.needs_mold">¿Requiere molde?</el-checkbox>
                                             <TextInput 
                                                 v-if="productForm.needs_mold" 
                                                 v-model.number="productForm.mold_price" 
@@ -549,9 +549,15 @@ export default {
         },
         // Formatear un número como moneda
         formatCurrency(value) {
-            if (value === null || value === undefined) return '$0.00';
-            return Number(value).toLocaleString('es-MX', { style: 'currency', currency: this.form.currency });
-        },
+            if (value === null || value === undefined) return '$0.000';
+
+            return Number(value).toLocaleString('es-MX', { 
+                style: 'currency', 
+                currency: this.form.currency,
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3
+            });
+        }
     }
 };
 </script>
