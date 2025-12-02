@@ -218,7 +218,7 @@
                         <!-- Tarjeta de Producto -->
                         <div v-for="item in sampleTracking.items" :key="item.id" class="flex items-start space-x-4 bg-gray-100 dark:bg-slate-900 p-4 rounded-lg">
                             <img @click="item.itemable_type.includes('NewProductProposal') ? '' : $inertia.visit(route('catalog-products.show', item.itemable.id))" 
-                            :src="item.image_url" @error="$event.target.src='https://placehold.co/100x100/e2e8f0/e2e8f0/png?text=O'" alt="Imagen del producto" 
+                            :src="item.itemable.media[0]?.original_url" @error="$event.target.src='https://placehold.co/100x100/e2e8f0/e2e8f0/png?text=O'" alt="Imagen del producto" 
                             class="size-24 rounded-md object-cover flex-shrink-0 cursor-pointer">
                             <div class="flex-grow">
                                 <p class="font-bold text-lg text-gray-800 dark:text-gray-100">{{ item.itemable.name }}</p>
