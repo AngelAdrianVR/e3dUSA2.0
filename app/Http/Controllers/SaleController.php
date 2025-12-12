@@ -60,6 +60,8 @@ class SaleController extends Controller
         // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
+                    ->where('is_active', true)
+                    ->where('status', 'Aceptada')
                     ->whereDoesntHave('sale')
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
@@ -323,6 +325,8 @@ class SaleController extends Controller
         // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
+                    ->where('is_active', true)
+                    ->where('status', 'Aceptada')
                     ->whereDoesntHave('sale')
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
