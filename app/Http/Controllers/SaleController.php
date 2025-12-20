@@ -809,10 +809,30 @@ class SaleController extends Controller
     {
         // Carga las ventas con las relaciones necesarias para la tabla
         $sales = $branch->sales()
-                        ->with(['user:id,name', 'saleProducts.product:id,name,cost'])
-                        ->latest() // Ordena por las más recientes
-                        ->take(20) // Limita a las 20 más recientes
-                        ->get(['id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'authorized_user_name', 'authorized_at']);
+            ->with([
+                'user:id,name', 
+                'saleProducts.product:id,name,cost', // Necesario para calcular utilidad (append)
+                'invoice:id,folio,sale_id',          // Para mostrar folio de factura
+                // --- Relaciones para el indicador de cambios ---
+                'productExchanges.returnedProduct:id,name',
+                'productExchanges.newProduct:id,name'
+            ])
+            ->latest() // Ordena por las más recientes
+            ->take(20) // Limita a las 20 más recientes
+            ->get([
+                'id', 
+                'branch_id', 
+                'quote_id', 
+                'user_id', 
+                'invoice_id', // Agregado: necesario para v-if="scope.row.invoice_id"
+                'type', 
+                'status', 
+                'total_amount', 
+                'currency',   // Agregado: necesario para mostrar el símbolo correcto
+                'created_at', 
+                'authorized_user_name', 
+                'authorized_at'
+            ]);
 
         return response()->json($sales);
     }

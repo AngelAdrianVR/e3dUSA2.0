@@ -33,6 +33,7 @@ use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\ProductionTaskController;
 use App\Http\Controllers\PurchaseController;
 use App\Http\Controllers\QuoteController;
+use App\Http\Controllers\ReleaseController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
@@ -400,6 +401,22 @@ Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 
 
 // --------------------- Rutas de almacen -----------------------------
 Route::get('/storages', [StorageController::class, 'index'])->name('storages.index');
+
+
+// --------------------- Rutas de actualizaciones -----------------------------
+Route::middleware(['auth', 'verified' /* 'admin' */])->prefix('admin')->name('admin.')->group(function () {
+    
+    // Rutas resource estándar (index, store, create, etc.)
+    Route::resource('releases', ReleaseController::class)->only(['index', 'store', 'create', 'edit', 'update', 'destroy']);
+    
+    // Ruta personalizada para publicar
+    Route::post('releases/{release}/publish', [ReleaseController::class, 'publish'])->name('releases.publish');
+});
+
+// Rutas de Usuario (Interacción General) --------------------------------------------------
+Route::middleware(['auth'])->group(function () {
+    Route::post('/releases/{release}/mark-as-read', [ReleaseController::class, 'markAsRead'])->name('releases.mark-read');
+});
 
 
 // ---------- calendar (events/tasks) routes  ---------------
