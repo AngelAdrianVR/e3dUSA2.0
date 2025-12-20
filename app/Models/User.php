@@ -150,6 +150,13 @@ class User extends Authenticatable implements Auditable
         return $this->hasMany(DesignOrder::class, 'designer_id');
     }
 
+    // marcar actualizaciones vistas --------------
+    public function seenReleases()
+    {
+        return $this->belongsToMany(Release::class, 'release_user')
+                    ->withPivot('read_at');
+    }
+
     public function opportunities()
     {
         return $this->belongsToMany(Opportunity::class, 'opportunity_user')->withPivot('role')->withTimestamps();

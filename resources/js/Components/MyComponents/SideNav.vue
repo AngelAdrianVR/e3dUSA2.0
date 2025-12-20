@@ -660,7 +660,7 @@ export default {
                             label: 'Biblioteca de medios',
                             route: 'media-library.index',
                             active: route().current('media-library.*'),
-                            show: this.$page.props.auth.user.permissions?.includes('Ver biblioteca de medios')
+                            show: this.$page.props.auth.user.permissions?.includes('Ver biblioteca de medios') || true
                         },
                         {
                             label: 'Cotizador de alfombras',
@@ -671,6 +671,12 @@ export default {
                             label: 'Errores o sugerencias',
                             action: this.openReportModal,
                             show: true,
+                        },
+                        {
+                            label: 'Actualizaciones',
+                            route: 'admin.releases.index',
+                            active: route().current('admin.releases.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Gestionar actualizaciones')
                         },
                     ],
                     dropdown: true,

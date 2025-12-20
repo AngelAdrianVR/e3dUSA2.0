@@ -263,9 +263,13 @@ export default {
             products: [],
         });
 
+        // Recuperar la pestaña activa de la URL si existe
+        const queryParams = new URLSearchParams(window.location.search);
+        const tab = queryParams.get('tab');
+
         return {
             form,
-            activeTab: 'general',
+            activeTab: tab || 'general', // Inicializar con el valor de la URL o por defecto
             selectedBranch: this.branch.id,
             showConfirmModal: false,
             showAddProductsModal: false,
@@ -492,6 +496,12 @@ export default {
         },
     },
     watch: {
+        activeTab(newTab) {
+            // Actualizar la URL sin recargar la página cuando cambia la pestaña
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', newTab);
+            window.history.replaceState({}, '', url);
+        },
         'branch.id'(newId, oldId) {
             if (newId !== oldId) {
                 this.selectedBranch = newId;
