@@ -13,7 +13,7 @@ class StockMovement extends Model
         'product_id',
         'storage_id',
         'quantity_change',
-        'type',
+        'type', // 'Entrada', 'Salida'
         'notes',
     ];
 

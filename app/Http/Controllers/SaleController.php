@@ -8,6 +8,7 @@ use App\Models\Quote;
 use App\Models\Sale;
 use App\Models\SaleProduct;
 use App\Models\StockMovement;
+use App\Models\Storage;
 use App\Notifications\SaleAuthorizedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,26 +22,32 @@ class SaleController extends Controller
     public function index(Request $request)
     {
         // Determina si se deben mostrar todas las ventas o solo las del usuario.
-        // El frontend enviará un query param `view=all` para ver todas.
         $showAll = $request->query('view') === 'all';
 
         $query = Sale::query();
 
-        // Si no se solicita ver todo, filtra por el usuario autenticado.
         if (!$showAll) {
             $query->where('user_id', Auth::id());
         }
 
-        $sales = $query->with(['user:id,name', 'branch:id,name', 'saleProducts.product:id,name,cost', 'invoice:id,folio,sale_id'])
-                    ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
-                    ->latest() // Ordena por los más recientes primero
-                    ->paginate(15) // Pagina los resultados
-                    ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación
+        // AGREGADO: 'productExchanges.returnedProduct:id,name' y 'productExchanges.newProduct:id,name'
+        // para tener la info del tooltip sin cargar toda la base de datos.
+        $sales = $query->with([
+                        'user:id,name', 
+                        'branch:id,name', 
+                        'saleProducts.product:id,name,cost', 
+                        'invoice:id,folio,sale_id',
+                        'productExchanges.returnedProduct:id,name', // <--- Carga optimizada para tooltip
+                        'productExchanges.newProduct:id,name'       // <--- Carga optimizada para tooltip
+                    ])
+                    ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at')
+                    ->latest() 
+                    ->paginate(15) 
+                    ->withQueryString(); 
         
-        // Retorna la vista de Inertia con los datos paginados.
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
-            'filters' => $request->only(['view']), // Pasa los filtros actuales a la vista
+            'filters' => $request->only(['view']),
         ]);
     }
 
@@ -301,19 +308,49 @@ class SaleController extends Controller
             'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
-            'productions.tasks', // para darle info al accesor y mostrar estatus de la producción.
+            'productions.tasks', 
             'saleProducts.product.media',
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->orderBy('created_at', 'desc');
             },
             'shipments',
-            'contact:id,name', // Información del contacto
-            'contact.details', // Información del contacto
+            'contact:id,name',
+            'contact.details',
+            // Cargar historial de cambios con sus relaciones necesarias
+            'productExchanges.returnedProduct',
+            'productExchanges.newProduct',
+            'productExchanges.user',
+            'productExchanges.media',
         ]);
 
-        // return $sale;
+        // Listas necesarias para el formulario de cambio
+        $storages = Storage::select('id', 'location')->get();
+        
+        // 2. CORRECCIÓN: Cargar SOLO los productos relacionados con el Cliente (Sucursal)
+        // Usamos join con la tabla pivote 'branch_product' que se menciona en el modelo Branch.
+        // Esto asegura que en el select del modal solo aparezcan productos que el cliente puede comprar/cambiar.
+        $products = [];
+        
+        if ($sale->branch_id) {
+            // Obtenemos la sucursal completa para verificar si tiene matriz (padre)
+            $branch = \App\Models\Branch::find($sale->branch_id);
+            
+            // Si tiene padre, usamos la matriz como fuente de productos. Si no, usamos la sucursal misma.
+            $productSourceBranch = $branch->parent_branch_id 
+                ? \App\Models\Branch::find($branch->parent_branch_id) 
+                : $branch;
+
+            // Obtenemos los productos desde la sucursal fuente correcta
+            $products = $productSourceBranch->products()
+                ->where('is_sellable', true)
+                ->select('products.id', 'products.name', 'products.code')
+                ->get();
+        }
+
         return Inertia::render('Sale/Show', [
-            'sale' => $sale
+            'sale' => $sale,
+            'storages' => $storages,
+            'products' => $products,
         ]);
     }
 
@@ -620,7 +657,14 @@ class SaleController extends Controller
         $query = $request->input('query');
 
         // Realiza la búsqueda
-        $sales = Sale::with(['user:id,name', 'branch', 'saleProducts.product:id,name,cost'])
+        $sales = Sale::with([
+                'user:id,name', 
+                'branch', 
+                'saleProducts.product:id,name,cost',
+                // Agregamos las relaciones necesarias para el tooltip de cambios
+                'productExchanges.returnedProduct:id,name',
+                'productExchanges.newProduct:id,name'
+            ])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")

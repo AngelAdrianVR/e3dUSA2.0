@@ -26,6 +26,7 @@ use App\Http\Controllers\MediaLibraryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductExchangeController;
 use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
@@ -107,8 +108,9 @@ Route::post('/notifications/destroy-selected', [NotificationController::class, '
 // Rutas de Biblioteca de medios
 // routes/web.php
 Route::post('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index');
-// También es buena idea tener una ruta GET para la carga inicial
-Route::get('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index.get');
+Route::get('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index.get'); // También es buena idea tener una ruta GET para la carga inicial
+Route::post('/media-library/store', [MediaLibraryController::class, 'store'])->name('media-library.store');
+Route::delete('/media-library/{media}', [MediaLibraryController::class, 'destroy'])->name('media-library.destroy');
 
 
 // ------- Products Routes ---------
@@ -217,6 +219,18 @@ Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('
 Route::get('sales-fetch-all', [SaleController::class, 'fetchAll'])->middleware('auth')->name('sales.fetch-all');
 Route::get('sales/branch-sales/{branch}', [SaleController::class, 'branchSales'])->middleware('auth')->name('sales.branch-sales');
 Route::get('sales-quality-certificate/{sale}', [SaleController::class, 'QualityCertificate'])->middleware('auth')->name('sales.quality-certificate');
+
+
+// ------- CRM(Ordenes de venta Routes)  ---------
+Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+
+    // Registrar el cambio (POST)
+    Route::post('/product-exchanges', [ProductExchangeController::class, 'store'])->name('product-exchanges.store');
+    // Ver detalles de un cambio (para el formato de impresión)
+    Route::get('/product-exchanges/{id}', [ProductExchangeController::class, 'show'])->name('product-exchanges.show');
+    // Ruta para mostrar formato para imprimir el cambio de producto
+    Route::get('/product-exchanges/print/{id}', [ProductExchangeController::class, 'print'])->name('product-exchanges.print');
+});
 
 
 // ------- CRM(Rutas de facturación)  ---------
