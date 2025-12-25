@@ -53,6 +53,13 @@
                     </button>
                 </el-tooltip>
 
+                <!-- BOTÓN DE CAMBIO DE PRODUCTO -->
+                <el-tooltip v-if="['Preparando Envío', 'Enviada'].includes(sale.status)" content="Registrar Cambio / Devolución" placement="top">
+                    <button @click="openExchangeModal" class="size-9 flex items-center justify-center rounded-lg bg-amber-300 hover:bg-amber-400 dark:bg-amber-800 dark:hover:bg-amber-700 transition-colors">
+                        <i class="fa-solid fa-rotate text-amber-900 dark:text-amber-100"></i>
+                    </button>
+                </el-tooltip>
+
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
@@ -73,7 +80,7 @@
                 <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
                     <template #trigger>
                         <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
-                            Más Acciones <i class="fa-solid fa-chevron-down text-[10px] ml-2"></i>
+                            Más Acciones <i class="fa-solid fa-chevron-down text-[11px] ml-2"></i>
                         </button>
                     </template>
                     <template #content>
@@ -104,8 +111,8 @@
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
-            <!-- === STEPPER DE ESTADO === -->
-            <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
+                <!-- === STEPPER DE ESTADO === -->
+                <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
@@ -145,13 +152,13 @@
                                                 <i class="fa-solid fa-eye"></i> Ver Cliente
                                             </SecondaryButton>
                                             </Link>
-                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
+                                            <span class="text-[11px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
                                         </div>
                                         </div>
                                     </template>
 
                                     <!-- Nombre clickable -->
-                                    <span class="text-blue-500 hover:underline cursor-pointer">
+                                    <span class="text-blue-500 hover:underline cursor-default">
                                         {{ sale.branch?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
@@ -315,28 +322,243 @@
                 </div>
             </div>
 
-            <!-- COLUMNA DERECHA: PRODUCTOS -->
+            <!-- COLUMNA DERECHA: PRODUCTOS Y CAMBIOS -->
             <div class="lg:col-span-2">
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px]">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Productos de la Órden</h3>
-                    <!-- --- SECCIÓN DE PRODUCTOS --- -->
-                    <div v-if="sale.sale_products?.length" class="space-y-3 max-h-[65vh] overflow-auto">
-                        <ProductSaleCard 
-                            v-for="product in sale.sale_products" 
-                            :key="product.id"
-                            :sale-product="product"
-                            :is-high-priority="sale.is_high_priority"
-                            :branch-id="sale.branch_id"
-                            :saleCurrency="sale.currency"
-                        />
+                    
+                    <!-- TABS HEADER -->
+                    <div class="flex space-x-6 border-b dark:border-gray-600 mb-4 px-2">
+                        <button 
+                            @click="activeTab = 'products'" 
+                            class="pb-2 text-sm font-semibold transition-colors relative"
+                            :class="activeTab === 'products' ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                        >
+                            Productos de la Órden
+                        </button>
+                        <button 
+                            @click="activeTab = 'exchanges'" 
+                            class="pb-2 text-sm font-semibold transition-colors relative flex items-center gap-2"
+                            :class="activeTab === 'exchanges' ? 'text-amber-600 dark:text-amber-400 border-b-2 border-amber-600 dark:border-amber-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                        >
+                            Historial de Cambios
+                            <span v-if="sale.product_exchanges?.length" class="bg-gray-100 dark:bg-slate-700 text-xs px-1.5 py-0.5 rounded-full">
+                                {{ sale.product_exchanges.length }}
+                            </span>
+                        </button>
                     </div>
-                    <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
-                        <i class="fa-solid fa-boxes-stacked text-3xl mb-3"></i>
-                        <p>Esta órden no tiene productos registrados.</p>
+
+                    <!-- TAB 1: LISTA ORIGINAL DE PRODUCTOS -->
+                    <div v-if="activeTab === 'products'">
+                        <div v-if="sale.sale_products?.length" class="space-y-3 max-h-[65vh] overflow-auto">
+                            <ProductSaleCard 
+                                v-for="product in sale.sale_products" 
+                                :key="product.id"
+                                :sale-product="product"
+                                :is-high-priority="sale.is_high_priority"
+                                :branch-id="sale.branch_id"
+                                :saleCurrency="sale.currency"
+                            />
+                        </div>
+                        <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
+                            <i class="fa-solid fa-boxes-stacked text-3xl mb-3"></i>
+                            <p>Esta órden no tiene productos registrados.</p>
+                        </div>
                     </div>
+
+                    <!-- TAB 2: HISTORIAL DE CAMBIOS -->
+                    <div v-if="activeTab === 'exchanges'" class="space-y-4 max-h-[65vh] overflow-auto">
+                        <div v-if="sale.product_exchanges?.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-10">
+                            <i class="fa-solid fa-rotate-left text-3xl mb-3 opacity-50"></i>
+                            <p>No se han registrado cambios en esta órden.</p>
+                        </div>
+
+                        <div v-for="(exchange, index) in sale.product_exchanges" :key="exchange.id" 
+                            class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600 text-sm">
+                            
+                            <!-- Header del cambio -->
+                            <div class="flex justify-between items-start mb-3 border-b dark:border-gray-600 pb-2">
+                                <div>
+                                    <span class="font-bold text-amber-600 dark:text-amber-400">
+                                        <i class="fa-solid fa-file-invoice mr-1"></i> Cambio #{{ index + 1 }}
+                                    </span>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Registrado por: {{ exchange.user?.name }} el {{ formatDateTime(exchange.created_at) }}
+                                    </p>
+                                </div>
+                                <div class="text-right">
+                                    <div v-if="Number(exchange.price_difference) !== 0" 
+                                        class="font-mono font-bold"
+                                        :class="Number(exchange.price_difference) > 0 ? 'text-blue-600' : 'text-red-500'"
+                                    >
+                                        {{ Number(exchange.price_difference) > 0 ? '+' : '' }} ${{ Number(exchange.price_difference).toFixed(2) }}
+                                    </div>
+                                    <button @click="printProductChangeFormat(exchange.id)"
+                                        class="text-[11px] uppercase tracking-wider 
+                                                px-4 py-2 rounded-full
+                                                bg-blue-900 text-white
+                                                shadow-sm
+                                                hover:bg-blue-800
+                                                active:scale-95
+                                                transition-all duration-200"
+                                        >
+                                        Imprimir formato de cambio
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Contenido del cambio (Antes vs Después) -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                                <!-- Devolución -->
+                                <div class="bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/30">
+                                    <p class="text-xs font-bold text-red-600 dark:text-red-400 mb-1 flex items-center">
+                                        <i class="fa-solid fa-arrow-right-to-bracket mr-1"></i> DEVOLUCIÓN (Entrada)
+                                    </p>
+                                    <p class="font-medium truncate" :title="exchange.returned_product?.name">
+                                        {{ exchange.returned_quantity }}x {{ exchange.returned_product?.name }}
+                                    </p>
+                                </div>
+                                <!-- Nuevo -->
+                                <div class="bg-green-50 dark:bg-green-900/20 p-2 rounded border border-green-100 dark:border-green-800/30">
+                                    <p class="text-xs font-bold text-green-600 dark:text-green-400 mb-1 flex items-center">
+                                        <i class="fa-solid fa-arrow-right-from-bracket mr-1"></i> ENTREGA (Salida)
+                                    </p>
+                                    <p class="font-medium truncate" :title="exchange.new_product?.name">
+                                        {{ exchange.new_quantity }}x {{ exchange.new_product?.name }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Razón y Evidencia -->
+                            <div class="space-y-2">
+                                <div>
+                                    <span class="font-semibold text-xs text-gray-500 uppercase">Motivo:</span>
+                                    <p class="text-gray-700 dark:text-gray-300 italic bg-white dark:bg-slate-800 p-2 rounded text-xs border dark:border-gray-600">
+                                        "{{ exchange.reason }}"
+                                    </p>
+                                </div>
+                                <div v-if="exchange.media?.length">
+                                    <span class="font-semibold text-xs text-gray-500 uppercase">Evidencia adjunta:</span>
+                                    <div class="flex flex-wrap gap-2 mt-1">
+                                        <a v-for="file in exchange.media" :key="file.id" :href="file.original_url" target="_blank" 
+                                           class="text-xs bg-gray-200 dark:bg-slate-600 px-2 py-1 rounded hover:bg-gray-300 transition-colors flex items-center">
+                                            <i class="fa-solid fa-paperclip mr-1"></i> {{ file.file_name }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </main>
+
+        <!-- === MODAL PARA REGISTRAR CAMBIO === -->
+        <DialogModal :show="showExchangeModal" @close="showExchangeModal = false">
+            <template #title>
+                Registrar Cambio de Producto
+            </template>
+            <template #content>
+                <form @submit.prevent="submitExchange" class="space-y-4">
+                    
+                    <!-- Sección: Producto a Devolver -->
+                    <div class="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-100 dark:border-red-800/30">
+                        <h4 class="font-bold text-red-700 dark:text-red-400 text-sm mb-2">Producto que regresa (Cliente)</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Producto Original</label>
+                                <el-select v-model="exchangeForm.returned_product_id" :teleported="false" placeholder="Selecciona..." class="w-full" filterable>
+                                    <!-- Solo muestra los productos de la venta pero no funciona si se hace mas de una devolucion porque no aparece el nuevo producto cambado -->
+                                    <!-- <el-option 
+                                        v-for="item in sale.sale_products" 
+                                        :key="item.product_id" 
+                                        :label="item.product?.name" 
+                                        :value="item.product_id" 
+                                    /> -->
+                                    <el-option 
+                                        v-for="product in products" 
+                                        :key="product.id" 
+                                        :label="`${product.name}`" 
+                                        :value="product.id" 
+                                    />
+                                </el-select>
+                                <p v-if="exchangeForm.errors.returned_product_id" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.returned_product_id }}</p>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad</label>
+                                <input v-model.number="exchangeForm.returned_quantity" type="number" min="1" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm py-1.5" />
+                                <p v-if="exchangeForm.errors.returned_quantity" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.returned_quantity }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sección: Producto Nuevo -->
+                    <div class="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800/30">
+                        <h4 class="font-bold text-green-700 dark:text-green-400 text-sm mb-2">Producto que sale (Entrega)</h4>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div class="col-span-2">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nuevo Producto</label>
+                                <el-select v-model="exchangeForm.new_product_id" :teleported="false" placeholder="Buscar producto..." class="w-full" filterable>
+                                    <el-option 
+                                        v-for="product in products" 
+                                        :key="product.id" 
+                                        :label="`${product.name}`" 
+                                        :value="product.id" 
+                                    />
+                                </el-select>
+                                <p v-if="exchangeForm.errors.new_product_id" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.new_product_id }}</p>
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Cantidad</label>
+                                <input v-model.number="exchangeForm.new_quantity" type="number" min="1" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm py-1.5" />
+                                <p v-if="exchangeForm.errors.new_quantity" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.new_quantity }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Diferencia de Precio (Opcional)</label>
+                        <input v-model.number="exchangeForm.price_difference" type="number" step="0.01" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm py-1.5" placeholder="Ingresa la diferencia de precio si aplica..." />
+                        <p v-if="exchangeForm.errors.price_difference" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.price_difference }}</p>
+                    </div>
+
+                    <!-- Detalles del movimiento -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Razón del Cambio</label>
+                        <textarea v-model="exchangeForm.reason" rows="3" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Explica por qué se realiza el cambio..."></textarea>
+                        <p v-if="exchangeForm.errors.reason" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.reason }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Evidencia (Fotos)</label>
+                        <input type="file" @change="handleFileChange" multiple accept="image/*" class="block w-full text-xs text-gray-500
+                            file:mr-2 file:py-1.5 file:px-3
+                            file:rounded-md file:border-0
+                            file:text-xs file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100" 
+                        />
+                        <p v-if="exchangeForm.errors.evidence_images" class="text-red-500 text-[11px] mt-1">{{ exchangeForm.errors.evidence_images }}</p>
+                        
+                        <!-- Previsualización de imágenes -->
+                        <div v-if="evidencePreviews.length" class="mt-3 grid grid-cols-4 gap-2">
+                            <div v-for="(preview, index) in evidencePreviews" :key="index" class="relative group">
+                                <img :src="preview" class="w-full h-auto object-cover rounded-md border border-gray-200" />
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showExchangeModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="submitExchange" :disabled="exchangeForm.processing">
+                        {{ exchangeForm.processing ? 'Registrando...' : 'Registrar Cambio' }}
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
 
         <!-- Modal de Confirmación para Eliminar (Sin cambios) -->
         <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
@@ -364,10 +586,13 @@ import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
 import ProductSaleCard from "@/Components/MyComponents/ProductSaleCard.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
+import DialogModal from "@/Components/DialogModal.vue"; // Asegúrate de tener este componente o usa uno equivalente
+import { useForm } from "@inertiajs/vue3"; // Importante para manejar archivos
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
@@ -384,14 +609,18 @@ export default {
         Dropdown,
         AppLayout,
         BranchNotes,
+        DialogModal,
         DropdownLink,
         CancelButton,
+        PrimaryButton,
         SecondaryButton,
         ProductSaleCard,
         ConfirmationModal,
     },
     props: {
         sale: Object,
+        storages: Array,
+        products: Array,
     },
     data() {
         return {
@@ -401,6 +630,20 @@ export default {
             showConfirmModal: false,
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             stockSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Stock Terminado'],
+
+            activeTab: 'products',
+            showExchangeModal: false,
+            evidencePreviews: [], // Array para las URLs de preview
+            exchangeForm: useForm({
+                sale_id: this.sale.id,
+                returned_product_id: null,
+                returned_quantity: 1,
+                new_product_id: null,
+                new_quantity: 1,
+                reason: '',
+                price_difference: null,
+                evidence_images: [],
+            }),
         };
     },
     computed: {
@@ -413,6 +656,9 @@ export default {
     methods: {
         printProductionOrder() {
             window.open(route('productions.print', this.sale.id), '_blank');
+        },
+        printProductChangeFormat(exangeId) {
+            window.open(route('product-exchanges.print', exangeId), '_blank');
         },
         printOrder() {
             window.open(route('sales.print', this.sale.id), '_blank');
@@ -456,6 +702,38 @@ export default {
             if (days < 30) return `Hace ${days} días`;
             if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
             return `Hace ${years} año${years > 1 ? "s" : ""}`;
+        },
+        openExchangeModal() {
+            this.exchangeForm.reset();
+            this.evidencePreviews = []; // Limpiar previews
+            this.showExchangeModal = true;
+        },
+        handleFileChange(e) {
+            const files = Array.from(e.target.files);
+            this.exchangeForm.evidence_images = files;
+
+            // Generar previsualizaciones
+            this.evidencePreviews = [];
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.evidencePreviews.push(e.target.result);
+                };
+                reader.readAsDataURL(file);
+            });
+        },
+        submitExchange() {
+            this.exchangeForm.post(route('product-exchanges.store'), {
+                onSuccess: () => {
+                    this.showExchangeModal = false;
+                    ElMessage.success('Cambio registrado exitosamente');
+                    this.activeTab = 'exchanges';
+                },
+                onError: (errors) => {
+                    ElMessage.error('Error al registrar el cambio. Revisa los campos marcados.');
+                    console.error(errors);
+                }
+            });
         },
         async authorize() {
             try {

@@ -38,6 +38,7 @@ class CheckPendingQuotations extends Command
         // 1. Obtener todas las cotizaciones pendientes agrupadas por su creador (user_id)
         $pendingQuotesByUser = Quote::where('status', 'Esperando respuesta')
             ->where('created_at', '<=', $threeDaysAgo)
+            ->where('is_active', true)
             ->get()
             ->groupBy('user_id'); // Agrupamos por el ID del creador
 
@@ -64,7 +65,7 @@ class CheckPendingQuotations extends Command
                 $alertContent = [
                     'type' => 'pending_quotations',
                     'title' => 'Cotizaciones Pendientes',
-                    'message' => 'Tienes ' . $quotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
+                    'message' => 'Tienes ' . $quotes->count() . ' cotización(es) sin respuesta por más de 3 días. Marca como aceptadas o rechazadas para quitar mensaje',
                     'quote_ids' => $quotes->pluck('id')->toArray(), // Guardamos solo los IDs
                 ];
 

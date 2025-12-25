@@ -66,14 +66,50 @@
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="30" />
-                            <el-table-column prop="id" label="Folio" width="120">
+                            <el-table-column prop="id" label="Folio" width="140"> <!-- Aumenté ligeramente el width para el icono extra -->
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
+                                        <!-- Icono de Tipo (Venta/Stock) -->
                                         <el-tooltip :content="scope.row.type === 'venta' ? 'Orden de Venta' : 'Orden de Stock'" placement="top">
                                             <i :class="scope.row.type === 'venta' ? 'fa-solid fa-cart-shopping text-purple-500' : 'fa-solid fa-box text-rose-500'"></i>
                                         </el-tooltip>
-                                        <span v-if="scope.row.type === 'venta'">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
-                                        <span v-else>{{ 'OS-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        
+                                        <!-- Folio Text -->
+                                        <span v-if="scope.row.type === 'venta'" class="font-semibold">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        <span v-else class="font-semibold">{{ 'OS-' + scope.row.id.toString().padStart(4, '0') }}</span>
+
+                                        <!-- NUEVO: Indicador de Cambio/Garantía -->
+                                        <div v-if="scope.row.product_exchanges?.length" class="ml-1">
+                                            <el-tooltip placement="right" effect="light">
+                                                <template #content>
+                                                    <div class="text-xs p-1 max-w-xs">
+                                                        <p class="font-bold text-amber-600 mb-2 border-b border-amber-200 pb-1 flex items-center">
+                                                            <i class="fa-solid fa-circle-exclamation mr-1"></i>
+                                                            Cambio(s) registrado(s)
+                                                        </p>
+                                                        <ul class="space-y-2">
+                                                            <li v-for="exchange in scope.row.product_exchanges" :key="exchange.id" class="bg-slate-50 p-1.5 rounded border border-slate-100">
+                                                                <div class="flex items-center gap-1 text-red-600 mb-0.5">
+                                                                    <i class="fa-solid fa-arrow-right-to-bracket text-[10px]"></i>
+                                                                    <span class="font-semibold">Devolvió:</span> 
+                                                                    <span class="text-gray-600 truncate">{{ exchange.returned_product?.name }}</span>
+                                                                </div>
+                                                                <div class="flex items-center gap-1 text-green-600">
+                                                                    <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
+                                                                    <span class="font-semibold">Llevó:</span> 
+                                                                    <span class="text-gray-600 truncate">{{ exchange.new_product?.name }}</span>
+                                                                </div>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </template>
+                                                <!-- El ícono visible en la tabla -->
+                                                <div class="cursor-help bg-amber-100 hover:bg-amber-200 text-amber-600 rounded-full size-5 flex items-center justify-center transition-colors">
+                                                    <i class="fa-solid fa-rotate text-[10px]"></i>
+                                                </div>
+                                            </el-tooltip>
+                                        </div>
+
                                     </div>
                                 </template>
                             </el-table-column>

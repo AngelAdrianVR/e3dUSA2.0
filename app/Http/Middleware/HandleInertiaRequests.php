@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Attendance;
 use App\Models\AuthorizedDevice;
 use App\Models\Payroll;
+use App\Models\Release; // Importante: Importar el modelo Release
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -42,10 +43,24 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
         $attendanceStatus = null;
         $payrollPeriods = collect();
+        $popupRelease = null;
 
-        // Si el usuario está autenticado, cargamos sus detalles de empleado.
+        // Si el usuario está autenticado, cargamos sus detalles de empleado y lógica de releases.
         if ($user) {
             $user->load(['employeeDetail', 'roles']);
+
+            // --- LÓGICA DE RELEASES / ACTUALIZACIONES ---
+            // Buscamos la release publicada más antigua que el usuario NO haya visto
+            $popupRelease = Release::where('is_published', true)
+                ->whereDoesntHave('users', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })
+                ->with(['items' => function ($query) {
+                    $query->orderBy('order');
+                }, 'items.media']) // Cargar items ordenados y sus imágenes
+                ->orderBy('published_at', 'asc')
+                ->first();
+            // ---------------------------------------------
 
             // Si tiene un perfil de empleado, procedemos a buscar sus datos de asistencia.
             if ($user->employeeDetail) {
@@ -110,6 +125,7 @@ class HandleInertiaRequests extends Middleware
             'attendance_status' => $attendanceStatus,
             'payroll_periods' => $payrollPeriods,
             'is_authorized_device' => $isAuthorizedDevice,
+            'popupRelease' => $popupRelease, // <--- AQUÍ PASAMOS LA VARIABLE AL FRONTEND
             'flash' => function () use ($request) {
                 return [
                     'success' => $request->session()->get('success'),

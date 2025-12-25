@@ -55,13 +55,21 @@
                     </figure>
 
                     <!-- Información de almacén y precios -->
-                    <div>
+                    <div class="flex-1">
                         <span v-if="saleType === 'venta' && currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
                             Producto de cliente
                         </span>
-                        <p class="text-gray-500 dark:text-gray-300">
-                            Stock (P. Terminado): <strong>{{ currentProduct.storages[0]?.quantity ?? 0 }}</strong> unidades
-                        </p>
+                        
+                        <!-- STOCK DE PRODUCTO TERMINADO (Modificado) -->
+                        <div class="text-gray-500 dark:text-gray-300 flex items-center flex-wrap">
+                            Stock (P. Terminado):&nbsp;
+                            <strong :class="{'text-red-600 flex items-center ml-1': (currentProduct.storages[0]?.quantity ?? 0) == 0}">
+                                <i v-if="(currentProduct.storages[0]?.quantity ?? 0) == 0" class="fa-solid fa-circle-exclamation mr-1 text-red-500 animate-pulse"></i>
+                                {{ currentProduct.storages[0]?.quantity ?? 0 }}
+                            </strong>
+                            &nbsp;unidades
+                        </div>
+
                         <p class="text-gray-500 dark:text-gray-300">
                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                         </p>
@@ -74,9 +82,45 @@
                     </div>
                 </div>
 
-                <!-- --- INICIO DE LA NUEVA SECCIÓN DE COMPONENTES --- -->
+                <!-- ALERTA DE MATERIA PRIMA INSUFICIENTE -->
+                <div v-if="showStockWarning" class="col-span-full mt-4 animate-fade-in-down">
+                    <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-0.5"></i>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-bold text-red-800 dark:text-red-400">
+                                    Atención: Insuficiencia de Material
+                                </h3>
+                                <p class="text-sm text-red-700 dark:text-red-300 mt-1">
+                                    Reportar falta de materia prima a autoridad correspondiente.
+                                </p>
+                                <p class="text-xs text-red-600 dark:text-red-400 mt-1 opacity-90">
+                                    Solicitado: <strong>{{ Number(currentProduct.quantity)?.toLocaleString() }}</strong> | 
+                                    Disponible (Stock + Producción): <strong>{{ totalAvailableForOrder?.toLocaleString() }}</strong> | 
+                                    Faltante: <strong>{{ Number(currentProduct.quantity - totalAvailableForOrder)?.toLocaleString() }}</strong>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- --- SECCIÓN DE COMPONENTES --- -->
                 <div v-if="currentProduct.components?.length" class="mt-4 pt-4 border-t border-gray-300 dark:border-slate-800">
-                    <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">Componentes para Producción</h4>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 gap-2">
+                        <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Componentes para Producción</h4>
+                        
+                        <!-- INDICADOR DE CAPACIDAD DE PRODUCCIÓN -->
+                        <div class="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700 shadow-sm flex items-center">
+                            <i class="fa-solid fa-boxes-stacked mr-2"></i>
+                            <span>
+                                Capacidad Máxima de Producción: 
+                                <strong class="text-sm ml-1">{{ formatNumber(maxProducibleQuantity) }}</strong> sets
+                            </span>
+                        </div>
+                    </div>
+
                     <ul class="space-y-2">
                         <li v-for="component in currentProduct.components" :key="component.id" class="flex items-center justify-between text-sm p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
                             <div class="flex items-center space-x-3">
@@ -302,6 +346,36 @@ export default {
             set(value) {
                 this.$emit('update:modelValue', value);
             }
+        },
+        // Calcula cuántos productos completos se pueden hacer según el stock de componentes
+        maxProducibleQuantity() {
+            if (!this.currentProduct.components?.length) return 0;
+            
+            // Mapeamos cada componente para ver para cuántos productos alcanza su stock
+            const limits = this.currentProduct.components.map(component => {
+                const stock = Number(component.storages?.[0]?.quantity || 0);
+                const required = Number(component.pivot?.quantity || 1);
+                
+                if (required === 0) return Infinity; // Evitar división por cero
+                
+                return Math.floor(stock / required);
+            });
+
+            // Retornamos el mínimo. Si algún componente limita la producción a 5, esa es la respuesta.
+            return Math.min(...limits);
+        },
+        // Suma del stock terminado existente + lo que se puede producir
+        totalAvailableForOrder() {
+             const finishedStock = Number(this.currentProduct.storages?.[0]?.quantity || 0);
+             return finishedStock + this.maxProducibleQuantity;
+        },
+        // Determina si se debe mostrar la advertencia
+        showStockWarning() {
+             // Solo mostrar si hay producto seleccionado y la cantidad es mayor a 0
+             if (!this.currentProduct.id || this.currentProduct.quantity <= 0) return false;
+             
+             // Si lo solicitado es mayor a lo que hay en stock + lo que se puede fabricar
+             return this.currentProduct.quantity > this.totalAvailableForOrder;
         }
     },
     methods: {

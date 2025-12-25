@@ -17,7 +17,9 @@ class FavoredProductController extends Controller
      */
     public function index(Supplier $supplier)
     {
+        // CORRECCIÓN: Filtramos para traer solo los que tienen stock mayor a 0
         $favoredProducts = $supplier->favoredProducts()
+            ->where('quantity', '>', 0)
             ->with(['product.media', 'product:id,name,code,measure_unit'])
             ->get();
         
@@ -70,7 +72,7 @@ class FavoredProductController extends Controller
             // Cargar product.media para consistencia con el frontend
             $favoredProduct->load('product.media');
             
-            // Si la cantidad es 0, el frontend lo manejará (lo quitará de la lista)
+            // Si la cantidad es 0, el frontend lo manejará (lo quitará de la lista mediante splice)
             return response()->json($favoredProduct);
 
         } catch (\Exception $e) {

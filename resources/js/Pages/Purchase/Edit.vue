@@ -154,7 +154,7 @@
                                             </el-radio-group>
                                         </div>
                                         <div class="md:col-span-2 flex items-center space-x-3">
-                                            <el-checkbox v-model="productForm.needs_mold">¿Requiere molde?</el-checkbox>
+                                            <el-checkbox @change="!productForm.needs_mold ? productForm.mold_price = 0 : ''" v-model="productForm.needs_mold">¿Requiere molde?</el-checkbox>
                                             <TextInput 
                                                 v-if="productForm.needs_mold" 
                                                 v-model.number="productForm.mold_price" 
@@ -214,7 +214,7 @@
                                         </el-table-column>
                                         <el-table-column label="Total" width="150" align="right">
                                             <template #default="scope">
-                                                <span v-if="scope.row.unit_price && scope.row.unit_price > 0">{{ formatCurrency((scope.row.quantity * scope.row.unit_price) + (scope.row.mold_price || 0)) }}</span>
+                                                <span v-if="scope.row.unit_price && scope.row.unit_price > 0">{{ formatCurrency((scope.row.quantity * scope.row.unit_price) + (parseFloat(scope.row.mold_price) || 0)) }}</span>
                                                 <span v-else>{{ form.is_spanish_template ? 'Por definir' : 'To be defined' }}</span>
                                             </template>
                                         </el-table-column>
@@ -486,9 +486,15 @@ export default {
             this.form.current_media = this.form.current_media.filter(file => file.id !== fileId);
         },
         formatCurrency(value) {
-            if (value === null || value === undefined) return '$0.00';
-            return Number(value).toLocaleString('es-MX', { style: 'currency', currency: this.form.currency });
-        },
+            if (value === null || value === undefined) return '$0.000';
+
+            return Number(value).toLocaleString('es-MX', { 
+                style: 'currency', 
+                currency: this.form.currency,
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3
+            });
+        }
     }
 };
 </script>

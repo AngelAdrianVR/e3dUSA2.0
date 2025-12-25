@@ -100,6 +100,14 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->hasMany(Shipment::class);
     }
 
+    /**
+     * Relación con los cambios de producto (Intercambios/RMA)
+     */
+    public function productExchanges(): HasMany
+    {
+        return $this->hasMany(ProductExchange::class);
+    }
+
     public function productions(): HasManyThrough
     {
         return $this->hasManyThrough(Production::class, SaleProduct::class);

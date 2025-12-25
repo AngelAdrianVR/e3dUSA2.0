@@ -128,7 +128,7 @@
     <DialogModal :show="showAddProductsModal" @close="showAddProductsModal = false">
         <template #title>
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos a {{ branches?.find(b => b.id = branchId)?.name }}
+                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos a {{ branches?.find(b => b.id == branchId)?.name }}
             </h2>
         </template>
         <template #content>
