@@ -6,7 +6,7 @@
             style="width: 100%" 
             max-height="600"
             @row-click="handleRowClick"
-            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300"
+            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300 !h-[500px]"
             stripe>
             
             <!-- Folio -->

@@ -226,7 +226,7 @@ onMounted(() => {
                         leave-from-class="opacity-100 translate-y-0 sm:scale-100"
                         leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                     >
-                        <div v-if="popupRelease" class="relative bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl overflow-hidden transform transition-all w-full max-w-lg flex flex-col max-h-[90vh]">
+                        <div v-if="popupRelease" class="relative bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl overflow-hidden transform transition-all w-full max-w-3xl flex flex-col max-h-[90vh]">
                             
                             <!-- Header con Versión y Botón Cerrar -->
                             <div class="flex items-center justify-between p-6 pb-2">
@@ -250,7 +250,7 @@ onMounted(() => {
                                         <!-- Asumiendo que usas Spatie Media Library y el JSON trae 'media' -->
                                         <img v-if="item.media && item.media[0]" 
                                              :src="item.media[0].original_url" 
-                                             class="w-full h-full object-cover" 
+                                             class="w-full h-full object-contain" 
                                              alt="Update preview">
                                         <div v-else class="text-gray-400 dark:text-zinc-600 flex flex-col items-center">
                                             <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>

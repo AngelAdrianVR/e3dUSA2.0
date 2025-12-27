@@ -12,40 +12,63 @@ use Inertia\Inertia;
 class InvoiceController extends Controller
 {
    public function index(Request $request)
-    {
-        // Pestaña 1: Todas las facturas registradas.
-        $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
-            ->orderBy('sale_id', 'desc')
-            ->orderBy('installment_number', 'asc')
-            ->paginate(10, ['*'], 'invoices_page');
+{
+    // Capturamos el filtro de cliente desde la URL
+    $clientId = $request->get('client_id');
 
-        // Pestaña 2: Órdenes de venta que requieren facturación.
-        // Se cambió `havingRaw` por `whereRaw` con una subconsulta para evitar
-        // errores de SQL con el modo ONLY_FULL_GROUP_BY en MySQL. La lógica sigue siendo la misma:
-        // mostrar OVs cuyo total es mayor que la suma de sus facturas no canceladas.
-        $salesWithoutInvoice = Sale::with(['branch:id,name'])
-            ->withSum(['invoices as total_invoiced' => function($query) {
-                $query->where('status', '!=', 'Cancelada');
-            }], 'amount')
-            ->withCount('invoices as invoices_count')
-            ->where('status', '!=', 'Cancelada')
-            ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
-            ->latest('id')
-            ->paginate(10, ['*'], 'sales_page');
+    // Obtenemos la lista de clientes (sucursales) para el selector filtrable
+    // Ajusta el nombre del modelo según tu proyecto (asumo Branch por el contexto previo)
+    $branches = \App\Models\Branch::select('id', 'name')
+        ->orderBy('name')
+        ->get();
 
-        // Pestaña 3: Facturas por cobrar.
-        $pendingInvoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name', 'payments'])
-            ->whereIn('status', ['Pendiente', 'Vencida'])
-            ->orderBy('due_date', 'asc')
-            ->paginate(10, ['*'], 'pending_page');
-            
-        return Inertia::render('Invoice/Index', [
-            'invoices' => $invoices,
-            'salesWithoutInvoice' => $salesWithoutInvoice,
-            'pendingInvoices' => $pendingInvoices,
-            'active_tab_prop' => $request->get('tab', 'all_invoices'),
-        ]);
-    }
+    // Pestaña 1: Todas las facturas registradas.
+    $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
+        // Filtramos por cliente si el ID está presente
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->orderBy('sale_id', 'desc')
+        ->orderBy('installment_number', 'asc')
+        ->paginate(10, ['*'], 'invoices_page')
+        ->withQueryString(); // Mantiene tab y client_id en los links de paginación
+
+    // Pestaña 2: Órdenes de venta que requieren facturación.
+    $salesWithoutInvoice = Sale::with(['branch:id,name'])
+        ->withSum(['invoices as total_invoiced' => function($query) {
+            $query->where('status', '!=', 'Cancelada');
+        }], 'amount')
+        ->withCount('invoices as invoices_count')
+        ->where('status', '!=', 'Cancelada')
+        // Aplicamos el filtro de cliente aquí también
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+        ->latest('id')
+        ->paginate(10, ['*'], 'sales_page')
+        ->withQueryString();
+
+    // Pestaña 3: Facturas por cobrar.
+    $pendingInvoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name', 'payments'])
+        ->whereIn('status', ['Pendiente', 'Vencida', 'Parcialmente pagada'])
+        // Aplicamos el filtro de cliente
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->orderBy('due_date', 'asc')
+        ->paginate(10, ['*'], 'pending_page')
+        ->withQueryString();
+        
+    return Inertia::render('Invoice/Index', [
+        'invoices' => $invoices,
+        'salesWithoutInvoice' => $salesWithoutInvoice,
+        'pendingInvoices' => $pendingInvoices,
+        'branches' => $branches, // Pasamos la lista para el el-select
+        'active_tab_prop' => $request->get('tab', 'all_invoices'), // Persistencia de pestaña
+        'client_id_prop' => $clientId, // Persistencia del filtro seleccionado
+    ]);
+}
     
     public function create(Request $request)
     {
