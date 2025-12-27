@@ -125,10 +125,16 @@
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
                                 <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
-                                <p v-if="getPrimaryDetail(contact, 'Teléfono')">
-                                    <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
-                                    {{ formatPhone(getPrimaryDetail(contact, 'Teléfono')) }}
-                                </p>
+                                
+                                <!-- MODIFICACIÓN: Mostrar todos los teléfonos -->
+                                <template v-if="getContactDetails(contact, 'Teléfono').length">
+                                    <p v-for="phone in getContactDetails(contact, 'Teléfono')" :key="phone.id" class="flex items-center">
+                                        <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
+                                        {{ formatPhone(phone.value) }}
+                                        <el-tag v-if="phone.is_primary" type="success" size="small" class="ml-2 !h-5 !px-1.5 text-[10px]">Principal</el-tag>
+                                    </p>
+                                </template>
+                                
                                 <p v-if="contact.birthdate">
                                     <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
                                 </p>
@@ -347,6 +353,11 @@ export default {
                     ElMessage.error('Ocurrió un error al eliminar el contacto');
                 }
             });
+        },
+        // MÉTODO NUEVO: Obtiene todos los detalles de un tipo especifico
+        getContactDetails(contact, type) {
+            if (!contact.details) return [];
+            return contact.details.filter(d => d.type === type);
         },
         getPrimaryDetail(contact, type) {
             if (!contact.details) return 'No disponible';

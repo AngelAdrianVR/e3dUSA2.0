@@ -253,23 +253,108 @@
                     </div>
                     
                     <!-- Información del Envío -->
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
-                        <div>
-                            <p class="font-semibold text-gray-600 dark:text-gray-400">Fecha Promesa</p>
-                            <span>{{ formatDate(shipment.promise_date) || 'N/A' }}</span>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <!-- Sección Izquierda: Datos del Envío -->
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="col-span-2 sm:col-span-1">
+                                <p class="font-semibold text-gray-600 dark:text-gray-400">Fecha Promesa</p>
+                                <span>{{ formatDate(shipment.promise_date) || 'N/A' }}</span>
+                            </div>
+                            <div class="col-span-2 sm:col-span-1">
+                                <p class="font-semibold text-gray-600 dark:text-gray-400">Paquetería</p>
+                                <span>{{ shipment.shipping_company ?? 'N/A' }}</span>
+                            </div>
+                            <div class="col-span-2">
+                                <p class="font-semibold text-gray-600 dark:text-gray-400">Guía de Rastreo</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span v-if="shipment.tracking_guide" class="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-sm select-all border dark:border-gray-600">
+                                        {{ shipment.tracking_guide }}
+                                    </span>
+                                    <span v-else class="text-gray-400 italic">No asignada</span>
+                                    
+                                    <el-tooltip content="Editar información de rastreo" placement="top">
+                                        <button @click="openGuideModal(shipment)" class="text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1 rounded transition-colors">
+                                            <i class="fa-solid fa-pencil"></i>
+                                        </button>
+                                    </el-tooltip>
+                                </div>
+                            </div>
                         </div>
-                         <div>
-                            <p class="font-semibold text-gray-600 dark:text-gray-400">Paquetería</p>
-                            <span>{{ shipment.shipping_company ?? 'N/A' }}</span>
-                        </div>
-                         <div>
-                            <p class="font-semibold text-gray-600 dark:text-gray-400">Guía de Rastreo</p>
-                            <span>{{ shipment.tracking_guide ?? 'N/A' }}</span>
+
+                        <!-- Sección Derecha: Evidencias -->
+                        <div class="border-t sm:border-t-0 sm:border-l dark:border-gray-600 pt-4 sm:pt-0 sm:pl-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 flex items-center">
+                                    <i class="fa-solid fa-camera mr-2 text-gray-400"></i> Evidencia de Entrega
+                                </h4>
+                                <button @click="openEvidenceModal(shipment)" class="text-[11px] bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors">
+                                    <i class="fa-solid fa-plus"></i> Añadir
+                                </button>
+                            </div>
+                            
+                            <div v-if="shipment.media?.length" class="max-h-32 overflow-y-auto pr-1">
+                                <div
+                                    v-if="shipment.media?.length"
+                                    class="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto pr-1"
+                                >
+                                    <div
+                                        v-for="file in shipment.media"
+                                        :key="file.id"
+                                        class="relative group"
+                                    >
+                                        <!-- Popconfirm eliminar -->
+                                        <el-popconfirm
+                                            title="¿Eliminar este archivo?"
+                                            confirm-button-text="Sí"
+                                            cancel-button-text="Cancelar"
+                                            @confirm="deleteMedia(file.id)"
+                                        >
+                                            <template #reference>
+                                                <button
+                                                    class="absolute top-1 right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
+                                                    title="Eliminar"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </template>
+                                        </el-popconfirm>
+
+                                        <!-- Archivo -->
+                                        <a
+                                            :href="file.original_url"
+                                            target="_blank"
+                                            class="flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-700 border dark:border-gray-600 rounded p-2 hover:bg-gray-100 transition-colors text-center"
+                                        >
+                                            <!-- Miniatura -->
+                                            <img
+                                                v-if="file.mime_type.includes('image')"
+                                                :src="file.original_url"
+                                                alt="Imagen"
+                                                class="w-full h-16 object-cover rounded mb-1"
+                                            />
+
+                                            <!-- PDF -->
+                                            <i
+                                                v-else
+                                                class="fa-regular fa-file-pdf text-lg text-red-500 mb-1"
+                                            ></i>
+
+                                            <span class="text-[10px] text-gray-600 dark:text-gray-400 truncate w-full">
+                                                {{ file.file_name }}
+                                            </span>
+                                        </a>
+                                    </div>
+                                </div>
+                                </div>
+
+                            <div v-else class="text-center py-4 bg-gray-50 dark:bg-slate-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
+                                <p class="text-xs text-gray-400 italic">Sin evidencias adjuntas</p>
+                            </div>
                         </div>
                     </div>
                     
                     <!-- Productos en este envío -->
-                     <h4 class="text-md font-semibold mb-2 mt-5">Productos en este envío</h4>
+                     <h4 class="text-md font-semibold mb-2 mt-5 border-t dark:border-gray-600 pt-3">Productos en este envío</h4>
                     <div v-if="shipment.shipment_products?.length" class="space-y-3 max-h-[65vh] overflow-auto pr-2">
                        <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="sale.status" />
                     </div>
@@ -305,7 +390,7 @@
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL ETIQUETA DE ENVÍO MEJORADO ===== -->
+        <!-- ===== MODAL ETIQUETA DE ENVÍO ===== -->
         <el-dialog v-model="labelModalVisible" title="Crear Etiquetas para el Envío" width="900px">
             <div v-if="labelForm.shipment">
                 <!-- SECCIÓN DE PRODUCTOS DISPONIBLES -->
@@ -366,6 +451,62 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- ===== MODAL INFORMACIÓN DE RASTREO (NUEVO) ===== -->
+        <el-dialog v-model="showGuideModal" title="Información de Rastreo" width="500px">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                    <el-input v-model="guideForm.shipping_company" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
+                    <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-xs mt-1">{{ guideForm.errors.shipping_company }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                    <el-input v-model="guideForm.tracking_guide" placeholder="Ingresa el número de rastreo..." />
+                    <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-xs mt-1">{{ guideForm.errors.tracking_guide }}</p>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showGuideModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitGuide" :loading="guideForm.processing">
+                        Guardar Información
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- ===== MODAL SUBIR EVIDENCIA (NUEVO) ===== -->
+        <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
+            <div class="space-y-4">
+                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
+                    <input type="file" @change="handleEvidenceFileChange" multiple accept="image/*,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div class="space-y-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400"></i>
+                            <p class="text-sm text-gray-500">Haz clic o arrastra archivos aquí</p>
+                            <p class="text-xs text-gray-400">(Imágenes o PDF, máx 5MB)</p>
+                    </div>
+                </div>
+                <p v-if="evidenceForm.errors.evidence_files" class="text-red-500 text-xs mt-1">{{ evidenceForm.errors.evidence_files }}</p>
+
+                <!-- Previsualización -->
+                    <div v-if="evidenceForm.evidence_files.length" class="mt-3 space-y-2">
+                    <p class="text-xs font-semibold uppercase text-gray-500">Archivos seleccionados:</p>
+                    <div v-for="(file, idx) in evidenceForm.evidence_files" :key="idx" class="text-xs flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
+                        <i class="fa-solid fa-file mr-2"></i> {{ file.name }}
+                    </div>
+                    </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showEvidenceModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitEvidence" :loading="evidenceForm.processing" :disabled="!evidenceForm.evidence_files.length">
+                        Subir Archivos
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -374,9 +515,11 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ShipmentProductCard from "@/Components/MyComponents/ShipmentProductCard.vue";
-import { Link, router } from "@inertiajs/vue3";
+import { Link, router, useForm } from "@inertiajs/vue3";
 import { format, parseISO  } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ElMessage } from 'element-plus';
+import axios from 'axios';
 
 export default {
     name: 'ShipmentShow',
@@ -405,6 +548,19 @@ export default {
                 boxes: [],
             },
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
+            
+            // --- NUEVO: State para Guía y Evidencias ---
+            showGuideModal: false,
+            guideForm: useForm({
+                shipment_id: null,
+                shipping_company: '',
+                tracking_guide: '',
+            }),
+            showEvidenceModal: false,
+            evidenceForm: useForm({
+                shipment_id: null,
+                evidence_files: [],
+            }),
         }
     },
     computed: {
@@ -446,6 +602,22 @@ export default {
         }
     },
     methods: {
+        async deleteMedia(mediaId) {
+            try {
+                await axios.delete(route('media.delete-file', mediaId))
+
+                // Remover del array local
+                window.location.reload();
+                // this.sale.shipment.media = this.shipment.media.filter(
+                //     media => media.id !== mediaId
+                // )
+
+                this.$message.success('Archivo eliminado correctamente')
+            } catch (error) {
+                console.error(error)
+                this.$message.error('Error al eliminar el archivo')
+            }
+        },
         formatDateTime(dateString) {
             const date = new Date(dateString);
             return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
@@ -549,6 +721,40 @@ export default {
                 </footer>
             </div>`;
         },
+        // --- MÉTODOS NUEVOS (Guía y Evidencia) ---
+        openGuideModal(shipment) {
+            this.guideForm.shipment_id = shipment.id;
+            this.guideForm.shipping_company = shipment.shipping_company;
+            this.guideForm.tracking_guide = shipment.tracking_guide;
+            this.showGuideModal = true;
+        },
+        submitGuide() {
+            this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
+                onSuccess: () => {
+                    this.showGuideModal = false;
+                    ElMessage.success('Guía actualizada correctamente');
+                },
+                onError: () => ElMessage.error('Error al actualizar la guía.')
+            });
+        },
+        openEvidenceModal(shipment) {
+            this.evidenceForm.reset();
+            this.evidenceForm.shipment_id = shipment.id;
+            this.showEvidenceModal = true;
+        },
+        handleEvidenceFileChange(e) {
+            this.evidenceForm.evidence_files = Array.from(e.target.files);
+        },
+        submitEvidence() {
+            this.evidenceForm.post(route('shipments.store-evidence', this.evidenceForm.shipment_id), {
+                onSuccess: () => {
+                    this.showEvidenceModal = false;
+                    this.evidenceForm.reset();
+                    ElMessage.success('Evidencia subida correctamente');
+                },
+                onError: () => ElMessage.error('Error al subir la evidencia.')
+            });
+        },
         // --- MÉTODOS EXISTENTES ---
         getAvailableStock(saleProduct) {
             const quantityTakenOfStock = saleProduct.quantity - saleProduct.quantity_to_produce
@@ -562,14 +768,6 @@ export default {
                 return availableStock >= item.quantity;
             });
         },
-        // metodo sin modificaciones
-        // isShipmentReady(shipment) {
-        //     if (!shipment.shipment_products) return false;
-        //     return shipment.shipment_products.every(item => {
-        //         const availableStock = this.getAvailableStock(item.sale_product.product);
-        //         return availableStock >= item.quantity;
-        //     });
-        // },
         openConfirmationDialog(shipment) {
             this.form.id = shipment.id;
             this.form.notes = shipment.notes || ''; 
@@ -648,4 +846,3 @@ export default {
     },
 };
 </script>
-

@@ -113,6 +113,12 @@ const nextStep = () => {
     }
 };
 
+const prevStep = () => {
+    if (currentStep.value > 0) {
+        currentStep.value--;
+    }
+};
+
 const finishUpdate = () => {
     if (!popupRelease.value) return;
     
@@ -233,9 +239,6 @@ onMounted(() => {
                                     </h2>
                                     <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Versión {{ popupRelease.version }}</p>
                                 </div>
-                                <button @click="closeUpdateModal" class="p-2 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
                             </div>
 
                             <!-- Content Wizard -->
@@ -278,16 +281,26 @@ onMounted(() => {
                                     </span>
                                 </div>
 
-                                <!-- Action Button -->
-                                <button @click="nextStep" :disabled="isUpdating" 
-                                    class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-bold rounded-xl shadow-sm text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
-                                    <span v-if="currentStep < popupRelease.items.length - 1">Siguiente</span>
-                                    <span v-else>
-                                        {{ isUpdating ? 'Guardando...' : '¡Entendido!' }}
-                                    </span>
-                                    <svg v-if="currentStep < popupRelease.items.length - 1" class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                                    <svg v-else class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                </button>
+                                <!-- Action Buttons -->
+                                <div class="flex items-center gap-3">
+                                    <button 
+                                        v-if="currentStep > 0" 
+                                        @click="prevStep" 
+                                        class="inline-flex items-center px-4 py-3 border border-transparent text-sm font-bold rounded-xl text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-700 focus:outline-none transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+
+                                    <button @click="nextStep" :disabled="isUpdating" 
+                                        class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-bold rounded-xl shadow-sm text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <span v-if="currentStep < popupRelease.items.length - 1">Siguiente</span>
+                                        <span v-else>
+                                            {{ isUpdating ? 'Guardando...' : '¡Entendido!' }}
+                                        </span>
+                                        <svg v-if="currentStep < popupRelease.items.length - 1" class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                        <svg v-else class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </transition>
