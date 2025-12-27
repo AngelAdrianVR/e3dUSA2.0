@@ -56,7 +56,8 @@ class ShipmentController extends Controller
                 $query->with([
                     'shipmentProducts.saleProduct.product:id,name,code,measure_unit',
                     'shipmentProducts.saleProduct.product.media', // Carga el producto de la venta, el producto maestro y sus imágenes
-                    'shipmentProducts.saleProduct.product.storages' // Carga el stock
+                    'shipmentProducts.saleProduct.product.storages', // Carga el stock
+                    'media', // <--- AGREGADO: Cargar evidencias del envío
                 ])->oldest(); // Ordenar los envíos por los más recientes
             }
         ]);
@@ -159,5 +160,40 @@ class ShipmentController extends Controller
             ->get();
 
         return response()->json(['items' => $sales], 200);
+    }
+
+    /**
+     * Actualiza la guía de rastreo y paquetería de un envío.
+     * Ruta sugerida: PUT /shipments/{shipment}/tracking
+     */
+    public function updateTracking(Request $request, Shipment $shipment)
+    {
+        $validated = $request->validate([
+            'shipping_company' => 'required|string|max:255',
+            'tracking_guide' => 'required|string|max:255',
+        ]);
+
+        $shipment->update($validated);
+
+        return back()->with('success', 'Información de rastreo actualizada correctamente.');
+    }
+
+    /**
+     * Sube archivos de evidencia al envío.
+     * Ruta sugerida: POST /shipments/{shipment}/evidence
+     */
+    public function storeEvidence(Request $request, Shipment $shipment)
+    {
+        $request->validate([
+            'evidence_files.*' => 'required|file|mimes:jpg,jpeg,png,pdf,webp|max:5120', // Máx 5MB por archivo
+        ]);
+
+        if ($request->hasFile('evidence_files')) {
+            foreach ($request->file('evidence_files') as $file) {
+                $shipment->addMedia($file)->toMediaCollection('shipment-evidence');
+            }
+        }
+
+        return back()->with('success', 'Evidencias subidas correctamente.');
     }
 }

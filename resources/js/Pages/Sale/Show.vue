@@ -39,7 +39,7 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip v-if="sale.status === 'Preparando Envío'" content="Ver detalles de envío" placement="top">
+                <el-tooltip v-if="sale.status === 'Preparando Envío' || sale.status === 'Enviada'" content="Ver detalles de envío" placement="top">
                     <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
                         <i class="fa-solid fa-truck-fast"></i>
                     </button>
@@ -113,6 +113,7 @@
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
                 <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
+
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
@@ -180,9 +181,18 @@
                                         <i class="fa-solid fa-envelope text-blue-400"></i>
                                         <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
                                         </p>
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-phone text-green-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+
+                                        <!-- MODIFICACIÓN: Mostrar todos los teléfonos -->
+                                        <template v-if="getContactDetails(sale.contact, 'Teléfono').length">
+                                            <p v-for="phone in getContactDetails(sale.contact, 'Teléfono')" :key="phone.id" class="flex items-center gap-2">
+                                                <i class="fa-solid fa-phone text-green-400"></i>
+                                                <span>{{ formatPhone(phone.value) }}</span>
+                                                <el-tag v-if="phone.is_primary" type="success" size="small" class="!h-5 !px-1.5 text-[10px]">Principal</el-tag>
+                                            </p>
+                                        </template>
+                                        <p v-else class="flex items-center gap-2">
+                                            <i class="fa-solid fa-phone text-gray-400"></i>
+                                            <span class="italic text-gray-400">Sin teléfono</span>
                                         </p>
                                     </div>
                                     </template>
@@ -320,6 +330,44 @@
 
                     <Empty v-else />
                 </div>
+
+                <!-- Card de Información de Envío (NUEVA SECCIÓN) -->
+                <div v-if="sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4 flex items-center">
+                        <i class="fa-solid fa-truck-fast mr-2"></i> Información de Envío
+                    </h3>
+                    <div v-for="(shipment, index) in sale.shipments" :key="shipment.id" class="mb-4 last:mb-0 border-b dark:border-gray-700 last:border-0 pb-3 last:pb-0">
+                        <p class="text-xs font-bold text-gray-500 uppercase mb-2">Envío #{{ index + 1 }} - {{ shipment.status }}</p>
+                        <ul class="space-y-3 text-sm">
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Paquetería:</span>
+                                <span>{{ shipment.shipping_company ?? '-' }}</span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">No. Guía:</span>
+                                <div class="flex items-center space-x-2">
+                                    <span :class="shipment.tracking_guide ? 'font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded' : ''">
+                                        {{ shipment.tracking_guide ?? '-' }}
+                                    </span>
+                                    <button @click="openGuideModal(shipment)" class="text-blue-500 hover:text-blue-700 text-xs p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900" title="Editar Guía">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                     <!-- Botón de Seguimiento (Visible solo si hay al menos un envío) -->
+                    <div class="mt-4 pt-2 border-t dark:border-gray-600">
+                        <PrimaryButton 
+                            @click="$inertia.visit(route('shipments.show', sale.id))"
+                            :disabled="!['Preparando Envío', 'Enviada'].includes(sale.status)"
+                            class="w-full justify-center !text-xs"
+                        >
+                            Seguimiento de envío <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </PrimaryButton>
+                    </div>
+                </div>
+
             </div>
 
             <!-- COLUMNA DERECHA: PRODUCTOS Y CAMBIOS -->
@@ -468,13 +516,6 @@
                             <div class="col-span-2">
                                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Producto Original</label>
                                 <el-select v-model="exchangeForm.returned_product_id" :teleported="false" placeholder="Selecciona..." class="w-full" filterable>
-                                    <!-- Solo muestra los productos de la venta pero no funciona si se hace mas de una devolucion porque no aparece el nuevo producto cambado -->
-                                    <!-- <el-option 
-                                        v-for="item in sale.sale_products" 
-                                        :key="item.product_id" 
-                                        :label="item.product?.name" 
-                                        :value="item.product_id" 
-                                    /> -->
                                     <el-option 
                                         v-for="product in products" 
                                         :key="product.id" 
@@ -555,6 +596,35 @@
                     <CancelButton @click="showExchangeModal = false">Cancelar</CancelButton>
                     <PrimaryButton @click="submitExchange" :disabled="exchangeForm.processing">
                         {{ exchangeForm.processing ? 'Registrando...' : 'Registrar Cambio' }}
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
+        
+        <!-- === MODAL PARA REGISTRAR/EDITAR GUIA DE ENVÍO === -->
+        <DialogModal :show="showGuideModal" @close="showGuideModal = false">
+            <template #title>
+                Información de Rastreo
+            </template>
+            <template #content>
+                <form @submit.prevent="submitGuide" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                        <input v-model="guideForm.shipping_company" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
+                        <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.shipping_company }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                        <input v-model="guideForm.tracking_guide" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ingresa el número de rastreo..." />
+                        <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.tracking_guide }}</p>
+                    </div>
+                </form>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showGuideModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="submitGuide" :disabled="guideForm.processing">
+                        Guardar Información
                     </PrimaryButton>
                 </div>
             </template>
@@ -644,6 +714,14 @@ export default {
                 price_difference: null,
                 evidence_images: [],
             }),
+            
+            // --- NUEVOS DATOS PARA GUÍA ---
+            showGuideModal: false,
+            guideForm: useForm({
+                shipment_id: null,
+                shipping_company: '',
+                tracking_guide: '',
+            }),
         };
     },
     computed: {
@@ -654,6 +732,15 @@ export default {
         }
     },
     methods: {
+        formatPhone(number) {
+            if (!number) return '';
+            const digits = number.toString().replace(/\D/g, '');
+            return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
+        getContactDetails(contact, type) {
+            if (!contact?.details) return [];
+            return contact.details.filter(d => d.type === type);
+        },
         printProductionOrder() {
             window.open(route('productions.print', this.sale.id), '_blank');
         },
@@ -775,6 +862,25 @@ export default {
             } finally {
                 this.loadingSales = false;
             }
+        },
+        // --- MÉTODOS PARA GUÍA ---
+        openGuideModal(shipment) {
+            this.guideForm.shipment_id = shipment.id;
+            this.guideForm.shipping_company = shipment.shipping_company;
+            this.guideForm.tracking_guide = shipment.tracking_guide;
+            this.showGuideModal = true;
+        },
+        submitGuide() {
+            this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
+                onSuccess: () => {
+                    this.showGuideModal = false;
+                    ElMessage.success('Guía actualizada correctamente');
+                    // Opcionalmente recargar datos o actualizar localmente si inertia no lo hace auto
+                },
+                onError: () => {
+                    ElMessage.error('Error al actualizar la guía.');
+                }
+            });
         }
     },
     mounted() {
