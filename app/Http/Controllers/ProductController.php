@@ -15,6 +15,8 @@ use Inertia\Response;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use App\Exports\CatalogProductPricesExport;
+use App\Exports\CatalogProductPricesExportABC;
+use App\Exports\CatalogProductPricesExportPriceABC;
 use App\Models\Branch;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -676,12 +678,20 @@ class ProductController extends Controller
         return inertia('CatalogProduct/PricesReport', compact('catalog_products'));
     }
     
-
+    // Exportar a Excel el reporte de precios de productos de cada cliente (para clientes ya registrados)
     public function exportExcel()
     {
         $fileName = 'catalogo_precios.xlsx';
         
-        return Excel::download(new CatalogProductPricesExport, $fileName);
+        return Excel::download(new CatalogProductPricesExportPriceABC, $fileName);
+    }
+
+    // Exportar a Excel el reporte de precios de productos con precios tipo ABC únicamente productos (para clientes nuevos)
+    public function exportExcelABC()
+    {
+        $fileName = 'catalogo_precios_ABC_clientes_nuevos.xlsx';
+        
+        return Excel::download(new CatalogProductPricesExportABC, $fileName);
     }
 
     public function fetchProductsList()

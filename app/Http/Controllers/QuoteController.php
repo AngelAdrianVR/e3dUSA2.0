@@ -165,7 +165,19 @@ class QuoteController extends Controller
     public function show(Quote $quote)
     {
         // Cargar relaciones base de la cotización actual
-        $quote->load(['branch', 'user', 'products.media', 'authorizedBy']);
+        // AGREGADO: 'products.priceHistory' con filtro por sucursal para optimizar y limpiar datos
+        $quote->load([
+            'branch', 
+            'user', 
+            'products.media', 
+            'authorizedBy',
+            'products.priceHistory' => function ($query) use ($quote) {
+                // Traemos solo el historial de precios correspondiente a la sucursal de esta cotización
+                // y lo ordenamos del más reciente al más antiguo.
+                $query->where('branch_id', $quote->branch_id)
+                      ->orderBy('valid_from', 'desc');
+            }
+        ]);
         
         // Cargar TODAS las versiones de este hilo (para el dropdown)
         // Optimizamos seleccionando solo los campos necesarios para el selector
@@ -198,7 +210,7 @@ class QuoteController extends Controller
 
         // Retornar la vista de Inertia
         return Inertia::render('Quote/Show', [
-            'quote' => $quote, // La cotización completa que se está viendo
+            'quote' => $quote, // La cotización completa que se está viendo (ahora con priceHistory)
             'allVersions' => $allVersions, // La lista de todas las versiones
             'next_version_id' => $next_version_id,
             'prev_version_id' => $prev_version_id,

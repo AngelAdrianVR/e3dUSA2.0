@@ -1,9 +1,9 @@
 <template>
     <Head :title="tabTitle" />
     <div class="bg-gray-100 font-sans print:bg-white">
-        <div class="container mx-auto p-4 sm:p-8">
+        <div class="container mx-auto p-4">
             <!-- Contenedor principal de la cotización -->
-            <div class="bg-white rounded-lg shadow-lg p-6 sm:p-10 text-gray-800 relative print:shadow-none print:rounded-none print:p-0">
+            <div class="bg-white rounded-lg shadow-lg p-5 text-gray-800 relative print:shadow-none print:rounded-none print:p-0">
 
                 <!-- Botón de Imprimir Flotante -->
                 <button v-show="showAdditionalElements" @click="printQuote" title="Imprimir Cotización"
@@ -202,6 +202,48 @@
                                     {{ quote.is_spanish_template ? 'RECHAZADO' : 'REJECTED' }}
                                 </span>
 
+                                <!-- ====== NUEVO: BOTÓN FLOTANTE PARA HISTORIAL Y ACTUALIZAR PRECIO ====== -->
+                                <div v-show="showAdditionalElements" class="absolute bottom-1 right-1 z-20 print:hidden">
+                                     <el-popover placement="right" :width="280" trigger="click">
+                                        <template #reference>
+                                            <button class="text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-md transition-colors px-2 py-1 flex items-center justify-center ring-2 ring-white" title="Ver historial y actualizar precio">
+                                                Historial de precios
+                                            </button>
+                                        </template>
+                                        
+                                        <!-- Contenido del Tooltip/Popover -->
+                                        <div class="text-xs text-gray-700">
+                                             <div class="flex justify-between items-center mb-2 border-b pb-1">
+                                                <h4 class="font-bold dark:text-gray-300">Historial de Precios</h4>
+                                                <i class="fa-solid fa-clock-rotate-left" :class="getLastUpdateInfo(item)?.colorClass" :title="getLastUpdateInfo(item)?.text"></i>
+                                             </div>
+                                             
+                                             <div class="mb-2">
+                                                <p class="mb-1 text-[10px] dark:text-gray-300">{{ getLastUpdateInfo(item)?.text }}</p>
+                                             </div>
+
+                                             <!-- Lista de historial -->
+                                             <ul class="max-h-32 overflow-y-auto space-y-1 mb-3 pr-1">
+                                                <li v-for="history in item.price_history" :key="history.id" class="flex justify-between items-center bg-gray-50 p-1.5 rounded border border-gray-100">
+                                                    <span class="text-gray-500 text-[10px]">{{ formatDate(history.valid_from) }}</span>
+                                                    <div class="text-right">
+                                                        <span class="font-bold block text-gray-800">${{ formatNumber(history.price) }} {{ history.currency }}</span>
+                                                        <span v-if="!history.valid_to" class="text-[9px] text-green-600 font-bold bg-green-50 px-1 rounded">ACTUAL</span>
+                                                    </div>
+                                                </li>
+                                                <li v-if="!item.price_history?.length" class="text-gray-400 italic text-center py-2">Sin historial registrado</li>
+                                             </ul>
+
+                                             <!-- Botón Actualizar Precio -->
+                                             <button @click="goToBranchProducts" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded transition shadow-sm text-center font-bold flex items-center justify-center">
+                                                <i class="fa-solid fa-pen-to-square mr-2"></i> Actualizar Precio
+                                             </button>
+                                             <p class="text-[9px] text-gray-400 text-center mt-1">Ir a productos del cliente</p>
+                                        </div>
+                                     </el-popover>
+                                </div>
+                                <!-- =================================================================== -->
+
                                 <!-- Botones de Navegación de Imagen -->
                                 <div v-if="item.media?.length > 1 && item.pivot.show_image" v-show="showAdditionalElements">
                                     <button @click="prevImage(productIndex)" 
@@ -316,6 +358,26 @@
                 <!-- Sección de Totales -->
                 <section v-if="quote.show_breakdown" class="mt-8 flex justify-end">
                     <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm">
+                        <!-- --- MODIFICADO: Controles de IVA --- -->
+                        <div class="flex items-center justify-end gap-3 mb-2 print:hidden bg-gray-50 p-2 rounded border">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs select-none">
+                                <input type="checkbox" v-model="showTaxes" class="rounded text-sky-600 focus:ring-sky-500">
+                                {{ quote.is_spanish_template ? 'Mostrar precios con IVA' : 'Show prices with Tax' }}
+                            </label>
+                            
+                            <div v-if="showTaxes" class="flex items-center gap-1">
+                                <span class="text-xs text-gray-500">IVA %:</span>
+                                <input 
+                                    type="number" 
+                                    v-model.number="taxPercentage" 
+                                    class="w-16 h-7 text-xs border-gray-300 rounded focus:ring-sky-500 focus:border-sky-500 text-right"
+                                    min="0"
+                                    step="0.1"
+                                >
+                            </div>
+                        </div>
+                        <!-- --- FIN MODIFICACIÓN --- -->
+
                          <div class="flex justify-between p-2 rounded-md bg-gray-100">
                             <span class="font-semibold text-gray-600">{{ quote.is_spanish_template ? 'Subtotal (Aprobados)' : 'Subtotal (Approved)' }}:</span>
                             <span class="font-bold text-gray-800">{{ formatNumber(quote.total_data.subtotal) }} {{ quote.currency }}</span>
@@ -334,9 +396,31 @@
                             </span>
                             <span class="font-bold">- {{ formatNumber(quote.total_data.discount_amount) }} {{ quote.currency }}</span>
                         </div>
+                        
+                        <!-- --- MODIFICADO: Renglón de IVA --- -->
+                        <div v-if="showTaxes" class="flex justify-between p-2 text-gray-600 border-t">
+                            <span class="font-semibold">
+                                IVA ({{ taxPercentage }}%):
+                                <span class="text-[10px] text-gray-400 block font-normal leading-tight">
+                                    ({{ quote.is_spanish_template ? 'Solo productos' : 'Products only' }})
+                                </span>
+                            </span>
+                            <span class="font-bold text-gray-700">{{ formatNumber(taxAmount) }} {{ quote.currency }}</span>
+                        </div>
+                        <!-- --- FIN MODIFICACIÓN --- -->
+
                         <div class="flex justify-between p-3 rounded-md bg-gray-800 text-white">
-                            <span class="text-base font-bold">{{ quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes' }}:</span>
-                            <span class="text-base font-bold">{{ formatNumber(quote.total_data.total_after_discount) }} {{ quote.currency }}</span>
+                            <!-- --- MODIFICADO: Texto y Valor Total condicional --- -->
+                            <span class="text-base font-bold">
+                                {{ showTaxes 
+                                    ? (quote.is_spanish_template ? 'Total Neto' : 'Net Total') 
+                                    : (quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes') 
+                                }}:
+                            </span>
+                            <span class="text-base font-bold">
+                                {{ formatNumber(showTaxes ? totalWithTax : quote.total_data.total_after_discount) }} {{ quote.currency }}
+                            </span>
+                             <!-- --- FIN MODIFICACIÓN --- -->
                         </div>
                     </div>
                 </section>
@@ -409,7 +493,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { ElMessage } from 'element-plus';
 import { Head, router } from '@inertiajs/vue3';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 export default {
@@ -418,6 +502,12 @@ export default {
             showAdditionalElements: true,
             labelChanged: false,
             showPromotion: true,
+            // --- MODIFICADO: Variables para control de IVA ---
+            showTaxes: false,
+            taxPercentage: 16,
+            // --- FIN MODIFICACIÓN ---
+            // --- NUEVO: Control de historiales desplegados ---
+            expandedHistories: {},
         }
     },
     components: {
@@ -435,12 +525,66 @@ export default {
     },
     computed: {
         tabTitle() {
-            // --- MODIFICADO: Título de pestaña con versión ---
             return `Cot. ${this.quote.root_quote_id}-v${this.quote.version} - ${this.quote.branch.name}`;
-            // --- FIN DE MODIFICACIÓN ---
         },
+        // --- MODIFICADO: Computadas para cálculos de IVA ---
+        taxAmount() {
+            if (!this.showTaxes) return 0;
+            const subtotal = Number(this.quote.total_data.subtotal) || 0;
+            const percentage = Number(this.taxPercentage) || 0;
+            
+            // IVA aplica solo al costo de productos (subtotal)
+            return subtotal * (percentage / 100);
+        },
+        totalWithTax() {
+            const currentTotal = Number(this.quote.total_data.total_after_discount) || 0;
+            return currentTotal + this.taxAmount;
+        }
+        // --- FIN MODIFICACIÓN ---
     },
     methods: {
+        // --- NUEVO: Métodos para Historial de Precios ---
+        goToBranchProducts() {
+            // Redirige a la vista del cliente (sucursal) en la pestaña de productos
+            this.$inertia.visit(route('branches.show', { 
+                branch: this.quote.branch.id, 
+                tab: 'products' 
+            }));
+        },
+        toggleHistory(itemId) {
+            this.expandedHistories[itemId] = !this.expandedHistories[itemId];
+        },
+        getLastUpdateInfo(product) {
+            if (!product.price_history || product.price_history.length === 0) return null;
+
+            // Buscamos el precio vigente (valid_to == null)
+            // Si no hay uno "vigente", se puede tomar el último por fecha como referencia.
+            const activePrice = product.price_history.find(h => h.valid_to === null);
+            
+            // Si no existe uno "vigente" formalmente, podemos retornar algo neutro o el último
+            if (!activePrice) return { text: 'Sin precio vigente', colorClass: 'text-gray-400' };
+
+            const fromDate = new Date(activePrice.valid_from);
+            const now = new Date();
+            const monthsDiff = (now.getFullYear() - fromDate.getFullYear()) * 12 + (now.getMonth() - fromDate.getMonth());
+
+            let colorClass = '';
+            if (monthsDiff < 6) {
+                colorClass = 'text-green-600';
+            } else if (monthsDiff >= 6 && monthsDiff < 12) {
+                colorClass = 'text-orange-500';
+            } else {
+                colorClass = 'text-red-500';
+            }
+
+            const relativeTime = formatDistanceToNow(fromDate, { addSuffix: true, locale: es });
+
+            return {
+                text: `Actualizado ${relativeTime}`,
+                colorClass: colorClass
+            };
+        },
+        // ------------------------------------------------
         navigateToVersion(selectedId) {
             if (selectedId != this.quote.id) {
                 router.visit(route('quotes.show', selectedId), {
@@ -581,3 +725,17 @@ export default {
     }
 };
 </script>
+
+<style>
+/* --- MODIFICADO: Quitar márgenes de impresión para maximizar espacio --- */
+@media print {
+    @page {
+        margin: 0;
+        size: auto;
+    }
+    body {
+        margin: 0;
+        padding: 0;
+    }
+}
+</style>
