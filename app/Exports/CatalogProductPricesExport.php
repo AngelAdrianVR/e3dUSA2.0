@@ -1,5 +1,11 @@
 <?php
 
+/*
+ ! Este archivo escribe los productos con una estructura de datos diferente a CatalogProductPricesExportPriceABC.php
+ ! Contiene los precios en formato estándar y ordena los datos por Nombre de Producto.
+ ! Ademas icluye columnas como precio base, moneda base, moneda especial.
+*/
+
 namespace App\Exports;
 
 use App\Models\Product;

@@ -1,5 +1,8 @@
 <?php
 
+// ! Este archivo es similar a CatalogProductPricesExport.php pero con una estructura de datos diferente.
+// ! Contiene los precios en formato ABC y ordena los datos alfabéticamente por Sucursal / Cliente. Ademas se eliminan unas columnas
+
 namespace App\Exports;
 
 use App\Models\Product;
@@ -10,35 +13,31 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class CatalogProductPricesExport implements
+class CatalogProductPricesExportPriceABC implements
     FromCollection,
     WithHeadings,
     WithStyles,
     WithColumnWidths
 {
     /**
+     * Este escribe los productos con formato personalizado.
      * @return \Illuminate\Support\Collection
      */
     public function collection()
     {
         // Se obtienen los productos con sus sucursales y el historial de precios vigentes.
-        // Cargar 'priceHistory' donde 'valid_to' es nulo evita problemas de N+1 consultas.
         $products = Product::where('product_type', 'Catálogo')
             ->with([
-                'branches' => function ($query) {
-                    $query->orderBy('name');
-                },
+                'branches', // Cargamos branches sin ordenar aquí, ordenaremos la colección final
                 'priceHistory' => function ($query) {
                     // Cargar solo los precios especiales que están vigentes
                     $query->whereNull('valid_to');
                 }
             ])
             ->whereNull('archived_at')
-            ->orderBy('name')
             ->get();
 
         $data = [];
-        $lastProductName = null; // Variable para rastrear el último nombre de producto
 
         // Se itera sobre cada producto
         foreach ($products as $product) {
@@ -49,36 +48,26 @@ class CatalogProductPricesExport implements
             // Luego se itera sobre cada sucursal/cliente asociado al producto
             foreach ($product->branches as $branch) {
                 // Se busca el precio especial para esta combinación de producto y sucursal
-                // de la colección que ya cargamos previamente (priceHistory)
                 $specialPrice = $product->priceHistory
-                                        ->where('branch_id', $branch->id)
+                                        ->where('branch_id', $branch?->id)
                                         ->first();
 
-                // Lógica para mostrar el nombre del producto y su info base solo una vez
-                if ($product->name !== $lastProductName) {
-                    $productNameForExcel = $product->name;
-                    $basePriceForExcel = $product->base_price ?? '-';
-                    $baseCurrencyForExcel = $product->currency ?? '-';
-                    $lastProductName = $product->name; // Actualizar el último nombre de producto
-                } else {
-                    $productNameForExcel = '';
-                    $basePriceForExcel = '';
-                    $baseCurrencyForExcel = '';
-                }
-
-                // Se construye el arreglo de datos con la nueva estructura
+                // Estructura Modificada:
+                // Sucursal / Cliente | Nombre de producto | Moneda (Base) | Precio A (Especial) | Precio B | Precio C
                 $data[] = [
-                    'Producto' => $productNameForExcel,
-                    'Precio Base' => $basePriceForExcel,
-                    'Moneda Base' => $baseCurrencyForExcel,
-                    'Cliente' => $branch->name,
-                    'Precio Especial' => $specialPrice->price ?? '-',
-                    'Moneda Especial' => $specialPrice->currency ?? '-',
+                    'Sucursal / Cliente' => $branch?->name,
+                    'Nombre de producto' => $product->name,
+                    'Moneda'             => $product->currency ?? '-', // Se toma de Moneda Base
+                    'Precio A'           => $specialPrice->price ?? '-', // Se toma del Precio Especial
+                    'Precio B'           => '', // En blanco
+                    'Precio C'           => '', // En blanco
                 ];
             }
         }
 
-        return new Collection($data);
+        // Convertimos el array a colección y ordenamos alfabéticamente por 'Sucursal / Cliente'
+        // values() reindexa las claves numéricas para evitar problemas en el excel
+        return collect($data)->sortBy('Sucursal / Cliente')->values();
     }
 
     /**
@@ -86,14 +75,14 @@ class CatalogProductPricesExport implements
      */
     public function headings(): array
     {
-        // Se definen las nuevas cabeceras del archivo
+        // Cabeceras actualizadas al nuevo orden
         return [
-            'Nombre de producto',
-            'Precio Base',
-            'Moneda Base',
             'Sucursal / Cliente',
-            'Precio Especial',
-            'Moneda Especial',
+            'Nombre de producto',
+            'Moneda',
+            'Precio A',
+            'Precio B',
+            'Precio C',
         ];
     }
 
@@ -102,14 +91,14 @@ class CatalogProductPricesExport implements
      */
     public function columnWidths(): array
     {
-        // Se definen anchos de columna para la nueva estructura
+        // Anchos de columna ajustados a la nueva estructura (A-F)
         return [
-            'A' => 45, // Nombre de producto
-            'B' => 16, // Precio Base
-            'C' => 12, // Moneda Base
-            'D' => 50, // Sucursal / Cliente
-            'E' => 16, // Precio Especial
-            'F' => 12, // Moneda Especial
+            'A' => 50, // Sucursal / Cliente (Antes era D)
+            'B' => 45, // Nombre de producto (Antes era A)
+            'C' => 12, // Moneda
+            'D' => 16, // Precio A
+            'E' => 16, // Precio B
+            'F' => 16, // Precio C
         ];
     }
 
@@ -131,4 +120,3 @@ class CatalogProductPricesExport implements
         ];
     }
 }
-

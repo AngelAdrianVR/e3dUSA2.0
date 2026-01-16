@@ -20,6 +20,11 @@
                                 <i class="fa-solid fa-file-invoice-dollar mr-2"></i>
                                 Facturas Pendientes
                             </SecondaryButton>
+                            <!-- Nuevo Botón de Importación -->
+                            <SecondaryButton @click="importModalVisible = true">
+                                <i class="fa-solid fa-file-import mr-2"></i>
+                                Importar Historial
+                            </SecondaryButton>
                         </div>
 
                         <!-- Filtro por Cliente (Sincronizado con URL) -->
@@ -157,6 +162,66 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- Modal para Importación Histórica -->
+        <el-dialog v-model="importModalVisible" title="Importar Historial de Facturas" width="600px">
+            <div class="space-y-5">
+                <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fa-solid fa-info-circle text-blue-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                Sube los archivos Excel para procesar el historial.<br>
+                                El sistema vinculará las facturas con sus órdenes de venta mediante el folio.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <form @submit.prevent="submitImport">
+                    <!-- Input Archivo OVs -->
+                    <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-indigo-500 transition-colors bg-gray-50 dark:bg-slate-800">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            1. Archivo de Órdenes de Venta (OVs)
+                        </label>
+                        <input type="file" @input="importForm.ovs_file = $event.target.files[0]" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-indigo-50 file:text-indigo-700
+                            hover:file:bg-indigo-100
+                            dark:file:bg-slate-700 dark:file:text-indigo-400" />
+                        <InputError :message="importForm.errors.ovs_file" />
+                    </div>
+
+                    <!-- Input Archivo Facturas -->
+                    <div class="mt-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 hover:border-indigo-500 transition-colors bg-gray-50 dark:bg-slate-800">
+                        <label class="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            2. Archivo de Facturas
+                        </label>
+                        <input type="file" @input="importForm.invoices_file = $event.target.files[0]" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-indigo-50 file:text-indigo-700
+                            hover:file:bg-indigo-100
+                            dark:file:bg-slate-700 dark:file:text-indigo-400" />
+                        <InputError :message="importForm.errors.invoices_file" />
+                    </div>
+                </form>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="importModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitImport" :loading="importForm.processing">
+                        <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Procesar Importación
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -187,17 +252,29 @@ export default {
         return {
             activeTab: this.active_tab_prop || 'all_invoices',
             selectedClientId: this.client_id_prop ? parseInt(this.client_id_prop) : null,
+            
+            // Modales
             paymentModalVisible: false,
             reportModalVisible: false,
+            importModalVisible: false, // Nuevo modal
+
             reportDateRange: [subMonths(new Date(), 1).toISOString().split('T')[0], new Date().toISOString().split('T')[0]],
             selectedInvoice: null,
             paymentMethods: ['Efectivo', 'Transferencia electrónica de fondos', 'Tarjeta de crédito', 'Tarjeta de débito', 'Cheque nominativo', 'Por definir'],
+            
+            // Formulario Pago
             paymentForm: useForm({
                 amount: null,
                 payment_date: new Date().toISOString().split('T')[0],
                 payment_method: 'Transferencia electrónica de fondos',
                 notes: '',
                 media: [],
+            }),
+
+            // Nuevo Formulario Importación
+            importForm: useForm({
+                ovs_file: null,
+                invoices_file: null,
             })
         };
     },
@@ -254,6 +331,29 @@ export default {
             const [start, end] = this.reportDateRange;
             window.open(route('invoices.pending-report', { start_date: start, end_date: end }), '_blank');
             this.reportModalVisible = false;
+        },
+        // Nuevo Método de Importación
+        submitImport() {
+            if (!this.importForm.ovs_file || !this.importForm.invoices_file) {
+                ElMessage.warning('Debes adjuntar ambos archivos (OVs y Facturas)');
+                return;
+            }
+
+            this.importForm.post(route('invoices.import-historical'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.importModalVisible = false;
+                    this.importForm.reset();
+                    ElMessage.success('Importación histórica completada');
+                },
+                onError: (errors) => {
+                    if (errors.error) {
+                        ElMessage.error(errors.error);
+                    } else {
+                        ElMessage.error('Error al procesar los archivos. Revisa el formato.');
+                    }
+                }
+            });
         }
     }
 };

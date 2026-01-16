@@ -128,6 +128,7 @@ Route::post('catalog-products/QR-search-catalog-product', [ProductController::cl
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
 Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
 Route::get('catalog-products-export-excel', [ProductController::class, 'exportExcel'])->name('catalog-products.export-excel');
+Route::get('catalog-products-export-excel-abc', [ProductController::class, 'exportExcelABC'])->name('catalog-products.export-excel-abc');
 Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
 Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
 
@@ -240,6 +241,7 @@ Route::put('/invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->
 Route::post('invoices-get-matches', [InvoiceController::class, 'getMatches'])->middleware('auth')->name('invoices.get-matches');
 Route::post('invoices-store-media/{invoice}', [InvoiceController::class, 'storeMedia'])->middleware('auth')->name('invoices.media.store');
 Route::get('/invoices-pending-report', [InvoiceController::class, 'pendingReport'])->name('invoices.pending-report')->middleware(['auth']);
+Route::post('/invoices/import-historical', [InvoiceController::class, 'importHistorical'])->middleware('auth')->name('invoices.import-historical'); // RUTA PARA IMPORTACIÓN
 
 
 // ------- CRM(Rutas de pagos de facturación)  ---------

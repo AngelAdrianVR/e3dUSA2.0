@@ -42,6 +42,7 @@
                                 <template #dropdown>
                                     <el-dropdown-menu>
                                         <el-dropdown-item @click="exportToExcel">Exportar lista en Excel</el-dropdown-item>
+                                        <el-dropdown-item @click="exportToExcelProductPrices">Reporte de precios para clientes nuevos</el-dropdown-item>
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
@@ -255,6 +256,7 @@ export default {
         openReport() {
             window.open(route('catalog-products.prices-report'), '_blank');
         },
+        // Exportar reporte de precios (A, B, C) de clientes que ya estan registrados
         exportToExcel() {
             this.loadingExport = true;
             axios({
@@ -271,6 +273,28 @@ export default {
                 document.body.removeChild(link);
             }).catch(error => {
                 console.error('Error al exportar:', error);
+            }).finally(() => {
+                this.loadingExport = false;
+            });
+        },
+        // Exportar reporte de precios de todos los productos para análisis ABC y asignar precios a nuevos clientes
+        exportToExcelProductPrices() {
+            this.loadingExport = true;
+            axios({
+                url: route('catalog-products.export-excel-abc'),
+                method: 'GET',
+                responseType: 'blob',
+            }).then(response => {
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', 'catalogo_precios_ABC.xlsx');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }).catch(error => {
+                console.error('Error al exportar ABC:', error);
+                ElMessage.error('Error al generar el reporte ABC');
             }).finally(() => {
                 this.loadingExport = false;
             });

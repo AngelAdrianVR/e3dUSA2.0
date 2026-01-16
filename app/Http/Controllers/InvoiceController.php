@@ -8,6 +8,8 @@ use App\Models\Sale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\HistoricalImportService; // Importar el servicio
+use Maatwebsite\Excel\Facades\Excel; // Importar librería Excel
 
 class InvoiceController extends Controller
 {
@@ -336,5 +338,59 @@ class InvoiceController extends Controller
             'sales' => $sales,
             'report_dates' => ['start' => $startDate, 'end' => $endDate],
         ]);
+    }
+
+    /**
+     * Nuevo método para importar historial.
+     */
+    public function importHistorical(Request $request)
+    {
+        $request->validate([
+            'ovs_file' => 'required|file|mimes:xlsx,xls,csv',
+            'invoices_file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            // Leer archivos
+            // toArray devuelve un array de hojas. Usamos [0] para la primera hoja.
+            $ovsData = Excel::toArray(new \stdClass, $request->file('ovs_file'))[0];
+            $invoicesData = Excel::toArray(new \stdClass, $request->file('invoices_file'))[0];
+
+            // Instanciar servicio y procesar
+            $importer = new HistoricalImportService();
+            // Asumiendo que las cabeceras son la fila 1, pasamos los datos limpiamente
+            // Nota: Maatwebsite puede configurarse con WithHeadingRow para claves asociativas
+            // Aquí asumimos que $ovsData tiene claves asociativas (heading row por defecto en imports)
+            // Si no, necesitarás crear una clase Import específica. 
+            // Para simplificar, configuralo en config/excel.php o crea una clase Import rápida.
+            
+            // Opción rápida: Asumir que el usuario sube archivos con encabezados
+            // Si usas Excel::toArray directamente sin una clase Import configurada con WithHeadingRow,
+            // devolverá indices numéricos [0 => 'Nombre', 1 => 'Valor'].
+            
+            // MEJORA: Para asegurar claves asociativas (nombre_columna => valor),
+            // lo ideal sería usar una clase anónima o mapear headers manualmente.
+            // Para este ejemplo, usaremos una clase anónima simple para obtener claves.
+            
+            $ovsData = Excel::toArray(new class implements \Maatwebsite\Excel\Concerns\ToCollection, \Maatwebsite\Excel\Concerns\WithHeadingRow {
+                public function collection(\Illuminate\Support\Collection $rows) { return $rows; }
+            }, $request->file('ovs_file'))[0];
+
+            $invoicesData = Excel::toArray(new class implements \Maatwebsite\Excel\Concerns\ToCollection, \Maatwebsite\Excel\Concerns\WithHeadingRow {
+                public function collection(\Illuminate\Support\Collection $rows) { return $rows; }
+            }, $request->file('invoices_file'))[0];
+
+            $result = $importer->import($ovsData, $invoicesData, Auth::id());
+
+            if (!empty($result['errors'])) {
+                // Si hubo errores parciales pero se importaron algunos, mostramos advertencia
+                return back()->with('warning', "Importados: {$result['count']}. Errores: " . count($result['errors']) . ". Revisa los logs para detalle.");
+            }
+
+            return back()->with('success', "Se importaron {$result['count']} registros exitosamente.");
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Error en importación: ' . $e->getMessage()]);
+        }
     }
 }
