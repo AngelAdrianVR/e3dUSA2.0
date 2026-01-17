@@ -203,7 +203,7 @@
                                 </span>
 
                                 <!-- ====== NUEVO: BOTÓN FLOTANTE PARA HISTORIAL Y ACTUALIZAR PRECIO ====== -->
-                                <div v-show="showAdditionalElements" class="absolute bottom-1 right-1 z-20 print:hidden">
+                                <div class="absolute bottom-1 right-1 z-20 print:hidden">
                                      <el-popover placement="right" :width="280" trigger="click">
                                         <template #reference>
                                             <button class="text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-md transition-colors px-2 py-1 flex items-center justify-center ring-2 ring-white" title="Ver historial y actualizar precio">
