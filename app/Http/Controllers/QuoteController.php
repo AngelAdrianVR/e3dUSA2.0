@@ -164,23 +164,29 @@ class QuoteController extends Controller
 
     public function show(Quote $quote)
     {
-        // Cargar relaciones base de la cotización actual
-        // AGREGADO: 'products.priceHistory' con filtro por sucursal para optimizar y limpiar datos
+        // 1. Cargamos primero la relación 'branch' para poder evaluar su contexto
+        $quote->load('branch');
+
+        // 2. CORRECCIÓN PRINCIPAL:
+        // Determinamos cuál es la sucursal que "dueña" de los productos y precios.
+        // Si la sucursal de la cotización lee productos de la matriz, debemos usar el ID de la matriz.
+        $productSourceBranch = $this->getProductTargetBranch($quote->branch);
+
+        // 3. Cargamos el resto de relaciones, usando $productSourceBranch para el historial
         $quote->load([
-            'branch', 
             'user', 
             'products.media', 
             'authorizedBy',
-            'products.priceHistory' => function ($query) use ($quote) {
-                // Traemos solo el historial de precios correspondiente a la sucursal de esta cotización
-                // y lo ordenamos del más reciente al más antiguo.
-                $query->where('branch_id', $quote->branch_id)
+            'products.priceHistory' => function ($query) use ($productSourceBranch) {
+                // Aquí usamos el ID de la fuente ($productSourceBranch->id) en lugar del $quote->branch_id
+                $query->where('branch_id', $productSourceBranch->id)
                       ->orderBy('valid_from', 'desc');
             }
         ]);
         
+        // --- El resto de tu lógica de versiones permanece igual ---
+
         // Cargar TODAS las versiones de este hilo (para el dropdown)
-        // Optimizamos seleccionando solo los campos necesarios para el selector
         $allVersions = $quote->allVersions()
                             ->select('id', 'version', 'created_at', 'root_quote_id', 'status') 
                             ->get();
@@ -191,32 +197,39 @@ class QuoteController extends Controller
         });
 
         // Determinar ID de versión previa y siguiente (null si no existen)
-        $prev_version_id = $allVersions->get($currentIndex - 1)?->id; // Null safe
-        $next_version_id = $allVersions->get($currentIndex + 1)?->id; // Null safe
+        $prev_version_id = $allVersions->get($currentIndex - 1)?->id; 
+        $next_version_id = $allVersions->get($currentIndex + 1)?->id; 
 
-        // Obtener todas las cotizaciones ordenadas por ID
+        // Obtener todas las cotizaciones para navegación global
+        // (Nota: Si tienes muchas cotizaciones, considera optimizar esto con simplePaginate o similar)
         $quotes = Quote::orderBy('id')->get();
 
-        // Encontrar la posición de la cotización actual en la lista
-        $currentIndex = $quotes->search(function ($q) use ($quote) {
+        $currentQuoteIndex = $quotes->search(function ($q) use ($quote) {
             return $q->id == $quote->id;
         });
         
-         // Obtener el ID de la siguiente cotización, manejando el caso en el que estamos en la última cotización
-        $nextQuote = $quotes->get(($currentIndex + 1) % $quotes->count());
+        $nextQuote = $quotes->get(($currentQuoteIndex + 1) % $quotes->count());
+        $prevQuote = $quotes->get(($currentQuoteIndex - 1 + $quotes->count()) % $quotes->count());
 
-        // Obtener el ID de la cotización anterior, manejando el caso en el que estamos en la primera cotización
-        $prevQuote = $quotes->get(($currentIndex - 1 + $quotes->count()) % $quotes->count());
-
-        // Retornar la vista de Inertia
         return Inertia::render('Quote/Show', [
-            'quote' => $quote, // La cotización completa que se está viendo (ahora con priceHistory)
-            'allVersions' => $allVersions, // La lista de todas las versiones
+            'quote' => $quote,
+            'allVersions' => $allVersions,
             'next_version_id' => $next_version_id,
             'prev_version_id' => $prev_version_id,
             'next_quote' => $nextQuote->id,
             'prev_quote' => $prevQuote->id,
         ]);
+    }
+
+    /**
+     * Método auxiliar para determinar de dónde sacar los precios.
+     * Replica la lógica que usas en tu BranchController.
+     */
+    private function getProductTargetBranch($branch)
+    {
+        // Si la sucursal tiene un padre, asumimos que los precios vienen del padre.
+        // Si tu lógica es diferente (ej. verificas un campo 'is_matrix'), ajusta esta línea.
+        return $branch->parent ?? $branch;
     }
 
     public function edit(Quote $quote)
