@@ -284,7 +284,7 @@
                                     </div>
                                     <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-red-600 dark:text-red-300">Merma</p>
-                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap.toLocaleString() }}</p>
+                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction?.scrap?.toLocaleString() || 0 }}</p>
                                     </div>
                                 </div>
                             </div>
