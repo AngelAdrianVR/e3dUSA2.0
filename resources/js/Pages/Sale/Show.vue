@@ -241,7 +241,7 @@
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Notas generales:</span>
-                            <span>{{ sale.notes ?? '-' }}</span>
+                            <div class="prose prose-sm dark:text-white" v-html="sale.notes"></div>
                         </li>
                          <li v-if="sale.type === 'venta'" class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>

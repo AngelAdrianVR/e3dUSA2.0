@@ -46,12 +46,18 @@
                      class="p-4 rounded-lg border dark:border-slate-700 production-item"
                      :class="{ 'page-break-after': (index + 1) % 2 === 0 && (index + 1) < sale.productions.length }">
                     <!-- Detalles del Producto -->
-                    <div class="flex flex-col md:flex-row print:flex-row gap-4">
+                    <div class="flex flex-col md:flex-row print:flex-row gap-4 relative">
                         <div class="flex-shrink-0">
                              <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/128x128/e2e8f0/e2e8f0?text=N/A'"
                                  alt="Imagen de producto"
                                  class="size-40 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
                         </div>
+                        
+                        <!-- Precio del producto discreto -->
+                        <div class="absolute bottom-0">
+                            <p class="text-md font-bold text-gray-800 dark:text-gray-100 italic">AP-{{ production.sale_product.price.replace('.00', '-00') }}</p>
+                        </div>
+
                         <div class="flex-grow">
                             <h3 class="text-md font-bold text-gray-900 dark:text-white">{{ production.sale_product.product.name }}</h3>
                             <p class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ production.sale_product.product.code }}</p>
@@ -105,7 +111,7 @@
             <!-- Notas -->
             <footer v-if="sale.notes" class="mt-7 pt-4 border-t border-gray-200 text-sm text-gray-600 dark:text-gray-400">
                 <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Notas Generales de la Orden</h3>
-                <p class="whitespace-pre-wrap">{{ sale.notes }}</p>
+                <div class="prose prose-sm" v-html="sale.notes"></div>
             </footer>
         </main>
     </div>

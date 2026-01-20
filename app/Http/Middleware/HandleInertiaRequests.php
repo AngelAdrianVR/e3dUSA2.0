@@ -116,7 +116,7 @@ class HandleInertiaRequests extends Middleware
                     'profile_photo_url' => $user->profile_photo_url,
                     'notifications' => $user->notifications()->latest()->take(30)->get(),
                     'active_alerts' => $user->active_alerts ?? [],
-                    'role' => $user->roles[0]->name,
+                    'role' => $user->roles->first()?->name,
                     // Incluimos los detalles del empleado para tenerlos a mano.
                     'employee_detail' => $user->employeeDetail,
                 ] : null,

@@ -194,7 +194,7 @@
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
+                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true" :error="unitPriceError">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
@@ -291,7 +291,7 @@
                                 </div>
 
                                 <div class="pt-2 col-span-full">
-                                    <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price">
+                                    <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price || unitPriceError">
                                         {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
                                     </SecondaryButton>
                                     <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
@@ -628,6 +628,7 @@ export default {
                 id: null,
                 quantity: 1,
                 unit_price: null,
+                min_price: 0, // Nuevo campo para validar precio mínimo
                 notes: '',
                 customization_details: [], // <--- MODIFICADO: Ahora es un array
                 isClientProduct: false,
@@ -716,6 +717,22 @@ export default {
         branches: Array
     },
     computed: {
+        unitPriceError() {
+            // Verificación de rol Super Administrador para saltar validación
+            const userRole = this.$page.props.auth.user.role;
+            const isSuperAdmin = Array.isArray(userRole) 
+                ? userRole.includes('Super Administrador') 
+                : userRole === 'Super Administrador';
+
+            if (isSuperAdmin) return null;
+
+            const price = parseFloat(this.currentProduct.unit_price);
+            const min = parseFloat(this.currentProduct.min_price);
+            if (min > 0 && price < min) {
+                return `El precio mínimo es $${this.formatNumber(min)}`;
+            }
+            return null;
+        },
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
@@ -833,6 +850,7 @@ export default {
                 ...{ 
                     id: null, quantity: 1, unit_price: null, notes: '', customization_details: [], isClientProduct: false,
                     current_price: null, media: null, storages: [], has_customization: false, base_price: null, show_image: true,
+                    min_price: 0 // Inicializar min_price
                 },
                 ...productToEdit
             };
@@ -855,16 +873,24 @@ export default {
 
                     // --- Re-validar la lógica de producto de cliente ---
                     const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+                    let referencePrice = productData.base_price;
+
                     if (clientProduct) {
                         this.currentProduct.isClientProduct = true;
-                        this.currentProduct.current_price = 
-                        (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
+                        const specialPrice = (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
                             ? clientProduct.price_history[0].price 
                             : clientProduct.base_price;
+                        
+                        this.currentProduct.current_price = specialPrice;
+                        referencePrice = specialPrice;
                     } else {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
+                        referencePrice = productData.base_price;
                     }
+
+                    // Establecer el precio mínimo para la validación
+                    this.currentProduct.min_price = referencePrice;
                 }
             } catch (error) {
                 console.log(error);
@@ -881,7 +907,8 @@ export default {
             this.currentProduct = { 
                 id: null, 
                 quantity: 1, 
-                unit_price: null, 
+                unit_price: null,
+                min_price: 0,
                 notes: '', 
                 customization_details: [], // <--- MODIFICADO
                 isClientProduct: false,
@@ -978,7 +1005,7 @@ export default {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
-                    this.fetchClientProducts(this.form.branch_id);s
+                    this.fetchClientProducts(this.form.branch_id);
                 }
             } catch (error) {
                 console.error("Error al finalizar el precio:", error);
@@ -1021,6 +1048,9 @@ export default {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
                     }
+                    
+                    // Asignar precio mínimo para validación
+                    this.currentProduct.min_price = this.currentProduct.unit_price || 0;
                 }
             } catch (error) {
                 console.log(error);
@@ -1154,4 +1184,3 @@ export default {
     },
 };
 </script>
-

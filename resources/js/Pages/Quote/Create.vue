@@ -205,7 +205,7 @@
                                     </el-select>
                                 </div>
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
+                                <TextInput label="Precio Unitario*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true" :error="unitPriceError">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
@@ -315,7 +315,7 @@
                                 <!-- ================================================ -->
 
                                 <div class="pt-2 col-span-full">
-                                    <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price">
+                                    <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || !currentProduct.unit_price || unitPriceError">
                                         {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
                                     </SecondaryButton>
                                     <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
@@ -717,6 +717,7 @@ export default {
                 id: null,
                 quantity: 1,
                 unit_price: null,
+                min_price: 0, // Nuevo campo para validar precio mínimo
                 notes: '',
                 customization_details: [], // <--- MODIFICADO: Ahora es un array
                 isClientProduct: false,
@@ -805,6 +806,22 @@ export default {
         branches: Array,
     },
     computed: {
+        unitPriceError() {
+            // Verificación de rol Super Administrador para saltar validación
+            const userRole = this.$page.props.auth.user.role;
+            const isSuperAdmin = Array.isArray(userRole) 
+                ? userRole.includes('Super Administrador') 
+                : userRole === 'Super Administrador';
+
+            if (isSuperAdmin) return null;
+
+            const price = parseFloat(this.currentProduct.unit_price);
+            const min = parseFloat(this.currentProduct.min_price);
+            if (min > 0 && price < min) {
+                return `El precio mínimo es $${this.formatNumber(min)}`;
+            }
+            return null;
+        },
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
@@ -926,7 +943,8 @@ export default {
             this.currentProduct = { 
                 id: null, 
                 quantity: 1, 
-                unit_price: null, 
+                unit_price: null,
+                min_price: 0,
                 notes: '', 
                 customization_details: [], // <--- MODIFICADO
                 isClientProduct: false,
@@ -1066,6 +1084,9 @@ export default {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
                     }
+                    
+                    // Asignar precio mínimo para validación
+                    this.currentProduct.min_price = this.currentProduct.unit_price || 0;
                 }
             } catch (error) {
                 console.log(error);

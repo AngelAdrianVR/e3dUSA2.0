@@ -234,7 +234,7 @@
             <footer class="mt-7 pt-4 border-t border-gray-200 dark:border-slate-700 text-sm text-gray-600 dark:text-gray-400">
                 <div v-if="sale.notes">
                     <h3 class="font-semibold text-gray-800 dark:text-gray-200 mb-2">Notas Adicionales</h3>
-                    <p>{{ sale.notes }}</p>
+                    <div class="prose prose-sm" v-html="sale.notes"></div>
                 </div>
                 <!-- <div class="mt-6 text-center text-xs text-gray-400">
                     <p>Gracias por su compra.</p>
