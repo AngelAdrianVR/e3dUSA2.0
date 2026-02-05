@@ -187,16 +187,23 @@ class Quote extends Model implements Auditable
         // 2. Suma costos adicionales (herramental y flete).
         $totalBeforeDiscount = $subtotal;
 
-        // --- CAMBIO 2: Comprobar si 'tooling_cost' es numérico ANTES de sumarlo ---
-        // Si no está tachado Y ES UN NÚMERO, se suma. Si es texto (ej. "A consultar"), se ignora.
-        if (!$this->is_tooling_cost_stroked && is_numeric($this->tooling_cost)) {
-            $totalBeforeDiscount += (float) $this->tooling_cost;
+        // --- CORRECCIÓN TOOLING COST ---
+        // Primero eliminamos las comas para evitar errores con formatos tipo "1,500".
+        // str_replace devuelve el valor sin comas. Si es "A consultar", sigue siendo "A consultar".
+        $cleanToolingCost = str_replace(',', '', (string)$this->tooling_cost);
+
+        // Validamos si el valor limpio es numérico. 
+        // "1500" => true. "1500 USD" => false. "A consultar" => false.
+        if (!$this->is_tooling_cost_stroked && is_numeric($cleanToolingCost)) {
+            $totalBeforeDiscount += (float) $cleanToolingCost;
         }
 
-        // --- (Mejora): Hago lo mismo para freight_cost por seguridad ---
-        // Asumo que freight_cost sigue siendo numérico, pero esta comprobación no hace daño.
-        if ($this->freight_option && !$this->is_freight_cost_stroked && is_numeric($this->freight_cost)) {
-            $totalBeforeDiscount += (float) $this->freight_cost;
+        // --- CORRECCIÓN FREIGHT COST ---
+        // Aplicamos la misma lógica de seguridad para el flete.
+        $cleanFreightCost = str_replace(',', '', (string)$this->freight_cost);
+
+        if ($this->freight_option && !$this->is_freight_cost_stroked && is_numeric($cleanFreightCost)) {
+            $totalBeforeDiscount += (float) $cleanFreightCost;
         }
 
         // 3. Calcula el descuento si aplica.
@@ -204,7 +211,6 @@ class Quote extends Model implements Auditable
         $totalAfterDiscount = $totalBeforeDiscount;
 
         if ($this->has_early_payment_discount && $this->early_payment_discount_amount > 0) {
-            // El descuento se calcula sobre el total antes de impuestos.
             $discountAmount = ($totalBeforeDiscount * $this->early_payment_discount_amount) / 100;
             $totalAfterDiscount = $totalBeforeDiscount - $discountAmount;
         }
@@ -219,9 +225,9 @@ class Quote extends Model implements Auditable
             'total_before_discount' => (float) $totalBeforeDiscount,
             'discount_percentage' => $this->has_early_payment_discount ? (float) $this->early_payment_discount_amount : 0,
             'discount_amount' => (float) $discountAmount,
-            'total_after_discount' => (float) $totalAfterDiscount, // Este es el total sin IVA
+            'total_after_discount' => (float) $totalAfterDiscount,
             'vat_amount' => (float) $vatAmount,
-            'total_with_vat' => (float) $totalWithVat, // Este es el total con IVA
+            'total_with_vat' => (float) $totalWithVat,
         ];
     }
 
