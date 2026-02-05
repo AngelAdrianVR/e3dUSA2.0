@@ -426,10 +426,11 @@ export default {
                 const data = response.data;
                 this.supplierContacts = data.contacts;
                 this.supplierBankAccounts = data.bankAccounts;
+                // NOTA: Laravel envía los datos de la relación (last_price) dentro de un objeto llamado 'pivot'
                 this.availableProducts = data.products.map(product => ({
                     value: product.id,
                     label: `${product.name} (${product.code})`,
-                    ...product
+                    ...product // Al usar spread, la propiedad 'pivot' queda disponible en availableProducts
                 }));
             } catch (error) {
                 console.error("Error al obtener detalles del proveedor:", error);
@@ -441,7 +442,15 @@ export default {
             const product = this.availableProducts.find(p => p.value === productId);
             if (product) {
                 this.productForm.product_name = product.label;
-                this.productForm.unit_price = product.cost ?? 0;
+                
+                // CORRECCIÓN AQUI:
+                // Verificamos si existe el pivot (dato de la relación) y si tiene un last_price
+                if (product.pivot && product.pivot.last_price) {
+                    this.productForm.unit_price = parseFloat(product.pivot.last_price);
+                } else {
+                    // Si no tiene precio específico con este proveedor, usamos el costo global
+                    this.productForm.unit_price = product.cost ?? 0;
+                }
             }
             this.getProductMedia();
         },
@@ -454,14 +463,16 @@ export default {
                 if ( response.status === 200 ) {
                     this.productForm.media = response.data.product.media;
                     this.productForm.storages = response.data.product.storages;
-                    this.productForm.cost = response.data.product.cost;
+                    // Ya no sobreescribimos el costo aquí porque onProductSelect ya tiene la lógica correcta
+                    // this.productForm.cost = response.data.product.cost; 
                     this.productForm.measure_unit = response.data.product.measure_unit;
                     this.productForm.currency = response.data.product.currency;
 
-                    // Si estamos agregando un nuevo producto (no editando), se asigna el costo como precio.
-                    if (this.editingProductIndex === null) {
-                        this.productForm.last_price = response.data.product.cost;
-                    }
+                    // OJO: La línea original aquí abajo sobreescribía el precio con el costo global.
+                    // La he comentado o eliminado logicamente para respetar el precio del proveedor.
+                    // if (this.editingProductIndex === null) {
+                    //    this.productForm.last_price = response.data.product.cost; 
+                    // }
                 }
             } catch (error) {
                 console.log(error);

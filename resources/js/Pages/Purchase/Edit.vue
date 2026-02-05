@@ -406,9 +406,11 @@ export default {
                 const data = response.data;
                 this.supplierContacts = data.contacts;
                 this.supplierBankAccounts = data.bankAccounts;
+                // CORRECCIÓN 1: Agregar ...product para traer los datos del pivot (precio)
                 this.availableProducts = data.products.map(product => ({
                     value: product.id,
                     label: `${product.name} (${product.code})`,
+                    ...product 
                 }));
             } catch (error) {
                 console.error("Error al obtener detalles del proveedor:", error);
@@ -419,6 +421,14 @@ export default {
             const product = this.availableProducts.find(p => p.value === productId);
             if (product) {
                 this.productForm.product_name = product.label;
+                
+                // CORRECCIÓN 2: Lógica para asignar precio del proveedor
+                if (product.pivot && product.pivot.last_price) {
+                    this.productForm.unit_price = parseFloat(product.pivot.last_price);
+                } else {
+                    // Si no tiene precio específico, usa el costo general
+                    this.productForm.unit_price = product.cost ?? 0;
+                }
             }
         },
         addProduct() {

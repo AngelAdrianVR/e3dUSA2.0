@@ -315,7 +315,7 @@ class QuoteController extends Controller
             $newQuote->show_breakdown = $request->show_breakdown;
             $newQuote->has_early_payment_discount = $request->has_early_payment_discount;
             $newQuote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
-            $newQuote->user_id = auth()->id(); // El autor de la NUEVA versión es el usuario actual
+            // $newQuote->user_id = auth()->id(); // El autor de la NUEVA versión es el usuario actual
 
             // 5. Asignar los nuevos valores de versión
             $newQuote->version = $latestVersionNum + 1;
