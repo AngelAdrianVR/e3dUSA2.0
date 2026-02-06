@@ -41,6 +41,7 @@ use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\SampleTrackingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
+use App\Http\Controllers\StockRepositionController;
 use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SupplierBankAccountController;
 use App\Http\Controllers\SupplierContactController;
@@ -300,6 +301,10 @@ Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->
 Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
 Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
 Route::get('purchases-download-report', [PurchaseController::class, 'downloadReport'])->middleware('auth')->name('purchases.download-report');
+
+
+// ------- (Ruta Index de reposicion de stock)  ---------
+Route::get('/stock-reposition', [StockRepositionController::class, 'index'])->name('stock-reposition.index');
 
 
 // ------- (Rutas de diseño)  ---------

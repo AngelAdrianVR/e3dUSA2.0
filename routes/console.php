@@ -36,4 +36,8 @@ Schedule::command('invoices:check-overdue')->daily()->at('01:00');
 Schedule::command('clients:notify-inactive')->dailyAt('06:00');
 
 // Elimina notificaciones de mas de 40 dias de creados
-Schedule::command('notifications:clear-old')->daily()->at('01:00');;
+Schedule::command('notifications:clear-old')->daily()->at('01:00');
+
+// Notifica reposición de stock a usuarios clave (Super Admin, Almacén, Compras, etc.)
+// Se ejecuta una vez por semana (Lunes a las 9:00 AM).
+Schedule::command('app:stock-reposition')->weeklyOn(1, '09:00');

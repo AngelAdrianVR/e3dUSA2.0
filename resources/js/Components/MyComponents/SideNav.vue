@@ -488,11 +488,18 @@ export default {
                             active: route().current('purchases.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
                         },
+                        {
+                            label: 'Productos con bajo stock',
+                            route: 'stock-reposition.index',
+                            active: route().current('stock-reposition.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock'),
+                        },
 
                     ],
                     dropdown: true,
                     show: this.$page.props.auth.user.permissions.includes('Ver proveedores')
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
+                        || this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock')
                 },
                 {
                     label: 'Logistica',

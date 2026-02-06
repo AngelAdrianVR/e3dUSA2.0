@@ -50,15 +50,37 @@ class PurchaseController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         // Se envían solo los proveedores activos.
         $suppliers = Supplier::select('id', 'name')->get();
+
+        // Recibir datos para pre-llenado desde StockReposition
+        $prefill = [
+            'supplier_id' => $request->query('prefill_supplier_id'),
+            'product_id' => $request->query('prefill_product_id'),
+            'quantity' => $request->query('prefill_quantity'),
+        ];
         
-        // Se podrían enviar también los productos, pero es mejor cargarlos dinámicamente
-        // al seleccionar un proveedor para mejorar el rendimiento.
+        // Si hay un producto preseleccionado, cargamos sus datos básicos para mostrarlos en el frontend
+        // Esto ayuda a que el componente de Vue pueda inicializar el item correctamente
+        $preselectedProduct = null;
+        if ($prefill['product_id']) {
+            $product = \App\Models\Product::find($prefill['product_id']);
+            if ($product) {
+                $preselectedProduct = [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    // Agrega otros campos si tu componente de Item los requiere
+                ];
+            }
+        }
+
         return Inertia::render('Purchase/Create', [
             'suppliers' => $suppliers,
+            'prefill' => $prefill, // Enviamos los datos para llenar el formulario
+            'preselectedProduct' => $preselectedProduct,
         ]);
     }
 

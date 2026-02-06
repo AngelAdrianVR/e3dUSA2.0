@@ -131,7 +131,7 @@
                                             <!-- informacion de almacén -->
                                             <div>
                                                 <p class="text-gray-500 dark:text-gray-300">
-                                                    Stock: <strong>{{ productForm.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ productForm.measure_unit }}</strong>
+                                                    Stock: <strong>{{ productForm.storages?.[0]?.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ productForm.measure_unit }}</strong>
                                                 </p>
                                             </div>
                                         </div>
@@ -375,6 +375,53 @@ export default {
     props: {
         suppliers: Array,
         products: Array,
+        prefill: Object, // Nuevo prop para datos precargados
+        preselectedProduct: Object, // Nuevo prop para detalles del producto precargado
+    },
+    async mounted() {
+        // Verificar si hay datos precargados para llenar el formulario
+        if (this.prefill?.supplier_id) {
+            this.form.supplier_id = parseInt(this.prefill.supplier_id);
+            
+            // Cargar datos del proveedor (esto limpiará los items, así que lo hacemos antes de agregar el preseleccionado)
+            await this.fetchSupplierDetails();
+
+            // Si hay producto preseleccionado, agregarlo
+            if (this.prefill.product_id && this.preselectedProduct) {
+                // Intentar encontrar el producto en la lista cargada del proveedor para obtener precio específico
+                const productInList = this.availableProducts.find(p => p.value == this.prefill.product_id);
+                
+                let price = 0;
+                // Usar nombre y código del prop por defecto
+                let name = `${this.preselectedProduct.name} (${this.preselectedProduct.code})`;
+
+                if (productInList) {
+                    name = productInList.label; // Usar etiqueta del select si está disponible
+                    if (productInList.pivot && productInList.pivot.last_price) {
+                        price = parseFloat(productInList.pivot.last_price);
+                    } else {
+                        price = productInList.cost ?? 0;
+                    }
+                }
+
+                // Agregar el item al formulario
+                this.form.items.push({
+                    product_id: parseInt(this.prefill.product_id),
+                    product_name: name,
+                    quantity: parseFloat(this.prefill.quantity) || 1,
+                    unit_price: price,
+                    additional_stock: 0,
+                    plane_stock: 0,
+                    ship_stock: 0,
+                    type: 'Venta',
+                    needs_mold: false,
+                    mold_price: 0,
+                    notes: '',
+                });
+                
+                ElMessage.info('Producto precargado desde alerta de stock.');
+            }
+        }
     },
     computed: {
         // Calcula los totales de la orden
@@ -521,6 +568,12 @@ export default {
         editProduct(index) {
             this.editProductIndex = index;
             this.productForm = { ...this.form.items[index] };
+            
+            // Si falta info detallada (como en items precargados que no tienen storages), buscarla
+            if (!this.productForm.storages) {
+                this.getProductMedia();
+            }
+
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },
         // Cancelar la edición de un producto
