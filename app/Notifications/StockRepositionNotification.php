@@ -65,7 +65,13 @@ class StockRepositionNotification extends Notification implements ShouldQueue
             'title' => 'Alerta de Inventario',
             'folio' => $this->products->count() . ' Prod.', // Usamos el conteo como referencia corta
             'type' => 'stock-reposition',
-            'url' => route('stock-reposition.index'), // Ruta temporal solicitada
+            
+            // --- CORRECCIÓN ---
+            // Usamos 'false' como tercer parámetro para forzar una ruta relativa (e.g., "/stock-reposition")
+            // en lugar de absoluta ("http://localhost:8000/stock-reposition").
+            // Esto soluciona el problema de CORS entre 127.0.0.1 y localhost.
+            'url' => route('stock-reposition.index', [], false), 
+            
             'message' => 'Productos con stock mínimo. Da clic para ver el listado completo.',
             'icon' => 'fa-solid fa-triangle-exclamation', // Icono de alerta
         ];

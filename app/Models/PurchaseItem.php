@@ -31,6 +31,7 @@ class PurchaseItem extends Model
         'total_price',
         'mold_price',
         'needs_mold',
+        'quantity_received',
     ];
 
     protected $casts = [
