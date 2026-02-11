@@ -14,7 +14,17 @@
         <div class="flex-grow">
             <p class="font-bold text-lg text-gray-800 dark:text-gray-100">{{ purchaseItem.product.name }}</p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Código: {{ purchaseItem.product?.code }}</p>
-            <p v-if="purchaseItem.notes" class="text-xs text-amber-500 dark:text-amber-400 mb-2">Notas: {{ purchaseItem.notes }}</p>
+            
+            <div class="flex flex-wrap gap-2 mb-2">
+                <p v-if="purchaseItem.notes" class="text-xs text-amber-500 dark:text-amber-400">
+                    <span class="font-semibold">Notas:</span> {{ purchaseItem.notes }}
+                </p>
+                
+                <!-- Indicador de Requiere Molde -->
+                <span v-if="purchaseItem.needs_mold" class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    <i class="fa-solid fa-shapes mr-1"></i> Requiere Molde
+                </span>
+            </div>
 
             <!-- Distribución de Cantidades -->
             <div v-if="hasDistribution" class="text-sm text-blue-600 dark:text-sky-400 space-y-1 bg-blue-100 dark:bg-sky-900/40 p-2 rounded-md">
@@ -39,8 +49,14 @@
                 {{ purchaseItem.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ purchaseItem.product.measure_unit }} x 
                 <span class="font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(purchaseItem.unit_price) }}</span>
             </p>
-            <p class="text-lg font-bold text-blue-700 dark:text-blue-400">
-                {{ formatCurrency(purchaseItem.total_price) }}
+            
+            <!-- Costo del Molde -->
+            <p v-if="purchaseItem.needs_mold && purchaseItem.mold_price > 0" class="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                + Molde: {{ formatCurrency(purchaseItem.mold_price) }}
+            </p>
+
+            <p class="text-lg font-bold text-blue-700 dark:text-blue-400 pt-1 border-t dark:border-gray-700 mt-1">
+                Producto: {{ formatCurrency(purchaseItem.total_price) }}
             </p>
         </div>
     </div>

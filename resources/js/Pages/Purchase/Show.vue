@@ -24,9 +24,17 @@
                         <i class="fa-solid fa-bag-shopping"></i>
                     </button>
                 </el-tooltip>
-                <el-tooltip v-if="purchase.status === 'Compra realizada'" content="Marcar como Recibida" placement="top">
+
+                <!-- NUEVO BOTÓN PARA RECEPCIÓN PARCIAL DE MERCANCÍA -->
+                <el-tooltip v-if="['Compra realizada', 'Autorizada'].includes(purchase.status) && hasPendingItems" content="Recibir Mercancía (Parcial o Total)" placement="top">
+                    <button @click="openReceptionModal" class="size-9 flex items-center justify-center rounded-lg bg-amber-300 hover:bg-amber-400 dark:bg-amber-700 dark:hover:bg-amber-600 transition-colors">
+                        <i class="fa-solid fa-box-open"></i>
+                    </button>
+                </el-tooltip>
+
+                <el-tooltip v-if="purchase.status === 'Compra realizada'" content="Cerrar Orden y Calificar (Recepción Final)" placement="top">
                     <button @click="updateStatus('Compra recibida')" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
-                        <i class="fa-solid fa-square-check"></i>
+                        <i class="fa-solid fa-clipboard-check"></i>
                     </button>
                 </el-tooltip>
 
@@ -118,7 +126,12 @@
                             <span class="font-semibold text-green-600 dark:text-green-400">Recibida el:</span>
                             <span class="text-green-500">{{ formatDateTime(purchase.recieved_at) }}</span>
                         </li>
-                         <li class="flex justify-between text-base font-bold">
+                        <!-- Nuevos Campos de Moldes -->
+                        <li v-if="hasMold" class="flex justify-between border-t border-dashed dark:border-gray-600 pt-2 mt-2">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Costo Total Moldes:</span>
+                            <span class="font-bold text-blue-500">{{ formatCurrency(totalMoldPrice) }} {{ purchase.currency }}</span>
+                        </li>
+                         <li class="flex justify-between text-base font-bold border-t dark:border-gray-600 pt-2">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
                             <span>{{ formatCurrency(purchase.total) }} {{ purchase.currency }}</span>
                         </li>
@@ -189,10 +202,23 @@
 
             <!-- COLUMNA DERECHA: PRODUCTOS -->
             <div class="lg:col-span-2">
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] max-h-[50vh] overflow-y-auto">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] max-h-[75vh] overflow-y-auto">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Productos de la Orden</h3>
                     <div v-if="purchase.items?.length" class="space-y-3 max-h-[65vh] overflow-auto custom-scroll p-1">
-                        <ProductPurchaseCard v-for="item in purchase.items" :key="item.id" :purchase-item="item" />
+                        <!-- Iteración de productos -->
+                        <div v-for="item in purchase.items" :key="item.id">
+                            <!-- Se eliminó el bloque temporal y ahora la info está dentro del componente -->
+                            <ProductPurchaseCard :purchase-item="item" />
+                            <!-- Barra de progreso de recepción (visual) -->
+                            <div class="mt-1 px-2 text-xs flex justify-between items-center text-gray-500">
+                                <span>Progreso: {{ item.quantity_received?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") ?? 0 }} / {{ item.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ item.product?.measure_unit }} recibidos</span>
+                                <span v-if="(item.quantity_received ?? 0) >= item.quantity" class="text-green-500 font-bold"><i class="fa-solid fa-check"></i> Completo</span>
+                                <span v-else class="text-amber-500">Pendiente: {{ (Number(item.quantity) - Number(item.quantity_received) ?? 0) }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-1.5 dark:bg-gray-700 mt-1">
+                                <div class="bg-blue-600 h-1.5 rounded-full" :style="`width: ${Math.min(((item.quantity_received ?? 0) / item.quantity) * 100, 100)}%`"></div>
+                            </div>
+                        </div>
                     </div>
                     <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
                         <i class="fa-solid fa-boxes-stacked text-3xl mb-3"></i>
@@ -256,12 +282,70 @@
             </template>
         </ConfirmationModal>
 
+        <!-- MODAL DE RECEPCIÓN PARCIAL DE MERCANCÍA -->
+        <DialogModal :show="showReceptionModal" @close="showReceptionModal = false" maxWidth="4xl">
+            <template #title>
+                <h1 class="font-bold">Recepción de Mercancía</h1>
+                <p class="text-sm font-normal text-gray-500">Ingresa la cantidad que estás recibiendo físicamente en este momento.</p>
+            </template>
+            <template #content>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                            <tr>
+                                <th class="px-4 py-3">Producto</th>
+                                <th class="px-4 py-3 text-center">Solicitado</th>
+                                <th class="px-4 py-3 text-center">Ya Recibido</th>
+                                <th class="px-4 py-3 text-center">Pendiente</th>
+                                <th class="px-4 py-3 text-center w-32">Recibir Ahora</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(item, index) in receptionForm.items" :key="item.id" class="border-b dark:border-gray-700">
+                                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                                    {{ item.name }}
+                                    <p class="text-xs text-gray-500">{{ item.description }}</p>
+                                </td>
+                                <td class="px-4 py-3 text-center">{{ item.quantity }}</td>
+                                <td class="px-4 py-3 text-center">{{ item.previously_received }}</td>
+                                <td class="px-4 py-3 text-center text-amber-600 font-bold">
+                                    {{ (Number(item.quantity) - Number(item.previously_received))?.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    <input 
+                                        type="number" 
+                                        v-model="item.quantity_received" 
+                                        min="0"
+                                        :max="Number(item.quantity) - Number(item.previously_received)"
+                                        class="w-full text-center rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-800 dark:border-gray-600 text-sm"
+                                        @input="validateReceptionAmount(item)"
+                                    >
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showReceptionModal = false">Cancelar</CancelButton>
+                    <SecondaryButton @click="submitReception" :disabled="receptionForm.processing || !hasValidReception">
+                        Confirmar Recepción
+                    </SecondaryButton>
+                </div>
+            </template>
+        </DialogModal>
+
         <!-- Modal de Encuesta de Satisfacción -->
         <DialogModal :show="showRatingModal" @close="showRatingModal = false" maxWidth="3xl">
             <template #title>
-                <h1 class="font-bold">Recepción de Compra y Evaluación de Proveedor</h1>
+                <h1 class="font-bold">Cierre de Orden y Evaluación de Proveedor</h1>
             </template>
             <template #content>
+                <div v-if="hasPendingItems" class="mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-700">
+                    <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Atención</p>
+                    <p>Aún quedan productos pendientes por recibir. Al finalizar esta evaluación, <strong>todo el stock restante se marcará como recibido automáticamente</strong>.</p>
+                </div>
                 <p class="text-gray-600 dark:text-gray-400">Por favor, completa la siguiente evaluación del proveedor.</p>
                 <form @submit.prevent="submitRating" class="mt-5 space-y-4">
                     <section>
@@ -346,7 +430,7 @@
             <template #footer>
                  <div class="flex space-x-2">
                     <CancelButton @click="showRatingModal = false">Cancelar</CancelButton>
-                    <SecondaryButton @click="submitRating" :disabled="ratingForm.processing">Guardar Evaluación</SecondaryButton>
+                    <SecondaryButton @click="submitRating" :disabled="ratingForm.processing">Cerrar Orden y Guardar</SecondaryButton>
                 </div>
             </template>
         </DialogModal>
@@ -394,8 +478,15 @@ export default {
             showConfirmModal: false,
             showCancelConfirmModal: false,
             showRatingModal: false,
+            showReceptionModal: false, // Nuevo modal
             filePreviews: [],
             purchaseSteps: ['Autorizada', 'Compra realizada', 'Compra recibida'],
+            
+            // Formulario para recepción parcial
+            receptionForm: useForm({
+                items: []
+            }),
+
             ratingForm: useForm({
                 q1: 'Si',
                 q1_days: 1,
@@ -417,9 +508,73 @@ export default {
     computed: {
         evidenceMedia() {
             return this.purchase.media?.filter(media => media.collection_name === 'evidence_files') || [];
+        },
+        hasMold() {
+            return this.purchase.items?.some(item => item.needs_mold);
+        },
+        totalMoldPrice() {
+            return this.purchase.items?.reduce((sum, item) => {
+                return item.needs_mold ? sum + Number(item.mold_price || 0) : sum;
+            }, 0);
+        },
+        hasPendingItems() {
+            // Verifica si hay items con cantidad recibida menor a la solicitada
+            return this.purchase.items?.some(item => Number(item.quantity_received ?? 0) < Number(item.quantity));
+        },
+        hasValidReception() {
+            // Valida que al menos un item tenga cantidad mayor a 0 para recibir
+            return this.receptionForm.items.some(item => Number(item.quantity_received) > 0);
         }
     },
     methods: {
+        // --- LÓGICA DE RECEPCIÓN PARCIAL ---
+        openReceptionModal() {
+            // Preparamos los items para el formulario
+            this.receptionForm.items = this.purchase.items.map(item => ({
+                id: item.id,
+                name: item.product?.name || item.description,
+                description: item.description,
+                quantity: item.quantity,
+                previously_received: item.quantity_received ?? 0,
+                quantity_received: 0, // Iniciamos en 0 para que el usuario ponga cuánto llega hoy
+            }));
+            this.showReceptionModal = true;
+        },
+        validateReceptionAmount(item) {
+            const max = Number(item.quantity) - Number(item.previously_received);
+            if (item.quantity_received > max) {
+                item.quantity_received = max;
+            }
+            if (item.quantity_received < 0) {
+                item.quantity_received = 0;
+            }
+        },
+        submitReception() {
+            // Filtramos solo los items que tienen cantidad > 0
+            const itemsToReceive = this.receptionForm.items
+                .filter(item => Number(item.quantity_received) > 0)
+                .map(item => ({
+                    id: item.id,
+                    quantity_received: item.quantity_received
+                }));
+
+            this.receptionForm.transform(() => ({
+                items: itemsToReceive
+            })).post(route('purchases.receive-products', this.purchase.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success('Recepción registrada correctamente');
+                    this.showReceptionModal = false;
+                    this.receptionForm.reset();
+                },
+                onError: (errors) => {
+                    ElMessage.error('Error al registrar la recepción');
+                    console.error(errors);
+                }
+            });
+        },
+        // ------------------------------------
+
         getQuestionText(index) {
             const questions = [
                 "1. ¿Cumplió con el tiempo de entrega?",

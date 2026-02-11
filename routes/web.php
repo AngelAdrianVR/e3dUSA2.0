@@ -301,6 +301,7 @@ Route::get('purchases/print/{purchase}', [PurchaseController::class, 'print'])->
 Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateStatus'])->middleware('auth')->name('purchases.update-status');
 Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
 Route::get('purchases-download-report', [PurchaseController::class, 'downloadReport'])->middleware('auth')->name('purchases.download-report');
+Route::post('purchases/{purchase}/receive-products', [PurchaseController::class, 'receiveProducts'])->middleware('auth')->name('purchases.receive-products');
 
 
 // ------- (Ruta Index de reposicion de stock)  ---------

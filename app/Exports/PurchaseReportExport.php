@@ -50,7 +50,7 @@ class PurchaseReportExport implements FromQuery, WithHeadings, WithMapping, Shou
      */
     public function headings(): array
     {
-        // Estas son las columnas que el usuario solicitó
+        // Se agregaron las columnas "Requiere Molde" y "Costo Molde"
         return [
             'Proveedor',
             'Folio Compra',
@@ -60,6 +60,8 @@ class PurchaseReportExport implements FromQuery, WithHeadings, WithMapping, Shou
             'Cantidad',
             'Precio Unitario',
             'Precio Total (Item)',
+            'Requiere Molde',       // Nueva columna
+            'Costo Molde',          // Nueva columna
             'Fecha Recepción Esperada',
             'Notas del Producto'
         ];
@@ -73,7 +75,7 @@ class PurchaseReportExport implements FromQuery, WithHeadings, WithMapping, Shou
      */
     public function map($item): array
     {
-        // Mapeamos los datos de acuerdo a los encabezados
+        // Mapeamos los datos incluyendo las nuevas columnas
         return [
             $item->purchase->supplier->name ?? 'N/A',
             'OC-' . str_pad($item->purchase->id, 4, '0', STR_PAD_LEFT),
@@ -83,6 +85,9 @@ class PurchaseReportExport implements FromQuery, WithHeadings, WithMapping, Shou
             $item->quantity,
             number_format($item->unit_price, 2),
             number_format($item->total_price, 2),
+            // Lógica para las nuevas columnas:
+            $item->needs_mold ? 'Sí' : 'No',            // Convertimos el booleano a texto legible
+            number_format($item->mold_price ?? 0, 2),   // Formateamos el precio del molde
             $item->purchase->expected_delivery_date ? (new \DateTime($item->purchase->expected_delivery_date))->format('Y-m-d') : 'N/A',
             $item->notes,
         ];
