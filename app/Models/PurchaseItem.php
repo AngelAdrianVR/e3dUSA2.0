@@ -36,6 +36,7 @@ class PurchaseItem extends Model
 
     protected $casts = [
         'needs_mold' => 'boolean',
+        'total_price' => 'decimal:3',
     ];
 
     /**

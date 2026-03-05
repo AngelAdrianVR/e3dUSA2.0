@@ -50,7 +50,7 @@
                             <!-- ====== BOTÓN NUEVO PARA EDICIÓN MASIVA ====== -->
                              <el-button v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')"
                                 type="warning" plain @click="showMassiveEditModal = true" :disabled="!selectedItems.length">
-                                Editar selección
+                                Editar selección ({{ selectedItems.length }})
                             </el-button>
                             <!-- ============================================= -->
 
@@ -59,7 +59,7 @@
                                 title="¿Estás seguro de eliminar los productos seleccionados?" @confirm="deleteSelections">
                                 <template #reference>
                                     <el-button type="danger" plain :disabled="!selectedItems.length">
-                                        Eliminar selección
+                                        Eliminar selección ({{ selectedItems.length }})
                                     </el-button>
                                 </template>
                             </el-popconfirm>
@@ -79,6 +79,8 @@
                             <LoadingIsoLogo />
                         </div>
                         <el-table 
+                            ref="multipleTable"
+                            row-key="id"
                             max-height="550" 
                             :data="products.data"
                             style="width: 100%" 
@@ -87,7 +89,9 @@
                             @row-click="handleRowClick"
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
-                            <el-table-column type="selection" width="30" />
+                            <!-- Añadido reserve-selection para mantener selección en paginación/búsqueda -->
+                            <el-table-column type="selection" width="30" reserve-selection />
+                            
                             <el-table-column label="Imagen" width="100">
                                 <template #default="scope">
                                     <figure class="border rounded-md size-20 flex items-center justify-center bg-white">
@@ -200,7 +204,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import MassiveEditModal from './Partials/MassiveEditModal.vue';
-import { ElMessage, ElMessageBox } from 'element-plus'; // <-- AÑADIDO ElMessageBox
+import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 import { Link, router } from "@inertiajs/vue3";
 import { debounce } from 'lodash';
@@ -256,7 +260,6 @@ export default {
         openReport() {
             window.open(route('catalog-products.prices-report'), '_blank');
         },
-        // Exportar reporte de precios (A, B, C) de clientes que ya estan registrados
         exportToExcel() {
             this.loadingExport = true;
             axios({
@@ -277,7 +280,6 @@ export default {
                 this.loadingExport = false;
             });
         },
-        // Exportar reporte de precios de todos los productos para análisis ABC y asignar precios a nuevos clientes
         exportToExcelProductPrices() {
             this.loadingExport = true;
             axios({
@@ -332,7 +334,6 @@ export default {
             if (commandName === 'show' || commandName === 'edit' || commandName === 'obsolet') {
                  router.get(route('catalog-products.' + commandName, rowId));
             } else if (commandName === 'delete') {
-                // Confirmación antes de eliminar
                 ElMessageBox.confirm(
                     '¿Estás seguro de que deseas eliminar este producto? Esta acción no se puede deshacer.',
                     'Advertencia',
@@ -344,7 +345,6 @@ export default {
                     }
                 )
                 .then(() => {
-                    // Se asume que la ruta RESTful estandar es 'destroy'
                     router.delete(route('catalog-products.destroy', rowId), {
                         onSuccess: () => {
                             ElMessage({
@@ -375,6 +375,8 @@ export default {
             this.$inertia.post(route('catalog-products.massive-delete'), { ids }, {
                 onSuccess: () => {
                     ElMessage.success('Productos eliminados correctamente');
+                    // Limpia las selecciones guardadas después de la eliminación correcta
+                    this.$refs.multipleTable.clearSelection();
                 },
                 onError: () => {
                     ElMessage.error('Ocurrió un error al eliminar los productos');
@@ -396,7 +398,7 @@ export default {
                 const response = await axios.post(route('catalog-products.clone', { catalog_product_id: productId }));
                 if (response.status === 200) {
                     ElMessage.success(response.data.message);
-                    this.$inertia.reload({ only: ['products'] }); // Recargar datos
+                    this.$inertia.reload({ only: ['products'] }); 
                 }
             } catch (error) {
                 ElMessage.error(error.response.data.message || 'No se pudo clonar el producto');

@@ -591,6 +591,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver bonos')
                         || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                         || this.$page.props.auth.user.permissions.includes('Gestionar quioscos')
+                        || this.$page.props.auth.user.permissions?.includes('Ver solicitudes de tiempo adicional')
                 },
                 {
                     label: 'Diseño',

@@ -1,7 +1,20 @@
 <template>
     <Head :title="tabTitle" />
-    <div class="bg-gray-100 font-sans print:bg-white">
-        <div class="container mx-auto p-4">
+    <div class="bg-gray-100 font-sans print:bg-white relative">
+        
+        <!-- ========================================== -->
+        <!-- MARCA DE AGUA - NO AUTORIZADA              -->
+        <!-- ========================================== -->
+        <div v-if="!quote.authorized_by_user_id" 
+             class="fixed inset-0 pointer-events-none flex items-center justify-center z-[100] overflow-hidden">
+            <div class="text-red-500 opacity-15 print:opacity-20 font-black text-[80px] md:text-[120px] print:text-[100px] -rotate-45 whitespace-nowrap uppercase select-none tracking-widest">
+                {{ quote.is_spanish_template ? 'NO AUTORIZADA' : 'UNAUTHORIZED' }}
+            </div>
+        </div>
+        <!-- ========================================== -->
+
+        <!-- Se agregaron print:max-w-full print:w-full print:p-0 para evitar que el navegador reduzca la escala -->
+        <div class="container mx-auto p-4 print:max-w-full print:w-full print:p-0">
             <!-- Contenedor principal de la cotización -->
             <div class="bg-white rounded-lg shadow-lg p-5 text-gray-800 relative print:shadow-none print:rounded-none print:p-0">
 
@@ -174,21 +187,25 @@
                 <!-- Tarjetas de Productos -->
                 <section>
                     <h2 class="text-xl font-bold text-gray-700 mb-4 border-b pb-2">{{ quote.is_spanish_template ? 'Conceptos de la Cotización' : 'Quote Concepts' }}</h2>
+                    <!-- Modificado print:grid-cols-2 a print:grid-cols-3 -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 print:grid-cols-2 print:gap-2">
                         <div v-for="(item, productIndex) in quote.products" :key="item.id"
-                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-xl flex flex-col md:flex-row print:flex-row"
+                             class="bg-white border rounded-lg overflow-hidden transition-shadow hover:shadow-xl flex flex-col md:flex-row print:flex-col"
                              :class="{'print:hidden': item.pivot.customer_approval_status === 'Rechazado' }">
                             
                             <!-- Imagen y Selector -->
-                            <div class="bg-gray-100 p-2 relative group md:w-40 print:w-36 flex-shrink-0 flex items-center justify-center">
+                            <!-- Ajustado el tamaño de la imagen para impresión y vuelto print:flex-col arriba para ser más compacto verticalmente -->
+                            <div class="bg-gray-100 p-2 relative group md:w-40 print:w-full print:h-48 flex-shrink-0 flex items-center justify-center">
                                 <img v-if="item.pivot.show_image" 
                                     draggable="false"
-                                    class="rounded-md w-full h-40 md:h-full object-contain mx-auto"
+                                    class="rounded-md w-full h-40 md:h-full print:h-full object-contain print:object-cover mx-auto"
                                     :src="item.media[item.activeImageIndex || 0]?.original_url"
-                                    :alt="item.name">
+                                    :alt="item.name"
+                                    @error="handleImageError"
+                                    @load="handleImageLoad">
 
                                 <!-- Contenedor alternativo si no hay imagen -->
-                                <div v-else class="flex items-center justify-center w-full h-40 md:h-full rounded-md bg-gray-200 text-gray-500 text-sm font-semibold italic">
+                                <div v-else class="flex items-center justify-center w-full h-40 md:h-full print:h-20 rounded-md bg-gray-200 text-gray-500 text-sm print:text-xs font-semibold italic">
                                     {{ quote.is_spanish_template ? 'Sin imagen' : 'No image' }}
                                 </div>
 
@@ -257,15 +274,15 @@
                                 </div>
                             </div>
 
-                            <!-- Contenido de la tarjeta -->
+                            <!-- Contenido de la tarjeta (ajustado tipografía para impresión) -->
                             <div class="p-3 print:p-2 flex flex-col flex-grow">
-                                <h3 class="font-bold text-base text-gray-800 uppercase">{{ item.name }}</h3>
-                                <p v-if="item.pivot.notes" class="text-xs text-gray-600 mt-1 flex-grow italic">"{{ item.pivot.notes }}"</p>
+                                <h3 class="font-bold text-base text-gray-800 uppercase print:text-[11px] print:leading-tight">{{ item.name }}</h3>
+                                <p v-if="item.pivot.notes" class="text-xs text-gray-600 mt-1 flex-grow italic print:text-[9px] print:leading-tight print:mt-0">"{{ item.pivot.notes }}"</p>
                                 
-                                <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-3 text-xs">
+                                <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-2 text-xs print:text-[9px]">
                                     <!-- Dimensiones -->
-                                    <div class="space-y-1" v-if="item.large || item.height || item.width || item.diameter">
-                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">
+                                    <div class="space-y-1 print:space-y-0" v-if="item.large || item.height || item.width || item.diameter">
+                                        <p class="uppercase text-gray-500 font-semibold text-[10px] print:text-[8px] print:mb-0.5">
                                             {{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}
                                         </p>
 
@@ -291,8 +308,8 @@
                                     </div>
 
                                     <!-- Precios -->
-                                    <div class="space-y-1">
-                                        <p class="uppercase text-gray-500 font-semibold text-[10px]">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p>
+                                    <div class="space-y-1 print:space-y-0">
+                                        <p class="uppercase text-gray-500 font-semibold text-[10px] print:text-[8px] print:mb-0.5">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p>
                                         <div class="flex justify-between">
                                             <span>{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
                                             <span class="font-semibold">{{ Number(item.pivot.quantity).toLocaleString() }}</span>
@@ -303,7 +320,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div v-if="quote.show_breakdown" class="flex justify-between text-sm mt-1 pt-1 border-t">
+                                <div v-if="quote.show_breakdown" class="flex justify-between text-sm mt-1 pt-1 border-t print:text-[10px]">
                                     <span class="font-bold">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
                                     <span class="font-bold text-sky-700">${{ formatNumber(item.pivot.quantity * item.pivot.unit_price) }}</span>
                                 </div>
@@ -357,7 +374,7 @@
                 
                 <!-- Sección de Totales -->
                 <section v-if="quote.show_breakdown" class="mt-8 flex justify-end">
-                    <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm">
+                    <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm print:text-xs">
                         <!-- --- MODIFICADO: Controles de IVA --- -->
                         <div class="flex items-center justify-end gap-3 mb-2 print:hidden bg-gray-50 p-2 rounded border">
                             <label class="flex items-center gap-2 cursor-pointer text-xs select-none">
@@ -543,6 +560,28 @@ export default {
         // --- FIN MODIFICACIÓN ---
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            // Si ya intentamos el fallback o si ya estamos en el dominio de producción, evitamos un bucle infinito
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) {
+                return;
+            }
+
+            // Marcamos que ya hicimos el primer intento fallido
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                // Extraemos la ruta (path) de la URL actual y la concatenamos con el dominio de producción
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                // Fallback secundario mediante expresión regular por si falla la instanciación de URL
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         // --- NUEVO: Métodos para Historial de Precios ---
         goToBranchProducts() {
             // Redirige a la vista del cliente (sucursal) en la pestaña de productos
@@ -725,17 +764,3 @@ export default {
     }
 };
 </script>
-
-<style>
-/* --- MODIFICADO: Quitar márgenes de impresión para maximizar espacio --- */
-@media print {
-    @page {
-        margin: 0;
-        size: auto;
-    }
-    body {
-        margin: 0;
-        padding: 0;
-    }
-}
-</style>

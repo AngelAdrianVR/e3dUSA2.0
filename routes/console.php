@@ -39,5 +39,5 @@ Schedule::command('clients:notify-inactive')->dailyAt('06:00');
 Schedule::command('notifications:clear-old')->daily()->at('01:00');
 
 // Notifica reposición de stock a usuarios clave (Super Admin, Almacén, Compras, etc.)
-// Se ejecuta una vez por semana (Lunes a las 9:00 AM).
-Schedule::command('app:stock-reposition')->weeklyOn(1, '09:00');
+// Se ejecuta una vez por semana (viernes a las 1:00 AM).
+Schedule::command('app:stock-reposition')->weeklyOn(5, '01:00');

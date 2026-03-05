@@ -297,6 +297,7 @@ class QuoteController extends Controller
             Quote::where('root_quote_id', $rootId)->update(['is_active' => false]);
 
             // 3. Replicar (clonar) la cotización base
+            // NOTA: replicate() ya copia 'authorized_at' y 'authorized_by_user_id'
             $newQuote = $quote->replicate();
 
             // 4. Aplicar los nuevos datos del request a la cotización REPLICADA
@@ -327,14 +328,16 @@ class QuoteController extends Controller
             $newQuote->sale_id = null; // Una nueva versión no está ligada a una venta anterior
             $newQuote->customer_responded_at = null;
             $newQuote->rejection_reason = null;
-            $newQuote->authorized_at = null;
-            $newQuote->authorized_by_user_id = null;
+            
+            // SE ELIMINÓ EL RESETEO DE LOS CAMPOS DE AUTORIZACIÓN PARA CONSERVAR LOS DE LA VERSIÓN ANTERIOR
+            // $newQuote->authorized_at = null; 
+            // $newQuote->authorized_by_user_id = null;
+            
             $newQuote->created_at = now(); // `replicate` copia el created_at, lo reseteamos
             
             $newQuote->save(); // Guardar la nueva versión (v2, v3...)
 
             // 7. Adjuntar los productos a la NUEVA versión
-            // (Tu misma lógica de attach, pero apuntando a $newQuote)
             foreach ($request->products as $product) {
                 $newQuote->products()->attach($product['id'], [
                     'quantity' => $product['quantity'],
@@ -347,9 +350,10 @@ class QuoteController extends Controller
             }
 
             // 8. Lógica de Notificación (para la nueva versión)
-            if ($newQuote) {
+            // MODIFICACIÓN: Solo notificar si la cotización NO está autorizada
+            if ($newQuote && is_null($newQuote->authorized_at)) {
                 $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
-    
+
                 if ($usersToNotify->isNotEmpty()) {
                     Notification::send($usersToNotify, new NewQuoteForApprovalNotification($newQuote));
                 }
@@ -394,6 +398,8 @@ class QuoteController extends Controller
             $remainingPendingQuotes = Quote::where('user_id', $user->id)
                 ->where('status', 'Esperando respuesta')
                 ->where('created_at', '<=', $threeDaysAgo)
+                ->where('is_active', true)
+                ->whereNotIn('user_id', [2, 3]) // <-- LÍNEA AÑADIDA: Excluir a los usuarios con ID 2 y 3
                 ->get();
 
             // Decidimos si actualizar o eliminar la alerta
