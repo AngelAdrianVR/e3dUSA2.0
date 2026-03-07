@@ -116,23 +116,30 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.products" label="Productos" width="140">
+
+                            <!-- COLUMNA DE PRODUCTOS CORREGIDA -->
+                            <el-table-column label="Productos" width="160">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.products?.length" placement="top">
+                                    <el-tooltip v-if="scope.row.quote_products?.length" placement="top">
                                         <template #content>
-                                            <ul class="list-disc list-inside text-xs">
-                                                <li v-for="product in scope.row.products" :key="product.id">
-                                                    ({{ product.pivot.quantity }}) {{ product.name }}
+                                            <ul class="list-disc list-inside text-xs space-y-1">
+                                                <li v-for="item in scope.row.quote_products" :key="item.id">
+                                                    <span>({{ item.quantity }}) {{ item.product ? item.product.name : item.custom_name }}</span>
+                                                    <span class="text-green-400 font-semibold ml-1">
+                                                        [${{ formatNumber(item.unit_price) }} {{ scope.row.currency }}]
+                                                    </span>
+                                                    <span v-if="!item.product" class="text-blue-300 italic ml-1">(Nuevo)</span>
                                                 </li>
                                             </ul>
                                         </template>
                                         <span class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
-                                            {{ scope.row.products.length }} producto(s)
+                                            {{ scope.row.quote_products.length }} producto(s)
                                         </span>
                                     </el-tooltip>
                                     <span v-else class="text-xs text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
+
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Utilidad cotizaciones')" label="Utilidad" width="90">
                                 <template #default="scope">
                                     <el-tooltip placement="right">

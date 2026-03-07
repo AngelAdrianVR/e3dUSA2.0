@@ -194,6 +194,7 @@ class PurchaseController extends Controller
             'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
+        // return $purchase;
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
         ]);

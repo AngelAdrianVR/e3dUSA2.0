@@ -39,6 +39,7 @@ class CheckPendingQuotations extends Command
         $pendingQuotesByUser = Quote::where('status', 'Esperando respuesta')
             ->where('created_at', '<=', $threeDaysAgo)
             ->where('is_active', true)
+            ->whereNotIn('user_id', [2, 3]) // <-- LÍNEA AÑADIDA: Excluir a los usuarios con ID 2 y 3
             ->get()
             ->groupBy('user_id'); // Agrupamos por el ID del creador
 

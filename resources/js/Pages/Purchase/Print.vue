@@ -342,7 +342,7 @@ export default {
         },
         formatCurrency(value) {
             if (value === null || value === undefined) return '$0.00';
-            return Number(value).toLocaleString('es-MX', { style: 'currency', currency: this.purchase.currency });
+            return Number(value).toLocaleString('es-MX', { style: 'currency', currency: this.purchase.currency, minimumFractionDigits: 3, maximumFractionDigits: 3 });
         },
         formatNumber(value) {
             if (value === null || value === undefined) return '0';

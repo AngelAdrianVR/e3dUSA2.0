@@ -435,6 +435,8 @@ export default {
             return num.toLocaleString('es-MX', {
                 style: 'currency',
                 currency: 'MXN',
+                minimumFractionDigits: 3,
+                maximumFractionDigits: 3
             });
         },
         getStatusTagType(status) {

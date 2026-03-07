@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')->constrained()->onDelete('cascade');
             
             // Campos adicionales para la relación
-            $table->decimal('last_price', 10, 2)->nullable(); // Último precio de compra para referencia
+            $table->decimal('last_price', 10, 3)->nullable(); // Último precio de compra para referencia
             $table->string('supplier_sku')->nullable(); // SKU o código del producto para ese proveedor específico
             $table->string('min_quantity')->nullable(); // cantidad minima que se le puede comprar al proveedor
 

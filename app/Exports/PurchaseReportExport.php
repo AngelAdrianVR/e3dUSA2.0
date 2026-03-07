@@ -83,11 +83,11 @@ class PurchaseReportExport implements FromQuery, WithHeadings, WithMapping, Shou
             $item->purchase->status,
             $item->product->name ?? $item->description, // Fallback a la descripción guardada
             $item->quantity,
-            number_format($item->unit_price, 2),
-            number_format($item->total_price, 2),
+            number_format($item->unit_price, 3),
+            number_format($item->total_price, 3),
             // Lógica para las nuevas columnas:
             $item->needs_mold ? 'Sí' : 'No',            // Convertimos el booleano a texto legible
-            number_format($item->mold_price ?? 0, 2),   // Formateamos el precio del molde
+            number_format($item->mold_price ?? 0, 3),   // Formateamos el precio del molde
             $item->purchase->expected_delivery_date ? (new \DateTime($item->purchase->expected_delivery_date))->format('Y-m-d') : 'N/A',
             $item->notes,
         ];
