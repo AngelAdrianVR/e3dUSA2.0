@@ -22,45 +22,34 @@ class QuoteController extends Controller
 {
     public function index(Request $request)
     {
-        // Determina si se deben mostrar todas las cotizaciones o solo las del usuario.
         $showAll = $request->query('view') === 'all';
-        
         $query = Quote::query();
 
-        // --- MODIFICACIÓN 1: Solo mostrar cotizaciones ACTIVAS ---
-        // Esto evita que el index se llene de v1, v2, v3...
         $query->where('is_active', true);
 
-        // Si no se solicita ver todo, filtra por el usuario autenticado.
         if (!$showAll) {
             $query->where('user_id', Auth::id());
         }
 
-        // --- MODIFICACIÓN 2: Cargar conteo de versiones ---
-        // Esto agrega un atributo 'all_versions_count' a cada cotización
         $query->withCount('allVersions');
 
-        // Se obtienen las cotizaciones paginadas
-        $quotes = $query->with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'products:id,name,cost'])
+        // NOTA IMPORTANTE: Cambiamos 'products' por 'quoteProducts.product' para que traiga
+        // la relación correcta (incluso los custom) y no ignore los productos "al vuelo".
+        // Recuerda ajustar la vista Index si accede directo a 'products'.
+        $quotes = $query->with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'quoteProducts.product:id,name,cost'])
             ->latest()
-            // Se eliminó el ->select() para asegurar que 'withCount' y
-            // los accessors del modelo (como total_data) funcionen correctamente.
             ->paginate(20)
-            ->withQueryString(); // Mantiene los query params (ej. `view=all`) en la paginación
+            ->withQueryString();
 
-        // Retornamos la vista de Inertia, pasando los datos y los filtros.
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
-            'filters' => $request->only(['view']), // Pasa los filtros actuales a la vista
+            'filters' => $request->only(['view']),
         ]);
     }
 
     public function create()
     {
-        // Obtenemos solo los productos de tipo 'Catálogo' para el selector principal.
         $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
-        
-        // Obtenemos todas las sucursales (clientes).
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Create', [
@@ -69,45 +58,41 @@ class QuoteController extends Controller
         ]);
     }
 
-    /**
-     * Guarda una cotización por PRIMERA VEZ (Crea la v1).
-     */
     public function store(Request $request)
     {
-        // Tu validación (sin cambios)
+        // 1. Verificamos si en la lista de productos viene alguno marcado como "custom" (nuevo)
+        $hasCustomProduct = collect($request->products)->contains(function ($product) {
+            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        });
+
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => 'nullable|string|min:0',
+            // El costo de herramental es dinámicamente requerido si hay productos custom
+            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
             'has_early_payment_discount' => 'nullable|boolean',
-            'early_payment_discount_amount' => [
-                'exclude_unless:has_early_payment_discount,true',
-                'required',
-                'numeric',
-                'min:1',
-                'max:100'
-            ],
+            'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
             'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:products,id', // 'id' es correcto según tu lógica
+            // Validaciones combinadas para soporte de catálogos y productos nuevos
+            'products.*.id' => 'nullable|exists:products,id',
+            'products.*.is_custom' => 'required|boolean',
+            'products.*.custom_name' => 'nullable|string',
+            'products.*.custom_cost' => 'nullable|numeric|min:0',
+            'products.*.image' => 'nullable|file|image|max:2048', // Hasta 2MB
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
-            'products.*.customization_details.*.type' => 'required_with:products.*.customization_details|string',
-            'products.*.customization_details.*.key' => 'required_with:products.*.customization_details|string',
-            'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
         $quote = null;
 
-        // Usamos una transacción para asegurar la integridad de los datos.
-        DB::transaction(function () use ($request, &$quote) { // Pasamos $quote por referencia
-            // 1. Crear la cotización (v1)
+        DB::transaction(function () use ($request, &$quote) {
             $quote = new Quote();
             $quote->user_id = auth()->id();
             $quote->branch_id = $request->branch_id;
@@ -115,44 +100,50 @@ class QuoteController extends Controller
             $quote->department = $request->department;
             $quote->currency = $request->currency;
             $quote->tooling_cost = $request->tooling_cost;
-            $quote->is_tooling_cost_stroked = $request->is_tooling_cost_stroked;
+            $quote->is_tooling_cost_stroked = filter_var($request->is_tooling_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $quote->freight_cost = $request->freight_cost;
-            $quote->is_freight_cost_stroked = $request->is_freight_cost_stroked;
+            $quote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $quote->freight_option = $request->freight_option;
             $quote->first_production_days = $request->first_production_days;
             $quote->notes = $request->notes;
-            $quote->is_spanish_template = $request->is_spanish_template;
-            $quote->show_breakdown = $request->show_breakdown;
-            $quote->has_early_payment_discount = $request->has_early_payment_discount;
+            $quote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
+            $quote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);
+            $quote->has_early_payment_discount = filter_var($request->has_early_payment_discount, FILTER_VALIDATE_BOOLEAN);
             $quote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
             
-            // --- CAMPOS DE VERSIONADO (NUEVO) ---
             $quote->version = 1;
             $quote->is_active = true;
-            $quote->status = 'Esperando respuesta'; // Status inicial
+            $quote->status = 'Esperando respuesta';
 
-            $quote->save(); // Guardamos una vez para obtener el ID
-
-            // 2. Asignar su ID como el root_quote_id
+            $quote->save();
             $quote->root_quote_id = $quote->id;
-            $quote->save(); // Guardamos de nuevo para setear el root_quote_id
+            $quote->save();
 
-            // 3. Adjuntar productos (Tu lógica, sin cambios)
+            // 3. Adjuntar productos (Usando la relación quoteProducts HasMany en vez de attach)
             foreach ($request->products as $product) {
-                $quote->products()->attach($product['id'], [
+                $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                $quoteProduct = $quote->quoteProducts()->create([
+                    'product_id' => $isCustom ? null : $product['id'],
+                    'custom_name' => $isCustom ? ($product['custom_name'] ?? null) : null,
+                    'custom_cost' => $isCustom ? ($product['custom_cost'] ?? 0) : null,
+                    'custom_measure_unit' => $isCustom ? ($product['custom_measure_unit'] ?? null) : null,
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
-                    'notes' => $product['notes'],
-                    'show_image' => $product['show_image'],
+                    'notes' => $product['notes'] ?? null,
+                    'show_image' => filter_var($product['show_image'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado',
                 ]);
+
+                // 4. Si es un producto custom y se adjuntó una imagen, la guardamos
+                if ($isCustom && isset($product['image']) && $product['image'] instanceof \Illuminate\Http\UploadedFile) {
+                    $quoteProduct->addMedia($product['image'])->toMediaCollection('custom_product_images');
+                }
             }
             
-            // 4. Lógica de Notificación (Tu lógica, sin cambios)
             if ($quote) {
                 $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
-    
                 if ($usersToNotify->isNotEmpty()) {
                     Notification::send($usersToNotify, new NewQuoteForApprovalNotification($quote));
                 }
@@ -164,46 +155,33 @@ class QuoteController extends Controller
 
     public function show(Quote $quote)
     {
-        // 1. Cargamos primero la relación 'branch' para poder evaluar su contexto
         $quote->load('branch');
-
-        // 2. CORRECCIÓN PRINCIPAL:
-        // Determinamos cuál es la sucursal que "dueña" de los productos y precios.
-        // Si la sucursal de la cotización lee productos de la matriz, debemos usar el ID de la matriz.
         $productSourceBranch = $this->getProductTargetBranch($quote->branch);
 
-        // 3. Cargamos el resto de relaciones, usando $productSourceBranch para el historial
+        // Actualizado para cargar quoteProducts en lugar de products
         $quote->load([
             'user', 
-            'products.media', 
             'authorizedBy',
-            'products.priceHistory' => function ($query) use ($productSourceBranch) {
-                // Aquí usamos el ID de la fuente ($productSourceBranch->id) en lugar del $quote->branch_id
+            'quoteProducts.media', // Para imágenes de productos al vuelo
+            'quoteProducts.product.media', // Para imágenes de catálogo
+            'quoteProducts.product.priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
                       ->orderBy('valid_from', 'desc');
             }
         ]);
         
-        // --- El resto de tu lógica de versiones permanece igual ---
-
-        // Cargar TODAS las versiones de este hilo (para el dropdown)
         $allVersions = $quote->allVersions()
                             ->select('id', 'version', 'created_at', 'root_quote_id', 'status') 
                             ->get();
 
-        // Encontrar la posición de la cotización actual en la lista de versiones
         $currentIndex = $allVersions->search(function ($v) use ($quote) {
             return $v->id == $quote->id;
         });
 
-        // Determinar ID de versión previa y siguiente (null si no existen)
         $prev_version_id = $allVersions->get($currentIndex - 1)?->id; 
         $next_version_id = $allVersions->get($currentIndex + 1)?->id; 
 
-        // Obtener todas las cotizaciones para navegación global
-        // (Nota: Si tienes muchas cotizaciones, considera optimizar esto con simplePaginate o similar)
         $quotes = Quote::orderBy('id')->get();
-
         $currentQuoteIndex = $quotes->search(function ($q) use ($quote) {
             return $q->id == $quote->id;
         });
@@ -221,23 +199,17 @@ class QuoteController extends Controller
         ]);
     }
 
-    /**
-     * Método auxiliar para determinar de dónde sacar los precios.
-     * Replica la lógica que usas en tu BranchController.
-     */
     private function getProductTargetBranch($branch)
     {
-        // Si la sucursal tiene un padre, asumimos que los precios vienen del padre.
-        // Si tu lógica es diferente (ej. verificas un campo 'is_matrix'), ajusta esta línea.
         return $branch->parent ?? $branch;
     }
 
     public function edit(Quote $quote)
     {
-        // Obtenemos solo los productos de tipo 'Catálogo' para el selector principal.
+        // Eager load completo para la edición
+        $quote->load('quoteProducts.media', 'quoteProducts.product.media');
+
         $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
-        
-        // Obtenemos todas las sucursales (clientes).
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Edit', [
@@ -247,113 +219,103 @@ class QuoteController extends Controller
         ]);
     }
 
-    /**
-     * Crea una NUEVA VERSIÓN de una cotización existente (Crea v2, v3...).
-     *
-     * @param Request $request
-     * @param Quote $quote (Esta es la versión *anterior* que se está editando)
-     */
     public function update(Request $request, Quote $quote)
     {
-        // Tu validación (sin cambios)
+        $hasCustomProduct = collect($request->products)->contains(function ($product) {
+            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        });
+
         $request->validate([
             'branch_id' => 'required|exists:branches,id',
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => 'nullable|string|min:0',
+            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
             'has_early_payment_discount' => 'nullable|boolean',
-            'early_payment_discount_amount' => [
-                'exclude_unless:has_early_payment_discount,true',
-                'required',
-                'numeric',
-                'min:1',
-                'max:100'
-            ],
+            'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
             'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:products,id', // 'id' es correcto según tu lógica
+            'products.*.id' => 'nullable|exists:products,id',
+            'products.*.is_custom' => 'required|boolean',
+            'products.*.custom_name' => 'nullable|string',
+            'products.*.custom_cost' => 'nullable|numeric|min:0',
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
-            'products.*.notes' => 'nullable|string',
-            'products.*.customization_details' => 'nullable|array',
-            'products.*.customization_details.*.type' => 'required_with:products.*.customization_details|string',
-            'products.*.customization_details.*.key' => 'required_with:products.*.customization_details|string',
-            'products.*.customization_details.*.value' => 'required_with:products.*.customization_details|string',
         ]);
 
         $newQuote = null;
 
-        // Usamos una transacción para asegurar la integridad de los datos.
         DB::transaction(function () use ($request, $quote, &$newQuote) {
             
-            // 1. Encontrar el ID raíz y la última versión
-            $rootId = $quote->root_quote_id ?? $quote->id; // Si la v1 no tiene, usa su propio id
+            $rootId = $quote->root_quote_id ?? $quote->id;
             $latestVersionNum = Quote::where('root_quote_id', $rootId)->max('version');
 
-            // 2. Desactivar TODAS las versiones anteriores de este hilo
             Quote::where('root_quote_id', $rootId)->update(['is_active' => false]);
 
-            // 3. Replicar (clonar) la cotización base
-            // NOTA: replicate() ya copia 'authorized_at' y 'authorized_by_user_id'
             $newQuote = $quote->replicate();
 
-            // 4. Aplicar los nuevos datos del request a la cotización REPLICADA
             $newQuote->branch_id = $request->branch_id;
             $newQuote->receiver = $request->receiver;
             $newQuote->department = $request->department;
             $newQuote->currency = $request->currency;
             $newQuote->tooling_cost = $request->tooling_cost;
-            $newQuote->is_tooling_cost_stroked = $request->is_tooling_cost_stroked;
+            $newQuote->is_tooling_cost_stroked = filter_var($request->is_tooling_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $newQuote->freight_cost = $request->freight_cost;
-            $newQuote->is_freight_cost_stroked = $request->is_freight_cost_stroked;
+            $newQuote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $newQuote->freight_option = $request->freight_option;
             $newQuote->first_production_days = $request->first_production_days;
             $newQuote->notes = $request->notes;
-            $newQuote->is_spanish_template = $request->is_spanish_template;
-            $newQuote->show_breakdown = $request->show_breakdown;
-            $newQuote->has_early_payment_discount = $request->has_early_payment_discount;
+            $newQuote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
+            $newQuote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);
+            $newQuote->has_early_payment_discount = filter_var($request->has_early_payment_discount, FILTER_VALIDATE_BOOLEAN);
             $newQuote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
-            // $newQuote->user_id = auth()->id(); // El autor de la NUEVA versión es el usuario actual
 
-            // 5. Asignar los nuevos valores de versión
             $newQuote->version = $latestVersionNum + 1;
             $newQuote->is_active = true;
             $newQuote->root_quote_id = $rootId;
-            
-            // 6. Reiniciar campos de estado/respuesta
-            $newQuote->status = 'Esperando respuesta'; // Reiniciar status
-            $newQuote->sale_id = null; // Una nueva versión no está ligada a una venta anterior
+            $newQuote->status = 'Esperando respuesta';
+            $newQuote->sale_id = null;
             $newQuote->customer_responded_at = null;
             $newQuote->rejection_reason = null;
+            $newQuote->created_at = now();
             
-            // SE ELIMINÓ EL RESETEO DE LOS CAMPOS DE AUTORIZACIÓN PARA CONSERVAR LOS DE LA VERSIÓN ANTERIOR
-            // $newQuote->authorized_at = null; 
-            // $newQuote->authorized_by_user_id = null;
-            
-            $newQuote->created_at = now(); // `replicate` copia el created_at, lo reseteamos
-            
-            $newQuote->save(); // Guardar la nueva versión (v2, v3...)
+            $newQuote->save();
 
-            // 7. Adjuntar los productos a la NUEVA versión
             foreach ($request->products as $product) {
-                $newQuote->products()->attach($product['id'], [
+                $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+                $quoteProduct = $newQuote->quoteProducts()->create([
+                    'product_id' => $isCustom ? null : $product['id'],
+                    'custom_name' => $isCustom ? ($product['custom_name'] ?? null) : null,
+                    'custom_cost' => $isCustom ? ($product['custom_cost'] ?? 0) : null,
+                    'custom_measure_unit' => $isCustom ? ($product['custom_measure_unit'] ?? null) : null,
                     'quantity' => $product['quantity'],
                     'unit_price' => $product['unit_price'],
-                    'notes' => $product['notes'],
-                    'show_image' => $product['show_image'],
+                    'notes' => $product['notes'] ?? null,
+                    'show_image' => filter_var($product['show_image'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado',
                 ]);
+
+                // 4. Si es un producto custom manejamos la imagen
+                if ($isCustom) {
+                    if (isset($product['image']) && $product['image'] instanceof \Illuminate\Http\UploadedFile) {
+                        // Si el usuario subió una NUEVA imagen al editar, la guardamos
+                        $quoteProduct->addMedia($product['image'])->toMediaCollection('custom_product_images');
+                    } elseif (!empty($product['quote_product_id'])) {
+                        // Si no hay imagen nueva, buscamos el producto original de la versión anterior y clonamos su imagen
+                        $oldQp = QuoteProduct::find($product['quote_product_id']);
+                        if ($oldQp && $oldQp->hasMedia('custom_product_images')) {
+                            $oldQp->getFirstMedia('custom_product_images')->copy($quoteProduct, 'custom_product_images');
+                        }
+                    }
+                }
             }
 
-            // 8. Lógica de Notificación (para la nueva versión)
-            // MODIFICACIÓN: Solo notificar si la cotización NO está autorizada
             if ($newQuote && is_null($newQuote->authorized_at)) {
                 $usersToNotify = User::permission('Autorizar ordenes de venta')->get();
-
                 if ($usersToNotify->isNotEmpty()) {
                     Notification::send($usersToNotify, new NewQuoteForApprovalNotification($newQuote));
                 }
@@ -363,63 +325,46 @@ class QuoteController extends Controller
         return Redirect::route('quotes.index')->with('success', 'Cotización actualizada. Se ha creado la versión ' . $newQuote->version);
     }
 
-    public function destroy(Quote $quote)
-    {
-        //
-    }
+    public function destroy(Quote $quote) { /* ... */ }
 
     public function massiveDelete(Request $request)
     {
         $affectedUserIds = [];
 
-        // 1. Primero, recopilamos los IDs de los usuarios afectados antes de borrar
         foreach ($request->ids as $id) {
             $quote = Quote::find($id);
             if ($quote) {
-                // Guardamos el ID del creador para revisarlo después
                 $affectedUserIds[] = $quote->user_id;
                 $quote->delete();
             }
         }
 
-        // 2. Eliminamos duplicados para no revisar al mismo usuario varias veces
         $uniqueUserIds = array_unique($affectedUserIds);
-
-        // 3. Ahora, revisamos las alertas para cada usuario afectado
         $threeDaysAgo = Carbon::now()->subDays(3);
 
         foreach ($uniqueUserIds as $userId) {
             $user = User::find($userId);
-            if (!$user) {
-                continue; // Si el usuario no existe, saltamos al siguiente
-            }
+            if (!$user) continue;
 
-            // Volvemos a buscar si este usuario AÚN tiene cotizaciones pendientes antiguas
             $remainingPendingQuotes = Quote::where('user_id', $user->id)
                 ->where('status', 'Esperando respuesta')
                 ->where('created_at', '<=', $threeDaysAgo)
                 ->where('is_active', true)
-                ->whereNotIn('user_id', [2, 3]) // <-- LÍNEA AÑADIDA: Excluir a los usuarios con ID 2 y 3
+                ->whereNotIn('user_id', [2, 3])
                 ->get();
 
-            // Decidimos si actualizar o eliminar la alerta
             if ($remainingPendingQuotes->isNotEmpty()) {
-                // Si todavía tiene, ACTUALIZAMOS la alerta con los IDs correctos
                 $alertContent = [
                     'type' => 'pending_quotations',
                     'title' => 'Cotizaciones Pendientes',
-                    'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días. Marca como aceptadas o rechazadas para quitar mensaje',
+                    'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
                     'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
                 ];
                 $user->addActiveAlert('pending_quotations', $alertContent);
             } else {
-                // Si ya no tiene, ELIMINAMOS la alerta de su perfil
                 $user->removeActiveAlert('pending_quotations');
             }
         }
-        
-        // Puedes retornar una respuesta si lo necesitas, por ejemplo, para notificar al frontend
-        // return response()->json(['message' => 'Cotizaciones eliminadas y alertas actualizadas.']);
     }
 
     public function authorizeQuote(Quote $quote)
@@ -429,7 +374,6 @@ class QuoteController extends Controller
             'authorized_at' => now(),
         ]);
 
-        // notificar a creador de la orden si quien autoriza no es el mismo usuario
         if (auth()->id() != $quote->user->id) {
             $quote_folio = 'COT-' . str_pad($quote->id, 4, "0", STR_PAD_LEFT);
             $quote->user->notify(new ApprovalQuoteNotification(
@@ -440,82 +384,62 @@ class QuoteController extends Controller
             ));
         }
 
-        return response()->json(['message' => 'Cotizacion autorizada', 'item' => $quote]); //en caso de actualizar en la misma vista descomentar
+        return response()->json(['message' => 'Cotizacion autorizada', 'item' => $quote]);
     }
 
-    /**
-     * Clona una cotización existente para crear una nueva.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function clone(Quote $quote)
     {
-        // // Validar que el ID de la cotización a clonar esté presente
-        // $request->validate([
-        //     'quote_id' => 'required|exists:quotes,id',
-        // ]);
-
         try {
-            // 1. Encontrar la cotización original con sus productos
-            $originalQuote = Quote::with('products')->findOrFail($quote->id);
-
-            // 2. Replicar el modelo de la cotización
-            // El método replicate() crea una nueva instancia sin guardarla en la BD
-            // y sin los atributos de fecha (created_at, updated_at) y el ID.
+            $originalQuote = Quote::with('quoteProducts')->findOrFail($quote->id);
             $newQuote = $originalQuote->replicate();
 
-            // 3. Restablecer y actualizar los campos para la nueva cotización
-            $newQuote->status = 'Esperando respuesta'; // O el estado inicial que prefieras
+            $newQuote->status = 'Esperando respuesta';
             $newQuote->sale_id = null;
             $newQuote->authorized_at = null;
             $newQuote->authorized_by_user_id = null;
             $newQuote->customer_responded_at = null;
             $newQuote->rejection_reason = null;
-            $newQuote->created_by_customer = false; // La nueva cotización es creada por un usuario del sistema
-            $newQuote->user_id = auth()->id(); // Asignar el usuario actual como creador
-
-            // 4. Guardar la nueva cotización para obtener un ID
+            $newQuote->created_by_customer = false;
+            $newQuote->user_id = auth()->id();
             $newQuote->save();
 
-            // 5. Sincronizar los productos de la cotización original a la nueva
-            // Se itera sobre cada producto de la cotización original para adjuntarlo a la nueva
-            // con sus respectivos datos pivote (cantidad, precio, etc.).
-            foreach ($originalQuote->products as $product) {
-                $newQuote->products()->attach($product->id, [
-                    'quantity' => $product->pivot->quantity,
-                    'unit_price' => $product->pivot->unit_price,
-                    'notes' => $product->pivot->notes,
-                    'customization_details' => $product->pivot->customization_details,
-                    'customer_approval_status' => $product->pivot->customer_approval_status,
+            // CLONACIÓN MODIFICADA PARA SOPORTAR PRODUCTOS CUSTOM Y SUS IMÁGENES
+            foreach ($originalQuote->quoteProducts as $qp) {
+                $newQp = $newQuote->quoteProducts()->create([
+                    'product_id' => $qp->product_id,
+                    'custom_name' => $qp->custom_name,
+                    'custom_cost' => $qp->custom_cost,
+                    'custom_measure_unit' => $qp->custom_measure_unit,
+                    'quantity' => $qp->quantity,
+                    'unit_price' => $qp->unit_price,
+                    'notes' => $qp->notes,
+                    'show_image' => $qp->show_image,
+                    'customization_details' => $qp->customization_details,
+                    'customer_approval_status' => $qp->customer_approval_status,
                 ]);
+
+                // Clonar la imagen si el producto clonado la posee (Spatie Media Library)
+                if ($qp->is_custom && $qp->hasMedia('custom_product_images')) {
+                    $qp->getFirstMedia('custom_product_images')->copy($newQp, 'custom_product_images');
+                }
             }
 
-            // Cargar las relaciones necesarias para la respuesta
             $newQuote->load('user', 'branch');
 
-            // 6. Devolver una respuesta exitosa con la nueva cotización
             return response()->json([
                 'message' => 'Cotización clonada exitosamente',
                 'newItem' => $newQuote,
             ]);
 
         } catch (\Exception $e) {
-            // Registrar el error para depuración
             Log::error('Error al clonar la cotización: ' . $e->getMessage());
-
-            // Devolver una respuesta de error
-            return response()->json([
-                'message' => 'Ocurrió un error al clonar la cotización. Por favor, inténtalo de nuevo.',
-            ], 500);
+            return response()->json(['message' => 'Ocurrió un error al clonar la cotización. Por favor, inténtalo de nuevo.'], 500);
         }
     }
 
     public function getMatches(Request $request)
     {
         $query = $request->input('query');
-
-        // Realiza la búsqueda
         $quotes = Quote::with(['branch', 'user', 'sale'])
             ->latest()
             ->where(function ($q) use ($query) {
@@ -523,7 +447,6 @@ class QuoteController extends Controller
                 ->orWhereHas('user', function ($parentQuery) use ($query) {
                     $parentQuery->where('name', 'like', "%{$query}%");
                 })
-                // Correcto uso de whereHas para buscar en la relación
                 ->orWhereHas('branch', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
                 });
@@ -535,10 +458,7 @@ class QuoteController extends Controller
 
     public function markEarlyPayment(Quote $quote) 
     {
-        $quote->update([
-            'early_paid_at' => now(),
-        ]);
-
+        $quote->update(['early_paid_at' => now()]);
         return response()->json(['quote' => $quote]);
     }
 
@@ -548,25 +468,18 @@ class QuoteController extends Controller
         $data = ['status' => $status];
         $rejection_reason = $request->input('rejection_reason');
 
-        // Si es rechazada, guardar el motivo
         if ($status === 'Rechazada') {
             $data['rejection_reason'] = $rejection_reason;
             $data['customer_responded_at'] = now();
         }
 
-        // Si es aceptada, guardar también quién la autorizó
         if ($status === 'Aceptada') {
             $data['customer_responded_at'] = now();
         }
 
         $quote->update($data);
 
-        // -------------- LÓGICA DE ACTUALIZACIÓN DE ALERTAS EN TIEMPO REAL --------------
-
-        // 1. Obtener el usuario que creó la cotización
         $user = $quote->user;
-
-        // 2. Volver a buscar si este usuario AÚN tiene cotizaciones pendientes antiguas
         $threeDaysAgo = Carbon::now()->subDays(3);
         $remainingPendingQuotes = Quote::where('user_id', $user->id)
             ->where('status', 'Esperando respuesta')
@@ -574,69 +487,50 @@ class QuoteController extends Controller
             ->where('created_at', '<=', $threeDaysAgo)
             ->get();
 
-        // 3. Decidir si actualizar o eliminar la alerta
         if ($remainingPendingQuotes->isNotEmpty()) {
-            // Si todavía tiene, ACTUALIZAMOS la alerta con los IDs correctos
             $alertContent = [
                 'type' => 'pending_quotations',
                 'title' => 'Cotizaciones Pendientes',
-                'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días. Marca como aceptadas o rechazadas para quitar mensaje',
+                'message' => 'Tienes ' . $remainingPendingQuotes->count() . ' cotización(es) sin respuesta por más de 3 días.',
                 'quote_ids' => $remainingPendingQuotes->pluck('id')->toArray(),
             ];
             $user->addActiveAlert('pending_quotations', $alertContent);
         } else {
-            // Si ya no tiene, ELIMINAMOS la alerta de su perfil
             $user->removeActiveAlert('pending_quotations');
         }
-        // -------------- FIN DE LA LÓGICA DE ALERTAS --------------
 
-
-        return response()->json([
-            'message' => 'Estatus de la cotización actualizado correctamente.',
-            'quote' => $quote
-        ]);
+        return response()->json(['message' => 'Estatus actualizado', 'quote' => $quote]);
     }
 
-    // Recupera todas las cotizaciones de una sucursal
-    // Uso el metodo en el show de clientes para la pestaña de cotizaciones.
     public function fetchBranchQuotes(Branch $branch)
     {
         $quotes = Quote::with('user:id,name')->where('branch_id', $branch->id)
             ->latest()
-            ->take(20) // Limita a las 20 más recientes
-            ->get(['id', 'user_id', 'authorized_at', 'sale_id', 'status', 'created_at', 'branch_id', 'currency', 'has_early_payment_discount', 
-            'early_paid_at', 'customer_responded_at']);
+            ->take(20)
+            ->get(['id', 'user_id', 'authorized_at', 'sale_id', 'status', 'created_at', 'branch_id', 'currency', 'has_early_payment_discount', 'early_paid_at', 'customer_responded_at']);
 
         return response()->json($quotes);
     }
 
-    /**
-     * Recupera los detalles de una cotización para ser usados en la creación de una venta.
-     *
-     * @param  \App\Models\Quote  $quote
-     * @return \Illuminate\Http\JsonResponse
-     */
     public function getDetailsForSale(Quote $quote)
     {
-        // MODIFICADO: Cargamos también la relación 'media' de cada producto.
-        $quote->load('branch', 'products.media');
+        // Carga profunda usando las líneas de cotización independientes y sus relaciones
+        $quote->load('branch', 'quoteProducts.media', 'quoteProducts.product.media');
 
-        // Formateamos los productos para que sea más fácil consumirlos en el frontend.
-        // Solo incluimos los productos que fueron aprobados en la cotización.
-        $approvedProducts = $quote->products
-            ->where('pivot.customer_approval_status', 'Aprobado')
-            ->map(function ($product) {
+        $approvedProducts = $quote->quoteProducts
+            ->where('customer_approval_status', 'Aprobado')
+            ->map(function ($qp) {
+                // Usamos los Accessors creados en el modelo QuoteProduct (display_name, unit_cost, image_url, etc)
                 return [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'code' => $product->code,
-                    'cost' => $product->cost,
-                    'quantity' => $product->pivot->quantity,
-                    'unit_price' => $product->pivot->unit_price,
-                    'customization_details' => $product->pivot->customization_details,
-                    'notes' => $product->pivot->notes,
-                    // NUEVO: Agregamos la URL de la primera imagen del producto.
-                    'image_url' => $product->media->first()?->original_url,
+                    'id' => $qp->product_id ?? 'custom_' . $qp->id, // Pseudo ID para el frontend si es custom
+                    'name' => $qp->display_name,
+                    'code' => $qp->is_custom ? 'N/A' : $qp->product->code,
+                    'cost' => $qp->unit_cost,
+                    'quantity' => $qp->quantity,
+                    'unit_price' => $qp->unit_price,
+                    'customization_details' => $qp->customization_details,
+                    'notes' => $qp->notes,
+                    'image_url' => $qp->image_url, 
                 ];
             });
 
@@ -651,17 +545,10 @@ class QuoteController extends Controller
         ]);
     }
 
-    // Cambia el estatus de los productos den la cotizacion (Aprobado/Pendiente)
     public function updateProductStatus(Request $request, QuoteProduct $quoteProduct)
     {
-        $request->validate([
-            'status' => 'required|in:Pendiente,Aprobado,Rechazado',
-        ]);
-
+        $request->validate(['status' => 'required|in:Pendiente,Aprobado,Rechazado']);
         $quoteProduct->update(['customer_approval_status' => $request->status]);
-
-        // Opcional: Recalcular totales de la cotización aquí si es necesario.
-
         return response()->json(['message' => 'Estatus del producto actualizado con éxito.']);
     }
 }
