@@ -159,9 +159,7 @@
                             </div>
                         </div>
 
-                        <!-- ================================================================== -->
-                        <!-- ================== SECCIÓN DE COMPONENTES ============= -->
-                        <!-- ================================================================== -->
+                        <!-- SECCIÓN DE COMPONENTES -->
                         <div v-if="form.product_type_key === 'C'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
                             class="space-y-4 p-4 border rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
@@ -266,7 +264,7 @@
 
                         </div>
 
-                        <!-- ================== NUEVA SECCIÓN DE PROCESOS ===================== -->
+                        <!-- SECCIÓN DE PROCESOS -->
                         <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
@@ -309,13 +307,11 @@
                                             type="button"
                                             class="size-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md"
                                         >
-                                            <!-- Ícono de refrescar (Heroicons) -->
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                                             </svg>
                                         </button>
                                     </el-tooltip>
-
                                 </div>
 
                                 <!-- Lista de Procesos Agregados -->
@@ -351,6 +347,21 @@
 
                         <div>
                             <InputLabel value="Imágenes del producto (máx. 3)" />
+                            
+                            <!-- NUEVO: Vista previa de la imagen de la cotización -->
+                            <div v-if="quoteImageUrl && form.copy_quote_image" class="mt-2 mb-4 p-3 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 rounded-lg flex items-start justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <img :src="quoteImageUrl" class="w-16 h-16 object-cover rounded-md shadow-sm border border-gray-200" alt="Preview" />
+                                    <div>
+                                        <p class="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Imagen de la cotización detectada</p>
+                                        <p class="text-xs text-indigo-600 dark:text-indigo-400">Esta imagen se guardará automáticamente en el producto.</p>
+                                    </div>
+                                </div>
+                                <button type="button" @click="form.copy_quote_image = false" class="text-gray-400 hover:text-red-500 transition-colors" title="No usar esta imagen">
+                                    <i class="fa-solid fa-xmark text-lg"></i>
+                                </button>
+                            </div>
+
                             <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" :maxFiles="3" class="mt-1" />
                             <InputError :message="form.errors['media.0']" class="mt-2" />
                             <InputError :message="form.errors['media.1']" class="mt-2" />
@@ -456,8 +467,8 @@ export default {
         brands: Array,
         product_families: Array,
         consecutive: Number,
-        production_processes: Array, // Prop para recibir los procesos de producción
-        components: Array, // Prop para recibir los componentes (materias primas) de producción
+        production_processes: Array,
+        components: Array, 
     },
     data() {
         return {
@@ -467,10 +478,10 @@ export default {
                 cost: null,
                 caracteristics: null,
                 brand_id: null,
-                brand_name: null, // Campo para la marca como texto en Insumos
+                brand_name: null, 
                 product_family_id: null,
                 is_used_as_component: false,
-                product_type_key: 'C', // 'C' para Catálogo por defecto
+                product_type_key: 'C', 
                 material: null,
                 measure_unit: 'Pieza(s)',
                 currency: 'MXN',
@@ -485,34 +496,35 @@ export default {
                 current_stock: null,
                 location: null,
                 media: [],
-                components: [], // Array para guardar los componentes del producto
-                production_processes: [], // Array para guardar los procesos del producto
+                components: [], 
+                production_processes: [], 
                 hasComponents: false,
+                // NUEVO: Variables para atrapar datos de la cotización
+                quote_product_id: null,
+                copy_quote_image: true,
             }),
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
 
-            // --- Estado para la gestión de componentes ---
+            // Almacena la URL de la imagen que viene de la cotización
+            quoteImageUrl: null,
+
             currentComponent: { product_id: null, quantity: 1 },
             loadingComponentMedia: false,
             editComponentIndex: null,
 
-            // --- Estado para la gestión de procesos ---
             hasProductionProcesses: false,
             currentProcess: { process_id: null, time: null, cost: null },
             editProcessIndex: null,
 
-            // --- Estado para la verificación de duplicados ---
             searchingSimilarProducts: false,
             showSimilarProductsModal: false,
             similarProducts: [],
             isCheckingForDuplicates: false,
 
-            // --- Modales ---
             showCreateFamilyModal: false,
             showCreateBrandModal: false,
 
-            // --- opciones de selects ---
             currencies: ['MXN', 'USD'],
             productTypeOptions: [
                 { label: 'Catálogo', key: 'C' },
@@ -524,7 +536,7 @@ export default {
                 { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
                 { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
                 { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-                { label: 'VINILPIEL', key: 'VPL', label: 'FIBRA DE CARBONO', key: 'FC', label: 'OVERLAY', key: 'OV' }
+                { label: 'VINILPIEL', key: 'VPL' }, { label: 'FIBRA DE CARBONO', key: 'FC' }, { label: 'OVERLAY', key: 'OV' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
@@ -536,7 +548,6 @@ export default {
             this.generatePartNumber();
             this.form.is_used_as_component = newVal === 'MP';
 
-            // Resetear campos al cambiar a 'Insumo'
             if (newVal === 'I') {
                 this.form.product_family_id = null;
                 this.form.brand_id = null;
@@ -551,7 +562,6 @@ export default {
                 this.form.production_processes = [];
                 this.hasProductionProcesses = false;
             } else {
-                // Resetear brand_name al cambiar a otro tipo
                 this.form.brand_name = null;
             }
         },
@@ -568,10 +578,6 @@ export default {
         'form.brand_name': 'generatePartNumber',
     },
     computed: {
-        /**
-         * Calcula el costo total de todos los componentes en la lista.
-         * Se actualiza automáticamente si se agrega, elimina o modifica un componente.
-         */
         totalComponentsCost() {
             return this.form.components.reduce((total, component) => {
                 const quantity = parseFloat(component.quantity) || 0;
@@ -599,12 +605,9 @@ export default {
             });
         },
         async confirmAndStore() {
-            
-            // Extrae el código base sin el consecutivo
             const baseCode = this.form.code.substring(0, this.form.code.lastIndexOf('-'));
             
             if (!baseCode) {
-                // Si no hay código base, procede a guardar directamente para que la validación del backend actúe
                 this.proceedToStore();
                 return;
             }
@@ -613,15 +616,12 @@ export default {
 
             try {
                 this. searchingSimilarProducts = true;
-                // Llama al nuevo endpoint del backend para buscar productos similares
                 const response = await axios.get(route('catalog-products.find-similar', { base_code: baseCode }));
 
                 if (response.data.length > 0) {
-                    // Si se encuentran productos, guarda los resultados y muestra el modal
                     this.similarProducts = response.data;
                     this.showSimilarProductsModal = true;
                 } else {
-                    // Si no se encuentran, procede a guardar el producto directamente
                     this.proceedToStore();
                 }
             } catch (error) {
@@ -715,9 +715,7 @@ export default {
                 }
             }
         },
-        // --- Métodos para Componentes ---
         async getComponentMedia() {
-            // 1. Inicia el estado de carga
             this.loadingComponentMedia = true;
             try {
                 const response = await axios.get(route('products.get-media', this.currentComponent.product_id));
@@ -763,7 +761,6 @@ export default {
             const product = this.components.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
-        // --- Métodos para Procesos de Producción ---
         getSelectedProcessData() {
             const selectedProcess = this.production_processes.find(
                 item => item.id == this.currentProcess.process_id
@@ -813,6 +810,30 @@ export default {
     },
     mounted() {
         this.generatePartNumber();
+
+        // =======================================================
+        // LÓGICA DE AUTOLLENADO MEDIANTE PARÁMETROS EN LA URL
+        // =======================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.has('name')) {
+            this.form.name = urlParams.get('name');
+        }
+        
+        if (urlParams.has('price')) {
+            this.form.base_price = urlParams.get('price');
+            this.form.cost = urlParams.get('price');
+        }
+
+        // --- NUEVO: Capturar el ID y la imagen de la cotización ---
+        if (urlParams.has('quote_product_id')) {
+            this.form.quote_product_id = urlParams.get('quote_product_id');
+        }
+
+        if (urlParams.has('image_url')) {
+            this.quoteImageUrl = urlParams.get('image_url');
+        }
+        // =======================================================
     }
 };
 </script>
