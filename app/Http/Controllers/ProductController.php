@@ -251,6 +251,28 @@ class ProductController extends Controller
                 }
             }
 
+            // ========================================================
+            // NUEVO: COPIAR IMAGEN DE LA COTIZACIÓN Y ENLAZAR
+            // ========================================================
+            if ($request->filled('quote_product_id')) {
+                $quoteProduct = \App\Models\QuoteProduct::find($request->quote_product_id);
+
+                if ($quoteProduct) {
+                    if ($request->boolean('copy_quote_image') && $quoteProduct->hasMedia('custom_product_images')) {
+                        $mediaItem = $quoteProduct->getFirstMedia('custom_product_images');
+                        $mediaItem->copy($product, 'images');
+                    }
+
+                    // Esto hace que el producto cotizado se enlace y el botón desaparezca en Index
+                    $quoteProduct->update([
+                        'product_id' => $product->id,
+                        'custom_name' => null,
+                        'custom_cost' => null,
+                        'custom_measure_unit' => null,
+                    ]);
+                }
+            }
+
             DB::commit();
 
         } catch (\Exception $e) {
