@@ -6,7 +6,7 @@
                 :src="purchaseItem.product?.media[0]?.original_url || 'https://placehold.co/100x100/e2e8f0/cccccc?text=SIN+IMAGEN'"
                 :alt="purchaseItem.description"
                 class="w-20 h-20 object-cover rounded-md shadow-sm"
-                @error="$event.target.src='https://placehold.co/100x100/e2e8f0/cccccc?text=ERROR'"
+                @error="handleImageError"
             />
         </div>
 
@@ -74,6 +74,21 @@ export default {
         }
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         formatCurrency(value) {
             if (value === null || value === undefined) return '$0.00';
             return Number(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 3, maximumFractionDigits: 3 });

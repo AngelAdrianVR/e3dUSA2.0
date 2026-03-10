@@ -86,8 +86,9 @@
                             <tr v-for="item in sale.sale_products" :key="item.id" class="border-b dark:border-slate-700">
                                 <td class="p-3 text-center">
                                     <img :src="item.product.media[0]?.original_url || 'https://placehold.co/80x80/e2e8f0/e2e8f0?text=N/A'" 
-                                         alt="Imagen de producto" 
-                                         class="size-24 object-cover rounded-md inline-block">
+                                        @error="handleImageError"
+                                        alt="Imagen de producto" 
+                                        class="size-24 object-cover rounded-md inline-block">
                                 </td>
                                 <td class="p-3 font-mono text-sm text-gray-600 dark:text-gray-300">{{ item.product.code }}</td>
                                 <td class="p-3 font-semibold text-gray-800 dark:text-gray-200">{{ item.product.name }}</td>
@@ -267,6 +268,21 @@ export default {
         }
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         printPage() {
             window.print();
         },

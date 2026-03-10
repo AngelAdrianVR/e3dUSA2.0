@@ -584,7 +584,7 @@
                         <!-- Previsualización de imágenes -->
                         <div v-if="evidencePreviews.length" class="mt-3 grid grid-cols-4 gap-2">
                             <div v-for="(preview, index) in evidencePreviews" :key="index" class="relative group">
-                                <img :src="preview" class="w-full h-auto object-cover rounded-md border border-gray-200" />
+                                <img :src="preview" @error="handleImageError" class="w-full h-auto object-cover rounded-md border border-gray-200" />
                             </div>
                         </div>
                     </div>
@@ -732,6 +732,21 @@ export default {
         }
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         formatPhone(number) {
             if (!number) return '';
             const digits = number.toString().replace(/\D/g, '');

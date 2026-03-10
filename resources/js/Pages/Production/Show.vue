@@ -162,7 +162,7 @@
                             }">
                              <div class="flex items-center">
                                 <div class="flex-shrink-0 size-14 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
-                                    <img v-if="item?.product.media?.length" :src="item.product.media[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
+                                    <img v-if="item?.product.media?.length" :src="item.product.media[0].original_url" @error="handleImageError" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
                                     <div v-else class="text-gray-300 dark:text-gray-600 text-center">
                                         <i class="fa-regular fa-image text-5xl"></i>
                                     </div>
@@ -486,6 +486,22 @@ export default {
         }
     },
     methods: {
+        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         printOrder() {
             window.open(route('productions.print', this.sale.id), '_blank');
         },

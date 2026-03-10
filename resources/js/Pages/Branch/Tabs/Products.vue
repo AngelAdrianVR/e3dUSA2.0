@@ -3,7 +3,7 @@
     <!-- ... Información del producto ... -->
     <div class="flex items-start space-x-4">
         <figure class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border dark:border-slate-600">
-            <img v-if="product.media?.length" :src="product.media[0]?.original_url" :alt="product.name" class="w-full h-full object-cover">
+            <img v-if="product.media?.length" :src="product.media[0]?.original_url" :alt="product.name" @error="handleImageError" class="w-full h-full object-cover">
             <div v-else class="w-full h-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-gray-400 dark:text-slate-500">
                 <i class="fa-solid fa-image text-3xl"></i>
             </div>
@@ -222,6 +222,21 @@ computed: {
     }
 },
 methods:{
+    handleImageError(event) {
+        const img = event.target;
+        const currentSrc = img.src;
+        const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+        
+        if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+        img.dataset.fallbackAttempted = "true";
+
+        try {
+            const urlObj = new URL(currentSrc);
+            img.src = prodDomain + urlObj.pathname;
+        } catch (e) {
+            img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+        }
+    },
     openPriceModal(product) {
         const basePrice = product.price_history?.[0]?.price ?? product.base_price;
         

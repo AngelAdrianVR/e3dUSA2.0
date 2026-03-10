@@ -489,6 +489,12 @@ export default {
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
                         },
                         {
+                            label: 'Proyección de compras',
+                            route: 'stock-projection.index',
+                            active: route().current('stock-projection.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver proyección de compras'),
+                        },
+                        {
                             label: 'Productos con bajo stock',
                             route: 'stock-reposition.index',
                             active: route().current('stock-reposition.*'),
@@ -500,6 +506,7 @@ export default {
                     show: this.$page.props.auth.user.permissions.includes('Ver proveedores')
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
                         || this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock')
+                        || this.$page.props.auth.user.permissions.includes('Ver proyección de compras')
                 },
                 {
                     label: 'Logistica',
