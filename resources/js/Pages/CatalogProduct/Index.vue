@@ -94,11 +94,12 @@
                             
                             <el-table-column label="Imagen" width="100">
                                 <template #default="scope">
-                                    <figure class="border rounded-md size-20 flex items-center justify-center bg-white">
-                                        <el-image @click.stop="" style="width: 100%; height: 100%; border-radius: 6px"
+                                    <figure class="border rounded-md size-20 flex items-center justify-center bg-white overflow-hidden">
+                                        <!-- Se cambió de <el-image> a <img /> nativo -->
+                                        <img @click.stop="openPreview($event)"
+                                            style="width: 100%; height: 100%; object-fit: contain; cursor: pointer; border-radius: 6px;"
                                             :src="scope.row.media[0]?.original_url"
-                                            :preview-src-list="[scope.row.media[0]?.original_url]" fit="contain"
-                                            preview-teleported :hide-on-click-modal="true" />
+                                            @error="handleImageError" />
                                     </figure>
                                 </template>
                             </el-table-column>
@@ -195,6 +196,15 @@
             @close="showMassiveEditModal = false"
         />
         <!-- ======================================= -->
+
+        <!-- Visor de imagen manual -->
+        <ElImageViewer
+            v-if="showImageViewer"
+            :url-list="[previewImage]"
+            @close="showImageViewer = false"
+            :hide-on-click-modal="true"
+            teleported
+        />
     </AppLayout>
 </template>
 
@@ -204,7 +214,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import MassiveEditModal from './Partials/MassiveEditModal.vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import axios from 'axios';
 import { Link, router } from "@inertiajs/vue3";
 import { debounce } from 'lodash';
@@ -224,6 +234,9 @@ export default {
                 { value: 'Insumo', label: 'Insumos' },
                 { value: 'Obsoleto', label: 'Obsoletos' },
             ],
+            // Variables añadidas para el visor de imágenes
+            showImageViewer: false,
+            previewImage: '',
         };
     },
     components: {
@@ -233,6 +246,7 @@ export default {
         AppLayout,
         Link,
         MassiveEditModal,
+        ElImageViewer,
     },
     props: {
         products: Object,
@@ -402,6 +416,36 @@ export default {
                 }
             } catch (error) {
                 ElMessage.error(error.response.data.message || 'No se pudo clonar el producto');
+            }
+        },
+        // Método agregado para el visor de imagen manual
+        openPreview(event) {
+            const img = event.target;
+            // De esta manera tomamos el src actual, si fallback ya lo cambió a producción, 
+            // el visor mostrará la imagen correcta de producción directamente.
+            if (img && img.src) {
+                this.previewImage = img.src;
+                this.showImageViewer = true;
+            }
+        },
+        // Método agregado para el manejo de error de carga en imágenes (fallback local/producción)
+        handleImageError(event) {
+            const img = event.target;
+            
+            // Verificación para asegurar que el target tenga la propiedad src
+            if (!img || !img.src) return;
+
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
             }
         }
     },

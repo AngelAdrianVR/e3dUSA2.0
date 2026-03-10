@@ -103,6 +103,7 @@
                                         draggable="false"
                                         :src="item.product.media[0]?.original_url"
                                         :alt="item.product.name"
+                                        @error="handleImageError"
                                         class="size-12 rounded-md object-cover flex-shrink-0"
                                     />
                                     <div class="leading-relaxed">
@@ -308,6 +309,21 @@ export default {
         filters: Object,
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         // --- Nuevo método para descargar reporte ---
         downloadReport() {
             if (!this.dateRange || this.dateRange.length < 2) {

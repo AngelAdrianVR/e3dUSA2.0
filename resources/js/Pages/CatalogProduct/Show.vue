@@ -79,7 +79,7 @@
                 <section>
                     <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-lg">
                         <div class="w-full h-80 bg-gray-100 dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
-                            <img v-if="product.media?.length" :src="product.media[currentImage]?.original_url" :alt="product.name" class="w-full h-full object-contain">
+                            <img v-if="product.media?.length" :src="product.media[currentImage]?.original_url" :alt="product.name" @error="handleImageError" class="w-full h-full object-contain">
                             <div class="flex flex-col items-center justify-end" v-else>
                                 <i class="fa-regular fa-image text-gray-400 text-6xl"></i>
                                 <p class="text-center italic text-gray-700 dark:text-gray-400 mt-2">Producto sin imagen</p>
@@ -89,7 +89,7 @@
                             <div v-for="(image, index) in product.media" :key="index" @click="currentImage = index"
                                 class="size-16 rounded-md overflow-hidden cursor-pointer border-2 transition-colors"
                                 :class="index === currentImage ? 'border-primary' : 'border-transparent hover:border-gray-300 dark:hover:border-slate-600'">
-                                <img :src="image.original_url" :alt="`Thumbnail ${index + 1}`" class="w-full h-full object-cover">
+                                <img :src="image.original_url" @error="handleImageError" :alt="`Thumbnail ${index + 1}`" class="w-full h-full object-cover">
                             </div>
                         </div>
                     </div>
@@ -238,6 +238,7 @@
                                     <img
                                     v-if="component.media?.[0]?.original_url"
                                     :src="component.media[0].original_url"
+                                    @error="handleImageError"
                                     alt="Componente"
                                     class="w-full h-full object-cover"
                                     />
@@ -538,6 +539,22 @@ export default {
         }
     },
     methods: {
+        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         // formatea la fecha
         formatDateTime(timestamp) {
             if (!timestamp) return '';

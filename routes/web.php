@@ -41,6 +41,7 @@ use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\SampleTrackingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\SparePartController;
+use App\Http\Controllers\StockProjectionController;
 use App\Http\Controllers\StockRepositionController;
 use App\Http\Controllers\StorageController;
 use App\Http\Controllers\SupplierBankAccountController;
@@ -306,6 +307,13 @@ Route::post('purchases/{purchase}/receive-products', [PurchaseController::class,
 
 // ------- (Ruta Index de reposicion de stock)  ---------
 Route::get('/stock-reposition', [StockRepositionController::class, 'index'])->name('stock-reposition.index');
+
+
+// Rutas para el Dashboard de proyección de stock
+Route::get('/stock-projection', [StockProjectionController::class, 'index'])->name('stock-projection.index');
+Route::post('/stock-projection/report', [StockProjectionController::class, 'generateReport'])->name('stock-projection.report');
+Route::get('/stock-projection/products', [StockProjectionController::class, 'fetchProducts'])->name('stock-projection.products');
+Route::post('/stock-projection/export', [StockProjectionController::class, 'exportReport'])->name('stock-projection.export');
 
 
 // ------- (Rutas de diseño)  ---------

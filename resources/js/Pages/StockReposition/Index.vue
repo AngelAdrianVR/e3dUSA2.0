@@ -55,7 +55,7 @@
                             class="h-12 w-12 rounded-md overflow-hidden bg-gray-200 border border-gray-300 flex items-center justify-center group relative cursor-pointer"
                             @click="product.image_url ? openImageModal(product.image_url) : null"
                         >
-                            <img v-if="product.image_url" :src="product.image_url" alt="Prod" class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-110">
+                            <img v-if="product.image_url" :src="product.image_url" @error="handleImageError" alt="Prod" class="h-full w-full object-cover transition-transform duration-200 group-hover:scale-110">
                             <i v-else class="fa-solid fa-image text-gray-400"></i>
                             
                             <!-- Overlay hover icon -->
@@ -219,6 +219,22 @@ const closeImageModal = () => {
     setTimeout(() => {
         selectedImageUrl.value = ''; // Limpiar URL después de cerrar para evitar parpadeos al reabrir
     }, 200);
+};
+
+const handleImageError = (event) => {
+    const img = event.target;
+    const currentSrc = img.src;
+    const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+    
+    if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+    img.dataset.fallbackAttempted = "true";
+
+    try {
+        const urlObj = new URL(currentSrc);
+        img.src = prodDomain + urlObj.pathname;
+    } catch (e) {
+        img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+    }
 };
 </script>
 

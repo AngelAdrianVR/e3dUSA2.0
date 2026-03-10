@@ -49,8 +49,9 @@
                     <div class="flex flex-col md:flex-row print:flex-row gap-4 relative">
                         <div class="flex-shrink-0">
                              <img :src="production.sale_product.product.media[0]?.original_url || 'https://placehold.co/128x128/e2e8f0/e2e8f0?text=N/A'"
-                                 alt="Imagen de producto"
-                                 class="size-40 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
+                                @error="handleImageError"
+                                alt="Imagen de producto"
+                                class="size-40 object-contain rounded-lg border border-gray-200 dark:border-slate-700">
                         </div>
                         
                         <!-- Precio del producto discreto -->
@@ -132,6 +133,22 @@ export default {
         sale: Object,
     },
     methods: {
+        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         printPage() {
             window.print();
         },

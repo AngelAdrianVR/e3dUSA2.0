@@ -329,6 +329,7 @@
                                             <img
                                                 v-if="file.mime_type.includes('image')"
                                                 :src="file.original_url"
+                                                @error="handleImageError"
                                                 alt="Imagen"
                                                 class="w-full h-16 object-cover rounded mb-1"
                                             />
@@ -602,6 +603,22 @@ export default {
         }
     },
     methods: {
+        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         async deleteMedia(mediaId) {
             try {
                 await axios.delete(route('media.delete-file', mediaId))
