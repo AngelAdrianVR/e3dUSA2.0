@@ -173,7 +173,9 @@ class BranchController extends Controller
             'media',
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
-                $query->where('branch_id', $productSourceBranch->id)->orderBy('valid_from', 'desc');
+                $query->where('branch_id', $productSourceBranch->id)
+                      ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
+                      ->orderBy('valid_from', 'desc');
             }
         ])->get();
 
@@ -496,21 +498,24 @@ class BranchController extends Controller
                 $productIdsToSync[] = $productData['product_id'];
 
                 if (isset($productData['price']) && !is_null($productData['price'])) {
-                    // Invalidar precios anteriores para este producto y cliente (en la matriz)
+                    // Invalidar precios anteriores...
                     DB::table('branch_price_history')
                         ->where('branch_id', $productTargetBranch->id)
                         ->where('product_id', $productData['product_id'])
                         ->whereNull('valid_to')
                         ->update(['valid_to' => $now]);
 
-                    // Agregar el nuevo precio especial a la matriz
+                    // Agregar el nuevo precio especial a la matriz (modificado)
                     $priceHistoryData[] = [
                         'branch_id' => $productTargetBranch->id,
                         'product_id' => $productData['product_id'],
+                        // Se asegura de guardar el ID de usuario autenticado
+                        'user_id' => auth()->id(), 
                         'price' => $productData['price'],
                         'valid_from' => $now,
                         'valid_to' => null,
-                        'currency' => $productData['currency'],
+                        // Usamos Null Coalescing por si algún día falla la petición
+                        'currency' => $productData['currency'] ?? 'MXN', 
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -539,6 +544,7 @@ class BranchController extends Controller
                 // El historial de precios también se consulta con el ID de la matriz
                 'priceHistory' => function ($query) use ($productSourceBranch) {
                     $query->where('branch_id', $productSourceBranch->id)
+                        ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
                         ->orderBy('valid_from', 'desc');
                 }
             ])

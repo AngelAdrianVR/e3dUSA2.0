@@ -54,11 +54,12 @@
                         <i class="fa-solid fa-clock-rotate-left mr-2"></i> Ver Historial de Precios Especiales ({{ product.price_history.length }})
                     </span>
                 </template>
-                <div class="p-2">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <div class="p-2 overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400 min-w-[500px]">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                             <tr>
                                 <th scope="col" class="px-4 py-2">Precio Especial</th>
+                                <th scope="col" class="px-4 py-2">Usuario</th>
                                 <th scope="col" class="px-4 py-2">Vigente Desde</th>
                                 <th scope="col" class="px-4 py-2">Vigente Hasta</th>
                             </tr>
@@ -66,6 +67,11 @@
                         <tbody>
                             <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
                                 <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }} {{ history.currency }}</td>
+                                <!-- NUEVA COLUMNA DE USUARIO -->
+                                <td class="px-4 py-2">
+                                    <span v-if="history.user">{{ history.user.name }}</span>
+                                    <span v-else class="text-gray-400 italic text-xs">Sistema</span>
+                                </td>
                                 <td class="px-4 py-2">{{ formatDate(history.valid_from) }}</td>
                                 <td class="px-4 py-2 flex items-center justify-between">
                                     <span>{{ history.valid_to ? formatDate(history.valid_to) : 'Indefinido' }}</span>
@@ -83,7 +89,7 @@
             </el-collapse-item>
         </el-collapse>
     </div>
-        <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
+    <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
         No hay precios especiales registrados para este producto.
     </p>
 </div>
@@ -95,7 +101,12 @@
     </template>
     <template #content>
         <div class="space-y-4 text-sm dark:text-gray-300">
-            <p>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+            <!-- Mensaje de advertencia o permiso especial -->
+            <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+            </p>
+            <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
                     <label class="font-semibold">Aumento en porcentaje*</label>
@@ -124,7 +135,7 @@
                 </div>
             </div>
             <!-- MENSAJE DE ERROR -->
-            <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+            <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                 <i class="fa-solid fa-circle-exclamation mr-1"></i>
                 El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
             </div>
@@ -154,7 +165,7 @@
     </template>
 </ConfirmationModal>
 
-<!-- ===== NUEVO MODAL PARA REMOVER PRODUCTO ===== -->
+<!-- ===== MODAL PARA REMOVER PRODUCTO ===== -->
 <ConfirmationModal :show="showRemoveModal" @close="showRemoveModal = false">
     <template #title>
         Remover Producto del Cliente
@@ -201,7 +212,7 @@ data() {
         showClosePriceConfirmModal: false,
         priceHistoryToClose: null,
 
-        // --- NUEVOS DATOS PARA EL MODAL DE REMOVER ---
+        // --- DATOS PARA EL MODAL DE REMOVER ---
         showRemoveModal: false,
         productToRemove: null,
     }
@@ -216,8 +227,14 @@ props:{
     branchId: Number
 },
 computed: {
+    // NUEVO: Verificamos si el usuario tiene el permiso
+    canBypassPriceRule() {
+        return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+    },
+    // MODIFICADO: Ignora la validación del 4% si el usuario tiene permiso
     isPriceInvalid() {
         if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
+        if (this.canBypassPriceRule) return false;
         return this.priceForm.amount < this.priceForm.min_allowed_price;
     }
 },

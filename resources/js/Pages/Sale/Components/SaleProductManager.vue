@@ -73,11 +73,11 @@
                         <p class="text-gray-500 dark:text-gray-300">
                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                         </p>
-                        <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300">
-                            Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                        <p v-if="saleType === 'venta' && !currentProduct.current_price" class="text-gray-500 dark:text-gray-300">
+                            Precio base <small>(para todos los clientes que no tengan precio asignado)</small>: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
                         </p>
-                        <p v-if="saleType === 'venta' && currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
-                            Precio actual (especial): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
+                        <p v-if="saleType === 'venta' && currentProduct.isClientProduct && currentProduct.current_price" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                            Precio actual (para este cliente): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                         </p>
                     </div>
                 </div>

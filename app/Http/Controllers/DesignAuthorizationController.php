@@ -44,7 +44,7 @@ class DesignAuthorizationController extends Controller
     public function create(Request $request)
     {
         // Solo se obtienen los datos básicos de las órdenes de diseño.
-        $designOrders = DesignOrder::whereDoesntHave('designAuthorization')
+        $designOrders = DesignOrder::whereDoesntHave('designAuthorization')->latest()
             ->select('id', 'order_title')
             ->get();
 
@@ -58,7 +58,9 @@ class DesignAuthorizationController extends Controller
         // Asumiendo que todos los usuarios pueden ser vendedores.
         // Podrías filtrar por un rol si lo tuvieras.
         $sellers = User::select('id', 'name')->role('Vendedor')->get(); 
-        $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
+        
+        // CORRECCIÓN: Usar contactable_id y contactable_type en lugar de branch_id
+        $branches = Branch::with('contacts:id,name,charge,contactable_id,contactable_type')->select('id', 'name')->get();
 
         return Inertia::render('DesignAuthorization/Create', [
             'designOrders' => $designOrders,
@@ -76,11 +78,22 @@ class DesignAuthorizationController extends Controller
         // --- Validación mejorada ---
         $validated = $request->validate([
             'design_order_id' => 'required|exists:design_orders,id|unique:design_authorizations,design_order_id',
+            'version' => 'nullable|string|max:50', // NUEVO: Validar versión
             'product_name' => 'required|string|max:255',
+            'product_type' => 'nullable|string|max:255', 
             'material' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
+            'pantone' => 'nullable|string|max:255', 
+            'pantone_color' => 'nullable|string|max:50', // NUEVO: Validar el color hexadecimal
+            'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
+            'delivery_time' => 'nullable|string|max:255',
+            'minimum_volume' => 'nullable|integer|min:0',
+            'printing_tooling_cost' => 'nullable|numeric|min:0',
+            'injection_tooling_cost' => 'nullable|numeric|min:0',
+            'unit_price' => 'nullable|numeric|min:0',
+            'freight_cost' => 'nullable|numeric|min:0',
             'seller_id' => 'required|exists:users,id',
             'branch_id' => 'required|exists:branches,id',
             'contact_id' => 'required|exists:contacts,id',
@@ -155,7 +168,9 @@ class DesignAuthorizationController extends Controller
             ->get();
 
         $sellers = User::select('id', 'name')->role('Vendedor')->get();
-        $branches = Branch::with('contacts:id,name,charge,branch_id')->select('id', 'name')->get();
+        
+        // CORRECCIÓN: Usar contactable_id y contactable_type en lugar de branch_id también en el edit
+        $branches = Branch::with('contacts:id,name,charge,contactable_id,contactable_type')->select('id', 'name')->get();
 
         return Inertia::render('DesignAuthorization/Edit', [
             'authorization' => $designAuthorization,
@@ -172,11 +187,22 @@ class DesignAuthorizationController extends Controller
         // --- Validación para la actualización ---
         $validated = $request->validate([
             // design_order_id no se valida porque no se puede cambiar
+            'version' => 'nullable|string|max:50', // NUEVO: Validar versión
             'product_name' => 'required|string|max:255',
+            'product_type' => 'nullable|string|max:255', 
             'material' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
+            'pantone' => 'nullable|string|max:255', 
+            'pantone_color' => 'nullable|string|max:50', // NUEVO: Validar el color hexadecimal
+            'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
+            'delivery_time' => 'nullable|string|max:255',
+            'minimum_volume' => 'nullable|integer|min:0',
+            'printing_tooling_cost' => 'nullable|numeric|min:0',
+            'injection_tooling_cost' => 'nullable|numeric|min:0',
+            'unit_price' => 'nullable|numeric|min:0',
+            'freight_cost' => 'nullable|numeric|min:0',
             'seller_id' => 'required|exists:users,id',
             'branch_id' => 'required|exists:branches,id',
             'contact_id' => 'required|exists:contacts,id',
@@ -279,6 +305,7 @@ class DesignAuthorizationController extends Controller
     {
         $designAuthorization->update([
             'authorizer_name' => auth()->user()->name,
+            'authorized_at' => now(),
         ]);
 
         return back()->with('message', 'El formato ha sido autorizado internamente.');

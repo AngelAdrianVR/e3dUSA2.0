@@ -20,10 +20,11 @@ return new class extends Migration
 
             $table->string('version')->default('1.0');
             $table->string('product_name');
-            $table->string('material')->nullable(); // Mantenemos como texto simple
+            $table->string('product_type')->nullable(); // NUEVO: Tipo de producto
+            $table->string('material')->nullable(); // Se mantiene como string, pero en frontend será select
             $table->string('color')->nullable();
+            $table->string('pantone')->nullable(); // NUEVO: Pantone
 
-            // --- LA SOLUCIÓN SENCILLA ---
             // Reemplazamos 'engrave_method' por una columna JSON.
             // Aquí puedes guardar un array de strings con los métodos.
             // Ej: ['Serigrafía', 'Emblema Pegado']
@@ -31,18 +32,31 @@ return new class extends Migration
             
             $table->text('specifications')->nullable();
             $table->string('logistic_details')->nullable();
-            // $table->unsignedInteger('quantity');
 
             // Campos para el seguimiento de la autorización
             $table->timestamp('responded_at')->nullable();
             $table->boolean('is_accepted')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->string('authorizer_name')->nullable();
+            $table->timestamp('authorized_at')->nullable();
 
             // Relaciones
             $table->foreignId('seller_id')->constrained('users');
             $table->foreignId('branch_id')->constrained();
             $table->foreignId('contact_id')->constrained();
+
+            // Datos técnicos adicionales
+            $table->string('dimensions')->nullable()->comment('Medidas del producto');
+
+            // Datos comerciales
+            $table->string('delivery_time')->nullable()->comment('Tiempo de entrega estimado');
+            $table->unsignedInteger('minimum_volume')->nullable()->comment('Volumen mínimo requerido');
+            
+            // Costos y Precios (Usamos decimal para manejar centavos correctamente)
+            $table->decimal('printing_tooling_cost', 10, 2)->nullable()->comment('Costo del herramental de impresión');
+            $table->decimal('injection_tooling_cost', 10, 2)->nullable()->comment('Costo del herramental de inyección');
+            $table->decimal('unit_price', 10, 2)->nullable()->comment('Precio por unidad');
+            $table->decimal('freight_cost', 10, 2)->nullable()->comment('Costo de flete');
             
             $table->timestamps();
         });

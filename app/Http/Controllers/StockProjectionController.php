@@ -80,7 +80,7 @@ class StockProjectionController extends Controller
             ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
             ->join('products', 'sale_products.product_id', '=', 'products.id')
             ->whereBetween('sales.created_at', [$startDate, $endDate])
-            ->whereIn('sales.status', ['Completada', 'Autorizada', 'Enviada', 'En Proceso'])
+            ->whereIn('sales.status', ['Completada', 'Autorizada', 'Enviada', 'En Proceso', 'Preparando Envío', 'En Producción'])
             ->where('products.is_purchasable', true);
 
         // Si se seleccionaron productos específicos, filtramos

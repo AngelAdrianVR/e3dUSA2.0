@@ -306,14 +306,14 @@ Route::post('purchases/{purchase}/receive-products', [PurchaseController::class,
 
 
 // ------- (Ruta Index de reposicion de stock)  ---------
-Route::get('/stock-reposition', [StockRepositionController::class, 'index'])->name('stock-reposition.index');
+Route::get('/stock-reposition', [StockRepositionController::class, 'index'])->name('stock-reposition.index')->middleware('auth');
 
 
 // Rutas para el Dashboard de proyección de stock
-Route::get('/stock-projection', [StockProjectionController::class, 'index'])->name('stock-projection.index');
-Route::post('/stock-projection/report', [StockProjectionController::class, 'generateReport'])->name('stock-projection.report');
-Route::get('/stock-projection/products', [StockProjectionController::class, 'fetchProducts'])->name('stock-projection.products');
-Route::post('/stock-projection/export', [StockProjectionController::class, 'exportReport'])->name('stock-projection.export');
+Route::get('/stock-projection', [StockProjectionController::class, 'index'])->name('stock-projection.index')->middleware('auth');
+Route::post('/stock-projection/report', [StockProjectionController::class, 'generateReport'])->name('stock-projection.report')->middleware('auth');
+Route::get('/stock-projection/products', [StockProjectionController::class, 'fetchProducts'])->name('stock-projection.products')->middleware('auth');
+Route::post('/stock-projection/export', [StockProjectionController::class, 'exportReport'])->name('stock-projection.export')->middleware('auth');
 
 
 // ------- (Rutas de diseño)  ---------

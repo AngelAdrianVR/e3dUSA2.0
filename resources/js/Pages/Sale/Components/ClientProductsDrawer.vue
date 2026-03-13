@@ -24,12 +24,12 @@
                     <!-- BOTONES DE ACCIÓN -->
                     <div class="absolute top-2 right-2 flex items-center space-x-1">
                         <el-tooltip content="Actualizar precio especial" placement="top">
-                            <button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors">
+                            <button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
                                 <i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-600"></i>
                             </button>
                         </el-tooltip>
                         <el-tooltip content="Ver producto" placement="top">
-                            <button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors">
+                            <button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
                                 <i class="fa-solid fa-eye text-gray-500 dark:text-gray-600"></i>
                             </button>
                         </el-tooltip>
@@ -56,11 +56,11 @@
 
                     <!-- Precios -->
                     <div class="mt-4 flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio base <small>(Para clientes que no tienen precio asignado)</small></p>
                         <p class="font-medium text-blue-400">${{ product.base_price }} {{ product.currency }}</p>
                     </div>
                     <div class="flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual <small>(Precio al que se vende actualmente a este cliente)</small></p>
                         <p class="font-semibold text-green-600 dark:text-green-400">
                         ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
                                 ? product.price_history[0].price + ' ' + product.price_history[0].currency
@@ -77,29 +77,35 @@
                         <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
                     </div>
 
-                    <!-- Historial de precios (MODIFICADO CON ETIQUETAS) -->
+                    <!-- Historial de precios -->
                     <el-collapse v-if="product.price_history?.length" class="mt-4">
                         <el-collapse-item :title="'Historial de precios'" name="history">
-                            <ul class="space-y-2 max-h-40 overflow-y-auto pr-2 text-sm">
+                            <ul class="space-y-3 max-h-40 overflow-y-auto pr-2 text-sm">
                             <li 
                                 v-for="(history, idx) in product.price_history" 
                                 :key="idx" 
-                                class="flex justify-between items-center text-gray-600 dark:text-gray-400"
+                                class="flex flex-col border-b dark:border-gray-700 pb-2 last:border-0 last:pb-0"
                             >
-                                <div class="flex items-center space-x-2">
-                                    <span>{{ formatDate(history.valid_from) }}</span>
-                                    <!-- ETIQUETAS DE ESTADO -->
-                                    <span v-if="!history.valid_to" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
-                                    <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
+                                <div class="flex justify-between items-center text-gray-600 dark:text-gray-400">
+                                    <div class="flex items-center space-x-2">
+                                        <span>{{ formatDate(history.valid_from) }}</span>
+                                        <!-- ETIQUETAS DE ESTADO -->
+                                        <span v-if="!history.valid_to" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
+                                        <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1">
+                                        <span class="font-medium">${{ history.price }} {{ history.currency }}</span>
+                                        <!-- BOTÓN PARA FINALIZAR PRECIO ACTIVO -->
+                                        <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
+                                            <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
+                                                <i class="fa-solid fa-calendar-xmark text-sm"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-1">
-                                    <span class="font-medium">${{ history.price }} {{ history.currency }}</span>
-                                    <!-- BOTÓN PARA FINALIZAR PRECIO ACTIVO -->
-                                    <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
-                                        <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
-                                            <i class="fa-solid fa-calendar-xmark text-sm"></i>
-                                        </button>
-                                    </el-tooltip>
+                                <!-- NUEVO: Usuario -->
+                                <div class="text-xs text-gray-400 mt-1">
+                                    Registrado por: <span v-if="history.user">{{ history.user.name }}</span><span v-else class="italic">Sistema</span>
                                 </div>
                             </li>
                             </ul>
@@ -132,13 +138,13 @@
             </h2>
         </template>
         <template #content>
-            <form @submit.prevent="saveProducts">
+            <form @submit.prevent="saveProducts" class="min-h-96">
                 <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                        <div>
+                    <!-- MODIFICADO: Sistema de grid a 12 columnas para integrar la moneda -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-x-5 gap-y-4 items-end">
+                        <div class="md:col-span-5">
                             <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
-                            <!-- ===== SELECT de productos de catalogo ===== -->
-                            <el-select @change="getProductMedia" :teleported="false" v-model="currentCatalogProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
+                            <el-select @change="getProductMedia" :teleported="false" v-model="currentCatalogProduct.product_id" placeholder="Selecciona un producto" class="!w-full mt-1" filterable>
                                 <el-option v-for="item in availableProducts" 
                                     :key="item.id" 
                                     :label="item.name" 
@@ -147,8 +153,18 @@
                                 />
                             </el-select>
                         </div>
+                        <!-- NUEVO: Selector de Moneda -->
+                        <div class="md:col-span-3">
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Moneda*</label>
+                            <el-select v-model="currentCatalogProduct.currency" :teleported="false" class="!w-full mt-1" placeholder="Moneda">
+                                <el-option label="MXN" value="MXN" />
+                                <el-option label="USD" value="USD" />
+                            </el-select>
+                        </div>
+                    </div>
+                    <div class="md:col-span-4 mt-2">
                         <TextInput label="Precio Especial (Opcional)" v-model="currentCatalogProduct.price"
-                            :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                            :helpContent="'Si no agregas precio se tomará el precio base'" type="number" :step="0.01" placeholder="Ej. 150.00" />
                     </div>
 
                     <div v-if="loadingCatalogProductMedia" class="flex items-center justify-center h-32">
@@ -175,7 +191,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex justify-end mt-4">
+                    <div class="flex justify-end my-5">
                         <PrimaryButton @click="addBranchProduct" type="button" plain :disabled="!currentCatalogProduct.product_id">
                             <i class="fa-solid fa-plus mr-2"></i> Agregar a la lista
                         </PrimaryButton>
@@ -192,7 +208,7 @@
                             </span>
                             <div class="flex items-center space-x-3 text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">
-                                    Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
+                                    Precio Especial: <strong>${{ product.price ?? 'N/A' }} {{ product.price ? product.currency : '' }}</strong>
                                 </span>
                                 <button @click="removeBranchProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                     <i class="fa-solid fa-trash"></i>
@@ -222,7 +238,12 @@
         </template>
         <template #content>
             <div class="space-y-4 text-sm dark:text-gray-300">
-                <p>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                <!-- NUEVO: Mensaje de advertencia o permiso especial -->
+                <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                    <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+                </p>
+                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
                         <label class="font-semibold">Aumento en porcentaje*</label>
@@ -250,7 +271,8 @@
                         <el-date-picker v-model="priceForm.valid_from" type="date" :teleported="false" placeholder="Selecciona una fecha" class="!w-full mt-1" />
                     </div>
                 </div>
-                <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+                <!-- MENSAJE DE ERROR MODIFICADO -->
+                <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
                     El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
                 </div>
@@ -314,7 +336,6 @@ export default {
     },
     emits: ['update:show', 'products-loaded'],
     data() {
-        // --- FORMULARIO PARA AGREGAR PRODUCTOS A CLIENTE ---
         const newBranchProductForm = useForm({
             products: [],
         });
@@ -323,14 +344,12 @@ export default {
             newBranchProductForm,
             loading: false,
             clientProducts: [],
-            drawerSize: "35%", // valor inicial
+            drawerSize: "35%", 
             showAddProductsModal: false,
 
-            // --- para cerrar precio especial ---
             showClosePriceConfirmModal: false,
             priceHistoryToClose: null,
 
-            // --- DATOS PARA EL MODAL DE PRECIO ---
             showPriceModal: false,
             productForUpdate: null,
             priceForm: {
@@ -342,10 +361,11 @@ export default {
                 min_allowed_price: 0,
             },
             
-            // --- LÓGICA PARA ASIGNAR PRODUCTOS A CLIENTE (dentro del drawer) ---
+            // MODIFICADO: Agregada moneda por defecto
             currentCatalogProduct: {
                 product_id: null,
                 price: null,
+                currency: 'MXN',
                 media: null,
                 base_price: null,
                 current_stock: null,
@@ -355,17 +375,19 @@ export default {
         };
     },
     computed: {
+        // NUEVO: Permiso "Cambiar precio especial"
+        canBypassPriceRule() {
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+        },
+        // MODIFICADO
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
-            // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
+            if (this.canBypassPriceRule) return false;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
         },
 
-        // filtra los productos de catalogo que no tiene agregados el cliente seleccionado
         availableProducts() {
-            // Obtiene un array de IDs de los productos que el cliente ya tiene.
             const assignedProductIds = this.clientProducts.map(p => p.id);
-            // Filtra el catálogo general para excluir los productos que ya están asignados.
             return this.catalog_products?.filter(p => !assignedProductIds.includes(p.id));
         }
     },
@@ -377,7 +399,7 @@ export default {
             try {
                 const response = await axios.get(route('branches.fetch-products', this.branchId));
                 this.clientProducts = response.data;
-                this.$emit('products-loaded', this.clientProducts); // Emitir productos al padre
+                this.$emit('products-loaded', this.clientProducts);
             } catch (error) {
                 console.error("Error fetching client products:", error);
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
@@ -385,7 +407,6 @@ export default {
                 this.loading = false;
             }
         },
-        // ------ Metodos para el drawer ( productos del cliente ) -------
         openProduct(id) {
             window.open(`/catalog-products/${id}`, "_blank");
         },
@@ -424,7 +445,6 @@ export default {
             if (isNaN(num)) return '0.00';
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
         },
-        // --- MÉTODOS PARA GESTIÓN DE PRECIOS ---
         openPriceModal(product) {
             const basePrice = product.price_history?.[0]?.price ?? product.base_price;
             
@@ -435,7 +455,7 @@ export default {
                 currency: 'MXN',
                 valid_from: new Date(),
                 current_base_price: basePrice,
-                min_allowed_price: basePrice * 1.04, // Regla de aumento del 4%
+                min_allowed_price: basePrice * 1.04, 
             };
             this.showPriceModal = true;
         },
@@ -458,7 +478,6 @@ export default {
             }
         },
 
-        // --- Metodos para cerrar precio especial ---
         confirmCloseSpecialPrice(historyId) {
             this.priceHistoryToClose = historyId;
             this.showClosePriceConfirmModal = true;
@@ -467,7 +486,6 @@ export default {
         async closeSpecialPrice() {
             if (!this.priceHistoryToClose) return;
             try {
-                // Usamos PATCH para indicar una actualización parcial del recurso
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
@@ -490,7 +508,6 @@ export default {
 
             try {
                 const routeName = 'branches.products.price.store';
-                // Usamos el ID del cliente del formulario principal
                 const routeParams = { branch: this.branchId, product: this.productForUpdate.id };
                 
                 const response = await axios.post(route(routeName, routeParams), this.priceForm);
@@ -498,7 +515,6 @@ export default {
                 if (response.status === 200) {
                     ElMessage.success('Precio actualizado correctamente.');
                     this.showPriceModal = false;
-                    // Recargamos solo los productos del cliente para no afectar el formulario
                     this.fetchClientProducts(this.branchId);
                 }
             } catch (error) {
@@ -507,9 +523,7 @@ export default {
             }
         },
 
-        // --- MÉTODOS PARA GUARDAR PRODUCTOS AL CLIENTE ---
         saveProducts() {
-            // Se necesita una nueva ruta para manejar esta lógica en el backend
             this.newBranchProductForm.post(route('branches.add-products', this.branchId), {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -517,7 +531,6 @@ export default {
                     this.showAddProductsModal = false;
                     this.newBranchProductForm.reset();
                     this.fetchClientProducts(this.branchId);
-                    // Inertia recargará los props automáticamente, actualizando la lista de productos.
                 },
                 onError: () => {
                      ElMessage.error('Ocurrió un error al asignar los productos.');
@@ -529,7 +542,6 @@ export default {
                 ElMessage.warning('Debes seleccionar un producto.');
                 return;
             }
-            // Evitar duplicados (ya controlado con :disabled, pero es buena práctica tenerlo)
             if (this.isBranchProductForm(this.currentCatalogProduct.product_id)) {
                 ElMessage.warning('Este producto ya está en la lista.');
                 return;
@@ -540,10 +552,12 @@ export default {
         removeBranchProduct(index) {
             this.newBranchProductForm.products.splice(index, 1);
         },
+        // MODIFICADO
         resetCurrentBranchProduct() {
             this.currentCatalogProduct = {
                 product_id: null,
                 price: null,
+                currency: 'MXN',
                 media: null,
                 base_price: null,
                 current_stock: null,
@@ -573,7 +587,7 @@ export default {
             } catch (error) {
                 console.error("Error al cargar detalles del producto:", error);
                 ElMessage.error('No se pudo cargar la información del producto.');
-                this.resetCurrentProduct();
+                this.resetCurrentBranchProduct(); // Cambiado a su nombre correcto
             } finally {
                 this.loadingCatalogProductMedia = false;
             }
@@ -581,17 +595,16 @@ export default {
         updateDrawerSize() {
             const width = window.innerWidth;
             if (width < 640) {
-                this.drawerSize = "90%"; // móvil
+                this.drawerSize = "90%";
             } else if (width < 1024) {
-                this.drawerSize = "60%"; // tablet
+                this.drawerSize = "60%";
             } else {
-                this.drawerSize = "35%"; // desktop
+                this.drawerSize = "35%";
             }
         },
     },
     watch: {
         show(newVal) {
-            // Cada vez que se abre el drawer, se recargan los productos
             if (newVal) {
                 this.fetchClientProducts();
             }

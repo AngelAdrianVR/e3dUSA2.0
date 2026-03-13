@@ -50,21 +50,50 @@
                              <p class="text-xs text-gray-500 ml-3 mt-2">No hay más imágenes en la orden de diseño para seleccionar.</p>
                          </div>
 
-
                         <div>
-                            <TextInput label="Nombre del producto*" v-model="form.product_name" type="text" :error="form.errors.product_name" placeholder="Ej. Portaplacas Nissan" />
+                            <TextInput label="Versión del Formato*" v-model="form.version" type="text" :error="form.errors.version" placeholder="Ej. 1.0" />
                         </div>
 
                         <div>
-                            <TextInput label="Material" v-model="form.material" type="text" :error="form.errors.material" placeholder="Ej. Plástico ABS" />
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Tipo de producto*</label>
+                            <el-select v-model="form.product_type" placeholder="Selecciona un tipo" class="w-full mt-1" filterable>
+                                <el-option v-for="item in productTypeOptions" :key="item" :label="item" :value="item" />
+                            </el-select>
+                            <InputError :message="form.errors.product_type" />
                         </div>
 
                         <div>
-                           <TextInput label="Color" v-model="form.color" type="text" :error="form.errors.color" placeholder="Ej. Negro con letras blancas" />
+                            <TextInput label="Nombre del producto*" v-model="form.product_name" type="text" :error="form.errors.product_name" placeholder="Ej. Llavero MG con grabado" />
+                        </div>
+
+                        <div>
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Material</label>
+                            <el-select v-model="form.material" placeholder="Selecciona el material" class="w-full mt-1" filterable allow-create>
+                                <el-option v-for="item in materialOptions" :key="item" :label="item" :value="item" />
+                            </el-select>
+                            <InputError :message="form.errors.material" />
+                        </div>
+
+                        <div>
+                           <TextInput label="Color" v-model="form.color" type="text" :error="form.errors.color" placeholder="Ej. Chrome" />
+                        </div>
+
+                        <div class="flex gap-2">
+                            <div class="flex-1">
+                                <TextInput label="Pantone" v-model="form.pantone" type="text" :error="form.errors.pantone" placeholder="Ej. 186 C" />
+                            </div>
+                            <div class="w-16 flex flex-col justify-end pb-[2px]">
+                                <label class="text-xs text-gray-500 mb-1 text-center font-medium">Color</label>
+                                <input type="color" v-model="form.pantone_color" class="h-10 w-full rounded cursor-pointer border border-gray-300 bg-white p-0 shadow-sm" title="Elige un color para imprimir" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <TextInput label="Medidas" v-model="form.dimensions" type="text" :error="form.errors.dimensions" placeholder="Ej. 80mm x 35mm" />
                         </div>
 
                          <div class="md:col-span-2">
-                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Métodos de Producción</label>
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Técnica / Proceso de Impresión</label>
                             <el-select
                                 v-model="form.production_methods"
                                 multiple
@@ -73,7 +102,7 @@
                                 default-first-option
                                 :reserve-keyword="false"
                                 placeholder="Ej. Serigrafía, Grabado Láser"
-                                class="w-full"
+                                class="w-full mt-1"
                             >
                                 <el-option v-for="item in productionMethodsOptions" :key="item" :label="item" :value="item" />
                             </el-select>
@@ -85,9 +114,33 @@
                             <InputError :message="form.errors.specifications" />
                         </div>
 
-                        <div class="md:col-span-2">
+                        <div class="md:col-span-2 mt-4 border-t pt-6 dark:border-gray-700">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Datos Comerciales y Logísticos</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div>
+                                    <TextInput label="Tiempo de entrega" v-model="form.delivery_time" type="text" :error="form.errors.delivery_time" placeholder="Ej. 5-6 días" />
+                                </div>
+                                <div>
+                                    <TextInput label="Volumen mínimo" v-model="form.minimum_volume" type="number" :error="form.errors.minimum_volume" placeholder="Ej. 100" />
+                                </div>
+                                <div>
+                                    <TextInput label="Precio por unidad ($)" v-model="form.unit_price" type="number" step="0.01" :error="form.errors.unit_price" placeholder="Ej. 69.55" />
+                                </div>
+                                <div>
+                                    <TextInput label="Herramental de impresión ($)" v-model="form.printing_tooling_cost" type="number" step="0.01" :error="form.errors.printing_tooling_cost" placeholder="Ej. 600.00" />
+                                </div>
+                                <div>
+                                    <TextInput label="Herramental de inyección ($)" v-model="form.injection_tooling_cost" type="number" step="0.01" :error="form.errors.injection_tooling_cost" placeholder="Ej. 24000.00" />
+                                </div>
+                                <div>
+                                    <TextInput label="Costo de flete ($)" v-model="form.freight_cost" type="number" step="0.01" :error="form.errors.freight_cost" placeholder="Ej. 750.00" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 mt-4">
                             <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Cliente (Sucursal y Contacto)*</label>
-                             <div class="flex items-center space-x-2">
+                             <div class="flex items-center space-x-2 mt-1">
                                 <el-select v-model="form.branch_id" placeholder="Sucursal" class="w-1/2" filterable @change="handleBranchChange">
                                     <el-option v-for="item in branches" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
@@ -101,7 +154,7 @@
 
                          <div>
                             <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Vendedor*</label>
-                            <el-select v-model="form.seller_id" placeholder="Selecciona un vendedor" class="w-full" filterable>
+                            <el-select v-model="form.seller_id" placeholder="Selecciona un vendedor" class="w-full mt-1" filterable>
                                 <el-option v-for="item in sellers" :key="item.id" :label="item.name" :value="item.id" />
                             </el-select>
                             <InputError :message="form.errors.seller_id" />
@@ -134,17 +187,43 @@ export default {
         return {
             form: useForm({
                 design_order_id: this.authorization.design_order_id,
+                version: this.authorization.version || '1',
+                product_type: this.authorization.product_type,
                 product_name: this.authorization.product_name,
                 material: this.authorization.material,
                 color: this.authorization.color,
+                pantone: this.authorization.pantone,
+                pantone_color: this.authorization.pantone_color || '#E3000F',
+                dimensions: this.authorization.dimensions,
                 production_methods: this.authorization.production_methods,
                 specifications: this.authorization.specifications,
+                delivery_time: this.authorization.delivery_time,
+                minimum_volume: this.authorization.minimum_volume,
+                printing_tooling_cost: this.authorization.printing_tooling_cost,
+                injection_tooling_cost: this.authorization.injection_tooling_cost,
+                unit_price: this.authorization.unit_price,
+                freight_cost: this.authorization.freight_cost,
                 branch_id: this.authorization.branch_id,
                 contact_id: this.authorization.contact_id,
                 seller_id: this.authorization.seller_id,
                 cover_media_id: null, // Se inicializa en null para permitir selección.
             }),
-            productionMethodsOptions: ['Serigrafía', 'Grabado Láser', 'Emblema Pegado', 'Inyección', 'Remadchado de emblema', 'Cubierta de vinil'],
+            productTypeOptions: [
+                'Portaplaca', 'Emblema', 'Llavero', 'Parasol', 'Tapete', 'Manta', 
+                'Carpeta', 'Separador', 'Portadocumentos', 'Termo', 'Placa de estireno', 
+                'Etiqueta', 'Overlay', 'Pin', 'Prenda', 'Botella', 'Hielera', 
+                'Funda para auto', 'Perfumero', 'Funda para llavero', 'Bocina', 
+                'Carcasa', 'Banderín', 'Maletin'
+            ],
+            materialOptions: [
+                'METAL', 'PLASTICO', 'PIEL DE LUJO', 'ORIGINAL', 'PIEL', 'ZAMAK', 
+                'SOLIDCHROME', 'MICROMETAL', 'FLEXCHROME', 'ALUMINIO', 'ESTIRENO', 
+                'ABS', 'PVC', 'TELA', 'CAUCHO', 'VINILPIEL', 'FIBRA DE CARBONO', 'OVERLAY'
+            ],
+            productionMethodsOptions: [
+                'Serigrafía', 'Grabado Láser', 'Emblema Pegado', 'Inyección', 
+                'Remachado de emblema', 'Cubierta de vinil', 'Sublimación', 'Tampografía'
+            ],
             availableContacts: [],
             availableCoverImages: [],
             loadingImages: false,
@@ -206,8 +285,13 @@ export default {
     mounted() {
         // Precargar contactos de la sucursal actual
         this.handleBranchChange(this.form.branch_id);
+        
+        // Volvemos a colocar el contact_id ya que handleBranchChange lo limpia a null
+        this.form.contact_id = this.authorization.contact_id;
+        
         // Cargar imágenes de la orden de diseño actual
         this.handleDesignOrderChange(this.form.design_order_id);
+        
         // Establecer la imagen de portada actual si existe
         this.form.cover_media_id = this.current_cover_id;
     }
