@@ -23,7 +23,7 @@
 
             <!-- Contenido Principal en Grid -->
             <main class="grid grid-cols-1 lg:grid-cols-5 gap-5">
-                <!-- Columna Izquierda (Visuales) -->
+                <!-- Columna Izquierda (Visuales y Acciones) -->
                 <div class="lg:col-span-3 flex flex-col gap-8">
                     <!-- Imagen de Portada -->
                     <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -41,33 +41,24 @@
                         </div>
                     </div>
 
-                    <!-- Archivos Adicionales -->
-                    <div v-if="additional_files.length" class="bg-white dark:bg-slate-900 shadow-xl rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                         <div class="p-5 border-b border-gray-200 dark:border-gray-700">
-                            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Archivos Adicionales</h3>
-                        </div>
-                        <div class="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                            <a v-for="file in additional_files" :key="file.id" :href="file.url" target="_blank" 
-                               class="group border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-center hover:bg-gray-100 dark:hover:bg-slate-800 hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center aspect-square">
-                                <component :is="file.mime_type.includes('pdf') ? 'DocumentTextIcon' : 'PhotoIcon'" class="h-10 w-10 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                                <p class="text-xs font-semibold break-all mt-3 text-gray-600 dark:text-gray-300">{{ file.name }}</p>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Columna Derecha (Información y Acciones) -->
-                <div class="lg:col-span-2 flex flex-col gap-4">
-                    <!-- Acciones -->
+                    <!-- Estado y Acciones (Movido debajo de la imagen) -->
                     <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg p-5 border border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Estado y Acciones</h3>
-                            <button @click="print" class="flex items-center justify-center dark:text-gray-200 rounded-full size-9 dark:hover:bg-slate-700 hover:bg-gray-200">
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
-                                </svg>
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <!-- Botón Editar -->
+                                <Link :href="route('design-authorizations.edit', authorization.id)" title="Editar autorización" class="flex items-center justify-center dark:text-gray-200 rounded-full size-9 dark:hover:bg-slate-700 hover:bg-gray-200 transition-colors">
+                                    <PencilIcon class="size-5" />
+                                </Link>
+                                <!-- Botón Imprimir -->
+                                <button @click="print" title="Imprimir formato" class="flex items-center justify-center dark:text-gray-200 rounded-full size-9 dark:hover:bg-slate-700 hover:bg-gray-200 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
+                        
                         <div v-if="authorization.is_accepted === null">
                              <p class="text-sm text-center text-gray-600 dark:text-gray-400 mb-4">El cliente aún no ha dado una respuesta.</p>
                              <p v-if="!authorization.authorizer_name" class="text-sm text-center text-amber-600 dark:text-amber-400 mb-4">Se debe autorizar primero para actualizar el estatus del formato</p>
@@ -99,18 +90,64 @@
                         </div>
                     </div>
 
+                    <!-- Archivos Adicionales -->
+                    <div v-if="additional_files.length" class="bg-white dark:bg-slate-900 shadow-xl rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                         <div class="p-5 border-b border-gray-200 dark:border-gray-700">
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Archivos Adicionales</h3>
+                        </div>
+                        <div class="p-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                            <a v-for="file in additional_files" :key="file.id" :href="file.url" target="_blank" 
+                               class="group border border-gray-200 dark:border-gray-700 rounded-lg p-3 text-center hover:bg-gray-100 dark:hover:bg-slate-800 hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center aspect-square">
+                                <component :is="file.mime_type.includes('pdf') ? 'DocumentTextIcon' : 'PhotoIcon'" class="h-10 w-10 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                                <p class="text-xs font-semibold break-all mt-3 text-gray-600 dark:text-gray-300">{{ file.name }}</p>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna Derecha (Información y Detalles) -->
+                <div class="lg:col-span-2 flex flex-col gap-4">
                     <!-- Detalles -->
-                     <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg p-5 border border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 text-gray-800 dark:text-gray-200">Información General</h3>
+                    <div class="bg-white dark:bg-slate-900 shadow-xl rounded-lg p-5 border border-gray-200 dark:border-gray-700">
+                        <!-- Detalles del Producto -->
+                        <h3 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 text-gray-800 dark:text-gray-200">Detalles del Producto</h3>
                         <ul class="text-sm space-y-4 text-gray-700 dark:text-gray-300">
-                            <!-- Detalles del Producto -->
                             <li class="flex items-start gap-3"><CubeIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Producto:</strong> {{ authorization.product_name }}</span></li>
+                            
+                            <!-- NUEVO: Tipo de producto -->
+                            <li class="flex items-start gap-3"><TagIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Tipo:</strong> {{ authorization.product_type || 'N/A' }}</span></li>
+                            
                             <li class="flex items-start gap-3"><Squares2X2Icon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Material:</strong> {{ authorization.material || 'N/A' }}</span></li>
                             <li class="flex items-start gap-3"><SwatchIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Color:</strong> {{ authorization.color || 'N/A' }}</span></li>
+                            
+                            <!-- NUEVO: Pantone -->
+                            <li class="flex items-start gap-3"><PaintBrushIcon class="h-5 w-5 text-gray-400 mt-0.5" />
+                                <span class="flex items-center gap-2">
+                                    <strong>Pantone:</strong> {{ authorization.pantone || 'N/A' }}
+                                    <div v-if="authorization.pantone_color" class="w-4 h-4 rounded-full border border-gray-300 shadow-sm" :style="{ backgroundColor: authorization.pantone_color }" :title="authorization.pantone_color"></div>
+                                </span>
+                            </li>
+
+                            <li class="flex items-start gap-3"><ArrowsPointingOutIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Medidas:</strong> {{ authorization.dimensions || 'N/A' }}</span></li>
                             <li class="flex items-start gap-3"><CogIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Métodos Prod.:</strong> {{ authorization.production_methods?.join(', ') || 'N/A' }}</span></li>
                             <li class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><DocumentTextIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Especificaciones:</strong> {{ authorization.specifications || 'Ninguna' }}</span></li>
-                            <!-- Información de Contacto -->
-                           <li class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><BriefcaseIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Cliente:</strong> {{ authorization.branch.name }}</span></li>
+                        </ul>
+
+                        <!-- Datos Comerciales y Logísticos -->
+                        <h3 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-3 mt-8 mb-4 text-gray-800 dark:text-gray-200">Datos Comerciales y Logísticos</h3>
+                        <ul class="text-sm space-y-4 text-gray-700 dark:text-gray-300">
+                            <li class="flex items-start gap-3"><ClockIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Tiempo de entrega:</strong> {{ authorization.delivery_time || 'N/A' }}</span></li>
+                            <li class="flex items-start gap-3"><ArchiveBoxIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Volumen mínimo:</strong> {{ authorization.minimum_volume ? authorization.minimum_volume + ' pzs' : 'N/A' }}</span></li>
+                            <li class="flex items-start gap-3"><CurrencyDollarIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Precio por unidad:</strong> {{ formatCurrency(authorization.unit_price) }}</span></li>
+                            <li class="flex items-start gap-3"><CurrencyDollarIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Herr. de impresión:</strong> {{ formatCurrency(authorization.printing_tooling_cost) }}</span></li>
+                            <li class="flex items-start gap-3"><CurrencyDollarIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Herr. de inyección:</strong> {{ formatCurrency(authorization.injection_tooling_cost) }}</span></li>
+                            <li class="flex items-start gap-3"><TruckIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Flete:</strong> {{ formatCurrency(authorization.freight_cost) }}</span></li>
+                        </ul>
+
+                        <!-- Información de Cliente -->
+                        <h3 class="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-3 mt-8 mb-4 text-gray-800 dark:text-gray-200">Cliente y Seguimiento</h3>
+                        <ul class="text-sm space-y-4 text-gray-700 dark:text-gray-300">
+                           <li class="flex items-start gap-3"><BriefcaseIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Cliente:</strong> {{ authorization.branch.name }}</span></li>
                            <li class="flex items-start gap-3"><UserIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Contacto:</strong> {{ authorization.contact.name }}</span></li>
                            <li class="flex items-start gap-3"><UserIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Vendedor:</strong> {{ authorization.seller.name }}</span></li>
                            <li v-if="authorization.responded_at" class="flex items-start gap-3 pt-3 border-t border-gray-200 dark:border-gray-600"><CalendarDaysIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Respuesta Cliente:</strong> {{ formatDate(authorization.responded_at) }}</span></li>
@@ -131,33 +168,36 @@
 // Importaciones Principales
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Back from '@/Components/MyComponents/Back.vue';
-import { useForm } from '@inertiajs/vue3';
+import { useForm, Link } from '@inertiajs/vue3';
 
 // Importaciones de Componentes de UI (Modales)
 import ConfirmationModal from './Modals/ConfirmationModal.vue';
 import RejectionModal from './Modals/RejectionModal.vue';
 import InternalAuthModal from './Modals/InternalAuthModal.vue';
 
-// Importaciones de Íconos (Heroicons)
+// Importaciones de Íconos (Heroicons) - Nuevos iconos agregados
 import { 
     CheckCircleIcon, XCircleIcon, ClockIcon, PhotoIcon, DocumentTextIcon,
     CubeIcon, SwatchIcon, CogIcon, Squares2X2Icon, BriefcaseIcon, UserIcon,
-    CalendarDaysIcon, ShieldCheckIcon
-} from '@heroicons/vue/24/outline'; // Usamos outline para un look más limpio
+    CalendarDaysIcon, ShieldCheckIcon, ArrowsPointingOutIcon, TruckIcon,
+    CurrencyDollarIcon, ArchiveBoxIcon, PencilIcon, PaintBrushIcon, TagIcon
+} from '@heroicons/vue/24/outline';
 
 export default {
     components: {
         // Layout y Navegación
         AppLayout,
         Back,
+        Link,
         // Modales
         ConfirmationModal,
         RejectionModal,
         InternalAuthModal,
-        // Íconos (registrados para uso en template)
+        // Íconos
         CheckCircleIcon, XCircleIcon, ClockIcon, PhotoIcon, DocumentTextIcon,
         CubeIcon, SwatchIcon, CogIcon, Squares2X2Icon, BriefcaseIcon, UserIcon,
-        CalendarDaysIcon, ShieldCheckIcon,
+        CalendarDaysIcon, ShieldCheckIcon, ArrowsPointingOutIcon, TruckIcon,
+        CurrencyDollarIcon, ArchiveBoxIcon, PencilIcon, PaintBrushIcon, TagIcon
     },
     props: {
         authorization: Object,
@@ -203,6 +243,11 @@ export default {
         formatDate(dateString) {
             const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
             return new Date(dateString).toLocaleDateString('es-MX', options);
+        },
+        // Nuevo método: Dar formato moneda a los costos
+        formatCurrency(value) {
+            if (value === null || value === undefined || value === '') return 'N/A';
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
         },
 
         // Gestiona el envío de la respuesta del cliente (aceptación)

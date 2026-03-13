@@ -22,16 +22,26 @@ class DesignAuthorization extends Model implements HasMedia
         'design_order_id',
         'version',
         'product_name',
+        'product_type',
         'material',
         'color',
+        'pantone_color',
+        'pantone',     
+        'dimensions',
         'production_methods',
         'specifications',
         'logistic_details',
-        // 'quantity',
+        'delivery_time',
+        'minimum_volume',
+        'printing_tooling_cost',
+        'injection_tooling_cost',
+        'unit_price',
+        'freight_cost',
         'responded_at',
         'is_accepted',
         'rejection_reason',
         'authorizer_name',
+        'authorized_at',
         'seller_id',
         'branch_id',
         'contact_id',
@@ -46,6 +56,12 @@ class DesignAuthorization extends Model implements HasMedia
         'production_methods' => 'array',
         'is_accepted' => 'boolean',
         'responded_at' => 'datetime',
+        // Casteamos los valores monetarios a float o decimal según convenga
+        'printing_tooling_cost' => 'float',
+        'injection_tooling_cost' => 'float',
+        'unit_price' => 'float',
+        'freight_cost' => 'float',
+        'authorized_at' => 'datetime',
     ];
 
     /**
@@ -69,7 +85,6 @@ class DesignAuthorization extends Model implements HasMedia
      */
     public function branch(): BelongsTo
     {
-        // Asegúrate de que el modelo Branch exista
         return $this->belongsTo(Branch::class);
     }
 
@@ -78,7 +93,6 @@ class DesignAuthorization extends Model implements HasMedia
      */
     public function contact(): BelongsTo
     {
-        // Asegúrate de que el modelo Contact exista
         return $this->belongsTo(Contact::class);
     }
 }
