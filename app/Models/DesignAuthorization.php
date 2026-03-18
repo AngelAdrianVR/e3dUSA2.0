@@ -56,6 +56,7 @@ class DesignAuthorization extends Model implements HasMedia
         'production_methods' => 'array',
         'is_accepted' => 'boolean',
         'responded_at' => 'datetime',
+        'pantone' => 'array', // Casteamos el campo pantone como array para manejar múltiples pantones
         // Casteamos los valores monetarios a float o decimal según convenga
         'printing_tooling_cost' => 'float',
         'injection_tooling_cost' => 'float',

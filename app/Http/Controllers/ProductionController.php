@@ -249,14 +249,127 @@ class ProductionController extends Controller
         ]);
     }
 
-    public function edit(Production $production)
+    public function edit(Sale $production)
     {
-        //
+        // $production en realidad es el modelo Sale (por el ID de la ruta)
+        $production->load([
+            'branch:id,name',
+            'saleProducts' => function ($query) {
+                $query->with([
+                    'product:id,name,code,archived_at,measure_unit',
+                    'product.storages',
+                    'product.media',
+                    'product.components.media',
+                    'product.components:id,name,measure_unit',
+                    'product.components.storages',
+                    'production.tasks' // Cargamos las órdenes de producción y sus tareas actuales
+                ]);
+            }
+        ]);
+
+        $operators = User::where('is_active', true)->role(['Auxiliar de producción', 'Jefe de producción', 'Samuel'])->orderBy('name')->get();
+        $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();
+
+        return inertia('Production/Edit', [
+            'sale' => $production,
+            'operators' => $operators,
+            'productionCosts' => $productionCosts,
+        ]);
     }
 
-    public function update(Request $request, Production $production)
+    public function update(Request $request, Sale $production)
     {
-        //
+        // Validación del formulario
+        $request->validate([
+            'products_with_tasks' => 'required|array',
+            'products_with_tasks.*.sale_product_id' => 'required|exists:sale_products,id',
+            'products_with_tasks.*.tasks' => 'nullable|array',
+            'products_with_tasks.*.tasks.*.id' => 'nullable|exists:production_tasks,id',
+            'products_with_tasks.*.tasks.*.operator_id' => 'required|exists:users,id',
+            'products_with_tasks.*.tasks.*.name' => 'required|string|max:255',
+            'products_with_tasks.*.tasks.*.estimated_time_minutes' => 'required|numeric|min:1',
+        ]);
+
+        DB::transaction(function () use ($request, $production) {
+            foreach ($request->products_with_tasks as $productData) {
+                $saleProduct = SaleProduct::find($productData['sale_product_id']);
+
+                // Si mandan un array vacío de tareas, y existía una orden, la eliminamos
+                if (empty($productData['tasks'])) {
+                    if ($saleProduct->production) {
+                        $saleProduct->production->tasks()->delete();
+                        $saleProduct->production->delete();
+                    }
+                    continue;
+                }
+
+                // Buscar la producción o crearla si es un producto nuevo agregado a la venta
+                $productionModel = Production::firstOrCreate(
+                    ['sale_product_id' => $saleProduct->id],
+                    [
+                        'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                        'status' => 'Pendiente',
+                        'created_by_user_id' => auth()->id(),
+                    ]
+                );
+
+                // Actualizar cantidad a producir por si cambió recientemente en la orden de venta
+                $productionModel->update([
+                    'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                ]);
+
+                // Recopilamos los IDs de las tareas que nos mandó el Frontend
+                $submittedTaskIds = collect($productData['tasks'])->pluck('id')->filter()->toArray();
+
+                // Eliminamos las tareas que NO vienen en el request (Solo las pendientes para evitar problemas de historia)
+                $productionModel->tasks()
+                    ->whereNotIn('id', $submittedTaskIds)
+                    ->where('status', 'Pendiente')
+                    ->delete();
+
+                foreach ($productData['tasks'] as $taskData) {
+                    if (isset($taskData['id'])) {
+                        // Actualizar tarea existente
+                        $task = ProductionTask::find($taskData['id']);
+                        if ($task) {
+                            $task->update([
+                                'operator_id' => $taskData['operator_id'],
+                                'name' => $taskData['name'],
+                                'estimated_time_minutes' => $taskData['estimated_time_minutes'],
+                            ]);
+                        }
+                    } else {
+                        // Crear nueva tarea
+                        $newTask = ProductionTask::create([
+                            'production_id' => $productionModel->id,
+                            'operator_id' => $taskData['operator_id'],
+                            'name' => $taskData['name'],
+                            'estimated_time_minutes' => $taskData['estimated_time_minutes'],
+                        ]);
+                        
+                        $operator = User::find($taskData['operator_id']);
+                        if ($operator) {
+                            $production_folio = 'PROD-' . str_pad($productionModel->id, 4, "0", STR_PAD_LEFT);
+                            $operator->notify(new TaskAssignedNotification(
+                                'Nueva Tarea Asignada',
+                                $production_folio,
+                                'production_task',
+                                route('productions.index'),
+                                $newTask->name
+                            ));
+                        }
+                    }
+                }
+                
+                // Reevaluar estado de la producción
+                $productionModel->updateStatusFromTasks();
+            }
+            
+            // Actualizar estado general de la venta
+            $production->updateStatus();
+        });
+
+        return redirect()->route('productions.index');
     }
 
     /*

@@ -60,7 +60,7 @@
                     </div>
 
                     <!-- Muestras de Color Dinámicas (Swatches) -->
-                    <div class="flex flex-wrap items-center gap-6 mt-1 mb-1 justify-center shrink-0">
+                    <div class="flex flex-wrap items-center gap-4 mt-1 mb-1 justify-center shrink-0">
                         
                         <!-- Swatch 1: Técnica de Impresión -->
                         <div v-if="authorization.production_methods?.length" class="flex items-center gap-3">
@@ -78,15 +78,27 @@
                             </span>
                         </div>
 
-                        <!-- Swatch 3: Pantone -->
-                        <div v-if="authorization.pantone" class="flex items-center gap-3">
-                            <!-- Se inyecta el color hexadecimal escogido de forma inline -->
-                            <div class="w-12 h-8 rounded-md shadow-sm border border-gray-300" 
-                                 :style="{ backgroundColor: authorization.pantone_color || '#ffffff' }"></div>
-                            <span class="font-bold text-[10px] uppercase text-gray-700 leading-tight max-w-[100px]">
-                                PANTONE <br> {{ authorization.pantone }}
-                            </span>
-                        </div>
+                        <!-- Swatches de Pantone Generados Dinámicamente -->
+                        <template v-if="authorization.pantone && Array.isArray(authorization.pantone)">
+                            <div v-for="(p, index) in authorization.pantone" :key="index" class="flex items-center gap-2">
+                                <div class="w-12 h-8 rounded-md shadow-sm border border-gray-300" 
+                                     :style="{ backgroundColor: p.color || '#ffffff' }"></div>
+                                <span class="font-bold text-[10px] uppercase text-gray-700 leading-tight max-w-[100px]">
+                                    PANTONE <br> {{ p.name }}
+                                </span>
+                            </div>
+                        </template>
+
+                        <!-- Por compatibilidad con datos guardados antes de esta actualización -->
+                        <template v-else-if="authorization.pantone && typeof authorization.pantone === 'string'">
+                             <div class="flex items-center gap-3">
+                                <div class="w-12 h-8 rounded-md shadow-sm border border-gray-300" 
+                                     :style="{ backgroundColor: authorization.pantone_color || '#ffffff' }"></div>
+                                <span class="font-bold text-[10px] uppercase text-gray-700 leading-tight max-w-[100px]">
+                                    PANTONE <br> {{ authorization.pantone }}
+                                </span>
+                            </div>
+                        </template>
 
                     </div>
                 </div>
@@ -104,17 +116,6 @@
                         </div>
                         <div class="w-4 h-4 border-[1.5px] border-black rounded-sm ml-3 mb-0.5"></div>
                     </div>
-
-                    <!-- COLOR -->
-                    <!-- <div class="flex items-end justify-between mb-0.5">
-                        <div class="flex-1">
-                            <div class="text-[#005eb8] text-[11px]">COLOR:</div>
-                            <div class="border-b border-dashed border-gray-500 text-center text-[#e3000f] text-[11px] uppercase pb-0.5 mt-0.5">
-                                {{ authorization.color || '' }}
-                            </div>
-                        </div>
-                        <div class="w-4 h-4 border-[1.5px] border-black rounded-sm ml-3 mb-0.5"></div>
-                    </div> -->
 
                     <!-- MATERIAL -->
                     <div class="flex items-end justify-between mb-0.5">
