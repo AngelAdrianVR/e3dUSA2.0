@@ -78,13 +78,16 @@ class DesignAuthorizationController extends Controller
         // --- Validación mejorada ---
         $validated = $request->validate([
             'design_order_id' => 'required|exists:design_orders,id|unique:design_authorizations,design_order_id',
-            'version' => 'nullable|string|max:50', // NUEVO: Validar versión
+            'version' => 'nullable|string|max:50',
             'product_name' => 'required|string|max:255',
             'product_type' => 'nullable|string|max:255', 
             'material' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
-            'pantone' => 'nullable|string|max:255', 
-            'pantone_color' => 'nullable|string|max:50', // NUEVO: Validar el color hexadecimal
+            // MODIFICADO: Validación para aceptar un arreglo de pantones
+            'pantone' => 'nullable|array', 
+            'pantone.*.name' => 'required|string|max:255',
+            'pantone.*.color' => 'required|string|max:50',
+            'pantone_color' => 'nullable|string|max:50',
             'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
@@ -98,53 +101,39 @@ class DesignAuthorizationController extends Controller
             'branch_id' => 'required|exists:branches,id',
             'contact_id' => 'required|exists:contacts,id',
             
-            // 'cover_media_id' es opcional, pero debe existir en la tabla 'media' si se envía.
             'cover_media_id' => 'nullable|exists:media,id', 
-            
-            // 'media' es requerido solo si 'cover_media_id' no está presente.
             'media' => 'required_without:cover_media_id|nullable|array', 
-            'media.*' => 'file|mimes:jpg,jpeg,png,pdf', // 10MB max per file
+            'media.*' => 'file|mimes:jpg,jpeg,png,pdf',
         ]);
 
         // --- Creación del registro ---
         $authorization = DesignAuthorization::create($validated);
 
         // --- Lógica para manejar la imagen de portada ---
-
-        // Opción 1: Se proporcionó un ID de un medio existente.
         if ($request->filled('cover_media_id')) {
             $mediaToCopy = Media::find($validated['cover_media_id']);
             if ($mediaToCopy) {
-                // Copia el medio existente a la colección 'cover' de la nueva autorización.
                 $mediaToCopy->copy($authorization, 'cover');
             }
-        
-        // Opción 2: No se proporcionó un ID, así que se suben nuevos archivos.
         } elseif ($request->hasFile('media')) {
             foreach ($request->file('media') as $file) {
-                // Agrega los nuevos archivos directamente a la colección 'cover'.
                 $authorization->addMedia($file)->toMediaCollection('cover');
             }
         }
 
-        // --- Redirección ---
         return to_route('design-authorizations.index')
             ->with('message', 'Autorización creada correctamente.');
     }
 
     public function show(DesignAuthorization $designAuthorization)
     {
-        // Cargar todas las relaciones necesarias para la vista
         $designAuthorization->load(['designOrder:id,order_title', 'seller:id,name', 'branch:id,name', 'contact:id,name']);
 
-        // Obtener la imagen de portada (de la colección 'cover')
         $cover = $designAuthorization->getFirstMedia('cover');
-        // Obtener los archivos adicionales (de la colección 'default')
         $additionalFiles = $designAuthorization->getMedia('default');
 
         return Inertia::render('DesignAuthorization/Show', [
             'authorization' => $designAuthorization,
-            // Pasamos la URL de la portada y los demás archivos de forma explícita
             'cover_image_url' => $cover ? $cover->getFullUrl() : null,
             'additional_files' => $additionalFiles->map(fn ($file) => [
                 'id' => $file->id,
@@ -157,11 +146,8 @@ class DesignAuthorizationController extends Controller
 
     public function edit(DesignAuthorization $designAuthorization)
     {
-        // Cargar la portada para obtener su ID
         $cover = $designAuthorization->getFirstMedia('cover');
 
-        // Obtener las órdenes de diseño que no tienen autorización,
-        // o la que corresponde a la autorización que se está editando.
         $designOrders = DesignOrder::whereDoesntHave('designAuthorization')
             ->orWhere('id', $designAuthorization->design_order_id)
             ->select('id', 'order_title')
@@ -169,7 +155,6 @@ class DesignAuthorizationController extends Controller
 
         $sellers = User::select('id', 'name')->role('Vendedor')->get();
         
-        // CORRECCIÓN: Usar contactable_id y contactable_type en lugar de branch_id también en el edit
         $branches = Branch::with('contacts:id,name,charge,contactable_id,contactable_type')->select('id', 'name')->get();
 
         return Inertia::render('DesignAuthorization/Edit', [
@@ -186,14 +171,16 @@ class DesignAuthorizationController extends Controller
     {
         // --- Validación para la actualización ---
         $validated = $request->validate([
-            // design_order_id no se valida porque no se puede cambiar
-            'version' => 'nullable|string|max:50', // NUEVO: Validar versión
+            'version' => 'nullable|string|max:50',
             'product_name' => 'required|string|max:255',
             'product_type' => 'nullable|string|max:255', 
             'material' => 'nullable|string|max:255',
             'color' => 'nullable|string|max:255',
-            'pantone' => 'nullable|string|max:255', 
-            'pantone_color' => 'nullable|string|max:50', // NUEVO: Validar el color hexadecimal
+            // MODIFICADO: Validación para aceptar un arreglo de pantones
+            'pantone' => 'nullable|array', 
+            'pantone.*.name' => 'required|string|max:255',
+            'pantone.*.color' => 'required|string|max:50',
+            'pantone_color' => 'nullable|string|max:50',
             'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
@@ -213,16 +200,12 @@ class DesignAuthorizationController extends Controller
         $designAuthorization->update($validated);
 
         // --- Lógica para actualizar la imagen de portada ---
-        // Si se envió un nuevo ID de imagen de portada.
         if ($request->filled('cover_media_id')) {
             $currentCover = $designAuthorization->getFirstMedia('cover');
             
-            // Solo proceder si la nueva imagen es diferente a la actual.
             if (!$currentCover || $currentCover->id != $validated['cover_media_id']) {
-                // Eliminar la portada anterior.
                 $designAuthorization->clearMediaCollection('cover');
 
-                // Copiar el nuevo medio a la colección 'cover'.
                 $mediaToCopy = Media::find($validated['cover_media_id']);
                 if ($mediaToCopy) {
                     $mediaToCopy->copy($designAuthorization, 'cover');
@@ -230,7 +213,6 @@ class DesignAuthorizationController extends Controller
             }
         }
 
-        // --- Redirección ---
         return to_route('design-authorizations.index')
             ->with('message', 'Autorización actualizada correctamente.');
     }

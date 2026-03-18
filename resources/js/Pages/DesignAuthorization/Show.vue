@@ -120,12 +120,33 @@
                             <li class="flex items-start gap-3"><Squares2X2Icon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Material:</strong> {{ authorization.material || 'N/A' }}</span></li>
                             <li class="flex items-start gap-3"><SwatchIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Color:</strong> {{ authorization.color || 'N/A' }}</span></li>
                             
-                            <!-- NUEVO: Pantone -->
+                            <!-- MODIFICADO: Lista de Pantones -->
                             <li class="flex items-start gap-3"><PaintBrushIcon class="h-5 w-5 text-gray-400 mt-0.5" />
-                                <span class="flex items-center gap-2">
-                                    <strong>Pantone:</strong> {{ authorization.pantone || 'N/A' }}
-                                    <div v-if="authorization.pantone_color" class="w-4 h-4 rounded-full border border-gray-300 shadow-sm" :style="{ backgroundColor: authorization.pantone_color }" :title="authorization.pantone_color"></div>
-                                </span>
+                                <div class="flex flex-col gap-1 w-full">
+                                    <strong>Pantones:</strong>
+                                    
+                                    <!-- Si es un arreglo (formato nuevo) -->
+                                    <template v-if="authorization.pantone && Array.isArray(authorization.pantone)">
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            <span v-for="(p, index) in authorization.pantone" :key="index" class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700">
+                                                <div class="w-3.5 h-3.5 rounded-full border border-gray-300 shadow-sm" :style="{ backgroundColor: p.color || '#ffffff' }"></div>
+                                                {{ p.name }}
+                                            </span>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Si es un string (formato antiguo/legacy) -->
+                                    <template v-else-if="authorization.pantone && typeof authorization.pantone === 'string'">
+                                        <div class="flex flex-wrap gap-2 mt-1">
+                                            <span class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700 w-fit">
+                                                <div v-if="authorization.pantone_color" class="w-3.5 h-3.5 rounded-full border border-gray-300 shadow-sm" :style="{ backgroundColor: authorization.pantone_color }"></div>
+                                                {{ authorization.pantone }}
+                                            </span>
+                                        </div>
+                                    </template>
+                                    
+                                    <span v-else class="text-gray-500 mt-1">N/A</span>
+                                </div>
                             </li>
 
                             <li class="flex items-start gap-3"><ArrowsPointingOutIcon class="h-5 w-5 text-gray-400 mt-0.5" /><span><strong>Medidas:</strong> {{ authorization.dimensions || 'N/A' }}</span></li>

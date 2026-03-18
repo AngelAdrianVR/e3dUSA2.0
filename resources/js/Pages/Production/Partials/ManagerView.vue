@@ -146,16 +146,28 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Pie de la tarjeta: Creador -->
-                                <div class="flex justify-between border-t border-gray-200 dark:border-slate-700">
-                                    <div class="mt-4 flex items-center space-x-2">
+                                <!-- Pie de la tarjeta: Creador y Acciones -->
+                                <div class="flex justify-between items-end border-t border-gray-200 dark:border-slate-700 pt-3 mt-4">
+                                    <div class="flex items-center space-x-2">
                                         <img :src="sale.user.profile_photo_url" class="size-7 object-cover rounded-full">
                                         <div>
-                                            <p class="text-xs text-gray-400">Creado por</p>
+                                            <p class="text-xs text-gray-400">OV Creada por</p>
                                             <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">{{ sale.user.name }}</p>
                                         </div>
                                     </div>
-                                        <p class="text-xs text-gray-400 mt-4">{{ formatDate(sale.created_at) }}</p>
+                                    
+                                    <div class="flex flex-col items-end space-y-1" @click.stop>
+                                        <p class="text-[10px] text-gray-400 mb-1">{{ formatDate(sale.created_at) }}</p>
+                                        <div class="flex items-center space-x-2 bg-gray-100 dark:bg-slate-800 rounded-lg px-2 py-1 border border-gray-200 dark:border-slate-700">
+                                            <Link v-if="$page.props.auth.user.permissions.includes('Editar ordenes de produccion')" :href="route('productions.edit', sale.id)" title="Editar" class="text-gray-500 hover:text-amber-500 transition-colors p-1">
+                                                <i class="fa-solid fa-pen text-xs"></i>
+                                            </Link>
+                                            <div class="w-px h-3 bg-gray-300 dark:bg-slate-600"></div>
+                                            <button v-if="$page.props.auth.user.permissions.includes('Eliminar ordenes de produccion')" @click.prevent="confirmDelete(sale)" title="Eliminar" :disabled="sale.production_summary.status === 'Terminada'" class="text-gray-500 hover:text-red-500 disabled:opacity-30 disabled:hover:text-gray-500 transition-colors p-1">
+                                                <i class="fa-solid fa-trash-can text-xs"></i>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </template>
@@ -193,7 +205,7 @@
                     <el-table-column label="Cliente" #default="scope" width="180">
                         {{ scope.row.branch?.name ?? 'N/A' }}
                     </el-table-column>
-                    <el-table-column label="Creado por" width="200">
+                    <el-table-column label="OV Creada por" width="200">
                         <template #default="scope">
                             <div class="flex items-center space-x-3">
                                 <img :src="scope.row.user.profile_photo_url" class="size-9 rounded-full object-cover">
@@ -226,13 +238,18 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Acciones" width="150" align="right">
+                    <el-table-column label="Acciones" width="160" align="right">
                         <template #default="scope">
-                            <div class="flex justify-end space-x-2 pr-2">
-                                <Link :href="route('productions.show', scope.row.id)">
-                                    <PrimaryButton><i class="fa-solid fa-eye"></i></PrimaryButton>
+                            <div class="flex justify-end space-x-1 pr-2">
+                                <Link :href="route('productions.show', scope.row.id)" title="Ver detalles">
+                                    <PrimaryButton class="!px-2.5 !py-1.5"><i class="fa-solid fa-eye"></i></PrimaryButton>
                                 </Link>
-                                <DangerButton :disabled="scope.row.production_summary.status === 'Terminada'" @click="confirmDelete(scope.row)">
+                                <Link :href="route('productions.edit', scope.row.id)" title="Editar órdenes">
+                                    <button type="button" class="inline-flex items-center justify-center px-2.5 py-1.5 bg-amber-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition ease-in-out duration-150">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                </Link>
+                                <DangerButton title="Eliminar órdenes" class="!px-2.5 !py-1.5" :disabled="scope.row.production_summary.status === 'Terminada'" @click="confirmDelete(scope.row)">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </DangerButton>
                             </div>

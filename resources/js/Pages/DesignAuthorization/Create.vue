@@ -70,19 +70,40 @@
                             <InputError :message="form.errors.material" />
                         </div>
 
-                        <!-- <div>
-                           <TextInput label="Color" v-model="form.color" type="text" :error="form.errors.color" placeholder="Ej. Chrome" />
-                        </div> -->
-                        
-                        <!-- Pantone modificado con selector Hexadecimal -->
-                        <div class="flex gap-2">
-                            <div class="flex-1">
-                                <TextInput label="Pantone" v-model="form.pantone" type="text" :error="form.errors.pantone" placeholder="Ej. 186 C" />
+                        <!-- Lista de Pantones Dinámica -->
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Pantones</label>
+                            <div class="flex gap-2 items-end mt-1">
+                                <div class="flex-1">
+                                    <!-- Usamos TextInput sin label interno para alinear mejor -->
+                                    <input 
+                                        type="text" 
+                                        v-model="currentPantoneName" 
+                                        @keyup.enter.prevent="addPantone"
+                                        class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm w-full h-10" 
+                                        placeholder="Ej. 186 C (Presiona Enter para agregar)" 
+                                    />
+                                </div>
+                                <div class="w-16 flex flex-col justify-end">
+                                    <input type="color" v-model="currentPantoneColor" class="h-10 w-full rounded cursor-pointer border border-gray-300 bg-white p-0 shadow-sm" title="Elige un color representativo" />
+                                </div>
+                                <button type="button" @click="addPantone" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 px-4 py-2 rounded-md hover:bg-gray-700 dark:hover:bg-gray-300 transition h-10 font-semibold text-sm">
+                                    Agregar
+                                </button>
                             </div>
-                            <!-- Selector nativo de color html5 -->
-                            <div class="w-16 flex flex-col justify-end pb-[2px]">
-                                <label class="text-xs text-gray-500 mb-1 text-center font-medium">Color</label>
-                                <input type="color" v-model="form.pantone_color" class="h-10 w-full rounded cursor-pointer border border-gray-300 bg-white p-0 shadow-sm" title="Elige un color para imprimir" />
+                            <InputError :message="form.errors.pantone" />
+
+                            <!-- Chips de Pantones Agregados -->
+                            <div v-if="form.pantone.length > 0" class="mt-3 flex flex-wrap gap-2">
+                                <div v-for="(item, index) in form.pantone" :key="index" class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 py-1.5 px-3 rounded-full border border-gray-200 dark:border-gray-700">
+                                    <div class="w-5 h-5 rounded-full shadow-sm border border-gray-300" :style="{ backgroundColor: item.color }"></div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ item.name }}</span>
+                                    <button type="button" @click="removePantone(index)" class="text-red-500 hover:text-red-700 ml-1 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900 transition">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -191,13 +212,12 @@ export default {
     data() {
         const form = useForm({
             design_order_id: null,
-            version: '1', // Valor por defecto
+            version: '1', 
             product_type: null,
             product_name: null,
             material: null,
             color: null,
-            pantone: null,
-            pantone_color: '#E3000F', // Color rojo por defecto
+            pantone: [], // Modificado: Guardará objetos [{name: '186 C', color: '#E3000F'}]
             dimensions: null,
             production_methods: [],
             specifications: null,
@@ -216,6 +236,8 @@ export default {
 
         return {
             form,
+            currentPantoneName: '',      // Estado local para el input de texto del pantone
+            currentPantoneColor: '#E3000F', // Estado local para el color picker
             productTypeOptions: [
                 'Portaplaca', 'Emblema', 'Llavero', 'Parasol', 'Tapete', 'Manta', 
                 'Carpeta', 'Separador', 'Portadocumentos', 'Termo', 'Placa de estireno', 
@@ -252,6 +274,24 @@ export default {
         design_order: Object,
     },
     methods: {
+        // --- Nuevos métodos para gestionar Pantones ---
+        addPantone() {
+            if (this.currentPantoneName.trim() === '') return;
+            
+            this.form.pantone.push({
+                name: this.currentPantoneName.trim(),
+                color: this.currentPantoneColor
+            });
+
+            // Limpiamos los inputs para agregar otro
+            this.currentPantoneName = '';
+            this.currentPantoneColor = '#E3000F';
+        },
+        removePantone(index) {
+            this.form.pantone.splice(index, 1);
+        },
+        // ----------------------------------------------
+
         store() {
             this.form.post(route("design-authorizations.store"), {
                 onSuccess: () => {

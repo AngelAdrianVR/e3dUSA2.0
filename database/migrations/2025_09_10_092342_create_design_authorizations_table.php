@@ -23,8 +23,8 @@ return new class extends Migration
             $table->string('product_type')->nullable(); // NUEVO: Tipo de producto
             $table->string('material')->nullable(); // Se mantiene como string, pero en frontend será select
             $table->string('color')->nullable();
-            $table->string('pantone')->nullable(); // NUEVO: Pantone
-
+            $table->json('pantone')->nullable(); // NUEVO: Pantone (Array de pantones)
+            
             // Reemplazamos 'engrave_method' por una columna JSON.
             // Aquí puedes guardar un array de strings con los métodos.
             // Ej: ['Serigrafía', 'Emblema Pegado']

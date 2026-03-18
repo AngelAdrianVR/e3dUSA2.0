@@ -20,6 +20,12 @@
                         </svg>
                     </button>
                 </el-tooltip>
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de produccion')" content="Editar Órden" placement="top">
+                    <Link :href="route('productions.edit', sale.id)"
+                        class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                    </Link>
+                </el-tooltip>
                 <Link :href="route('sales.show', sale.id)"
                     class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                 <i class="fa-solid fa-eye mr-2 text-xs"></i> Ver Órden de Venta
