@@ -54,6 +54,18 @@
                             </el-button>
                             <!-- ============================================= -->
 
+                            <!-- ====== BOTÓN NUEVO PARA OBSOLETOS MASIVO ====== -->
+                            <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
+                                confirm-button-text="Sí, continuar" cancel-button-text="No" icon-color="#EAB308"
+                                title="¿Estás seguro de marcar como obsoletos los productos seleccionados?" @confirm="massiveObsolet">
+                                <template #reference>
+                                    <el-button type="info" plain :disabled="!selectedItems.length">
+                                        Obsoleto selección ({{ selectedItems.length }})
+                                    </el-button>
+                                </template>
+                            </el-popconfirm>
+                            <!-- ============================================= -->
+
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
                                 confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
                                 title="¿Estás seguro de eliminar los productos seleccionados?" @confirm="deleteSelections">
@@ -394,6 +406,18 @@ export default {
                 },
                 onError: () => {
                     ElMessage.error('Ocurrió un error al eliminar los productos');
+                }
+            });
+        },
+        massiveObsolet() {
+            const ids = this.selectedItems.map(item => item.id);
+            this.$inertia.post(route('catalog-products.massive-obsolet'), { ids }, {
+                onSuccess: () => {
+                    ElMessage.success('Productos marcados como obsoletos correctamente');
+                    this.$refs.multipleTable.clearSelection();
+                },
+                onError: () => {
+                    ElMessage.error('Ocurrió un error al actualizar los productos');
                 }
             });
         },

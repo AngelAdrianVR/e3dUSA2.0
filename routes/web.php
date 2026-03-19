@@ -123,6 +123,7 @@ Route::post('catalog-products-get-matches', [ProductController::class, 'getMatch
 Route::get('catalog-products-search-raw-materials', [ProductController::class, 'searchRawMaterial'])->middleware('auth')->name('catalog-products.search-raw-material');
 Route::get('products-get-media/{product}', [ProductController::class, 'getProductMedia'])->middleware('auth')->name('products.get-media');
 Route::get('products-mark-as-obsolet/{product}', [ProductController::class, 'markAsObsolet'])->middleware('auth')->name('catalog-products.obsolet');
+Route::post('catalog-products/massive-obsolet', [ProductController::class, 'massiveObsolet'])->middleware('auth')->name('catalog-products.massive-obsolet');
 Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
 Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->middleware('auth')->name('products.stock-movement');
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');

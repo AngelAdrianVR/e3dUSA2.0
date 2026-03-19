@@ -257,7 +257,7 @@ export default {
         formatNumber(value) {
             if (value === null || value === undefined || value === '') return '0.00';
             const num = Number(value);
-            return isNaN(num) ? value : new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+            return isNaN(num) ? value : new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
         }
     }
 }

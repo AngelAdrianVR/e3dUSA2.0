@@ -43,8 +43,8 @@ class QuoteProduct extends Pivot implements HasMedia
      */
     protected $casts = [
         'quantity' => 'float',
-        'unit_price' => 'decimal:2',
-        'custom_cost' => 'decimal:2',
+        'unit_price' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3
+        'custom_cost' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3 (opcional pero recomendado)
         'customization_details' => 'array', // para modificaciones especiales
         'show_image' => 'boolean',
     ];
