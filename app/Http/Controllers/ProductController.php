@@ -661,6 +661,29 @@ class ProductController extends Controller
         }
     }
 
+    public function massiveObsolet(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+        ]);
+
+        // Dependiendo de cómo manejas el "obsoleto" (soft deletes o un campo de fecha 'archived_at')
+        // Abajo un ejemplo genérico asumiendo que usas 'archived_at'
+        $products = Product::whereIn('id', $request->ids)->get();
+
+        foreach ($products as $product) {
+            // Si ya está obsoleto, lo reestablece, de lo contrario lo marca como obsoleto
+            if ($product->archived_at) {
+                $product->archived_at = null; 
+            } else {
+                $product->archived_at = now(); 
+            }
+            $product->save();
+        }
+
+        return redirect()->back()->with('message', 'Los productos seleccionados han sido actualizados.');
+    }
+
     // Actualiza el precio base desde el show de producto de catalogo
     // modificarlo si se requiere actualizar otra variable por ahora solo tiene base:price
     public function simpleUpdate(Request $request, Product $product)
