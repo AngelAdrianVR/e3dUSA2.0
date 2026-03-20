@@ -108,6 +108,21 @@
                                     </button>
                                 </div>
                             </div>
+                            
+                            <!-- Mostrar Captura Actual de Pantones si existe -->
+                            <div v-if="pantone_capture_url" class="mt-4">
+                                <label class="text-sm text-gray-700 dark:text-gray-100 font-medium">Captura de pantones actual</label>
+                                <div class="mt-2">
+                                    <img :src="pantone_capture_url" class="w-32 h-32 object-contain rounded-lg border dark:border-gray-700">
+                                </div>
+                            </div>
+
+                            <!-- NUEVO CAMPO: Captura de Pantones -->
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Si no conoces los pantones o deseas actualizar la imagen, puedes subir una captura de ellos.</p>
+                                <FileUploader @files-selected="form.pantone_media = $event" :multiple="false" format="Imagen" :max-files="1" />
+                                <InputError :message="form.errors.pantone_media" class="mt-2" />
+                            </div>
                         </div>
 
                         <div>
@@ -199,6 +214,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue"; // AGREGADO
 import Back from "@/Components/MyComponents/Back.vue";
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
@@ -228,6 +244,7 @@ export default {
                 color: this.authorization.color,
                 pantone: initialPantone, // Usamos la variable normalizada
                 pantone_color: this.authorization.pantone_color || '#E3000F', // Por si lo requiere el backend (puedes ignorarlo)
+                pantone_media: null, // AGREGADO: Para la captura
                 dimensions: this.authorization.dimensions,
                 production_methods: this.authorization.production_methods,
                 specifications: this.authorization.specifications,
@@ -270,6 +287,7 @@ export default {
         SecondaryButton,
         InputError,
         TextInput,
+        FileUploader, // AGREGADO
         Back,
     },
     props: {
@@ -278,6 +296,7 @@ export default {
         sellers: Array,
         branches: Array,
         cover_image_url: String,
+        pantone_capture_url: String, // AGREGADO: Para mostrar la captura existente
         current_cover_id: Number,
     },
     methods: {

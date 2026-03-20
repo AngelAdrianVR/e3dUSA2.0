@@ -67,6 +67,15 @@
                                 </el-select>
                                 <InputError :message="form.errors.first_production_days" />
                             </div>
+                            
+                            <!-- NUEVO CAMPO: Vigencia (Validity) -->
+                            <TextInput 
+                                :label="form.is_spanish_template ? 'Vigencia de la cotización (Opcional)' : 'Quote validity (Optional)'" 
+                                v-model="form.validity" 
+                                :error="form.errors.validity" 
+                                :placeholder="form.is_spanish_template ? 'Ej. Cotización válida por 21 días' : 'Ej. Quote valid for 21 days'" 
+                            />
+
                             <div>
                                 <InputLabel value="Moneda general*" />
                                 <el-select v-model="form.currency" placeholder="Selecciona la moneda" class="!w-full">
@@ -489,13 +498,14 @@ export default {
                 is_freight_cost_stroked: false,
                 freight_option: 'Por cuenta del cliente',
                 first_production_days: null,
+                validity: 'Cotización válida por 21 días',
                 notes: '',
                 is_spanish_template: true,
                 show_breakdown: true,
                 has_early_payment_discount: false,
                 early_payment_discount_amount: null,
                 has_customization: false,
-                products: [], // Este array contendrá objetos o archivos, useForm maneja el paso a FormData automáticamente
+                products: [], 
             }),
 
             localBranches: [],

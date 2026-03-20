@@ -30,6 +30,7 @@ return new class extends Migration
 
             // Detalles y Notas
             $table->string('first_production_days');
+            $table->string('validity')->nullable(); // Nuevo campo para agregar la validez de la cotización (ej. "Válida por 30 días" o "Valid for 30 days")
             $table->text('notes')->nullable();
 
             // Aceptación / Rechazo

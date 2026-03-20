@@ -105,6 +105,13 @@
                                     </button>
                                 </div>
                             </div>
+
+                            <!-- NUEVO CAMPO: Captura de Pantones -->
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Si no conoces los pantones puedes subir una captura de ellos.</p>
+                                <FileUploader @files-selected="form.pantone_media = $event" :multiple="false" format="Imagen" :max-files="1" />
+                                <InputError :message="form.errors.pantone_media" class="mt-2" />
+                            </div>
                         </div>
 
                         <div>
@@ -218,6 +225,7 @@ export default {
             material: null,
             color: null,
             pantone: [], // Modificado: Guardará objetos [{name: '186 C', color: '#E3000F'}]
+            pantone_media: null, // NUEVO CAMPO PARA CAPTURA DE PANTONES
             dimensions: null,
             production_methods: [],
             specifications: null,

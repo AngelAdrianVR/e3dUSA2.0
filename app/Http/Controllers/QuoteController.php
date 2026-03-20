@@ -75,6 +75,7 @@ class QuoteController extends Controller
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
+            'validity' => 'nullable|string|max:255', // NUEVA VALIDACIÓN AGREGADA
             'has_early_payment_discount' => 'nullable|boolean',
             'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
             'products' => 'required|array|min:1',
@@ -105,6 +106,7 @@ class QuoteController extends Controller
             $quote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $quote->freight_option = $request->freight_option;
             $quote->first_production_days = $request->first_production_days;
+            $quote->validity = $request->validity; // GUARDADO DEL NUEVO CAMPO
             $quote->notes = $request->notes;
             $quote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
             $quote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);
@@ -234,6 +236,7 @@ class QuoteController extends Controller
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
+            'validity' => 'nullable|string|max:255', // NUEVA VALIDACIÓN EN UPDATE
             'has_early_payment_discount' => 'nullable|boolean',
             'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
             'products' => 'required|array|min:1',
@@ -266,6 +269,7 @@ class QuoteController extends Controller
             $newQuote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $newQuote->freight_option = $request->freight_option;
             $newQuote->first_production_days = $request->first_production_days;
+            $newQuote->validity = $request->validity; // GUARDADO EN UPDATE
             $newQuote->notes = $request->notes;
             $newQuote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
             $newQuote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);

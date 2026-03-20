@@ -202,7 +202,7 @@
                         <li>{{ quote.is_spanish_template ? 'Tiempo de entrega para la primer producción' : 'Lead time for first production' }}: <span class="font-bold text-blue-600">{{ quote.first_production_days }}</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Fletes y acarreos' : 'Freight & handling' }}: <span class="font-bold text-blue-600">{{ quote.freight_option }}</span> <span v-if="quote.freight_cost > 0" :class="{ 'line-through': quote.is_freight_cost_stroked }">({{ formatNumber(quote.freight_cost) }} {{ quote.currency }})</span>.</li>
                         <li>{{ quote.is_spanish_template ? 'Precios en' : 'Prices in' }}: <span class="font-bold text-blue-600">{{ quote.currency }}</span>.</li>
-                        <li>{{ quote.is_spanish_template ? 'Cotización válida por 21 días' : 'Quote valid for 21 days' }}.</li>
+                        <li>{{ quote.validity || (quote.is_spanish_template ? 'Cotización válida por 21 días' : 'Quote valid for 21 days') }}.</li>
                     </ol>
                 </section>
                 
