@@ -517,7 +517,8 @@ export default {
                 { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
                 { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
                 { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-                { label: 'VINILPIEL', key: 'VPL', label: 'FIBRA DE CARBONO', key: 'FC', label: 'OVERLAY', key: 'OV' }
+                { label: 'VINILPIEL', key: 'VPL' }, { label: 'FIBRA DE CARBONO', key: 'FC' }, { label: 'OVERLAY', key: 'OV' }, { label: 'ACERO', key: 'AC' }, { label: 'FIBRA DSE CARBONO', key: 'FDC' },
+                { label: 'RESINA', key: 'RS' }, { label: 'ENCAPSULADO', key: 'ENC' }
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',

@@ -100,6 +100,14 @@
                             </div>
                         </template>
 
+                        <!-- Imagen de Captura de Pantones Adjunta -->
+                        <div v-if="pantone_capture_url" class="flex items-center gap-3 ml-2">
+                            <img :src="procesarUrlImagen(pantone_capture_url)" alt="Captura Pantones" class="h-10 w-auto object-contain rounded-md shadow-sm border border-gray-300">
+                            <!-- <span class="font-bold text-[10px] uppercase text-gray-700 leading-tight max-w-[100px]">
+                                CAPTURA <br> ADJUNTA
+                            </span> -->
+                        </div>
+
                     </div>
                 </div>
 
@@ -313,6 +321,7 @@ export default {
     props: {
         authorization: Object,
         cover_image_url: String,
+        pantone_capture_url: String,
         additional_files: Array,
     },
     methods: {

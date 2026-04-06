@@ -75,6 +75,7 @@ class DesignAuthorizationController extends Controller
      */
     public function store(Request $request)
     {
+        // return $request->hasFile('pantone_media');
         // --- Validación mejorada ---
         $validated = $request->validate([
             'design_order_id' => 'required|exists:design_orders,id|unique:design_authorizations,design_order_id',
@@ -88,6 +89,8 @@ class DesignAuthorizationController extends Controller
             'pantone.*.name' => 'required|string|max:255',
             'pantone.*.color' => 'required|string|max:50',
             'pantone_color' => 'nullable|string|max:50',
+            'pantone_media' => 'nullable|array', 
+            'pantone_media.*' => 'file|mimes:jpg,jpeg,png|max:2048',
             'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
@@ -121,6 +124,13 @@ class DesignAuthorizationController extends Controller
             }
         }
 
+        // --- Lógica para manejar la captura de pantones ---
+        if ($request->hasFile('pantone_media')) {
+            foreach ($request->file('pantone_media') as $file) {
+                $authorization->addMedia($file)->toMediaCollection('pantone_capture');
+            }
+        }
+
         return to_route('design-authorizations.index')
             ->with('message', 'Autorización creada correctamente.');
     }
@@ -130,11 +140,13 @@ class DesignAuthorizationController extends Controller
         $designAuthorization->load(['designOrder:id,order_title', 'seller:id,name', 'branch:id,name', 'contact:id,name']);
 
         $cover = $designAuthorization->getFirstMedia('cover');
+        $pantoneCapture = $designAuthorization->getFirstMedia('pantone_capture');
         $additionalFiles = $designAuthorization->getMedia('default');
 
         return Inertia::render('DesignAuthorization/Show', [
             'authorization' => $designAuthorization,
             'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'pantone_capture_url' => $pantoneCapture ? $pantoneCapture->getFullUrl() : null,
             'additional_files' => $additionalFiles->map(fn ($file) => [
                 'id' => $file->id,
                 'name' => $file->file_name,
@@ -147,6 +159,7 @@ class DesignAuthorizationController extends Controller
     public function edit(DesignAuthorization $designAuthorization)
     {
         $cover = $designAuthorization->getFirstMedia('cover');
+        $pantoneCapture = $designAuthorization->getFirstMedia('pantone_capture');
 
         $designOrders = DesignOrder::whereDoesntHave('designAuthorization')
             ->orWhere('id', $designAuthorization->design_order_id)
@@ -163,6 +176,7 @@ class DesignAuthorizationController extends Controller
             'sellers' => $sellers,
             'branches' => $branches,
             'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'pantone_capture_url' => $pantoneCapture ? $pantoneCapture->getFullUrl() : null,
             'current_cover_id' => $cover ? $cover->id : null,
         ]);
     }
@@ -181,6 +195,8 @@ class DesignAuthorizationController extends Controller
             'pantone.*.name' => 'required|string|max:255',
             'pantone.*.color' => 'required|string|max:50',
             'pantone_color' => 'nullable|string|max:50',
+            'pantone_media' => 'nullable|array', 
+            'pantone_media.*' => 'file|mimes:jpg,jpeg,png|max:2048',
             'dimensions' => 'nullable|string|max:255',
             'production_methods' => 'nullable|array',
             'specifications' => 'nullable|string',
@@ -300,6 +316,8 @@ class DesignAuthorizationController extends Controller
 
         // Obtener la imagen de portada (de la colección 'cover')
         $cover = $designAuthorization->getFirstMedia('cover');
+        // Obtener captura de pantones si existe
+        $pantoneCapture = $designAuthorization->getFirstMedia('pantone_capture');
         // Obtener los archivos adicionales (de la colección 'default')
         $additionalFiles = $designAuthorization->getMedia('default');
 
@@ -307,6 +325,7 @@ class DesignAuthorizationController extends Controller
             'authorization' => $designAuthorization,
             // Pasamos la URL de la portada y los demás archivos de forma explícita
             'cover_image_url' => $cover ? $cover->getFullUrl() : null,
+            'pantone_capture_url' => $pantoneCapture ? $pantoneCapture->getFullUrl() : null,
             'additional_files' => $additionalFiles->map(fn ($file) => [
                 'id' => $file->id,
                 'name' => $file->file_name,

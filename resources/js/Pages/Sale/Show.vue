@@ -234,6 +234,18 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Creación:</span>
                             <span>{{ formattedDate }}</span>
                         </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-red-600 dark:text-red-400">
+                                Fecha promesa de embarque:
+                            </span>
+                            <span>
+                                {{ sale.promise_date ? new Date(sale.promise_date).toLocaleDateString('es-MX', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                }) : '-' }}
+                            </span>
+                        </li>
                          <li class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Prioridad:</span>
                             <el-tag v-if="sale.is_high_priority" type="danger" size="small">Alta</el-tag>
@@ -353,6 +365,18 @@
                                         <i class="fa-solid fa-pencil"></i>
                                     </button>
                                 </div>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">
+                                    Fecha promesa de embarque:
+                                </span>
+                                <span> 
+                                    {{ sale.promise_date ?new Date(sale.promise_date).toLocaleDateString('es-MX', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric'
+                                    }) : '-' }}
+                                </span>
                             </li>
                         </ul>
                     </div>

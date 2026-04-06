@@ -129,9 +129,13 @@
                                             </figure>
 
                                             <!-- informacion de almacén -->
-                                            <div>
+                                            <div class="text-sm">
                                                 <p class="text-gray-500 dark:text-gray-300">
-                                                    Stock: <strong>{{ productForm.storages?.[0]?.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ productForm.measure_unit }}</strong>
+                                                    Stock: <strong>{{ productForm.storages?.[0]?.quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }} {{ productForm.measure_unit }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300 mt-1">
+                                                    Mín: <strong>{{ productForm.min_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }}</strong> | 
+                                                    Máx: <strong>{{ productForm.max_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 'N/A' }}</strong>
                                                 </p>
                                             </div>
                                         </div>
@@ -348,6 +352,8 @@ export default {
             ship_stock: 0,
             type: 'Venta',
             notes: '',
+            min_quantity: null, // NUEVO
+            max_quantity: null, // NUEVO
         };
 
         return {
@@ -514,12 +520,10 @@ export default {
                     // this.productForm.cost = response.data.product.cost; 
                     this.productForm.measure_unit = response.data.product.measure_unit;
                     this.productForm.currency = response.data.product.currency;
-
-                    // OJO: La línea original aquí abajo sobreescribía el precio con el costo global.
-                    // La he comentado o eliminado logicamente para respetar el precio del proveedor.
-                    // if (this.editingProductIndex === null) {
-                    //    this.productForm.last_price = response.data.product.cost; 
-                    // }
+                    
+                    // ASIGNACIÓN DEL STOCK MÁXIMO Y MÍNIMO
+                    this.productForm.min_quantity = response.data.product.min_quantity;
+                    this.productForm.max_quantity = response.data.product.max_quantity;
                 }
             } catch (error) {
                 console.log(error);
@@ -595,6 +599,8 @@ export default {
                 needs_mold: false,
                 mold_price: null,
                 notes: '',
+                min_quantity: null, // RESET MÍNIMO
+                max_quantity: null, // RESET MÁXIMO
             };
             this.editProductIndex = null;
         },
