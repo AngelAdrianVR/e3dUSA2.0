@@ -115,6 +115,39 @@
                                             <label class="text-gray-700 dark:text-gray-100 text-sm ml-1">Producto*</label>
                                             <el-select-v2 v-model="productForm.product_id" filterable placeholder="Busca un producto" :options="availableProducts" @change="onProductSelect" class="!w-full" />
                                         </div>
+                                        <LoadingIsoLogo v-if="loadingProductMedia" />
+
+                                        <!-- Tarjeta de materia prima seleccionada -->
+                                        <div class="md:absolute top-3 right-3 mt-2 flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="productForm.product_id">
+                                            <figure 
+                                                v-if="productForm.media" 
+                                                class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                                <img v-if="productForm.media?.length"
+                                                    :src="productForm.media[0]?.original_url" 
+                                                    alt="" 
+                                                    class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                                                >
+                                                <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                    </svg>
+                                                <p>Sin imagen</p>
+                                                </div>
+                                                <!-- Overlay degradado sutil -->
+                                                <div class="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-black/5"></div>
+                                            </figure>
+
+                                            <!-- informacion de almacén -->
+                                            <div class="text-sm">
+                                                <p class="text-gray-500 dark:text-gray-300">
+                                                    Stock: <strong>{{ productForm.storages?.[0]?.quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }} {{ productForm.measure_unit }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300 mt-1">
+                                                    Mín: <strong>{{ productForm.min_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }}</strong> | 
+                                                    Máx: <strong>{{ productForm.max_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 'N/A' }}</strong>
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div>
@@ -288,6 +321,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SupplierFavoredProducts from "@/Components/MyComponents/SupplierFavoredProducts.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
+import LoadingIsoLogo from "@/Components/MyComponents/LoadingIsoLogo.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
@@ -327,6 +361,8 @@ export default {
             mold_price: null,
             type: 'Venta',
             notes: '',
+            min_quantity: null,
+            max_quantity: null,
         };
 
         return {
@@ -336,6 +372,7 @@ export default {
             supplierBankAccounts: [],
             availableProducts: [],
             editProductIndex: null,
+            loadingProductMedia: false,
             tax_percent: this.purchase.tax > 0 ? (this.purchase.tax / this.purchase.subtotal) * 100 : 16, // Calcula el porcentaje o usa 16 por defecto
         };
     },
@@ -346,6 +383,7 @@ export default {
         InputError,
         FileUploader,
         FileView,
+        LoadingIsoLogo,
         PrimaryButton,
         SecondaryButton,
         SupplierFavoredProducts,
@@ -430,6 +468,29 @@ export default {
                     this.productForm.unit_price = product.cost ?? 0;
                 }
             }
+            this.getProductMedia();
+        },
+        async getProductMedia() {
+            if (!this.productForm.product_id) return;
+            this.loadingProductMedia = true;
+            try {
+                const response = await axios.get(route('products.get-media', this.productForm.product_id));
+
+                if ( response.status === 200 ) {
+                    this.productForm.media = response.data.product.media;
+                    this.productForm.storages = response.data.product.storages;
+                    this.productForm.measure_unit = response.data.product.measure_unit;
+                    this.productForm.currency = response.data.product.currency;
+                    
+                    this.productForm.min_quantity = response.data.product.min_quantity;
+                    this.productForm.max_quantity = response.data.product.max_quantity;
+                }
+            } catch (error) {
+                console.log(error);
+                ElMessage.error('No se pudo cargar la información del producto');
+            } finally {
+                this.loadingProductMedia = false;
+            }
         },
         addProduct() {
             if (!this.productForm.product_id || !this.productForm.quantity || this.productForm.unit_price === null) {
@@ -464,12 +525,17 @@ export default {
         editProduct(index) {
             this.editProductIndex = index;
             // Clonación profunda para evitar reactividad no deseada
-            this.productForm = this.form.items[index];
+            this.productForm = { ...this.form.items[index] };
             this.productForm.additional_stock = parseInt(this.form.items[index].additional_stock) || 0;
             this.productForm.plane_stock = parseInt(this.form.items[index].plane_stock) || 0;
             this.productForm.ship_stock = parseInt(this.form.items[index].ship_stock) || 0;
             this.productForm.needs_mold = !! this.form.items[index].needs_mold;
-            // this.productForm = JSON.parse(JSON.stringify(this.form.items[index]));
+            
+            // Si falta info detallada, buscarla
+            if (!this.productForm.storages) {
+                this.getProductMedia();
+            }
+
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },
         cancelEdit() {
@@ -489,6 +555,8 @@ export default {
                 mold_price: null,
                 type: 'Venta',
                 notes: '',
+                min_quantity: null,
+                max_quantity: null,
             };
             this.editProductIndex = null;
         },

@@ -14,10 +14,22 @@
                  class="relative group bg-gray-100 dark:bg-slate-900 rounded-lg hover:border-primary dark:hover:border-primary shadow-lg overflow-hidden border border-transparent dark:border-slate-800 transition duration-300">
 
                 <!-- Imagen del producto -->
-                <div class="h-40 bg-gray-200 dark:bg-slate-800 flex items-center justify-center">
-                    <img :src="product.media[0]?.original_url ?? `https://placehold.co/400x300/e2e8f0/64748b?text=${product.name}`"
+                <div class="relative h-40 bg-gray-200 dark:bg-slate-800 flex items-center justify-center">
+                    
+                    <!-- Badge "Obsoleto" -->
+                    <span 
+                        v-if="product.archived_at"
+                        class="absolute top-2 left-2 bg-red-600 text-white text-xs font-semibold px-2 py-1 rounded shadow"
+                    >
+                        Obsoleto
+                    </span>
+
+                    <img 
+                        :src="product.media[0]?.original_url ?? `https://placehold.co/400x300/e2e8f0/64748b?text=${product.name}`"
                         @error="handleImageError"
-                         :alt="product.name" class="h-full w-full object-cover">
+                        :alt="product.name"
+                        class="h-full w-full object-cover"
+                    >
                 </div>
 
                 <!-- Contenido de la tarjeta -->

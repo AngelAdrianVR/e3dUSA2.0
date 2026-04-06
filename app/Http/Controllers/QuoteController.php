@@ -444,10 +444,23 @@ class QuoteController extends Controller
     public function getMatches(Request $request)
     {
         $query = $request->input('query');
-        $quotes = Quote::with(['branch', 'user', 'sale'])
+        
+        // Se agregaron exactamente las mismas relaciones y withCount que en el método index()
+        $quotes = Quote::with(['branch:id,name,status', 'user:id,name', 'sale:id', 'authorizedBy:id,name', 'quoteProducts.product:id,name,cost'])
+            ->withCount('allVersions')
+            ->where('is_active', true) // <-- Aseguramos que el resultado final SIEMPRE sea la versión activa
             ->latest()
             ->where(function ($q) use ($query) {
+                // Mantenemos la búsqueda por ID directo (por si el query concuerda directamente con el ID de la activa o por registros viejos)
                 $q->where('id', 'like', "%{$query}%")
+                // LÍNEAS AGREGADAS: Buscamos cualquier versión inactiva que empate con la búsqueda, sacamos su "root_quote_id" 
+                // y traemos la que coincida en la familia de versiones.
+                ->orWhereIn('root_quote_id', function ($subQuery) use ($query) {
+                    $subQuery->select('root_quote_id')
+                        ->from('quotes')
+                        ->where('id', 'like', "%{$query}%")
+                        ->whereNotNull('root_quote_id');
+                })
                 ->orWhereHas('user', function ($parentQuery) use ($query) {
                     $parentQuery->where('name', 'like', "%{$query}%");
                 })

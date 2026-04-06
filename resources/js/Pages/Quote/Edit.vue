@@ -485,6 +485,24 @@
             </div>
         </el-drawer>
 
+        <!-- MODAL DE CREACIÓN RÁPIDA DE CLIENTE -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -868,7 +886,36 @@ export default {
         async submitNewPrice() { /* Lógica conservada de create */ },
         handleBranchChange(branchId) { /* Lógica conservada de create */ },
         handleContactChange(contactId) { /* Lógica conservada de create */ },
-        async storeQuickBranch() { /* Lógica conservada de create */ },
+        
+        // MÉTODOS DE CREACIÓN RÁPIDA DE CLIENTE
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    
+                    // Al asginarlo al formulario, el watcher llamará de nuevo a fetchClientProducts
+                    this.form.branch_id = newBranch.id;
+                    
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.quickBranchForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
         async storeQuickContact() { /* Lógica conservada de create */ },
     },
     created() { 

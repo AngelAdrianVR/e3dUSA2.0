@@ -166,6 +166,10 @@ class ProductController extends Controller
             'VPL' => 'VINILPIEL',
             'FC' => 'FIBRA DE CARBONO',
             'OV' => 'OVERLAY',
+            'AC' => 'ACERO',
+            'FDC' => 'FIBRA DSE CARBONO',
+            'RS' => 'RESINA',
+            'ENC' => 'ENCAPSULADO',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -406,6 +410,10 @@ class ProductController extends Controller
             'VPL' => 'VINILPIEL',
             'FC' => 'FIBRA DE CARBONO',
             'OV' => 'OVERLAY',
+            'AC' => 'ACERO',
+            'FDC' => 'FIBRA DSE CARBONO',
+            'RS' => 'RESINA',
+            'ENC' => 'ENCAPSULADO',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -763,9 +771,12 @@ class ProductController extends Controller
     public function massiveUpdate(Request $request)
     {
         $materialMap = $this->getMaterialMap();
+        $productTypesMap = ['C' => 'Catálogo', 'MP' => 'Materia Prima', 'I' => 'Insumo']; // AGREGADO: Mapeo de tipos
+        
         $validatedData = $request->validate([
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
+            'products.*.product_type_key' => 'nullable|in:C,MP,I', // AGREGADO: Validación del nuevo campo
             'products.*.product_family_id' => 'nullable|exists:product_families,id',
             'products.*.material' => ['nullable', 'string', Rule::in(array_keys($materialMap))],
             'products.*.is_used_as_component' => 'present|boolean',
@@ -782,6 +793,20 @@ class ProductController extends Controller
                     'is_used_as_component' => $productData['is_used_as_component'],
                     'material' => isset($productData['material']) ? $materialMap[$productData['material']] : null,
                 ];
+
+                // AGREGADO: Lógica para actualizar el Tipo y ajustar parámetros colaterales
+                if (isset($productData['product_type_key'])) {
+                    $newType = $productTypesMap[$productData['product_type_key']];
+                    $updateData['product_type'] = $newType;
+                    // Solo los de catálogo son vendibles (igual que en el update normal)
+                    $updateData['is_sellable'] = $newType === 'Catálogo' ? true : false;
+                    
+                    // Si se cambió a Insumo, limpiamos la familia y el material
+                    if ($productData['product_type_key'] === 'I') {
+                        $updateData['product_family_id'] = null;
+                        $updateData['material'] = null;
+                    }
+                }
                 
                 $product->update($updateData);
     
@@ -795,7 +820,11 @@ class ProductController extends Controller
                 if ($type === 'C' || $type === 'MP') {
                     $id = $product->id;
                     $family = $product->productFamily->key ?? '';
-                    $materialKey = isset($productData['material']) ? $productData['material'] : (array_search($product->material, $materialMap) ?: '');
+                    // Usamos el material del Request o recuperamos la llave del que ya tiene guardado
+                    $materialKey = isset($productData['material']) 
+                        ? $productData['material'] 
+                        : (array_search($product->material, $materialMap) ?: '');
+                    
                     $brand = $product->brand ? strtoupper(substr($product->brand->name, 0, 3)) : '';
         
                     $newCode = "{$family}-{$materialKey}-{$brand}-{$id}";

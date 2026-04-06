@@ -10,9 +10,10 @@
             </p>
             
             <div class="hidden md:grid grid-cols-12 gap-x-4 font-bold text-sm text-gray-700 dark:text-gray-300 border-b pb-2 mb-2">
-                <div class="col-span-4">Producto</div>
+                <div class="col-span-3">Producto</div>
+                <div class="col-span-2">Tipo</div>
                 <div class="col-span-3">Familia</div>
-                <div class="col-span-3">Material</div>
+                <div class="col-span-2">Material</div>
                 <div class="col-span-2 text-center">¿Componente?</div>
             </div>
 
@@ -20,22 +21,30 @@
                  <div v-for="(product, index) in form.products" :key="product.id"
                      class="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-2 items-center border-b dark:border-slate-700 py-2">
                     
-                    <div class="col-span-full md:col-span-4">
+                    <div class="col-span-full md:col-span-3">
                          <p class="font-semibold text-gray-800 dark:text-gray-200">{{ product.name }}</p>
                          <p class="text-xs text-gray-500">{{ product.code }}</p>
                     </div>
 
+                    <div class="col-span-full md:col-span-2">
+                         <InputLabel :for="'type-' + product.id" value="Tipo" class="md:hidden mb-1" />
+                         <el-select v-model="product.product_type_key" :teleported="false" filterable clearable placeholder="Tipo" class="w-full" :id="'type-' + product.id">
+                            <el-option v-for="item in typeOptions" :key="item.key" :label="item.label" :value="item.key" />
+                         </el-select>
+                         <InputError :message="form.errors[`products.${index}.product_type_key`]" class="mt-1" />
+                    </div>
+
                     <div class="col-span-full md:col-span-3">
                          <InputLabel :for="'family-' + product.id" value="Familia" class="md:hidden mb-1" />
-                         <el-select v-model="product.product_family_id" :teleported="false" filterable clearable placeholder="Familia" class="w-full" :id="'family-' + product.id">
+                         <el-select v-model="product.product_family_id" :teleported="false" filterable clearable placeholder="Familia" class="w-full" :id="'family-' + product.id" :disabled="product.product_type_key === 'I'">
                             <el-option v-for="item in product_families" :key="item.id" :label="item.name" :value="item.id" />
                          </el-select>
                          <InputError :message="form.errors[`products.${index}.product_family_id`]" class="mt-1" />
                     </div>
 
-                    <div class="col-span-full md:col-span-3">
+                    <div class="col-span-full md:col-span-2">
                         <InputLabel :for="'material-' + product.id" value="Material" class="md:hidden mb-1" />
-                        <el-select v-model="product.material" filterable :teleported="false" clearable placeholder="Material" class="w-full" :id="'material-' + product.id">
+                        <el-select v-model="product.material" filterable :teleported="false" clearable placeholder="Material" class="w-full" :id="'material-' + product.id" :disabled="product.product_type_key === 'I'">
                             <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
                         </el-select>
                         <InputError :message="form.errors[`products.${index}.material`]" class="mt-1" />
@@ -103,6 +112,7 @@ export default {
             products: [],
         });
 
+        // Opciones y mapeo inverso para los materiales
         const materialOptions = [
             { label: 'METAL', key: 'M' }, { label: 'PLASTICO', key: 'PLS' }, { label: 'PIEL DE LUJO', key: 'PL' },
             { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
@@ -110,14 +120,22 @@ export default {
             { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
             { label: 'VINILPIEL', key: 'VPL' }
         ];
-        
         const materialReverseMap = Object.fromEntries(materialOptions.map(opt => [opt.label, opt.key]));
+
+        // Opciones y mapeo inverso para el tipo de producto
+        const typeOptions = [
+            { label: 'Catálogo', key: 'C' },
+            { label: 'Materia Prima', key: 'MP' },
+            { label: 'Insumo', key: 'I' }
+        ];
+        const typeReverseMap = { 'Catálogo': 'C', 'Materia Prima': 'MP', 'Insumo': 'I' };
 
         const initializeForm = () => {
             form.products = props.selected_products.map(p => ({
                 id: p.id,
                 name: p.name,
                 code: p.code,
+                product_type_key: p.product_type ? typeReverseMap[p.product_type] : null,
                 product_family_id: p.product_family_id,
                 material: p.material ? materialReverseMap[p.material] : null,
                 is_used_as_component: p.is_used_as_component,
@@ -149,6 +167,7 @@ export default {
 
         return {
             form,
+            typeOptions,
             materialOptions,
             submit,
             close,
@@ -156,4 +175,3 @@ export default {
     },
 };
 </script>
-
