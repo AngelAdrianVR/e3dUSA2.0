@@ -214,7 +214,7 @@
             </div>
 
             <!-- COLUMNA DERECHA: ENVÍOS -->
-            <div class="lg:col-span-2 space-y-5">
+            <div class="lg:col-span-2 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
                 <div v-if="!sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] flex items-center justify-center">
                      <div class="text-center text-gray-500 dark:text-gray-400 py-10">
                         <i class="fa-solid fa-box-open text-3xl mb-3"></i>

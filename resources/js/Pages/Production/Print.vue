@@ -35,6 +35,9 @@
                     <p class="text-xs font-bold text-gray-700 dark:text-gray-400">Cliente:
                         <span>{{ sale.branch.name }}</span>
                     </p>
+                    <p class="text-xs font-bold text-gray-700 dark:text-gray-400">Razón Social:
+                        <span>{{ sale.branch.parent?.name || sale.branch.name }}</span>
+                    </p>
                 </div>
             </header>
 

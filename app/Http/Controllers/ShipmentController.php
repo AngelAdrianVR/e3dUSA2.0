@@ -12,23 +12,47 @@ use Inertia\Inertia;
 
 class ShipmentController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Obtenemos las ventas que tienen al menos un envío registrado.
+        // Obtenemos los filtros de la solicitud, con valores por defecto
+        $statusFilter = $request->input('status', 'Todos');
+        $partialsFilter = $request->input('partials', 'Todas');
+
+        // Iniciamos la consulta base
+        $query = Sale::has('shipments');
+
+        // Aplicar filtro por Estatus del envío
+        if ($statusFilter !== 'Todos') {
+            $query->whereHas('shipments', function ($q) use ($statusFilter) {
+                $q->where('status', $statusFilter);
+            });
+        }
+
+        // Aplicar filtro por Parcialidades (Cantidad de envíos)
+        if ($partialsFilter === 'Una parcialidad') {
+            $query->has('shipments', '=', 1);
+        } elseif ($partialsFilter === 'Varias parcialidades') {
+            $query->has('shipments', '>', 1);
+        }
+
         // Eager-loading para optimizar consultas y evitar el problema N+1.
-        $salesWithShipments = Sale::has('shipments')
+        $salesWithShipments = $query
             ->with([
                 'shipments', 
                 'branch:id,name',
             ]) // Carga las relaciones de envíos y sucursal (cliente)
             ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
             ->latest() // Ordena por los más recientes
-            ->paginate(20); // Pagina los resultados
+            ->paginate(20) // Pagina los resultados
+            ->withQueryString(); // Mantiene los parámetros de la URL en la paginación
 
-            // return $salesWithShipments;
-        // Renderiza la vista de Inertia, pasando los datos de las ventas.
+        // Renderiza la vista de Inertia, pasando los datos y los filtros actuales
         return Inertia::render('Shipment/Index', [
             'sales' => $salesWithShipments,
+            'filters' => [
+                'status' => $statusFilter,
+                'partials' => $partialsFilter,
+            ]
         ]);
     }
 
@@ -62,7 +86,6 @@ class ShipmentController extends Controller
             }
         ]);
 
-        // return $sale;
         return Inertia::render('Shipment/Show', [
             'sale' => $sale,
         ]);
@@ -142,12 +165,28 @@ class ShipmentController extends Controller
     public function getMatches(Request $request)
     {
         $query = $request->input('query');
+        $statusFilter = $request->input('status', 'Todos');
+        $partialsFilter = $request->input('partials', 'Todas');
 
-        // Realiza la búsqueda
-        $sales = Sale::has('shipments')
-            ->with(['shipments', 'branch:id,name'])
-            ->latest()
-            ->where(function ($q) use ($query) {
+        $salesQuery = Sale::has('shipments');
+
+        // Aplicar filtro por Estatus
+        if ($statusFilter !== 'Todos') {
+            $salesQuery->whereHas('shipments', function($q) use ($statusFilter) {
+                $q->where('status', $statusFilter);
+            });
+        }
+
+        // Aplicar filtro por Parcialidades
+        if ($partialsFilter === 'Una parcialidad') {
+            $salesQuery->has('shipments', '=', 1);
+        } elseif ($partialsFilter === 'Varias parcialidades') {
+            $salesQuery->has('shipments', '>', 1);
+        }
+
+        // Búsqueda por texto
+        if (!empty($query)) {
+            $salesQuery->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
                 ->orWhereHas('shipments', function ($parentQuery) use ($query) {
                     $parentQuery->where('status', 'like', "%{$query}%");
@@ -155,7 +194,13 @@ class ShipmentController extends Controller
                 ->orWhereHas('branch', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
                 });
-            })
+            });
+        }
+
+        // Realiza la búsqueda
+        $sales = $salesQuery
+            ->with(['shipments', 'branch:id,name'])
+            ->latest()
             ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
             ->get();
 
