@@ -39,7 +39,7 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip v-if="sale.status === 'Preparando Envío' || sale.status === 'Enviada'" content="Ver detalles de envío" placement="top">
+                <el-tooltip content="Ver detalles de envío" placement="top">
                     <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
                         <i class="fa-solid fa-truck-fast"></i>
                     </button>

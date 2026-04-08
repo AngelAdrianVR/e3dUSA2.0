@@ -11,6 +11,11 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
+                <el-tooltip content="Agregar Nueva Parcialidad" placement="top">
+                    <button @click="openNewShipmentModal" class="size-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-800 transition-colors mr-2">
+                        <i class="fa-solid fa-layer-group"></i>
+                    </button>
+                </el-tooltip>
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <i class="fa-solid fa-print"></i>
@@ -214,157 +219,90 @@
             </div>
 
             <!-- COLUMNA DERECHA: ENVÍOS -->
-            <div class="lg:col-span-2 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+            <div class="lg:col-span-2 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 pb-10">
                 <div v-if="!sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] flex items-center justify-center">
                      <div class="text-center text-gray-500 dark:text-gray-400 py-10">
                         <i class="fa-solid fa-box-open text-3xl mb-3"></i>
                         <p>Esta órden no tiene envíos registrados.</p>
                     </div>
                 </div>
-                <!-- Iteración de cada envío (parcialidad) -->
-                <div v-else v-for="(shipment, index) in sale.shipments" :key="shipment.id" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4">
-                    <!-- Encabezado de la Parcialidad -->
-                    <div class="flex justify-between items-center border-b dark:border-gray-600 pb-3 mb-4">
-                        <h3 class="text-lg font-semibold">
-                            Envío Parcial #{{ sale.shipments.length - index }}
-                        </h3>
-                        <div class="flex items-center space-x-2">
-                            <!-- ===== BOTÓN PARA CREAR ETIQUETA(S) ===== -->
-                             <el-tooltip content="Crear etiqueta(s) de envío" placement="top">
-                                <button @click="openLabelModal(shipment)" class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors duration-200 flex items-center gap-2">
-                                    <i class="fa-solid fa-tags"></i>
-                                </button>
-                            </el-tooltip>
-
-                             <!-- ===== BOTÓN MARCAR COMO ENVIADO ===== -->
-                            <button v-if="shipment.status === 'Pendiente' || shipment.status === 'Autorizado'"
-                                @click="openConfirmationDialog(shipment)"
-                                :disabled="!isShipmentReady(shipment)"
-                                class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600">
-                                <i class="fa-solid fa-truck-fast"></i>
-                                Marcar como Enviado
-                            </button>
-                            <el-tag :type="getStatusTagType(shipment.status)">{{ shipment.status }}</el-tag>
-                             <!-- Indicador de Alerta -->
-                            <el-tooltip v-if="isOverdue(shipment.promise_date, shipment.status)" content="La fecha promesa ha pasado" placement="top">
-                                <i class="fa-solid fa-triangle-exclamation text-red-500 text-xl animate-pulse"></i>
-                            </el-tooltip>
-                        </div>
-                    </div>
-                    
-                    <!-- Información del Envío -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <!-- Sección Izquierda: Datos del Envío -->
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="col-span-2 sm:col-span-1">
-                                <p class="font-semibold text-gray-600 dark:text-gray-400">Fecha Promesa</p>
-                                <span>{{ formatDate(shipment.promise_date) || 'N/A' }}</span>
-                            </div>
-                            <div class="col-span-2 sm:col-span-1">
-                                <p class="font-semibold text-gray-600 dark:text-gray-400">Paquetería</p>
-                                <span>{{ shipment.shipping_company ?? 'N/A' }}</span>
-                            </div>
-                            <div class="col-span-2">
-                                <p class="font-semibold text-gray-600 dark:text-gray-400">Guía de Rastreo</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span v-if="shipment.tracking_guide" class="font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-sm select-all border dark:border-gray-600">
-                                        {{ shipment.tracking_guide }}
-                                    </span>
-                                    <span v-else class="text-gray-400 italic">No asignada</span>
-                                    
-                                    <el-tooltip content="Editar información de rastreo" placement="top">
-                                        <button @click="openGuideModal(shipment)" class="text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1 rounded transition-colors">
-                                            <i class="fa-solid fa-pencil"></i>
-                                        </button>
-                                    </el-tooltip>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección Derecha: Evidencias -->
-                        <div class="border-t sm:border-t-0 sm:border-l dark:border-gray-600 pt-4 sm:pt-0 sm:pl-4">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                                    <i class="fa-solid fa-camera mr-2 text-gray-400"></i> Evidencia de Entrega
-                                </h4>
-                                <button @click="openEvidenceModal(shipment)" class="text-[11px] bg-blue-50 text-blue-600 px-2 py-1 rounded hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors">
-                                    <i class="fa-solid fa-plus"></i> Añadir
-                                </button>
-                            </div>
-                            
-                            <div v-if="shipment.media?.length" class="max-h-32 overflow-y-auto pr-1">
-                                <div
-                                    v-if="shipment.media?.length"
-                                    class="grid grid-cols-2 lg:grid-cols-3 gap-2 max-h-32 overflow-y-auto pr-1"
-                                >
-                                    <div
-                                        v-for="file in shipment.media"
-                                        :key="file.id"
-                                        class="relative group"
-                                    >
-                                        <!-- Popconfirm eliminar -->
-                                        <el-popconfirm
-                                            title="¿Eliminar este archivo?"
-                                            confirm-button-text="Sí"
-                                            cancel-button-text="Cancelar"
-                                            @confirm="deleteMedia(file.id)"
-                                        >
-                                            <template #reference>
-                                                <button
-                                                    class="absolute top-1 right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition"
-                                                    title="Eliminar"
-                                                >
-                                                    ✕
-                                                </button>
-                                            </template>
-                                        </el-popconfirm>
-
-                                        <!-- Archivo -->
-                                        <a
-                                            :href="file.original_url"
-                                            target="_blank"
-                                            class="flex flex-col items-center justify-center bg-gray-50 dark:bg-slate-700 border dark:border-gray-600 rounded p-2 hover:bg-gray-100 transition-colors text-center"
-                                        >
-                                            <!-- Miniatura -->
-                                            <img
-                                                v-if="file.mime_type.includes('image')"
-                                                :src="file.original_url"
-                                                @error="handleImageError"
-                                                alt="Imagen"
-                                                class="w-full h-16 object-cover rounded mb-1"
-                                            />
-
-                                            <!-- PDF -->
-                                            <i
-                                                v-else
-                                                class="fa-regular fa-file-pdf text-lg text-red-500 mb-1"
-                                            ></i>
-
-                                            <span class="text-[10px] text-gray-600 dark:text-gray-400 truncate w-full">
-                                                {{ file.file_name }}
-                                            </span>
-                                        </a>
-                                    </div>
-                                </div>
-                                </div>
-
-                            <div v-else class="text-center py-4 bg-gray-50 dark:bg-slate-700/30 rounded border border-dashed border-gray-300 dark:border-gray-600">
-                                <p class="text-xs text-gray-400 italic">Sin evidencias adjuntas</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Productos en este envío -->
-                     <h4 class="text-md font-semibold mb-2 mt-5 border-t dark:border-gray-600 pt-3">Productos en este envío</h4>
-                    <div v-if="shipment.shipment_products?.length" class="space-y-3 max-h-[65vh] overflow-auto pr-2">
-                       <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="sale.status" />
-                    </div>
-                    <div v-else class="text-center text-gray-500 text-sm py-6">
-                        <p>No se han registrado productos para este envío.</p>
-                    </div>
-                </div>
+                
+                <!-- ===== COMPONENTE DE TARJETA DE ENVÍO ITERADO ===== -->
+                <ShipmentCard 
+                    v-else 
+                    v-for="(shipment, index) in sale.shipments" 
+                    :key="shipment.id" 
+                    :shipment="shipment"
+                    :index="index"
+                    :saleStatus="sale.status"
+                    :isReady="isShipmentReady(shipment)"
+                    @open-label="openLabelModal"
+                    @open-confirmation="openConfirmationDialog"
+                    @open-guide="openGuideModal"
+                    @open-evidence="openEvidenceModal"
+                    @delete-media="deleteMedia"
+                />
             </div>
         </main>
+
+        <!-- ===== MODAL NUEVA PARCIALIDAD (CREAR ENVÍO AL VUELO) ===== -->
+        <el-dialog v-model="newShipmentModalVisible" title="Agregar Nueva Parcialidad" width="700px">
+            <div class="space-y-4">
+                <div class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info mt-0.5"></i>
+                    <p>
+                        Crea un nuevo envío. Si la cantidad que asignes de un producto ya estaba programada en un envío pendiente, <strong>el sistema la restará automáticamente de allá</strong> para moverla a esta nueva parcialidad sin descuadrar la órden.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Promesa *</label>
+                        <el-date-picker v-model="newShipmentForm.promise_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
+                        <p v-if="newShipmentForm.errors.promise_date" class="text-red-500 text-xs mt-1">{{ newShipmentForm.errors.promise_date }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                        <el-input v-model="newShipmentForm.shipping_company" placeholder="Ej. DHL, FedEx..." />
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                        <el-input v-model="newShipmentForm.tracking_guide" placeholder="Ingresa el número de rastreo..." />
+                    </div>
+                </div>
+
+                <div class="mt-6 border-t dark:border-gray-600 pt-4">
+                    <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a mover a esta parcialidad</h4>
+                    <div class="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                        <div v-for="(prod, index) in newShipmentForm.products" :key="prod.sale_product_id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
+                            <div class="w-2/3 pr-4">
+                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="getProductName(prod.sale_product_id)">
+                                    {{ getProductName(prod.sale_product_id) }}
+                                </p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Máx. disponible para mover: <span class="font-bold text-gray-800 dark:text-gray-200">{{ getMaxTransferable(prod.sale_product_id) }} pzas</span>
+                                </p>
+                            </div>
+                            <div class="w-1/3 text-right">
+                                <el-input-number v-model="prod.quantity" :min="0" :max="getMaxTransferable(prod.sale_product_id)" size="small" class="!w-full" />
+                            </div>
+                        </div>
+                    </div>
+                    <p v-if="newShipmentForm.errors.products" class="text-red-500 text-xs mt-1">{{ newShipmentForm.errors.products }}</p>
+                    <p v-if="newShipmentForm.errors.message" class="text-red-500 text-sm mt-2 text-center font-bold">{{ newShipmentForm.errors.message }}</p>
+                </div>
+            </div>
+
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="newShipmentModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitNewShipment" :loading="newShipmentForm.processing" :disabled="!hasProductsToShip">
+                        Crear Parcialidad
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
 
         <!-- ===== MODAL DE CONFIRMACIÓN ENVIADO ===== -->
         <el-dialog v-model="dialogVisible" title="Confirmar Envío" width="500px">
@@ -453,7 +391,7 @@
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL INFORMACIÓN DE RASTREO (NUEVO) ===== -->
+        <!-- ===== MODAL INFORMACIÓN DE RASTREO ===== -->
         <el-dialog v-model="showGuideModal" title="Información de Rastreo" width="500px">
             <div class="space-y-4">
                 <div>
@@ -477,7 +415,7 @@
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL SUBIR EVIDENCIA (NUEVO) ===== -->
+        <!-- ===== MODAL SUBIR EVIDENCIA ===== -->
         <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
             <div class="space-y-4">
                 <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
@@ -515,7 +453,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
-import ShipmentProductCard from "@/Components/MyComponents/ShipmentProductCard.vue";
+import ShipmentCard from "@/Components/MyComponents/ShipmentCard.vue";
 import { Link, router, useForm } from "@inertiajs/vue3";
 import { format, parseISO  } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -529,7 +467,7 @@ export default {
         Stepper,
         AppLayout,
         SecondaryButton,
-        ShipmentProductCard,
+        ShipmentCard,
     },
     props: {
         sale: Object,
@@ -550,7 +488,7 @@ export default {
             },
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             
-            // --- NUEVO: State para Guía y Evidencias ---
+            // --- State para Guía y Evidencias ---
             showGuideModal: false,
             guideForm: useForm({
                 shipment_id: null,
@@ -562,9 +500,20 @@ export default {
                 shipment_id: null,
                 evidence_files: [],
             }),
+
+            // --- NUEVO: State para Agregar Parcialidad ---
+            newShipmentModalVisible: false,
+            newShipmentForm: useForm({
+                sale_id: this.sale.id,
+                promise_date: '',
+                shipping_company: '',
+                tracking_guide: '',
+                products: []
+            })
         }
     },
     computed: {
+        // --- Computed methods Etiquetas ---
         assignedQuantities() {
             const totals = {};
             if (!this.labelForm.shipment) return totals;
@@ -596,49 +545,108 @@ export default {
         },
         hasProductsInBoxes() {
             if (this.labelForm.boxes.length === 0) return false;
-            // Verifica que al menos una caja tenga al menos un producto.
             return this.labelForm.boxes.some(box => 
                 Object.values(box.productQuantities).some(qty => qty > 0)
             );
+        },
+
+        // --- Computed Methods para Agregar Parcialidad ---
+        uniqueSaleProducts() {
+            if (!this.sale || !this.sale.shipments) return [];
+            
+            const productsMap = new Map();
+            // Recorremos todos los envíos para agrupar los productos maestros de esta órden
+            this.sale.shipments.forEach(shipment => {
+                shipment.shipment_products?.forEach(sp => {
+                    if (!productsMap.has(sp.sale_product_id)) {
+                        productsMap.set(sp.sale_product_id, {
+                            id: sp.sale_product_id,
+                            product: sp.sale_product.product,
+                            total_quantity: sp.sale_product.quantity, // Cantidad original en la venta
+                        });
+                    }
+                });
+            });
+            return Array.from(productsMap.values());
+        },
+        hasProductsToShip() {
+            // Verifica que haya al menos 1 producto con cantidad mayor a cero seleccionado
+            return this.newShipmentForm.products.some(p => p.quantity > 0);
         }
     },
     methods: {
-        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
-        handleImageError(event) {
-            const img = event.target;
-            const currentSrc = img.src;
-            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
-            
-            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
-            img.dataset.fallbackAttempted = "true";
-
-            try {
-                const urlObj = new URL(currentSrc);
-                img.src = prodDomain + urlObj.pathname;
-            } catch (e) {
-                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
-            }
+        formatDateTime(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
         },
+        // --- Métodos para Agregar Parcialidad ---
+        openNewShipmentModal() {
+            this.newShipmentForm.reset();
+            this.newShipmentForm.clearErrors();
+            
+            // Inicializar el arreglo reactivo mapeando todos los productos existentes con 0.
+            this.newShipmentForm.products = this.uniqueSaleProducts.map(p => ({
+                sale_product_id: p.id,
+                quantity: 0
+            }));
+            
+            this.newShipmentModalVisible = true;
+        },
+        getMaxTransferable(saleProductId) {
+            // Calculamos cuánto podemos mandar basándonos en lo que no ha sido "Enviado" (ya con paquetería entregada).
+            const saleProductInfo = this.uniqueSaleProducts.find(p => p.id === saleProductId);
+            if (!saleProductInfo) return 0;
+            
+            let totalYaEnviado = 0;
+            this.sale.shipments.forEach(shipment => {
+                if (shipment.status === 'Enviado') {
+                    shipment.shipment_products?.forEach(sp => {
+                        if (sp.sale_product_id === saleProductId) {
+                            totalYaEnviado += sp.quantity;
+                        }
+                    });
+                }
+            });
+            
+            return saleProductInfo.total_quantity - totalYaEnviado;
+        },
+        getProductName(saleProductId) {
+            const found = this.uniqueSaleProducts.find(p => p.id === saleProductId);
+            return found ? found.product.name : 'Desconocido';
+        },
+        submitNewShipment() {
+            // Filtramos únicamente los que el usuario eligió mandarle a esta nueva caja/envío
+            const productsToSend = this.newShipmentForm.products.filter(p => p.quantity > 0);
+            
+            this.newShipmentForm.transform(data => ({
+                ...data,
+                products: productsToSend
+            })).post(route('shipments.store'), {
+                onSuccess: () => {
+                    this.newShipmentModalVisible = false;
+                    ElMessage.success('Nueva parcialidad generada y productos reagrupados con éxito.');
+                },
+                onError: (errors) => {
+                    console.error(errors);
+                    if(!errors.message && !errors.products) {
+                       ElMessage.error('Error al procesar la solicitud, verifica los datos e intenta de nuevo.');
+                    }
+                }
+            });
+        },
+
         async deleteMedia(mediaId) {
             try {
                 await axios.delete(route('media.delete-file', mediaId))
-
-                // Remover del array local
                 window.location.reload();
-                // this.sale.shipment.media = this.shipment.media.filter(
-                //     media => media.id !== mediaId
-                // )
-
                 this.$message.success('Archivo eliminado correctamente')
             } catch (error) {
                 console.error(error)
                 this.$message.error('Error al eliminar el archivo')
             }
         },
-        formatDateTime(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
-        },
+        
         // --- MÉTODOS PARA ETIQUETAS ---
         openLabelModal(shipment) {
             this.labelForm.shipment = shipment;
@@ -738,7 +746,7 @@ export default {
                 </footer>
             </div>`;
         },
-        // --- MÉTODOS NUEVOS (Guía y Evidencia) ---
+        // --- MÉTODOS Guía y Evidencia ---
         openGuideModal(shipment) {
             this.guideForm.shipment_id = shipment.id;
             this.guideForm.shipping_company = shipment.shipping_company;
@@ -848,17 +856,6 @@ export default {
             if (isNaN(date)) return ''; // seguridad
 
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
-        },
-        getStatusTagType(status) {
-            const statusMap = { 'Pendiente': 'warning', 'Enviado': 'success', };
-            return statusMap[status] || 'info';
-        },
-        isOverdue(promiseDate, status) {
-            if (!promiseDate || status === 'Enviado') return false;
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const promise = new Date(promiseDate.replace(/-/g, '/'));
-            return promise < today;
         }
     },
 };

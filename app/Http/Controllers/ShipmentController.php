@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Sale;
 use App\Models\Shipment;
+use App\Models\SaleProduct;
+use App\Models\ShipmentProduct;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,7 +65,95 @@ class ShipmentController extends Controller
 
     public function store(Request $request)
     {
-        //
+        // Validación de la solicitud para la nueva parcialidad
+        $validated = $request->validate([
+            'sale_id' => 'required|exists:sales,id',
+            'promise_date' => 'required|date',
+            'shipping_company' => 'nullable|string|max:255',
+            'tracking_guide' => 'nullable|string|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.sale_product_id' => 'required|exists:sale_products,id',
+            'products.*.quantity' => 'required|integer|min:1',
+        ]);
+
+        try {
+            DB::transaction(function () use ($validated) {
+                $sale = Sale::findOrFail($validated['sale_id']);
+
+                // 1. Crear el nuevo registro del envío (Parcialidad)
+                $newShipment = $sale->shipments()->create([
+                    'status' => 'Pendiente',
+                    'promise_date' => $validated['promise_date'],
+                    'shipping_company' => $validated['shipping_company'] ?? null,
+                    'tracking_guide' => $validated['tracking_guide'] ?? null,
+                ]);
+
+                // 2. Procesar y reasignar cada producto
+                foreach ($validated['products'] as $prod) {
+                    $saleProductId = $prod['sale_product_id'];
+                    $qtyNeeded = $prod['quantity'];
+
+                    $saleProduct = SaleProduct::findOrFail($saleProductId);
+                    $totalInSale = $saleProduct->quantity;
+
+                    // Cuánto de este producto está asignado en TODOS los envíos de la orden actualmente
+                    $totalAssigned = ShipmentProduct::whereHas('shipment', function ($q) use ($sale) {
+                        $q->where('sale_id', $sale->id);
+                    })->where('sale_product_id', $saleProductId)->sum('quantity');
+
+                    // Calculamos si hay productos "libres" sin asignar a ninguna parcialidad
+                    $unassigned = max(0, $totalInSale - $totalAssigned);
+                    $shortage = $qtyNeeded - $unassigned;
+
+                    // Si solicitamos más de lo libre, robamos de los envíos PENDIENTES o AUTORIZADOS
+                    if ($shortage > 0) {
+                        $pendingShipmentProducts = ShipmentProduct::whereHas('shipment', function ($q) use ($sale) {
+                            $q->where('sale_id', $sale->id)->whereIn('status', ['Pendiente', 'Autorizado']);
+                        })->where('sale_product_id', $saleProductId)->orderBy('id', 'asc')->get();
+
+                        foreach ($pendingShipmentProducts as $psp) {
+                            if ($shortage <= 0) break;
+
+                            $deduct = min($psp->quantity, $shortage);
+                            $psp->quantity -= $deduct;
+                            
+                            if ($psp->quantity <= 0) {
+                                $psp->delete(); // Si le quitamos todo, borramos el registro pivote
+                            } else {
+                                $psp->save(); // Si le quitamos una parte, guardamos la resta
+                            }
+                            
+                            $shortage -= $deduct;
+                        }
+
+                        // Medida de seguridad en caso de desbordamiento
+                        if ($shortage > 0) {
+                            throw new \Exception("No hay suficiente cantidad en envíos pendientes para reasignar el producto a esta parcialidad.");
+                        }
+                    }
+
+                    // 3. Asignar los productos definitivos a la nueva parcialidad
+                    $newShipment->shipmentProducts()->create([
+                        'sale_product_id' => $saleProductId,
+                        'quantity' => $qtyNeeded,
+                    ]);
+                }
+
+                // 4. Limpieza: si algún envío pendiente anterior se quedó sin NINGÚN producto, lo eliminamos.
+                $emptyShipments = $sale->shipments()->whereIn('status', ['Pendiente', 'Autorizado'])->doesntHave('shipmentProducts')->get();
+                foreach ($emptyShipments as $es) {
+                    $es->delete();
+                }
+
+                // Actualizar estatus de la venta
+                $sale->updateStatus();
+            });
+
+            return back()->with('success', 'Nueva parcialidad agregada y productos redistribuidos exitosamente.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => $e->getMessage()]);
+        }
     }
 
     public function show(Sale $sale)

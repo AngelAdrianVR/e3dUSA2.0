@@ -260,7 +260,7 @@ Route::get('productions/print/{sale}', [ProductionController::class, 'print'])->
 
 
 // ------- (Rutas de envíos)  ---------
-Route::resource('shipments', ShipmentController::class)->except(['create', 'show', 'edit', 'store'])->middleware('auth');
+Route::resource('shipments', ShipmentController::class)->except(['create', 'show', 'edit'])->middleware('auth');
 Route::get('/shipments/{sale}', [ShipmentController::class, 'show'])->middleware('auth')->name('shipments.show');
 Route::post('shipments-get-matches', [ShipmentController::class, 'getMatches'])->middleware('auth')->name('shipments.get-matches');
 // Rutas nuevas para actualizar guía y subir evidencia (reciben el ID del envío {shipment})
