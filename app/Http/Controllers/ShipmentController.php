@@ -194,7 +194,6 @@ class ShipmentController extends Controller
             'sent_by' => 'required|string|max:255', // El nombre de quien envía es requerido
         ]);
 
-        // --- INICIO DE LA LÓGICA MODIFICADA ---
         // Se envuelve la lógica en una transacción para asegurar la integridad de los datos.
         // Si algo falla al descontar el stock, no se marcará como enviado.
         DB::transaction(function () use ($request, $shipment) {
@@ -207,33 +206,49 @@ class ShipmentController extends Controller
                 'sent_by' => $request->sent_by,
             ]);
 
-            // 2. Lógica para descontar stock
-            // Cargar las relaciones necesarias para acceder a los productos y su stock.
+            // 2. Lógica para descontar stock (CORREGIDA PARA PARCIALIDADES)
             $shipment->load('shipmentProducts.saleProduct.product.storages');
 
             foreach ($shipment->shipmentProducts as $shipmentProduct) {
                 $product = $shipmentProduct->saleProduct->product;
 
-                // descuenta unicamente la cantidad producida, ya que el resto tomado del stock del producto terminado ya fue descontado
-                $quantityToDecrement = $shipmentProduct->saleProduct->quantity_to_produce; 
+                if ($product) {
+                    $saleProduct = $shipmentProduct->saleProduct;
+                    
+                    // Este es el TOTAL que la orden debía producir y que se agregó o agregará al stock.
+                    // NO podemos descontar más de esto en total sumando todos los envíos.
+                    $maxToDeduct = $saleProduct->quantity_to_produce; 
 
-                // Asegurarse de que el producto existe y la cantidad a descontar es mayor a cero.
-                if ($product && $quantityToDecrement > 0) {
-                    // Se asume que el descuento se hace del primer almacén (storage) asociado al producto.
-                    // Si tienes una lógica de múltiples almacenes, deberás ajustarla aquí.
-                    $storage = $product->storages()->first();
+                    // Calcular cuánto de este producto EXACTO ya se ha descontado en envíos anteriores de esta misma orden
+                    $previouslyShipped = \App\Models\ShipmentProduct::where('sale_product_id', $saleProduct->id)
+                        ->whereHas('shipment', function($q) use ($shipment) {
+                            $q->where('status', 'Enviado')
+                              ->where('id', '!=', $shipment->id); // Excluir este mismo envío
+                        })->sum('quantity');
 
-                    if ($storage) {
-                        // Utiliza decrement() para una operación atómica y segura en la base de datos.
-                        $storage->decrement('quantity', $quantityToDecrement);
+                    // Cuánto nos queda permitido descontar del inventario general para esta orden
+                    $leftToDeduct = max(0, $maxToDeduct - $previouslyShipped);
+                    
+                    // Solo descontamos lo que trae la caja física (shipmentProduct->quantity) 
+                    // o lo que nos queda por descontar, lo que sea menor.
+                    $quantityToDecrement = min($shipmentProduct->quantity, $leftToDeduct);
 
-                        StockMovement::create([
-                            'product_id' => $product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $quantityToDecrement,
-                            'type' => 'Salida',
-                            'notes' => 'Salida por envío de OV-' . $shipment->sale_id
-                        ]);
+                    if ($quantityToDecrement > 0) {
+                        // Se asume que el descuento se hace del primer almacén (storage) asociado al producto.
+                        $storage = $product->storages()->first();
+
+                        if ($storage) {
+                            // Utiliza decrement() para una operación atómica y segura.
+                            $storage->decrement('quantity', $quantityToDecrement);
+
+                            StockMovement::create([
+                                'product_id' => $product->id,
+                                'storage_id' => $storage->id,
+                                'quantity_change' => $quantityToDecrement,
+                                'type' => 'Salida',
+                                'notes' => 'Salida por envío (total/parcial) de OV-' . $shipment->sale_id
+                            ]);
+                        }
                     }
                 }
             }
@@ -241,10 +256,9 @@ class ShipmentController extends Controller
             // 3. Actualiza el estatus general de la venta.
             $shipment->sale->updateStatus();
         });
-        // --- FIN DE LA LÓGICA MODIFICADA ---
 
         // Redirige de vuelta a la página anterior con un mensaje de éxito.
-        return redirect()->back()->with('success', 'El envío parcial ha sido marcado como "Enviado" y el stock ha sido actualizado.');
+        return redirect()->back()->with('success', 'El envío ha sido marcado como "Enviado" y el stock ha sido calculado y actualizado correctamente.');
     }
 
     public function destroy(Shipment $shipment)

@@ -36,7 +36,7 @@
                 </el-tooltip>
 
                 <!-- Botón Marcar como Enviado -->
-                <button v-if="!isShipped"
+                <button v-if="!isShipped && $page.props.auth.user.permissions.includes('Marcar parcialidades como enviadas')"
                     @click="$emit('open-confirmation', shipment)"
                     :disabled="!isReady"
                     class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">

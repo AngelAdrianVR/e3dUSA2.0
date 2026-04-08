@@ -13,6 +13,11 @@
             </div>
 
             <div class="flex items-center space-x-2 dark:text-white">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Ver envios')" content="Ver detalles de envío" placement="top">
+                    <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </button>
+                </el-tooltip>
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
@@ -281,8 +286,8 @@
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
-                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Cantidad a Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce.toLocaleString() }}</p>
+                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Pendiente de Producir</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedProduction?.quantity_to_produce ?? selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
@@ -690,24 +695,56 @@ export default {
         },
         startTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
         resumeTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        
+        // --- MODIFICADO: Preguntar si quieren enviar parcialidades a stock ---
         pauseTask(task) {
             ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
-                confirmButtonText: 'Confirmar Pausa',
+                confirmButtonText: 'Siguiente',
                 cancelButtonText: 'Cancelar',
                 inputType: 'textarea',
                 inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
                 inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
             }).then(({ value: pause_reason }) => {
-                this.updateTaskStatus(task.id, 'Pausada', { pause_reason });
+                
+                // Segundo Modal: Preguntar por unidades parciales
+                ElMessageBox.prompt('Si ya terminaste algunas unidades y deseas enviarlas al almacén para que puedan ser empaquetadas/enviadas, ingresa la cantidad. Si no, ingresa 0.', 'Unidades Parciales Terminadas', {
+                    confirmButtonText: 'Confirmar Pausa',
+                    cancelButtonText: 'Omitir',
+                    inputType: 'number',
+                    inputValue: 0,
+                }).then(({ value: partial_units }) => {
+                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units });
+                }).catch(() => {
+                    // Si le da a omitir, pausa sin unidades
+                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                });
+
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
+        
+        // --- MODIFICADO: Preguntar si quieren enviar parcialidades a stock ---
         reportIssue(task) {
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
                 { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
-            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
-            ).catch(() => ElMessage.info('Acción cancelada'));
+            ).then(() => {
+                
+                 // Segundo Modal: Preguntar por unidades parciales
+                ElMessageBox.prompt('Si ya terminaste algunas unidades y deseas enviarlas al almacén para que puedan ser empaquetadas/enviadas, ingresa la cantidad. Si no, ingresa 0.', 'Unidades Parciales Terminadas', {
+                    confirmButtonText: 'Confirmar',
+                    cancelButtonText: 'Omitir',
+                    inputType: 'number',
+                    inputValue: 0,
+                }).then(({ value: partial_units }) => {
+                    this.updateTaskStatus(task.id, 'Sin material', { partial_units });
+                }).catch(() => {
+                    // Si le da a omitir, pausa sin unidades
+                    this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                });
+
+            }).catch(() => ElMessage.info('Acción cancelada'));
         },
+
         async finishTask(task) {
             if ((task.status === 'En Proceso' || task.status === 'Pausada') && task.started_at) {
                 const startTime = new Date(task.started_at);
@@ -722,10 +759,11 @@ export default {
                 }
             }
 
-            const quantityToProduce = this.selectedSaleProduct.quantity_to_produce;
+            // MODIFICADO: Ahora tomamos lo que queda de Production, porque pudo haberse modificado al enviar parciales
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
 
             try {
-                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
+                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas (Restantes).', 'Finalizar Tarea', {
                     confirmButtonText: 'Siguiente',
                     cancelButtonText: 'Cancelar',
                     inputType: 'number',

@@ -6,12 +6,12 @@
         direction="rtl" 
         :size="drawerSize"
         >
-        <div class="md:p-3">
+        <div class="md:p-3 relative">
             <p class="dark:text-gray-500 text-center my-4" v-if="!clientProducts.length && !loading">
             Este cliente no tiene productos registrados.
             </p>
 
-            <!-- Estado de carga -->
+            <!-- Estado de carga de productos del cliente -->
             <LoadingIsoLogo class="col-span-full" v-if="loading" />
 
             <!-- Lista de productos -->
@@ -114,21 +114,31 @@
 
                     <p class="text-sm text-gray-600 dark:text-gray-500 italic mt-3" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
                 </div>
-                <div @click="showAddProductsModal = true"
+                
+                <!-- BOTÓN MODIFICADO CON ESTADO DE CARGA -->
+                <div @click="openAddProductsModal"
                     class="border-2 border-dashed border-gray-400 dark:border-gray-600 h-40 rounded-2xl flex items-center justify-center 
-                            cursor-pointer group transition transform duration-300 ease-in-out 
-                            hover:scale-105 hover:shadow-lg hover:border-indigo-500 dark:hover:border-indigo-400"
+                            cursor-pointer group transition transform duration-300 ease-in-out"
+                    :class="loadingAddModal ? 'opacity-50 pointer-events-none' : 'hover:scale-105 hover:shadow-lg hover:border-indigo-500 dark:hover:border-indigo-400'"
                 >
-                    <span class="flex items-center text-gray-600 dark:text-gray-300 font-medium text-lg group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="flex items-center text-gray-600 dark:text-gray-300 font-medium text-lg transition"
+                          :class="loadingAddModal ? '' : 'group-hover:text-indigo-500 dark:group-hover:text-indigo-400'">
+                        <i v-if="loadingAddModal" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        Agregar producto al cliente
+                        {{ loadingAddModal ? 'Preparando...' : 'Agregar producto al cliente' }}
                     </span>
                 </div>
             </div>
         </div>
     </el-drawer>
+
+    <!-- ESTADO DE CARGA PANTALLA COMPLETA CON BLUR (Bloquea clicks) -->
+    <div v-if="loadingAddModal" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-500/30 dark:bg-gray-900/50 backdrop-blur-sm">
+        <LoadingIsoLogo />
+        <span class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4">Preparando catálogo de productos...</span>
+    </div>
 
     <!-- ===== MODAL PARA AGREGAR PRODUCTOS ===== -->
     <DialogModal :show="showAddProductsModal" @close="showAddProductsModal = false">
@@ -238,7 +248,6 @@
         </template>
         <template #content>
             <div class="space-y-4 text-sm dark:text-gray-300">
-                <!-- NUEVO: Mensaje de advertencia o permiso especial -->
                 <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                     <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
                 </p>
@@ -343,6 +352,7 @@ export default {
         return {
             newBranchProductForm,
             loading: false,
+            loadingAddModal: false, // <-- NUEVO: Estado de carga para evitar doble clic
             clientProducts: [],
             drawerSize: "35%", 
             showAddProductsModal: false,
@@ -392,6 +402,19 @@ export default {
         }
     },
     methods: {
+        // <-- NUEVO: Método para mostrar carga e invocar al modal asíncronamente
+        openAddProductsModal() {
+            if (this.loadingAddModal) return; // Evita clics múltiples
+            this.loadingAddModal = true;
+            
+            // Usamos setTimeout para ceder el hilo al navegador para que pinte el overlay
+            // antes de empezar el costoso proceso de renderizar el el-select de los productos.
+            setTimeout(() => {
+                this.showAddProductsModal = true;
+                this.loadingAddModal = false;
+            }, 100);
+        },
+
         async fetchClientProducts() {
             if (!this.branchId) return;
             this.loading = true;

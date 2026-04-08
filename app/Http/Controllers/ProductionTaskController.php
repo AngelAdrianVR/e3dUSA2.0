@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\ProductionTask;
 use App\Models\ProductionLog;
+use App\Models\StockMovement;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -26,6 +27,7 @@ class ProductionTaskController extends Controller
             'scrap' => 'nullable|integer|min:0',
             'scrap_reason' => 'nullable|string|max:255',
             'pause_reason' => 'nullable|string|max:255',
+            'partial_units' => 'nullable|integer|min:0', // Nueva validación
         ]);
 
         $newStatus = $request->input('status');
@@ -54,6 +56,34 @@ class ProductionTaskController extends Controller
 
         if ($newStatus === 'En Proceso' && is_null($production_task->started_at)) {
             $production_task->started_at = Carbon::now();
+        }
+
+        // --- NUEVO: MANEJO DE UNIDADES PARCIALES AL PAUSAR O SIN MATERIAL ---
+        if (in_array($newStatus, ['Pausada', 'Sin material'])) {
+            $partialUnits = (int) $request->input('partial_units', 0);
+            if ($partialUnits > 0) {
+                $production = $production_task->production;
+                $product = $production->saleProduct->product;
+                
+                // 1. Añadir al inventario general para poder ser enviado
+                if ($product) {
+                    $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
+                    $storage->increment('quantity', $partialUnits);
+                    
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'storage_id' => $storage->id,
+                        'quantity_change' => $partialUnits,
+                        'type' => 'Entrada',
+                        'notes' => "Entrada parcial (Tarea {$newStatus}) de OV/OS-{$production->saleProduct->sale_id}"
+                    ]);
+                }
+                
+                // 2. Descontar estas unidades de lo que "falta por producir"
+                // Así cuando terminen la orden ya no les pedirá las originales, sino solo las restantes
+                $production->quantity_to_produce = max(0, $production->quantity_to_produce - $partialUnits);
+                $production->save();
+            }
         }
 
         if ($newStatus === 'Terminada') {
@@ -103,7 +133,9 @@ class ProductionTaskController extends Controller
         if ($newStatus === 'Pausada') {
             $logType = 'pausa';
             $reason = $request->input('pause_reason', 'No especificada');
-            $notes = "El operador ha pausado la tarea '" . $production_task->name . "'. Razón: {$reason}";
+            $partialUnits = (int) $request->input('partial_units', 0);
+            $extraNote = $partialUnits > 0 ? " Además, se enviaron {$partialUnits} unidades terminadas al almacén." : "";
+            $notes = "El operador ha pausado la tarea '" . $production_task->name . "'. Razón: {$reason}.{$extraNote}";
         } elseif ($newStatus === 'En Proceso' && $oldStatus === 'Pausada') {
             $logType = 'reanudacion';
             $notes = 'El operador ha reanudado la tarea "' . $production_task->name . '".';
@@ -115,7 +147,9 @@ class ProductionTaskController extends Controller
             }
         } elseif ($newStatus === 'Sin material') {
             $logType = 'alerta';
-            $notes = 'El operador reportó falta de material.';
+            $partialUnits = (int) $request->input('partial_units', 0);
+            $extraNote = $partialUnits > 0 ? " Además, se enviaron {$partialUnits} unidades terminadas al almacén." : "";
+            $notes = "El operador reportó falta de material.{$extraNote}";
         }
 
         if ($logType) {
