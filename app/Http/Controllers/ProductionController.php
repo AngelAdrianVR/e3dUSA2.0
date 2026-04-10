@@ -414,17 +414,18 @@ class ProductionController extends Controller
      */
     public function print(Sale $sale)
     {
-        // Reutilizamos la misma lógica de carga de datos que en el método `show`
-        // para asegurar que el componente de impresión tenga toda la información necesaria.
         $sale->load([
             'user:id,name',
             'branch:id,name,parent_branch_id',
             'branch.parent:id,name',
             'productions.saleProduct.product.media',
             'productions.tasks.operator:id,name',
+            // --- Relaciones agregadas para cargar la info de las Parcialidades ---
+            'saleProducts.product:id,name,code,measure_unit',
+            'saleProducts.product.media',
+            'shipments.shipmentProducts'
         ]);
 
-        // Retornamos una vista de Inertia diferente, diseñada específicamente para la impresión.
         return Inertia::render('Production/Print', [
             'sale' => $sale
         ]);
