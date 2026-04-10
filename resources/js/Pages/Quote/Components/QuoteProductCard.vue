@@ -95,7 +95,7 @@
             <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-2 text-xs print:text-[9px]">
                 <!-- Dimensiones -->
                 <div class="space-y-1 print:space-y-0" v-if="item.product && (item.product.large || item.product.height || item.product.width || item.product.diameter)">
-                    <p class="uppercase text-gray-500 font-semibold text-[10px] print:text-[8px] print:mb-0.5">
+                    <p class="uppercase text-gray-900 font-bold text-[10px] print:text-[8px] print:mb-0.5 border-b border-dashed">
                         {{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}
                     </p>
                     <p v-if="item.product.large">{{ quote.is_spanish_template ? 'Largo' : 'Length' }}: <span class="font-semibold">{{ item.product.large }}mm</span></p>
@@ -106,7 +106,7 @@
 
                 <!-- Precios -->
                 <div class="space-y-1 print:space-y-0" :class="{ 'col-span-2': !item.product || (!item.product.large && !item.product.height && !item.product.width && !item.product.diameter) }">
-                    <p class="uppercase text-gray-500 font-semibold text-[10px] print:text-[8px] print:mb-0.5">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p>
+                    <p class="uppercase text-gray-900 font-bold text-[10px] print:text-[8px] print:mb-0.5 border-b border-dashed">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p>
                     <div class="flex justify-between">
                         <span>{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
                         <span class="font-semibold">{{ Number(item.quantity).toLocaleString() }}</span>

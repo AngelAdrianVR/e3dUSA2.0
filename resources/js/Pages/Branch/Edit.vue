@@ -41,7 +41,7 @@
                                 <InputError :message="form.errors.account_manager_id" />
                             </div>
                             <div>
-                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Sucursal Matriz (Opcional)</label>
+                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Matriz / Razón social (Opcional)</label>
                                 <el-select v-model="form.parent_branch_id" placeholder="Selecciona una matriz" class="!w-full" filterable clearable>
                                     <el-option v-for="item in branches" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
