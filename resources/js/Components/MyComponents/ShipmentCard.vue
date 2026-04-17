@@ -35,6 +35,19 @@
                     </button>
                 </el-tooltip>
 
+                <!-- Botón Eliminar Parcialidad (Pendiente) -->
+                <el-popconfirm v-if="!isShipped" title="¿Eliminar esta parcialidad?" confirm-button-text="Sí" cancel-button-text="No" @confirm="$emit('delete-shipment', shipment.id)">
+                    <template #reference>
+                        <div class="inline-flex">
+                            <el-tooltip content="Eliminar parcialidad" placement="top">
+                                <button class="px-3 py-1 bg-red-100 text-red-600 rounded-md text-sm hover:bg-red-200 transition-colors duration-200 flex items-center gap-2">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </el-tooltip>
+                        </div>
+                    </template>
+                </el-popconfirm>
+
                 <!-- Botón Marcar como Enviado -->
                 <button v-if="!isShipped && $page.props.auth.user.permissions.includes('Marcar parcialidades como enviadas')"
                     @click="$emit('open-confirmation', shipment)"
