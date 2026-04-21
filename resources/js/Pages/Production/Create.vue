@@ -257,12 +257,16 @@
                     </div>
 
                      <div>
+                        <!-- CAMBIO: Se quitó la directiva :disabled para permitir que el Jefe de Producción edite 
+                             el tiempo estimado manualmente aún si usó un Proceso Estándar -->
                         <TextInput
                             v-model="newTask.estimated_time_minutes"
                             label="Tiempo Estimado (minutos)*"
-                            :disabled="!newTask.is_free_task && newTask.production_cost_id !== null"
                             type="number"
                         />
+                        <p v-if="!newTask.is_free_task" class="text-xs text-gray-400 mt-1">
+                            Calculado automáticamente. Puedes ajustarlo manualmente si es necesario.
+                        </p>
                     </div>
 
                      <div class="col-span-3 text-right">
@@ -311,7 +315,7 @@ export default {
             currentProduct: null,
             loading: false,
             salesData: this.sales.data,
-            observer: null, // Guardará la instancia del IntersectionObserver
+            observer: null,
 
             newTask: {
                 is_free_task: true,
@@ -342,11 +346,9 @@ export default {
         }
     },
     mounted() {
-        // Configuramos el observador cuando el componente se monta
         this.setupObserver();
     },
     beforeUnmount() {
-        // Es importante desconectar el observador para evitar fugas de memoria
         if (this.observer) {
             this.observer.disconnect();
         }
@@ -359,31 +361,28 @@ export default {
         },
         setupObserver() {
             const options = {
-                root: null, // viewport
+                root: null, 
                 rootMargin: '0px',
                 threshold: 1.0,
             };
 
             this.observer = new IntersectionObserver(([entry]) => {
-                // Si el elemento disparador es visible y hay más páginas por cargar
                 if (entry && entry.isIntersecting && this.sales.next_page_url) {
                     this.loadMoreSales();
                 }
             }, options);
 
-            // Empezamos a observar el elemento disparador, si existe
             if (this.$refs.loadMoreTrigger) {
                 this.observer.observe(this.$refs.loadMoreTrigger);
             }
         },
-        // --- Métodos del Asistente y Carga Progresiva ---
         handleSaleSelectionChange(selection) {
             this.selectedSales = selection;
             const selectedProductIds = this.productsToProduce.map(p => p.id);
             this.form.products_with_tasks = this.form.products_with_tasks.filter(p => selectedProductIds.includes(p.sale_product_id));
         },
         loadMoreSales() {
-            if (this.loading) return; // Evitar cargas múltiples simultáneas
+            if (this.loading) return; 
             
             this.loading = true;
             this.$inertia.get(this.sales.next_page_url, {}, {
@@ -392,10 +391,7 @@ export default {
                 only: ['sales'],
                 onSuccess: page => {
                     this.salesData = [...this.salesData, ...page.props.sales.data];
-                    // Inertia actualiza props.sales automáticamente
                     this.loading = false;
-
-                    // Si ya no hay más páginas, el div disparador desaparecerá y el observador dejará de activarse.
                 },
                 onError: () => {
                     this.loading = false;
@@ -403,7 +399,6 @@ export default {
             });
         },
         
-        // --- Métodos de Asignación de Tareas ---
         openTaskModal(product) {
             this.currentProduct = product;
             if (!this.form.products_with_tasks.some(p => p.sale_product_id === product.id)) {
@@ -426,12 +421,16 @@ export default {
 
                 let totalSeconds = process.estimated_time_seconds;
 
-                // Si la tarea es 'Por pieza', multiplica el tiempo por la cantidad a producir
                 if (process.cost_type === 'Pieza' && this.currentProduct) {
-                    totalSeconds = process.estimated_time_seconds * this.currentProduct.quantity_to_produce;
+                    // CAMBIO CLAVE: Si la cantidad a producir es mayor a 0, la usamos. 
+                    // Si es 0 (porque supuestamente hay stock pero se forzará la producción), 
+                    // usamos la cantidad original que solicitó el cliente en la orden.
+                    const quantityForCalculation = this.currentProduct.quantity_to_produce > 0 
+                                                 ? this.currentProduct.quantity_to_produce 
+                                                 : this.currentProduct.quantity;
+                                                 
+                    totalSeconds = process.estimated_time_seconds * quantityForCalculation;
                 }
-                
-                // Para los demás tipos ('Por tarea', etc.), se usa el tiempo base del proceso.
                 
                 this.newTask.estimated_time_minutes = Math.round(totalSeconds / 60);
             }
@@ -464,7 +463,6 @@ export default {
             this.newTask = { is_free_task: true, production_cost_id: null, operator_id: null, name: '', estimated_time_minutes: null };
         },
         
-        // --- Métodos de Ayuda (Helpers) ---
         getOperatorName(operatorId) {
             const operator = this.operators.find(op => op.id === operatorId);
             return operator ? operator.name : 'N/A';
@@ -480,10 +478,8 @@ export default {
         },
         formatNumber(value) {
             return Number(value).toLocaleString('en-US'); 
-            // o 'es-MX' si prefieres puntos y comas al estilo español
         },
 
-        // --- Lógica de Creación ---
         isReadyToCreate() {
             if (!this.productsToProduce.length) return false;
             

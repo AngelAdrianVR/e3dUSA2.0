@@ -25,6 +25,7 @@ use App\Http\Controllers\ManualController;
 use App\Http\Controllers\MediaLibraryController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\PmsTaskController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductExchangeController;
 use App\Http\Controllers\ProductFamilyController;
@@ -454,6 +455,34 @@ Route::prefix('calendar')->name('calendar.')->group(function () {
     
     // Acción para eliminar cualquier entrada
     Route::delete('/entries/{calendarEntry}', [CalendarController::class, 'destroy'])->middleware('auth')->name('entries.destroy');
+});
+
+
+Route::middleware(['auth'])->group(function () {
+    
+    // ==========================================
+    // MÓDULO PMS (Control de Actividades ISO)
+    // ==========================================
+    Route::prefix('pms')->name('pms.')->group(function () {
+        
+        // Vista principal (Tablero Kanban). Se pasan los detalles en la misma colección (para el modal)
+        Route::get('/', [PmsTaskController::class, 'index'])->name('index');
+        
+        // Crear una nueva tarea manualmente (Para usuarios con permiso)
+        Route::post('/', [PmsTaskController::class, 'store'])->name('store');
+        
+        // Actualizar la tarea completa (Responsable, Fechas, Prioridad, etc.) desde el Modal
+        Route::put('/{pmsTask}', [PmsTaskController::class, 'update'])->name('update');
+        
+        // Eliminar tarea
+        Route::delete('/{pmsTask}', [PmsTaskController::class, 'destroy'])->name('destroy');
+        
+        // Ruta específica y optimizada para arrastrar y soltar (Drag & Drop)
+        // También maneja la subida de evidencia y actualización a Terminado (guardando finished_at)
+        Route::post('/{pmsTask}/status', [PmsTaskController::class, 'updateStatus'])->name('update-status');
+        
+    });
+
 });
 
 
