@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use App\Notifications\PmsTaskAssignedNotification;
 
 class PmsTaskController extends Controller
 {
@@ -73,11 +74,18 @@ class PmsTaskController extends Controller
             }
         }
 
+        // Notificar al responsable asignado (si no es quien creó la tarea)
+        if ($task->responsible_id && $task->responsible_id !== Auth::id()) {
+            $task->responsible->notify(new PmsTaskAssignedNotification($task));
+        }
+
         return back()->with('success', 'Tarea creada y añadida al tablero.');
     }
 
     public function update(Request $request, PmsTask $pmsTask)
     {
+        $user = Auth::user();
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'department' => 'required|in:Producción,Ventas,Administración,Diseño,General',
@@ -88,6 +96,17 @@ class PmsTaskController extends Controller
             'description' => 'nullable|string',
             'evidence_files.*' => 'nullable|file', // Permitir múltiples archivos
         ]);
+
+        // REGLAS DE PERMISOS
+        if ($pmsTask->responsible_id !== $user->id && !$user->hasPermissionTo('Organizar tareas')) {
+             return back()->withErrors(['permission' => 'No tienes permiso para modificar tareas de otras personas.']);
+        }
+
+        if ($pmsTask->kanban_status === 'Validación' && $validated['kanban_status'] === 'Terminado') {
+            if (!$user->hasPermissionTo('Validar tareas')) {
+                return back()->withErrors(['permission' => 'No tienes permiso para validar tareas (Requiere permiso "Validar tareas").']);
+            }
+        }
 
         // REGLA ISO
         if (in_array($validated['kanban_status'], ['Validación', 'Terminado']) && 
@@ -105,6 +124,11 @@ class PmsTaskController extends Controller
         }
 
         $pmsTask->update($validated);
+
+        // Notificar solo si se cambió al responsable durante la edición
+        if ($pmsTask->wasChanged('responsible_id') && $pmsTask->responsible_id && $pmsTask->responsible_id !== Auth::id()) {
+            $pmsTask->responsible->notify(new PmsTaskAssignedNotification($pmsTask));
+        }
 
         // Guardar evidencias nuevas
         if ($request->hasFile('evidence_files')) {
@@ -131,11 +155,24 @@ class PmsTaskController extends Controller
 
     public function updateStatus(Request $request, PmsTask $pmsTask)
     {
+        $user = Auth::user();
+
         $request->validate([
             'kanban_status' => 'required|in:Pendiente,En proceso,Validación,Terminado',
-            'responsible_id' => 'nullable|exists:users,id', // <-- Permitir validar y actualizar esto desde Backlog
+            'responsible_id' => 'nullable|exists:users,id', // Permitir validar y actualizar esto desde Backlog
             'evidence_files.*' => 'nullable|file',
         ]);
+
+        // REGLAS DE PERMISOS PARA KANBAN
+        if ($pmsTask->responsible_id !== null && $pmsTask->responsible_id !== $user->id && !$user->hasPermissionTo('Organizar tareas')) {
+             return back()->withErrors(['permission' => 'No tienes permiso para mover tareas de otras personas.']);
+        }
+
+        if ($pmsTask->kanban_status === 'Validación' && $request->kanban_status === 'Terminado') {
+            if (!$user->hasPermissionTo('Validar tareas')) {
+                return back()->withErrors(['permission' => 'No tienes permiso para validar tareas (Requiere permiso "Validar tareas").']);
+            }
+        }
 
         // REGLA ISO
         if (in_array($request->kanban_status, ['Validación', 'Terminado'])) {
@@ -166,6 +203,11 @@ class PmsTaskController extends Controller
         }
 
         $pmsTask->update($dataToUpdate);
+
+        // Notificar si se reasignó un responsable desde la vista Kanban/Backlog
+        if ($pmsTask->wasChanged('responsible_id') && $pmsTask->responsible_id && $pmsTask->responsible_id !== Auth::id()) {
+            $pmsTask->responsible->notify(new PmsTaskAssignedNotification($pmsTask));
+        }
 
         if ($request->kanban_status === 'Terminado' && $pmsTask->sourceable) {
             if (get_class($pmsTask->sourceable) === 'App\Models\ProductionTask') {

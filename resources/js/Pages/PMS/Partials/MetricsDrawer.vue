@@ -19,25 +19,49 @@
             <div>
                 <h4 class="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b-2 pb-2 dark:border-slate-600 flex justify-between items-end">
                     Carga por Colaborador
-                    <span class="text-xs font-normal text-gray-500">Ordenado por saturación</span>
+                    <span class="text-xs font-normal text-gray-500">Haz clic para ver detalles</span>
                 </h4>
                 
                 <div class="space-y-3">
-                    <div v-for="stat in workload" :key="stat.id" class="flex items-center justify-between bg-gray-50 dark:bg-slate-800/50 p-3 rounded-lg border border-gray-100 dark:border-slate-700">
-                        <div class="flex items-center space-x-3">
-                            <div class="size-9 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
-                                {{ stat.name.substring(0, 2).toUpperCase() }}
+                    <div v-for="stat in workload" :key="stat.id" class="bg-gray-50 dark:bg-slate-800/50 rounded-lg border border-gray-100 dark:border-slate-700 overflow-hidden shadow-sm transition-all">
+                        
+                        <!-- Cabecera Acordeón -->
+                        <div @click="toggleUser(stat.id)" class="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-700/80 transition-colors">
+                            <div class="flex items-center space-x-3">
+                                <div class="size-9 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center text-indigo-600 dark:text-indigo-300 font-bold">
+                                    {{ stat.name.substring(0, 2).toUpperCase() }}
+                                </div>
+                                <span class="text-sm text-gray-800 dark:text-gray-200 font-semibold">{{ stat.name }}</span>
                             </div>
-                            <span class="text-sm text-gray-800 dark:text-gray-200 font-semibold">{{ stat.name }}</span>
+                            <div class="flex space-x-2 items-center">
+                                <el-tooltip content="Pendientes" placement="top">
+                                    <span class="px-2 py-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 text-xs rounded font-bold">{{ stat.pending }}</span>
+                                </el-tooltip>
+                                <el-tooltip content="En Proceso" placement="top">
+                                    <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-500 text-xs rounded font-bold">{{ stat.inProgress }}</span>
+                                </el-tooltip>
+                                <i class="fa-solid fa-chevron-down text-gray-400 text-xs ml-1 transition-transform duration-300" :class="{'rotate-180': expandedUser === stat.id}"></i>
+                            </div>
                         </div>
-                        <div class="flex space-x-2">
-                            <el-tooltip content="Pendientes" placement="top">
-                                <span class="px-2 py-1 bg-gray-200 dark:bg-slate-600 text-gray-700 dark:text-gray-300 text-xs rounded font-bold">{{ stat.pending }}</span>
-                            </el-tooltip>
-                            <el-tooltip content="En Proceso" placement="top">
-                                <span class="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-500 text-xs rounded font-bold">{{ stat.inProgress }}</span>
-                            </el-tooltip>
+
+                        <!-- Lista de Tareas Desplegada -->
+                        <div v-show="expandedUser === stat.id" class="border-t border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800/90">
+                            <div class="p-2 space-y-1">
+                                <div v-for="task in stat.taskList" :key="task.id" 
+                                     @click="$emit('view-task', task)" 
+                                     class="group flex items-center justify-between p-2 rounded hover:bg-blue-50 dark:hover:bg-slate-700 cursor-pointer transition-colors">
+                                    <div class="flex items-center space-x-2 overflow-hidden">
+                                        <i class="fa-solid fa-hashtag text-gray-400 text-xs"></i>
+                                        <span class="text-xs text-gray-700 dark:text-gray-300 truncate font-medium group-hover:text-blue-600 dark:group-hover:text-blue-400">{{ task.title }}</span>
+                                    </div>
+                                    <span class="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded font-bold ml-2" 
+                                          :class="task.kanban_status === 'Pendiente' ? 'bg-gray-100 text-gray-600 dark:bg-slate-600 dark:text-gray-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-500'">
+                                        {{ task.kanban_status }}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
+
                     </div>
                     
                     <div v-if="!workload.length" class="text-sm text-gray-500 py-6 text-center italic">
@@ -50,7 +74,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { isPast, parseISO } from 'date-fns';
 
 const props = defineProps({
@@ -58,7 +82,13 @@ const props = defineProps({
     tasks: Array
 });
 
-defineEmits(['update:show']);
+defineEmits(['update:show', 'view-task']);
+
+const expandedUser = ref(null);
+
+const toggleUser = (userId) => {
+    expandedUser.value = expandedUser.value === userId ? null : userId;
+};
 
 const activeTasks = computed(() => {
     return props.tasks.filter(t => ['Pendiente', 'En proceso', 'Validación'].includes(t.kanban_status)).length;
@@ -71,16 +101,24 @@ const expiredTasksCount = computed(() => {
     }).length;
 });
 
-// Calcula la carga de trabajo sumando pendientes y en proceso por usuario
+// Calcula la carga de trabajo sumando pendientes y en proceso por usuario e incluye las tareas
 const workload = computed(() => {
     const users = {};
     props.tasks.forEach(task => {
         if (task.responsible && ['Pendiente', 'En proceso'].includes(task.kanban_status)) {
             if (!users[task.responsible.id]) {
-                users[task.responsible.id] = { id: task.responsible.id, name: task.responsible.name, pending: 0, inProgress: 0 };
+                users[task.responsible.id] = { 
+                    id: task.responsible.id, 
+                    name: task.responsible.name, 
+                    pending: 0, 
+                    inProgress: 0,
+                    taskList: [] 
+                };
             }
             if (task.kanban_status === 'Pendiente') users[task.responsible.id].pending++;
             if (task.kanban_status === 'En proceso') users[task.responsible.id].inProgress++;
+
+            users[task.responsible.id].taskList.push(task);
         }
     });
     // Ordenar de mayor a menor carga

@@ -115,7 +115,11 @@
             </div>
         </div>
 
-        <MetricsDrawer v-model:show="showMetrics" :tasks="taskData" />
+        <MetricsDrawer 
+            v-model:show="showMetrics" 
+            :tasks="taskData" 
+            @view-task="openTaskModal"
+        />
 
         <TaskModal 
             :show="showTaskModal" 
@@ -233,9 +237,16 @@ const handleStatusUpdate = ({ task, newStatus }) => {
             ElMessage.success('Tarea movida exitosamente');
         },
         onError: (errors) => {
+            // Manejador de errores del backend (ISO o Permisos)
             if (errors.evidence_files) {
                 ElMessage.error({
                     message: `Regla ISO 9001: ${errors.evidence_files}`,
+                    duration: 5000,
+                    showClose: true
+                });
+            } else if (errors.permission) {
+                ElMessage.error({
+                    message: errors.permission,
                     duration: 5000,
                     showClose: true
                 });

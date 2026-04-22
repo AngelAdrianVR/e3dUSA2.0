@@ -14,11 +14,13 @@
                     <div class="lg:col-span-1 xl:col-span-1 gap-5">
                        <CalendarWidget :events="calendarEvents" />
                     </div>
+
                     
                     <!-- Panel de Órdenes de Venta Autorizadas -->
                     <div class="grid grid-cols-3 gap-5 lg:col-span-3 xl:col-span-4">
                         <OvertimeRequestPanel class="col-span-1" v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :pending-requests="pendingOvertimeRequests" />
                         <AvailableSalesPanel class="col-span-2" :orders="availableSales" />
+                        <MyPmsTasks :tasks="myPmsTasks" @view="openTaskModal" />
                     </div>
 
                     <!-- Warehouse Status -->
@@ -62,6 +64,14 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal de Tareas PMS -->
+        <TaskModal 
+            :show="showTaskModal" 
+            :task="selectedTask" 
+            :users="users"
+            @close="closeTaskModal" 
+        />
     </AppLayout>
 </template>
 
@@ -76,6 +86,8 @@ import UpcomingBirthdays from './Components/UpcomingBirthdays.vue';
 import MyPendingInvoices from './Components/MyPendingInvoices.vue';
 import MySalesOrders from './Components/MySalesOrders.vue';
 import MyPendingTasks from './Components/MyPendingTasks.vue';
+import MyPmsTasks from './Components/MyPmsTasks.vue';
+import TaskModal from '../PMS/Partials/TaskModal.vue';
 import NewsPanel from './Components/NewsPanel.vue';
 import OvertimeRequestPanel from './Components/OvertimeRequestPanel.vue';
 import AvailableSalesPanel from './Components/AvailableSalesPanel.vue';
@@ -87,6 +99,8 @@ export default {
         MySalesOrders,
         CalendarWidget,
         MyPendingTasks,
+        MyPmsTasks,
+        TaskModal,
         RequiredActions,
         UpcomingBirthdays,
         MyPendingInvoices,
@@ -103,6 +117,8 @@ export default {
         upcomingBirthdays: Array,
         mySalesOrders: Array,
         myPendingTasks: Array,
+        myPmsTasks: Array,
+        users: Array,
         authUserName: String,
         news: Array,
         myPendingInvoices: Array,
@@ -116,6 +132,8 @@ export default {
     data() {
         return {
            isDark: true,
+           showTaskModal: false,
+           selectedTask: null,
         }
     },
     computed: {
@@ -126,6 +144,14 @@ export default {
     methods: {
         toggleTheme() {
             this.isDark = !this.isDark;
+        },
+        openTaskModal(task) {
+            this.selectedTask = task;
+            this.showTaskModal = true;
+        },
+        closeTaskModal() {
+            this.showTaskModal = false;
+            this.selectedTask = null;
         }
     },
     mounted() {

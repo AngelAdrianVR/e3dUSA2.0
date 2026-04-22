@@ -1,7 +1,7 @@
 <template>
     <div class="flex h-[calc(100vh-280px)] gap-6 overflow-x-auto custom-scrollbar pb-4">
         <!-- COLUMNA: BACKLOG (Sin Asignar) -->
-        <div 
+        <div v-if="$page.props.auth.user.permissions.includes('Organizar tareas')"
             class="min-w-[280px] w-72 bg-gray-100 dark:bg-slate-800 rounded-xl p-4 flex flex-col border border-dashed border-gray-300 dark:border-slate-600"
             @dragover.prevent 
             @drop="onDrop('Backlog')"
@@ -46,14 +46,19 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
+import { ElMessage } from 'element-plus';
 import TaskCard from './TaskCard.vue';
 
 const props = defineProps({
     tasks: Array,
 });
 
-// AÑADIDO: 'require-assignment' para interceptar la acción del Backlog
 const emit = defineEmits(['update-status', 'task-click', 'require-assignment']);
+
+const page = usePage();
+const currentUser = page.props.auth.user;
+const hasPermission = (perm) => currentUser.permissions.includes(perm);
 
 const draggedTask = ref(null);
 
@@ -88,6 +93,20 @@ const onDrop = (targetStatus) => {
     
     // Ignorar si intenta mover del Backlog al Backlog
     if (!task.responsible_id && targetStatus === 'Backlog') return;
+
+    // --- REGLAS DE SEGURIDAD (Feedback Rápido Front-end) ---
+    if (task.responsible_id !== null && task.responsible_id !== currentUser.id && !hasPermission('Organizar tareas')) {
+        ElMessage.warning('No tienes permiso para mover tareas asignadas a otras personas.');
+        draggedTask.value = null;
+        return;
+    }
+
+    if (task.kanban_status === 'Validación' && targetStatus === 'Terminado' && !hasPermission('Validar tareas')) {
+        ElMessage.warning('Solo personal autorizado puede pasar una tarea a Terminado (Requiere permiso "Validar tareas").');
+        draggedTask.value = null;
+        return;
+    }
+    // --------------------------------------------------------
 
     // NUEVO: Si mueve del Backlog a un proceso normal, solicitar asignación
     if (!task.responsible_id && targetStatus !== 'Backlog') {

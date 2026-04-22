@@ -3,7 +3,7 @@
         <template #title>
             <div class="flex justify-between items-center w-full pr-4">
                 <span class="font-bold text-gray-800 dark:text-gray-200">
-                    {{ isEditing ? (task.folio + ' - Editar Tarea') : 'Nueva Tarea' }}
+                    {{ isEditing ? (task.folio + ' - ' + (canEdit ? 'Editar Tarea' : 'Detalles de Tarea')) : 'Nueva Tarea' }}
                 </span>
                 <span v-if="isEditing" :class="deptColor(form.department)" class="px-3 py-1 text-xs font-bold uppercase rounded-md text-white shadow-sm">
                     {{ form.department }}
@@ -15,15 +15,15 @@
             <form @submit.prevent="submit" class="space-y-4 mt-2">
                 <!-- Título -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Título de la Tarea <span class="text-red-500">*</span></label>
-                    <input v-model="form.title" type="text" :disabled="!canEdit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white sm:text-sm" placeholder="Ej. Revisión de inventario" />
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Título de la Tarea <span class="text-red-500" v-if="canEdit">*</span></label>
+                    <input v-model="form.title" type="text" :disabled="!canEdit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white sm:text-sm disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-slate-900" placeholder="Ej. Revisión de inventario" />
                     <div v-if="form.errors.title" class="text-red-500 text-xs mt-1">{{ form.errors.title }}</div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Departamento -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Departamento <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Departamento <span class="text-red-500" v-if="canEdit">*</span></label>
                         <el-select v-model="form.department" class="w-full mt-1" :disabled="!canEdit" :teleported="false">
                             <el-option label="Producción" value="Producción" />
                             <el-option label="Ventas" value="Ventas" />
@@ -36,7 +36,7 @@
 
                     <!-- Prioridad -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Prioridad <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Prioridad <span class="text-red-500" v-if="canEdit">*</span></label>
                         <el-select v-model="form.priority" class="w-full mt-1" :disabled="!canEdit" :teleported="false">
                             <el-option label="Baja" value="Baja" />
                             <el-option label="Media" value="Media" />
@@ -46,7 +46,7 @@
 
                     <!-- Fecha Compromiso -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha Compromiso <span class="text-red-500">*</span></label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Fecha Compromiso <span class="text-red-500" v-if="canEdit">*</span></label>
                         <el-date-picker
                             v-model="form.due_date"
                             type="datetime"
@@ -71,13 +71,13 @@
 
                 <div v-if="isEditing">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Estatus en Tablero</label>
-                    <el-select v-model="form.kanban_status" class="w-full mt-1" :disabled="!canEdit" :teleported="false">
+                    <el-select v-model="form.kanban_status" class="w-full mt-1" :disabled="!canChangeStatus" :teleported="false">
                         <el-option label="Pendiente" value="Pendiente" />
                         <el-option label="En proceso" value="En proceso" />
                         <el-option label="Validación" value="Validación" />
                         <el-option label="Terminado" value="Terminado" />
                     </el-select>
-                    <p v-if="['Validación', 'Terminado'].includes(form.kanban_status)" class="text-xs text-orange-600 mt-1">
+                    <p v-if="['Validación', 'Terminado'].includes(form.kanban_status) && canChangeStatus" class="text-xs text-orange-600 mt-1">
                         <i class="fa-solid fa-triangle-exclamation"></i> Recuerda que la norma ISO requiere adjuntar evidencia física o digital.
                     </p>
                 </div>
@@ -85,7 +85,7 @@
                 <!-- Descripción -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Descripción / Detalles</label>
-                    <textarea v-model="form.description" rows="3" :disabled="!canEdit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white sm:text-sm"></textarea>
+                    <textarea v-model="form.description" rows="3" :disabled="!canEdit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-slate-800 dark:border-slate-600 dark:text-white sm:text-sm disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-slate-900"></textarea>
                 </div>
 
                 <!-- Módulo de Evidencias / Archivos -->
@@ -103,7 +103,7 @@
                                     {{ file.file_name }}
                                 </a>
                             </div>
-                            <button v-if="canEdit" type="button" @click="deleteExistingFile(file.id)" class="text-red-500 hover:text-red-700 px-2">
+                            <button v-if="canEdit || canChangeStatus" type="button" @click="deleteExistingFile(file.id)" class="text-red-500 hover:text-red-700 px-2">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </div>
@@ -113,7 +113,7 @@
                     </div>
 
                     <!-- Input Nuevos Archivos -->
-                    <div v-if="canEdit">
+                    <div v-if="canUploadEvidence">
                         <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">Cargar Nuevas Evidencias (Múltiples permitidas)</label>
                         <input type="file" multiple @change="handleFileUpload" class="block w-full text-sm text-gray-500 dark:text-gray-300
                             file:mr-4 file:py-2 file:px-4
@@ -143,10 +143,10 @@
                 
                 <div class="flex space-x-3">
                     <button @click="closeModal" class="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-semibold transition">
-                        {{ canEdit ? 'Cancelar' : 'Cerrar' }}
+                        {{ canSave ? 'Cancelar' : 'Cerrar' }}
                     </button>
                     
-                    <button v-if="canEdit" @click="submit" :disabled="form.processing" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition disabled:opacity-50">
+                    <button v-if="canSave" @click="submit" :disabled="form.processing" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition disabled:opacity-50">
                         {{ form.processing ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear Tarea') }}
                     </button>
                 </div>
@@ -172,10 +172,29 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 const page = usePage();
 
+// Permite editar todo el formulario (campos de texto/fechas/responsable)
 const canEdit = computed(() => {
     if (!isEditing.value) return page.props.auth.user.permissions.includes('Crear tareas');
-    return page.props.auth.user.permissions.includes('Editar tareas');
+    return page.props.auth.user.permissions.includes('Editar tareas') || page.props.auth.user.permissions.includes('Organizar tareas');
 });
+
+// Permite cambiar el estatus en el select si se puede editar o si es el responsable
+const canChangeStatus = computed(() => {
+    if (!isEditing.value) return canEdit.value;
+    return canEdit.value || (props.task && props.task.responsible_id === page.props.auth.user.id);
+});
+
+// Cualquier persona puede subir evidencia en tareas ya existentes
+const canUploadEvidence = computed(() => {
+    if (!isEditing.value) return canEdit.value;
+    return true; 
+});
+
+// Evalúa si mostrar el botón de Guardar
+const canSave = computed(() => {
+    return canEdit.value || canChangeStatus.value || canUploadEvidence.value;
+});
+
 const canDelete = computed(() => page.props.auth.user.permissions.includes('Eliminar tareas'));
 
 const isEditing = computed(() => !!props.task);
@@ -244,6 +263,15 @@ const submit = () => {
             onSuccess: () => {
                 ElMessage.success('Tarea actualizada correctamente');
                 closeModal();
+            },
+            onError: (errors) => {
+                if (errors.permission) {
+                    ElMessage.error({
+                        message: errors.permission,
+                        duration: 5000,
+                        showClose: true
+                    });
+                }
             }
         });
     } else {
