@@ -10,6 +10,7 @@ import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ThemeToggleSwitch from "@/Components/MyComponents/ThemeToggleSwitch.vue";
 import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
+import TaskNotificationsDropdown from "@/Components/MyComponents/TaskNotificationsDropdown.vue"; // Componente nuevo
 import DraggableAlert from "@/Components/MyComponents/DraggableAlert.vue";
 import AttendanceTracker from "@/Components/MyComponents/AttendanceTracker.vue";
 import axios from 'axios';
@@ -92,8 +93,22 @@ const closeSearch = () => {
 
 // --- FIN LÓGICA BUSCADOR ---
 
-// <-- COMPUTED PARA LAS NOTIFICACIONES -->
-const userNotifications = computed(() => page.props.auth.user.notifications || []);
+// <-- COMPUTED PARA LAS NOTIFICACIONES (SEPARADAS) -->
+const allNotifications = computed(() => page.props.auth.user.notifications || []);
+
+// Aquí define las clases de notificaciones que pertenecen al dropdown de Tareas
+const taskClasses = [
+    'App\\Notifications\\TaskAssignedNotification',
+    'App\\Notifications\\PmsTaskAssignedNotification',
+];
+
+const taskNotifications = computed(() =>
+    allNotifications.value.filter(n => taskClasses.includes(n.type))
+);
+
+const generalNotifications = computed(() =>
+    allNotifications.value.filter(n => !taskClasses.includes(n.type))
+);
 
 // 2. COMPUTED PARA LAS ALERTAS ACTIVAS (¡ESTA ES LA FORMA CORRECTA!)
 const activeAlerts = computed(() => page.props.auth.user?.active_alerts || {});
@@ -361,8 +376,13 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <!-- Notificaciones -->
-                                <NotificationsDropdown :notifications="userNotifications" />
+                                <!-- ============================= -->
+                                <!-- NUEVO: Notificaciones TAREAS  -->
+                                <!-- ============================= -->
+                                <TaskNotificationsDropdown :notifications="taskNotifications" />
+
+                                <!-- Notificaciones GENERALES -->
+                                <NotificationsDropdown :notifications="generalNotifications" />
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
@@ -426,7 +446,7 @@ onMounted(() => {
                                 </div>
                             </div>
 
-                            <!-- Hamburger -->
+                            <!-- Hamburger (MOBILE MENU) -->
                             <div class="-me-2 flex items-center sm:hidden">
                                 <div class="rounded-lg transition duration-300 mr-3">
                                     <ThemeToggleSwitch v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
@@ -464,8 +484,13 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <!-- Notificaciones -->
-                                <NotificationsDropdown :notifications="userNotifications" />
+                                <!-- ============================= -->
+                                <!-- NUEVO: Notificaciones TAREAS  -->
+                                <!-- ============================= -->
+                                <TaskNotificationsDropdown :notifications="taskNotifications" />
+
+                                <!-- Notificaciones GENERALES -->
+                                <NotificationsDropdown :notifications="generalNotifications" />
 
                                 <button
                                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-200 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out z-50"

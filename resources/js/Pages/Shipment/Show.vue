@@ -11,7 +11,7 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip content="Agregar Nueva Parcialidad" placement="top">
+                <el-tooltip v-if="sale.status != 'Enviada'" content="Agregar Nueva Parcialidad" placement="top">
                     <button @click="openNewShipmentModal" class="size-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-800 transition-colors mr-2">
                         <i class="fa-solid fa-layer-group"></i>
                     </button>
@@ -29,197 +29,25 @@
             </div>
         </header>
 
-
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
                 <Stepper :currentStatus="sale.status" :steps="saleSteps" />
-                <!-- Card de Información de la Órden -->
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
-                    <ul class="space-y-3 text-sm">
-                        <!-- Campos para Venta -->
-                        <template v-if="sale.type === 'venta'">
-                            <li class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
+                
+                <!-- Componente Refactorizado: Detalles de la Órden -->
+                <OrderDetailsCard :sale="sale" />
 
-                                <!-- Tooltip Moderno -->
-                                <el-tooltip placement="right" effect="light" raw-content>
-                                    <template #content>
-                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                        <!-- Header -->
-                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                            {{ sale.branch?.name }}
-                                            </h4>
-                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                            {{ sale.branch?.status ?? 'N/A' }}
-                                            </span>
-                                        </div>
+                <!-- Componente Refactorizado: Progreso de Envíos por Producto -->
+                <ShipmentProgressCard v-if="uniqueSaleProducts.length > 0" :uniqueSaleProducts="uniqueSaleProducts" />
 
-                                        <!-- Datos principales -->
-                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                        </div>
-
-                                        <!-- Footer -->
-                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                            <Link :href="route('branches.show', sale.branch?.id)">
-                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                <i class="fa-solid fa-eye"></i> Ver Cliente
-                                            </SecondaryButton>
-                                            </Link>
-                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                        </div>
-                                        </div>
-                                    </template>
-
-                                <!-- Nombre clickable -->
-                                <span class="text-blue-500 hover:underline cursor-default">
-                                    {{ sale.branch?.name ?? 'N/A' }}
-                                </span>
-                                </el-tooltip>
-                            </li>
-
-                            <!-- Contacto -->
-                            <li class="flex justify-between">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
-                                
-                                <el-tooltip
-                                    v-if="sale.contact"
-                                    placement="right"
-                                    effect="dark"
-                                >
-                                    <template #content>
-                                    <div class="space-y-2 text-sm">
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Correo')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-envelope text-blue-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
-                                        </p>
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-phone text-green-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
-                                        </p>
-                                    </div>
-                                    </template>
-
-                                    <span
-                                    class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200"
-                                    >
-                                    {{ sale.contact?.name ?? 'N/A' }}
-                                    </span>
-                                </el-tooltip>
-
-                                <span v-else class="text-gray-400 italic">N/A</span>
-                            </li>
-
-
-                            <!-- Nombre clickable -->
-                            <li class="flex justify-between">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">OV:</span>
-                                <span @click="$inertia.visit(route('sales.show', sale.id))" class="text-blue-500 hover:underline cursor-pointer">
-                                    OV-{{ sale.id.toString().padStart(4, '0') ?? 'N/A' }}
-                                </span>
-                            </li>
-                        </template>
-
-
-                        <!-- Campos Comunes -->
-                        <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Tipo:</span>
-                            <span>{{ sale.type === 'venta' ? 'Venta' : 'Stock' }}</span>
-                        </li>
-                        <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>
-                            <span>{{ sale.oce_name ?? 'No especificado' }}</span>
-                        </li>
-                         <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Creado por:</span>
-                            <span>{{ sale.user?.name ?? 'N/A' }}</span>
-                        </li>
-                        <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Creación:</span>
-                            <span>{{ formatDate(sale.created_at) }}</span>
-                        </li>
-                         <li class="flex justify-between items-center">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Prioridad:</span>
-                            <el-tag v-if="sale.is_high_priority" type="danger" size="small">Alta</el-tag>
-                            <el-tag v-else type="info" size="small">Normal</el-tag>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Card de Resumen de Producción -->
-                <div v-if="sale.production_summary && sale.production_summary.total_productions > 0"
-                    class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4">
-                    <div class="flex justify-between items-center border-b dark:border-gray-600 pb-2 mb-3">
-                        <h3 class="text-lg font-semibold">Resumen de Producción</h3>
-                        <!-- Estadísticas Detalladas -->
-                        <div class="grid grid-cols-2 text-center text-sm">
-                            <div>
-                                <p class="font-bold text-lg">{{ sale.production_summary.completed_productions }} / {{ sale.production_summary.total_productions }}</p>
-                                <p class="text-gray-500 dark:text-gray-400 text-xs">Productos</p>
-                            </div>
-                            <div>
-                                <p class="font-bold text-lg">{{ sale.production_summary.completed_tasks }} / {{ sale.production_summary.total_tasks }}</p>
-                                <p class="text-gray-500 dark:text-gray-400 text-xs">Tareas</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-1">
-                        <!-- Estado General -->
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Estado:</span>
-                            <span class="font-bold px-2 py-1 rounded-md text-xs"
-                                :class="{
-                                    'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300': sale.production_summary.status === 'Terminada',
-                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300': sale.production_summary.status === 'En Proceso',
-                                    'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300': sale.production_summary.status === 'Sin material',
-                                    'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300': sale.production_summary.status === 'Pendiente',
-                                    'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300': sale.production_summary.status === 'Pausada',
-                                }">
-                                {{ sale.production_summary.status }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Inicio:</span>
-                            <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.started_at) }}
-                            </span>
-                        </div>
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Fin:</span>
-                            <span class="font-bold px-2 py-1 rounded-md text-xs">
-                                {{ formatDateTime(sale.production_summary.finished_at) }}
-                            </span>
-                        </div>
-
-                        <!-- Barra de Progreso Futurista -->
-                        <div>
-                            <div class="flex justify-between mb-1">
-                                <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Progreso General</span>
-                                <span class="text-xs font-bold text-green-500">{{ sale.production_summary.percentage }}%</span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-3 dark:bg-slate-700">
-                                <div class="bg-gradient-to-r from-emerald-600 to-green-500 h-3 rounded-full transition-all duration-500 ease-out"
-                                    :style="{ width: sale.production_summary.percentage + '%' }">
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
+                <!-- Componente Refactorizado: Resumen de Producción -->
+                <ProductionSummaryCard :summary="sale.production_summary" />
             </div>
 
             <!-- COLUMNA DERECHA: ENVÍOS -->
-            <div class="lg:col-span-2 space-y-5 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 pb-10">
+            <div class="lg:col-span-2 space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-2 pb-10 custom-scrollbar">
                 <div v-if="!sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4 min-h-[300px] flex items-center justify-center">
                      <div class="text-center text-gray-500 dark:text-gray-400 py-10">
                         <i class="fa-solid fa-box-open text-3xl mb-3"></i>
@@ -227,34 +55,39 @@
                     </div>
                 </div>
                 
-                <!-- ===== COMPONENTE DE TARJETA DE ENVÍO ITERADO ===== -->
-                <ShipmentCard 
-                    v-else 
-                    v-for="(shipment, index) in sale.shipments" 
-                    :key="shipment.id" 
-                    :shipment="shipment"
-                    :index="index"
-                    :saleStatus="sale.status"
-                    :isReady="isShipmentReady(shipment)"
-                    @open-label="openLabelModal"
-                    @open-confirmation="openConfirmationDialog"
-                    @open-guide="openGuideModal"
-                    @open-evidence="openEvidenceModal"
-                    @delete-media="deleteMedia"
-                />
+                <!-- Acordeón Envoltorio + Componente Tarjeta Original -->
+                <template v-else>
+                    <ShipmentAccordion 
+                        v-for="(shipment, index) in sale.shipments" 
+                        :key="shipment.id" 
+                        :shipment="shipment"
+                        :index="index"
+                    >
+                        <ShipmentCard 
+                            :shipment="shipment"
+                            :index="index"
+                            :saleStatus="sale.status"
+                            :isReady="isShipmentReady(shipment)"
+                            @open-label="openLabelModal"
+                            @open-confirmation="openConfirmationDialog"
+                            @open-guide="openGuideModal"
+                            @open-evidence="openEvidenceModal"
+                            @delete-media="deleteMedia"
+                            @delete-shipment="deleteShipment"
+                        />
+                    </ShipmentAccordion>
+                </template>
             </div>
         </main>
 
-        <!-- ===== MODAL NUEVA PARCIALIDAD (CREAR ENVÍO AL VUELO) ===== -->
+        <!-- ===== MODALES (Se mantienen igual) ===== -->
+        <!-- Modal Nueva Parcialidad -->
         <el-dialog v-model="newShipmentModalVisible" title="Agregar Nueva Parcialidad" width="700px">
             <div class="space-y-4">
                 <div class="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 p-3 rounded-lg text-sm flex items-start gap-3">
                     <i class="fa-solid fa-circle-info mt-0.5"></i>
-                    <p>
-                        Crea un nuevo envío. Si la cantidad que asignes de un producto ya estaba programada en un envío pendiente, <strong>el sistema la restará automáticamente de allá</strong> para moverla a esta nueva parcialidad sin descuadrar la órden.
-                    </p>
+                    <p>Crea un nuevo envío. Si la cantidad que asignes de un producto ya estaba programada en un envío pendiente, <strong>el sistema la restará automáticamente de allá</strong> para moverla a esta nueva parcialidad sin descuadrar la órden.</p>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha Promesa *</label>
@@ -273,7 +106,7 @@
 
                 <div class="mt-6 border-t dark:border-gray-600 pt-4">
                     <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a mover a esta parcialidad</h4>
-                    <div class="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
+                    <div class="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                         <div v-for="(prod, index) in newShipmentForm.products" :key="prod.sale_product_id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
                             <div class="w-2/3 pr-4">
                                 <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="getProductName(prod.sale_product_id)">
@@ -292,47 +125,66 @@
                     <p v-if="newShipmentForm.errors.message" class="text-red-500 text-sm mt-2 text-center font-bold">{{ newShipmentForm.errors.message }}</p>
                 </div>
             </div>
-
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="newShipmentModalVisible = false">Cancelar</el-button>
-                    <el-button type="primary" @click="submitNewShipment" :loading="newShipmentForm.processing" :disabled="!hasProductsToShip">
-                        Crear Parcialidad
-                    </el-button>
+                    <el-button type="primary" @click="submitNewShipment" :loading="newShipmentForm.processing" :disabled="!hasProductsToShip">Crear Parcialidad</el-button>
                 </span>
             </template>
         </el-dialog>
 
-
-        <!-- ===== MODAL DE CONFIRMACIÓN ENVIADO ===== -->
-        <el-dialog v-model="dialogVisible" title="Confirmar Envío" width="500px">
+        <!-- Modal Confirmación -->
+        <el-dialog v-model="dialogVisible" title="Confirmar Envío" width="600px">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Estás a punto de marcar este envío como "Enviado". Por favor, agrega una nota si es necesario y confirma quién realiza el envío.
+                Estás a punto de marcar este envío como "Enviado". Puedes ajustar la fecha y modificar las cantidades si se enviará menos de lo planeado en esta parcialidad.
             </p>
             <div class="space-y-4">
-                <div>
-                    <label for="sent_by" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Enviado por</label>
-                    <el-input v-model="form.sent_by" id="sent_by" placeholder="Nombre de quien envía" />
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Envío *</label>
+                        <el-date-picker v-model="form.sent_at" type="datetime" placeholder="Selecciona la fecha" format="YYYY/MM/DD hh:mm a" value-format="YYYY-MM-DD HH:mm:ss" class="!w-full" />
+                        <p v-if="form.errors.sent_at" class="text-red-500 text-xs mt-1">{{ form.errors.sent_at }}</p>
+                    </div>
+                    <div>
+                        <label for="sent_by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Enviado por *</label>
+                        <el-input v-model="form.sent_by" id="sent_by" placeholder="Nombre de quien envía" />
+                        <p v-if="form.errors.sent_by" class="text-red-500 text-xs mt-1">{{ form.errors.sent_by }}</p>
+                    </div>
                 </div>
                 <div>
-                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Notas (Opcional)</label>
-                    <el-input v-model="form.notes" id="notes" type="textarea" :rows="3" placeholder="Añade notas sobre el envío aquí..." />
+                    <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas (Opcional)</label>
+                    <el-input v-model="form.notes" id="notes" type="textarea" :rows="2" placeholder="Añade notas sobre el envío aquí..." />
+                    <p v-if="form.errors.notes" class="text-red-500 text-xs mt-1">{{ form.errors.notes }}</p>
+                </div>
+                
+                <div class="mt-4 border-t dark:border-gray-600 pt-4">
+                    <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a enviar en esta caja/parcialidad</h4>
+                    <div class="space-y-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
+                            <div class="w-2/3 pr-4">
+                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
+                            </div>
+                            <div class="w-1/3 text-right">
+                                <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
+                            </div>
+                        </div>
+                    </div>
+                    <p v-if="form.errors.products" class="text-red-500 text-xs mt-1">{{ form.errors.products }}</p>
                 </div>
             </div>
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="dialogVisible = false">Cancelar</el-button>
-                    <el-button type="primary" @click="confirmShipment">
-                        Confirmar Envío
-                    </el-button>
+                    <el-button type="primary" @click="confirmShipment" :loading="form.processing" :disabled="!hasProductsToShipConfirm">Confirmar Envío</el-button>
                 </span>
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL ETIQUETA DE ENVÍO ===== -->
+        <!-- Modal Etiquetas -->
         <el-dialog v-model="labelModalVisible" title="Crear Etiquetas para el Envío" width="900px">
-            <div v-if="labelForm.shipment">
-                <!-- SECCIÓN DE PRODUCTOS DISPONIBLES -->
+            <!-- Resto del contenido del modal Etiquetas permanece idéntico -->
+             <div v-if="labelForm.shipment">
                 <div class="bg-gray-100 dark:bg-slate-700 p-4 rounded-lg mb-6">
                     <h3 class="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Productos disponibles para empacar</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -347,9 +199,7 @@
                     </div>
                      <el-alert v-if="isOverAllocation" title="¡Atención!" type="error" description="Has asignado más productos de los disponibles en esta parcialidad. Ajusta las cantidades." :closable="false" show-icon class="mt-4" />
                 </div>
-
-                <!-- SECCIÓN DE CAJAS -->
-                <div class="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+                <div class="space-y-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                     <div v-for="(box, index) in labelForm.boxes" :key="box.id" class="border dark:border-gray-600 rounded-lg p-4 bg-white dark:bg-slate-800/50 relative">
                         <div class="flex justify-between items-center mb-3">
                             <h4 class="font-bold text-lg text-primary dark:text-sky-400">Caja #{{ index + 1 }}</h4>
@@ -357,16 +207,13 @@
                                 <i class="fa-solid fa-trash-can mr-1"></i> Quitar Caja
                             </el-button>
                         </div>
-
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                            <!-- Productos en la caja -->
                             <div class="md:col-span-2 space-y-2">
                                 <div v-for="product in labelForm.shipment.shipment_products" :key="product.id" class="flex items-center justify-between">
                                     <label class="text-sm text-gray-700 dark:text-gray-300 w-1/2 truncate">{{ product.sale_product.product.name }}</label>
                                     <el-input-number v-model="box.productQuantities[product.sale_product.id]" :min="0" :max="product.quantity" controls-position="right" size="small" class="w-32" />
                                 </div>
                             </div>
-                            <!-- Opciones de la caja -->
                             <div class="flex items-center justify-between mt-2 pt-2 border-t dark:border-gray-600">
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">¿Contenido Frágil?</label>
                                 <el-switch v-model="box.isFragile" />
@@ -374,24 +221,21 @@
                         </div>
                     </div>
                 </div>
-
                  <div class="mt-4">
                     <el-button @click="addBox" type="primary" plain><i class="fa-solid fa-plus mr-2"></i>Agregar otra caja</el-button>
                 </div>
             </div>
-            
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="labelModalVisible = false">Cancelar</el-button>
                     <el-button type="primary" @click="generateAndPrintLabels" :disabled="isOverAllocation || !hasProductsInBoxes">
-                        <i class="fa-solid fa-print mr-2"></i>
-                        Generar {{ labelForm.boxes.length }} Etiqueta(s)
+                        <i class="fa-solid fa-print mr-2"></i> Generar {{ labelForm.boxes.length }} Etiqueta(s)
                     </el-button>
                 </span>
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL INFORMACIÓN DE RASTREO ===== -->
+        <!-- Modal Info Rastreo -->
         <el-dialog v-model="showGuideModal" title="Información de Rastreo" width="500px">
             <div class="space-y-4">
                 <div>
@@ -408,14 +252,12 @@
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showGuideModal = false">Cancelar</el-button>
-                    <el-button type="primary" @click="submitGuide" :loading="guideForm.processing">
-                        Guardar Información
-                    </el-button>
+                    <el-button type="primary" @click="submitGuide" :loading="guideForm.processing">Guardar Información</el-button>
                 </span>
             </template>
         </el-dialog>
 
-        <!-- ===== MODAL SUBIR EVIDENCIA ===== -->
+        <!-- Modal Evidencia -->
         <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
             <div class="space-y-4">
                 <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
@@ -427,21 +269,17 @@
                     </div>
                 </div>
                 <p v-if="evidenceForm.errors.evidence_files" class="text-red-500 text-xs mt-1">{{ evidenceForm.errors.evidence_files }}</p>
-
-                <!-- Previsualización -->
-                    <div v-if="evidenceForm.evidence_files.length" class="mt-3 space-y-2">
+                <div v-if="evidenceForm.evidence_files.length" class="mt-3 space-y-2">
                     <p class="text-xs font-semibold uppercase text-gray-500">Archivos seleccionados:</p>
                     <div v-for="(file, idx) in evidenceForm.evidence_files" :key="idx" class="text-xs flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
                         <i class="fa-solid fa-file mr-2"></i> {{ file.name }}
                     </div>
-                    </div>
+                </div>
             </div>
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="showEvidenceModal = false">Cancelar</el-button>
-                    <el-button type="primary" @click="submitEvidence" :loading="evidenceForm.processing" :disabled="!evidenceForm.evidence_files.length">
-                        Subir Archivos
-                    </el-button>
+                    <el-button type="primary" @click="submitEvidence" :loading="evidenceForm.processing" :disabled="!evidenceForm.evidence_files.length">Subir Archivos</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -452,11 +290,13 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
-import SecondaryButton from "@/Components/SecondaryButton.vue";
 import ShipmentCard from "@/Components/MyComponents/ShipmentCard.vue";
+import OrderDetailsCard from "@/Components/MyComponents/OrderDetailsCard.vue";
+import ShipmentProgressCard from "@/Components/MyComponents/ShipmentProgressCard.vue";
+import ProductionSummaryCard from "@/Components/MyComponents/ProductionSummaryCard.vue";
+import ShipmentAccordion from "@/Components/MyComponents/ShipmentAccordion.vue";
+
 import { Link, router, useForm } from "@inertiajs/vue3";
-import { format, parseISO  } from 'date-fns';
-import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 
@@ -466,8 +306,11 @@ export default {
         Link,
         Stepper,
         AppLayout,
-        SecondaryButton,
         ShipmentCard,
+        OrderDetailsCard,
+        ShipmentProgressCard,
+        ProductionSummaryCard,
+        ShipmentAccordion
     },
     props: {
         sale: Object,
@@ -475,20 +318,19 @@ export default {
     data() {
         return {
             dialogVisible: false,
-            form: {
+            form: useForm({
                 id: null,
+                sent_at: '',
                 notes: '',
                 sent_by: '',
-            },
-            // --- State para modal de etiqueta ---
+                products: []
+            }),
             labelModalVisible: false,
             labelForm: {
                 shipment: null,
                 boxes: [],
             },
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
-            
-            // --- State para Guía y Evidencias ---
             showGuideModal: false,
             guideForm: useForm({
                 shipment_id: null,
@@ -500,8 +342,6 @@ export default {
                 shipment_id: null,
                 evidence_files: [],
             }),
-
-            // --- NUEVO: State para Agregar Parcialidad ---
             newShipmentModalVisible: false,
             newShipmentForm: useForm({
                 sale_id: this.sale.id,
@@ -513,15 +353,14 @@ export default {
         }
     },
     computed: {
-        // --- Computed methods Etiquetas ---
+        hasProductsToShipConfirm() {
+            if (!this.form.products) return false;
+            return this.form.products.some(p => p.quantity > 0);
+        },
         assignedQuantities() {
             const totals = {};
             if (!this.labelForm.shipment) return totals;
-
-            this.labelForm.shipment.shipment_products.forEach(p => {
-                totals[p.sale_product.id] = 0;
-            });
-
+            this.labelForm.shipment.shipment_products.forEach(p => { totals[p.sale_product.id] = 0; });
             this.labelForm.boxes.forEach(box => {
                 for (const productId in box.productQuantities) {
                     totals[productId] += Number(box.productQuantities[productId] || 0);
@@ -532,7 +371,6 @@ export default {
         remainingQuantities() {
             const remaining = {};
             if (!this.labelForm.shipment) return remaining;
-
             this.labelForm.shipment.shipment_products.forEach(p => {
                 const totalInShipment = p.quantity;
                 const totalAssigned = this.assignedQuantities[p.sale_product.id] || 0;
@@ -545,80 +383,68 @@ export default {
         },
         hasProductsInBoxes() {
             if (this.labelForm.boxes.length === 0) return false;
-            return this.labelForm.boxes.some(box => 
-                Object.values(box.productQuantities).some(qty => qty > 0)
-            );
+            return this.labelForm.boxes.some(box => Object.values(box.productQuantities).some(qty => qty > 0));
         },
-
-        // --- Computed Methods para Agregar Parcialidad ---
         uniqueSaleProducts() {
             if (!this.sale || !this.sale.shipments) return [];
-            
             const productsMap = new Map();
-            // Recorremos todos los envíos para agrupar los productos maestros de esta órden
             this.sale.shipments.forEach(shipment => {
                 shipment.shipment_products?.forEach(sp => {
                     if (!productsMap.has(sp.sale_product_id)) {
                         productsMap.set(sp.sale_product_id, {
                             id: sp.sale_product_id,
                             product: sp.sale_product.product,
-                            total_quantity: sp.sale_product.quantity, // Cantidad original en la venta
+                            total_quantity: sp.sale_product.quantity,
+                            shipped_quantity: 0,
+                            percentage: 0
                         });
                     }
                 });
             });
+            this.sale.shipments.forEach(shipment => {
+                if (shipment.status === 'Enviado') {
+                    shipment.shipment_products?.forEach(sp => {
+                        const prod = productsMap.get(sp.sale_product_id);
+                        if (prod) prod.shipped_quantity += sp.quantity;
+                    });
+                }
+            });
+            productsMap.forEach(prod => {
+                prod.percentage = Math.round((prod.shipped_quantity / prod.total_quantity) * 100);
+                if (prod.percentage > 100) prod.percentage = 100;
+            });
             return Array.from(productsMap.values());
         },
         hasProductsToShip() {
-            // Verifica que haya al menos 1 producto con cantidad mayor a cero seleccionado
             return this.newShipmentForm.products.some(p => p.quantity > 0);
         }
     },
     methods: {
-        formatDateTime(dateString) {
-            if (!dateString) return '';
-            const date = new Date(dateString);
-            return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
+        getPrimaryDetail(contact, type) {
+            if (!contact?.details) return 'No disponible';
+            const detail = contact.details.find(d => d.type === type && d.is_primary);
+            return detail ? detail.value : 'No disponible';
         },
-        // --- Métodos para Agregar Parcialidad ---
         openNewShipmentModal() {
             this.newShipmentForm.reset();
             this.newShipmentForm.clearErrors();
-            
-            // Inicializar el arreglo reactivo mapeando todos los productos existentes con 0.
             this.newShipmentForm.products = this.uniqueSaleProducts.map(p => ({
                 sale_product_id: p.id,
                 quantity: 0
             }));
-            
             this.newShipmentModalVisible = true;
         },
         getMaxTransferable(saleProductId) {
-            // Calculamos cuánto podemos mandar basándonos en lo que no ha sido "Enviado" (ya con paquetería entregada).
             const saleProductInfo = this.uniqueSaleProducts.find(p => p.id === saleProductId);
             if (!saleProductInfo) return 0;
-            
-            let totalYaEnviado = 0;
-            this.sale.shipments.forEach(shipment => {
-                if (shipment.status === 'Enviado') {
-                    shipment.shipment_products?.forEach(sp => {
-                        if (sp.sale_product_id === saleProductId) {
-                            totalYaEnviado += sp.quantity;
-                        }
-                    });
-                }
-            });
-            
-            return saleProductInfo.total_quantity - totalYaEnviado;
+            return saleProductInfo.total_quantity - saleProductInfo.shipped_quantity;
         },
         getProductName(saleProductId) {
             const found = this.uniqueSaleProducts.find(p => p.id === saleProductId);
             return found ? found.product.name : 'Desconocido';
         },
         submitNewShipment() {
-            // Filtramos únicamente los que el usuario eligió mandarle a esta nueva caja/envío
             const productsToSend = this.newShipmentForm.products.filter(p => p.quantity > 0);
-            
             this.newShipmentForm.transform(data => ({
                 ...data,
                 products: productsToSend
@@ -635,7 +461,6 @@ export default {
                 }
             });
         },
-
         async deleteMedia(mediaId) {
             try {
                 await axios.delete(route('media.delete-file', mediaId))
@@ -646,20 +471,21 @@ export default {
                 this.$message.error('Error al eliminar el archivo')
             }
         },
-        
-        // --- MÉTODOS PARA ETIQUETAS ---
+        deleteShipment(shipmentId) {
+            router.delete(route('shipments.destroy', shipmentId), {
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Parcialidad eliminada correctamente.'),
+                onError: (errors) => ElMessage.error(errors.message || 'Error al eliminar la parcialidad.')
+            });
+        },
         openLabelModal(shipment) {
             this.labelForm.shipment = shipment;
             this.labelForm.boxes = [];
-            this.addBox(); // Agrega la primera caja por defecto
+            this.addBox(); 
             this.labelModalVisible = true;
         },
         addBox() {
-            const newBox = {
-                id: Date.now(),
-                isFragile: false,
-                productQuantities: {}
-            };
+            const newBox = { id: Date.now(), isFragile: false, productQuantities: {} };
             this.labelForm.shipment.shipment_products.forEach(p => {
                 newBox.productQuantities[p.sale_product.id] = 0;
             });
@@ -683,7 +509,7 @@ export default {
                         quantity: box.productQuantities[p.sale_product.id]
                     }));
 
-                if (productsInBox.length === 0) return; // No generar etiqueta para cajas vacías
+                if (productsInBox.length === 0) return; 
 
                 const contentDescription = productsInBox.map(p => `${p.quantity} x ${p.name}`).join(', ');
                 const totalPieces = productsInBox.reduce((acc, p) => acc + Number(p.quantity), 0);
@@ -746,7 +572,6 @@ export default {
                 </footer>
             </div>`;
         },
-        // --- MÉTODOS Guía y Evidencia ---
         openGuideModal(shipment) {
             this.guideForm.shipment_id = shipment.id;
             this.guideForm.shipping_company = shipment.shipping_company;
@@ -780,9 +605,8 @@ export default {
                 onError: () => ElMessage.error('Error al subir la evidencia.')
             });
         },
-        // --- MÉTODOS EXISTENTES ---
         getAvailableStock(saleProduct) {
-            const quantityTakenOfStock = saleProduct.quantity - saleProduct.quantity_to_produce
+            const quantityTakenOfStock = saleProduct.quantity - saleProduct.quantity_to_produce;
             if (!saleProduct.product.storages || saleProduct.product.storages.length === 0) return 0;
             return saleProduct.product.storages.reduce((total, storage) => total + parseFloat(storage.quantity) + quantityTakenOfStock, 0);
         },
@@ -794,69 +618,53 @@ export default {
             });
         },
         openConfirmationDialog(shipment) {
+            this.form.clearErrors();
             this.form.id = shipment.id;
             this.form.notes = shipment.notes || ''; 
             this.form.sent_by = this.$page.props.auth.user.name; 
+            
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            this.form.sent_at = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+
+            this.form.products = shipment.shipment_products.map(sp => ({
+                id: sp.id,
+                name: sp.sale_product?.product?.name || 'Producto Desconocido',
+                max_quantity: sp.quantity,
+                quantity: sp.quantity 
+            }));
+
             this.dialogVisible = true;
         },
         confirmShipment() {
-            router.put(route('shipments.update', this.form.id), this.form, {
+            this.form.put(route('shipments.update', this.form.id), {
                 preserveScroll: true,
-                onSuccess: () => { this.dialogVisible = false; },
-                onError: (errors) => { console.error('Error al actualizar el envío:', errors); }
+                onSuccess: () => { 
+                    this.dialogVisible = false; 
+                    ElMessage.success('Envío confirmado y stock actualizado exitosamente.');
+                },
+                onError: (errors) => { 
+                    console.error('Error al actualizar el envío:', errors); 
+                    if (!this.form.errors.sent_at && !this.form.errors.products) {
+                         ElMessage.error('Error al actualizar el envío. Revisa los datos.');
+                    }
+                }
             });
         },
         printOrder() {
             window.open(route('sales.print', this.sale.id), '_blank');
-        },
-        getPrimaryDetail(contact, type) {
-            if (!contact?.details) return 'No disponible';
-            const detail = contact.details.find(d => d.type === type && d.is_primary);
-            return detail ? detail.value : 'No disponible';
-        },
-        formatRelative(dateString) {
-            if (!dateString) return "Sin registro";
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            if (diffMs < 0) return "En el futuro";
-            const seconds = Math.floor(diffMs / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            const months = Math.floor(days / 30);
-            const years = Math.floor(months / 12);
-            if (seconds < 60) return `Hace ${seconds} segundos`;
-            if (minutes < 60) return `Hace ${minutes} minutos`;
-            if (hours < 24) return `Hace ${hours} horas`;
-            if (days < 30) return `Hace ${days} días`;
-            if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
-            return `Hace ${years} año${years > 1 ? "s" : ""}`;
-        },
-        formatDate(dateString) {
-            if (!dateString) return '';
-
-            let date;
-
-            // Caso 1: formato con hora (ej. "2025-09-17 12:30:00")
-            if (dateString.includes(' ')) {
-                const [datePart] = dateString.split(' '); // nos quedamos con YYYY-MM-DD
-                const [year, month, day] = datePart.split('-');
-                date = new Date(year, month - 1, day);
-            }
-            // Caso 2: formato ISO (ej. "2025-09-17" o "2025-09-17T00:00:00Z")
-            else {
-                try {
-                    date = parseISO(dateString);
-                } catch {
-                    return ''; // si no es parseable, devolvemos vacío
-                }
-            }
-
-            if (isNaN(date)) return ''; // seguridad
-
-            return format(date, "d 'de' MMMM, yyyy", { locale: es });
         }
     },
 };
 </script>
+<style>
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(156, 163, 175, 0.5); border-radius: 20px; }
+.dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(75, 85, 99, 0.5); }
+</style>

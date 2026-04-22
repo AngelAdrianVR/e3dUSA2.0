@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Carbon\Carbon; // Agregado para el manejo de fechas
 
 class ShipmentController extends Controller
 {
@@ -188,57 +189,78 @@ class ShipmentController extends Controller
 
     public function update(Request $request, Shipment $shipment)
     {
-        // Validación de los datos que vienen del modal.
+        // Validación de los datos que vienen del modal incluyendo fecha y productos a despachar.
         $request->validate([
-            'notes' => 'nullable|string|max:1000', // Las notas son opcionales
-            'sent_by' => 'required|string|max:255', // El nombre de quien envía es requerido
+            'notes' => 'nullable|string|max:1000',
+            'sent_by' => 'required|string|max:255',
+            'sent_at' => 'required|date',
+            'products' => 'required|array|min:1',
+            'products.*.id' => 'required|exists:shipment_products,id',
+            'products.*.quantity' => 'required|integer|min:0',
         ]);
 
         // Se envuelve la lógica en una transacción para asegurar la integridad de los datos.
-        // Si algo falla al descontar el stock, no se marcará como enviado.
         DB::transaction(function () use ($request, $shipment) {
             
             // 1. Actualiza los campos del envío con la nueva información
             $shipment->update([
                 'status' => 'Enviado',
-                'sent_at' => now(),
+                'sent_at' => Carbon::parse($request->sent_at),
                 'notes' => $request->notes,
                 'sent_by' => $request->sent_by,
             ]);
 
-            // 2. Lógica para descontar stock (CORREGIDA PARA PARCIALIDADES)
+            // Mapear los productos recibidos para acceder a la nueva cantidad
+            $submittedProducts = collect($request->products)->keyBy('id');
+
+            // 2. Lógica para descontar stock y ajustar cantidades parciales
             $shipment->load('shipmentProducts.saleProduct.product.storages');
 
             foreach ($shipment->shipmentProducts as $shipmentProduct) {
+                if (!$submittedProducts->has($shipmentProduct->id)) {
+                    continue; 
+                }
+
+                $submittedQty = $submittedProducts[$shipmentProduct->id]['quantity'];
+
+                // Evitar que despachen más de lo originalmente programado en la parcialidad
+                $newQty = min($submittedQty, $shipmentProduct->quantity);
+
+                // Si el usuario puso 0, se elimina el registro (se regresa a inventario "no enviado").
+                if ($newQty <= 0) {
+                    $shipmentProduct->delete();
+                    continue; 
+                } else if ($newQty < $shipmentProduct->quantity) {
+                    // Si mandaron menos, actualizamos el registro.
+                    $shipmentProduct->update(['quantity' => $newQty]);
+                }
+
                 $product = $shipmentProduct->saleProduct->product;
 
                 if ($product) {
                     $saleProduct = $shipmentProduct->saleProduct;
                     
-                    // Este es el TOTAL que la orden debía producir y que se agregó o agregará al stock.
-                    // NO podemos descontar más de esto en total sumando todos los envíos.
+                    // Este es el TOTAL que la orden debía producir.
                     $maxToDeduct = $saleProduct->quantity_to_produce; 
 
-                    // Calcular cuánto de este producto EXACTO ya se ha descontado en envíos anteriores de esta misma orden
+                    // Calcular cuánto de este producto EXACTO ya se ha descontado en envíos anteriores.
                     $previouslyShipped = \App\Models\ShipmentProduct::where('sale_product_id', $saleProduct->id)
                         ->whereHas('shipment', function($q) use ($shipment) {
                             $q->where('status', 'Enviado')
-                              ->where('id', '!=', $shipment->id); // Excluir este mismo envío
+                              ->where('id', '!=', $shipment->id); 
                         })->sum('quantity');
 
                     // Cuánto nos queda permitido descontar del inventario general para esta orden
                     $leftToDeduct = max(0, $maxToDeduct - $previouslyShipped);
                     
-                    // Solo descontamos lo que trae la caja física (shipmentProduct->quantity) 
+                    // Solo descontamos lo que trae la caja física (nueva cantidad) 
                     // o lo que nos queda por descontar, lo que sea menor.
-                    $quantityToDecrement = min($shipmentProduct->quantity, $leftToDeduct);
+                    $quantityToDecrement = min($newQty, $leftToDeduct);
 
                     if ($quantityToDecrement > 0) {
-                        // Se asume que el descuento se hace del primer almacén (storage) asociado al producto.
                         $storage = $product->storages()->first();
 
                         if ($storage) {
-                            // Utiliza decrement() para una operación atómica y segura.
                             $storage->decrement('quantity', $quantityToDecrement);
 
                             StockMovement::create([
@@ -252,8 +274,13 @@ class ShipmentController extends Controller
                     }
                 }
             }
+
+            // 3. Limpieza: si la parcialidad se quedó sin NINGÚN producto, la eliminamos.
+            if ($shipment->shipmentProducts()->count() === 0) {
+                $shipment->delete();
+            }
             
-            // 3. Actualiza el estatus general de la venta.
+            // 4. Actualiza el estatus general de la venta.
             $shipment->sale->updateStatus();
         });
 
@@ -263,7 +290,20 @@ class ShipmentController extends Controller
 
     public function destroy(Shipment $shipment)
     {
-        //
+        if ($shipment->status === 'Enviado') {
+            return back()->withErrors(['message' => 'No puedes eliminar un envío que ya fue entregado a la paquetería.']);
+        }
+
+        $sale = $shipment->sale;
+
+        DB::transaction(function () use ($shipment) {
+            $shipment->delete(); // Elimina el envío y en cascada a sus shipment_products
+        });
+
+        // Actualizar estatus de la venta para saber en qué etapa se quedó
+        $sale->updateStatus();
+
+        return back()->with('success', 'Parcialidad eliminada correctamente y productos regresados a la orden general.');
     }
 
     public function getMatches(Request $request)
