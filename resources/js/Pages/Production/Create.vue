@@ -288,7 +288,7 @@
                 </ul>
             </template>
             <template #footer>
-                <PrimaryButton @click="isTaskModalOpen = false">Cerrar</PrimaryButton>
+                <PrimaryButton @click="isTaskModalOpen = false">Cerrar y guardar</PrimaryButton>
             </template>
         </DialogModal>
     </AppLayout>

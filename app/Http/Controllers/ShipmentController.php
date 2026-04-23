@@ -306,6 +306,55 @@ class ShipmentController extends Controller
         return back()->with('success', 'Parcialidad eliminada correctamente y productos regresados a la orden general.');
     }
 
+    /**
+     * Actualiza la cantidad individual de un producto dentro de una parcialidad
+     * Ruta: PUT /shipments/products/{shipmentProduct}/quantity
+     */
+    public function updateProductQuantity(Request $request, $shipmentProductId)
+    {
+        $request->validate([
+            'quantity' => 'required|integer|min:1',
+        ]);
+
+        try {
+            DB::transaction(function () use ($request, $shipmentProductId) {
+                // Cargamos la relación completa para tener el contexto de la orden
+                $shipmentProduct = ShipmentProduct::with(['shipment.sale', 'saleProduct'])->findOrFail($shipmentProductId);
+                
+                if ($shipmentProduct->shipment->status === 'Enviado') {
+                    throw new \Exception('No se puede modificar la cantidad de un producto en un envío que ya fue entregado.');
+                }
+
+                $saleProduct = $shipmentProduct->saleProduct;
+                $sale = $shipmentProduct->shipment->sale;
+
+                // Calcular cuánto está asignado de este producto en OTRAS parcialidades
+                $totalAssignedElsewhere = ShipmentProduct::whereHas('shipment', function ($q) use ($sale) {
+                    $q->where('sale_id', $sale->id);
+                })->where('sale_product_id', $saleProduct->id)
+                  ->where('id', '!=', $shipmentProduct->id)
+                  ->sum('quantity');
+
+                // Lo máximo que puede tener esta parcialidad es (Total de la orden) - (Asignado en otras parcialidades)
+                $maxAllowed = $saleProduct->quantity - $totalAssignedElsewhere;
+
+                if ($request->quantity > $maxAllowed) {
+                    throw new \Exception("La cantidad máxima que puedes asignar a esta parcialidad es de {$maxAllowed} pzas (el resto ya está programado en otros envíos).");
+                }
+
+                // Actualizamos la cantidad en la base de datos
+                $shipmentProduct->update([
+                    'quantity' => $request->quantity
+                ]);
+            });
+
+            return back()->with('success', 'Cantidad de la parcialidad actualizada correctamente.');
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['message' => $e->getMessage()]);
+        }
+    }
+
     public function getMatches(Request $request)
     {
         $query = $request->input('query');

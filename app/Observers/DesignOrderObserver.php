@@ -12,10 +12,11 @@ class DesignOrderObserver
      */
     public function created(DesignOrder $designOrder): void
     {
+        // LOGICA DESACTIVADA: El cliente solicitó no crear tareas automáticamente en el PMS. descomentar esta línea para reactivar la creación automática de tareas en el PMS
         // Si al crear la orden ya viene con un diseñador asignado
-        if ($designOrder->designer_id !== null) {
-            $this->createPmsTask($designOrder);
-        }
+        // if ($designOrder->designer_id !== null) {
+        //     $this->createPmsTask($designOrder);
+        // }
     }
 
     /**
@@ -23,10 +24,11 @@ class DesignOrderObserver
      */
     public function updated(DesignOrder $designOrder): void
     {
+        // LOGICA DESACTIVADA: El cliente solicitó no crear tareas automáticamente en el PMS. descomentar esta lógica para reactivar la creación automática de tareas en el PMS
         // Si la orden se actualizó y el campo designer_id cambió a un ID válido (se acaba de asignar)
-        if ($designOrder->wasChanged('designer_id') && $designOrder->designer_id !== null) {
-            $this->createPmsTask($designOrder);
-        }
+        // if ($designOrder->wasChanged('designer_id') && $designOrder->designer_id !== null) {
+        //     $this->createPmsTask($designOrder);
+        // }
     }
 
     /**

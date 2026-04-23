@@ -140,7 +140,8 @@
             <i class="fa-solid fa-box-open mr-2 text-gray-400"></i> Productos en este envío
         </h4>
         <div v-if="shipment.shipment_products?.length" class="space-y-3 max-h-[400px] overflow-auto pr-2">
-            <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="saleStatus" />
+            <!-- AGREGAMOS EL PROP NUEVO :is-shipment-shipped="isShipped" -->
+            <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="saleStatus" :is-shipment-shipped="isShipped" />
         </div>
         <div v-else class="text-center bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-dashed dark:border-gray-600 text-gray-500 text-sm py-8 mt-2">
             <p>No se han registrado productos para este envío.</p>
