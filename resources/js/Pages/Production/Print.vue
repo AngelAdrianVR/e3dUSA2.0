@@ -114,7 +114,7 @@
              <!-- Envíos / Parcialidades Súper Compacto -->
              <section
                 class="mt-6 border-t-2 pt-4 dark:border-slate-700"
-                v-if="sale.shipments && sale.shipments.length && sale.type === 'venta'"
+                v-if="sale.shipments && sale.shipments.length > 1 && sale.type === 'venta'"
             >
                 <h2 class="text-lg font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

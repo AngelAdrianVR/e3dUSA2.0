@@ -159,18 +159,29 @@
                 
                 <div class="mt-4 border-t dark:border-gray-600 pt-4">
                     <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a enviar en esta caja/parcialidad</h4>
-                    <div class="space-y-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
-                            <div class="w-2/3 pr-4">
-                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
+                    <p v-if="form.errors.products" class="text-red-500 bg-red-50 p-2 rounded text-xs mt-1 mb-2 font-semibold">{{ form.errors.products }}</p>
+                    
+                    <div class="space-y-3 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex flex-col bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
+                            <div class="flex justify-between items-center">
+                                <div class="w-2/3 pr-4">
+                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
+                                </div>
+                                <div class="w-1/3 text-right">
+                                    <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
+                                </div>
                             </div>
-                            <div class="w-1/3 text-right">
-                                <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
+                            
+                            <!-- Razón de envío incompleto (Aparece sólo si se manda menos de lo programado) -->
+                            <div v-if="prod.quantity > 0 && prod.quantity < prod.max_quantity" class="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 transition-all duration-300">
+                                <label class="block text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Razón de envío incompleto *
+                                </label>
+                                <el-input v-model="prod.reason" placeholder="Ej. 5 piezas estaban dañadas, merma de producción..." size="small" />
                             </div>
                         </div>
                     </div>
-                    <p v-if="form.errors.products" class="text-red-500 text-xs mt-1">{{ form.errors.products }}</p>
                 </div>
             </div>
             <template #footer>
@@ -591,9 +602,9 @@ export default {
             this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
                 onSuccess: () => {
                     this.showGuideModal = false;
-                    ElMessage.success('Guía actualizada correctamente');
+                    ElMessage.success('Información actualizada correctamente');
                 },
-                onError: () => ElMessage.error('Error al actualizar la guía.')
+                onError: () => ElMessage.error('Error al actualizar la información.')
             });
         },
         openEvidenceModal(shipment) {
@@ -645,7 +656,8 @@ export default {
                 id: sp.id,
                 name: sp.sale_product?.product?.name || 'Producto Desconocido',
                 max_quantity: sp.quantity,
-                quantity: sp.quantity 
+                quantity: sp.quantity,
+                reason: '' // Nueva propiedad para atrapar la razón en caso de mandar menos
             }));
 
             this.dialogVisible = true;
@@ -660,7 +672,7 @@ export default {
                 onError: (errors) => { 
                     console.error('Error al actualizar el envío:', errors); 
                     if (!this.form.errors.sent_at && !this.form.errors.products) {
-                         ElMessage.error('Error al actualizar el envío. Revisa los datos.');
+                         ElMessage.error('Error al actualizar el envío. Revisa los datos y asegúrate de agregar una razón para las cantidades incompletas.');
                     }
                 }
             });

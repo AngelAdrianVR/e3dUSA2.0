@@ -197,7 +197,19 @@ class ShipmentController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:shipment_products,id',
             'products.*.quantity' => 'required|integer|min:0',
+            'products.*.reason' => 'nullable|string|max:500', // Nueva validación para la razón
         ]);
+
+        // Validación personalizada antes de la transacción para asegurar que haya razón si mandan menos.
+        foreach ($request->products as $prod) {
+            $sp = ShipmentProduct::with('saleProduct.product')->find($prod['id']);
+            if ($sp && $prod['quantity'] > 0 && $prod['quantity'] < $sp->quantity) {
+                if (empty($prod['reason'])) {
+                    $productName = $sp->saleProduct->product->name ?? 'Desconocido';
+                    return back()->withErrors(['products' => "Es obligatorio especificar una razón al enviar menos piezas de las programadas para el producto: {$productName}."]);
+                }
+            }
+        }
 
         // Se envuelve la lógica en una transacción para asegurar la integridad de los datos.
         DB::transaction(function () use ($request, $shipment) {
@@ -222,6 +234,7 @@ class ShipmentController extends Controller
                 }
 
                 $submittedQty = $submittedProducts[$shipmentProduct->id]['quantity'];
+                $reason = $submittedProducts[$shipmentProduct->id]['reason'] ?? null;
 
                 // Evitar que despachen más de lo originalmente programado en la parcialidad
                 $newQty = min($submittedQty, $shipmentProduct->quantity);
@@ -231,8 +244,12 @@ class ShipmentController extends Controller
                     $shipmentProduct->delete();
                     continue; 
                 } else if ($newQty < $shipmentProduct->quantity) {
-                    // Si mandaron menos, actualizamos el registro.
-                    $shipmentProduct->update(['quantity' => $newQty]);
+                    // Si mandaron menos, actualizamos el registro guardando la cantidad original y la razón
+                    $shipmentProduct->update([
+                        'quantity' => $newQty,
+                        'original_quantity' => $shipmentProduct->quantity,
+                        'less_sent_reason' => $reason
+                    ]);
                 }
 
                 $product = $shipmentProduct->saleProduct->product;
