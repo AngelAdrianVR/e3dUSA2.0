@@ -11,7 +11,7 @@
             </div>
             
             <div class="flex items-center space-x-2 dark:text-white">
-                <el-tooltip v-if="sale.status != 'Enviada'" content="Agregar Nueva Parcialidad" placement="top">
+                <el-tooltip content="Agregar Nueva Parcialidad" placement="top">
                     <button @click="openNewShipmentModal" class="size-9 flex items-center justify-center rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-800 transition-colors mr-2">
                         <i class="fa-solid fa-layer-group"></i>
                     </button>
@@ -80,7 +80,7 @@
             </div>
         </main>
 
-        <!-- ===== MODALES (Se mantienen igual) ===== -->
+        <!-- ===== MODALES ===== -->
         <!-- Modal Nueva Parcialidad -->
         <el-dialog v-model="newShipmentModalVisible" title="Agregar Nueva Parcialidad" width="700px">
             <div class="space-y-4">
@@ -159,18 +159,29 @@
                 
                 <div class="mt-4 border-t dark:border-gray-600 pt-4">
                     <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a enviar en esta caja/parcialidad</h4>
-                    <div class="space-y-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex justify-between items-center bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
-                            <div class="w-2/3 pr-4">
-                                <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
+                    <p v-if="form.errors.products" class="text-red-500 bg-red-50 p-2 rounded text-xs mt-1 mb-2 font-semibold">{{ form.errors.products }}</p>
+                    
+                    <div class="space-y-3 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
+                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex flex-col bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
+                            <div class="flex justify-between items-center">
+                                <div class="w-2/3 pr-4">
+                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
+                                </div>
+                                <div class="w-1/3 text-right">
+                                    <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
+                                </div>
                             </div>
-                            <div class="w-1/3 text-right">
-                                <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
+                            
+                            <!-- Razón de envío incompleto (Aparece sólo si se manda menos de lo programado) -->
+                            <div v-if="prod.quantity > 0 && prod.quantity < prod.max_quantity" class="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 transition-all duration-300">
+                                <label class="block text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Razón de envío incompleto *
+                                </label>
+                                <el-input v-model="prod.reason" placeholder="Ej. 5 piezas estaban dañadas, merma de producción..." size="small" />
                             </div>
                         </div>
                     </div>
-                    <p v-if="form.errors.products" class="text-red-500 text-xs mt-1">{{ form.errors.products }}</p>
                 </div>
             </div>
             <template #footer>
@@ -183,7 +194,6 @@
 
         <!-- Modal Etiquetas -->
         <el-dialog v-model="labelModalVisible" title="Crear Etiquetas para el Envío" width="900px">
-            <!-- Resto del contenido del modal Etiquetas permanece idéntico -->
              <div v-if="labelForm.shipment">
                 <div class="bg-gray-100 dark:bg-slate-700 p-4 rounded-lg mb-6">
                     <h3 class="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Productos disponibles para empacar</h3>
@@ -284,6 +294,20 @@
             </template>
         </el-dialog>
 
+        <!-- Contenedor oculto para renderizar las etiquetas antes de imprimir -->
+        <div class="hidden">
+            <div ref="printContainer">
+                <ShipmentLabel 
+                    v-for="(label, idx) in printLabelsData" 
+                    :key="idx"
+                    :label-data="label"
+                    :sale="sale"
+                    :shipment="labelForm.shipment"
+                    :primary-phone="getPrimaryDetail(sale.contact, 'Teléfono')"
+                />
+            </div>
+        </div>
+
     </AppLayout>
 </template>
 
@@ -295,6 +319,7 @@ import OrderDetailsCard from "@/Components/MyComponents/OrderDetailsCard.vue";
 import ShipmentProgressCard from "@/Components/MyComponents/ShipmentProgressCard.vue";
 import ProductionSummaryCard from "@/Components/MyComponents/ProductionSummaryCard.vue";
 import ShipmentAccordion from "@/Components/MyComponents/ShipmentAccordion.vue";
+import ShipmentLabel from "@/Components/MyComponents/ShipmentLabel.vue";
 
 import { Link, router, useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
@@ -310,7 +335,8 @@ export default {
         OrderDetailsCard,
         ShipmentProgressCard,
         ProductionSummaryCard,
-        ShipmentAccordion
+        ShipmentAccordion,
+        ShipmentLabel
     },
     props: {
         sale: Object,
@@ -330,6 +356,7 @@ export default {
                 shipment: null,
                 boxes: [],
             },
+            printLabelsData: [],
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             showGuideModal: false,
             guideForm: useForm({
@@ -494,83 +521,76 @@ export default {
         removeBox(index) {
             this.labelForm.boxes.splice(index, 1);
         },
-        generateAndPrintLabels() {
-            let allLabelsHtml = '';
+        async generateAndPrintLabels() {
+            this.printLabelsData = []; // Limpiar datos previos
             const totalBoxes = this.labelForm.boxes.length;
 
             this.labelForm.boxes.forEach((box, index) => {
                 const boxNumber = index + 1;
-                const packageInfo = `Caja ${boxNumber} de ${totalBoxes}`;
                 
                 const productsInBox = this.labelForm.shipment.shipment_products
                     .filter(p => box.productQuantities[p.sale_product.id] > 0)
                     .map(p => ({
                         name: p.sale_product.product.name,
+                        code: p.sale_product.product.code, // <-- Agregamos el code
                         quantity: box.productQuantities[p.sale_product.id]
                     }));
 
                 if (productsInBox.length === 0) return; 
 
-                const contentDescription = productsInBox.map(p => `${p.quantity} x ${p.name}`).join(', ');
+                // Formato de descripción incluyendo el código
+                const contentDescription = productsInBox.map(p => `${p.quantity} x [${p.code || 'S/C'}] ${p.name}`).join(', ');
                 const totalPieces = productsInBox.reduce((acc, p) => acc + Number(p.quantity), 0);
 
-                allLabelsHtml += this.getSingleLabelHtml(box, packageInfo, contentDescription, totalPieces, boxNumber);
+                // Popular arreglo reactivo para que Vue genere las plantillas ocultas
+                this.printLabelsData.push({
+                    boxNumber,
+                    totalBoxes,
+                    totalPieces,
+                    contentDescription
+                });
             });
 
-            const printWindow = window.open('', '_blank', 'width=816,height=1056');
+            if (this.printLabelsData.length === 0) {
+                ElMessage.warning('No hay productos asignados en las cajas.');
+                return;
+            }
+
+            // Esperar al siguiente ciclo para que Vue renderice el html del componente oculto
+            await this.$nextTick();
+
+            // Extraer el HTML ya formado por el componente hijo
+            const allLabelsHtml = this.$refs.printContainer.innerHTML;
+
+            // Inyectarlo en la nueva ventana
+            const printWindow = window.open('', '_blank', 'width=1056,height=816');
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiquetas OV-${this.sale.id}</title>
                 <script src="https://cdn.tailwindcss.com"><\/script>
-                <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
-                <style>@media print { body{-webkit-print-color-adjust:exact;print-color-adjust:exact;} @page{margin:0;size:letter;} .page-break{page-break-before:always;} } .label-container{width:8.5in;height:11in;page-break-inside:avoid;}</style>
+                <style>
+                    @media print { 
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+                        @page { margin: 0.2in; size: letter landscape; } 
+                        .page-break { page-break-before: always; } 
+                    } 
+                    /* Estilos para preservar proporciones al imprimir */
+                    .label-container { 
+                        width: 10.5in; 
+                        height: 8in; 
+                        page-break-inside: avoid; 
+                        margin: 0 auto; 
+                        display: flex; 
+                        flex-direction: column; 
+                        justify-content: center; 
+                    }
+                </style>
                 </head><body>
                 ${allLabelsHtml}
                 <script>
-                    document.querySelectorAll('.barcode-svg').forEach(svg => {
-                        const value = svg.getAttribute('data-value');
-                        if(value) try { JsBarcode(svg, value, { format:"CODE128", displayValue:true, fontSize:18, height:60, margin:10 }); } catch(e){}
-                    });
                     window.onload = function() { window.print(); window.onafterprint = function() { window.close(); } }
                 <\/script></body></html>`);
             printWindow.document.close();
             this.labelModalVisible = false;
-        },
-        getSingleLabelHtml(box, packageInfo, contentDescription, totalPieces, boxNumber) {
-            const shipment = this.labelForm.shipment;
-            const pageBreak = boxNumber > 1 ? '<div class="page-break"></div>' : '';
-
-            return `${pageBreak}
-            <div class="label-container bg-white p-8">
-                <header class="flex justify-between items-center border-b-2 border-gray-200 pb-4">
-                    <h1 class="text-2xl font-bold text-gray-800">emblems3dusa.com</h1>
-                    <div class="text-right"><p class="text-gray-600 font-semibold">Fecha de Emisión</p><p class="text-lg">${new Date().toLocaleDateString('es-MX',{year:'numeric',month:'long',day:'numeric'})}</p></div>
-                </header>
-                <main class="grid grid-cols-2 gap-8 mt-6">
-                    <div class="space-y-6">
-                        <div>
-                            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">REMITENTE</h2>
-                            <div class="border-l-4 border-blue-500 pl-4 text-gray-700"><p class="font-bold">Emblems 3D USA</p><p>Calle 1 #19, Seattle</p><p>Zapopan, Jalisco. C.P. 45150</p><p>Tel: 33 3624 0054 / Cel: 33 2183 5678</p></div>
-                        </div>
-                        <div>
-                            <h2 class="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">DESTINATARIO</h2>
-                            <div class="border-l-4 border-green-500 pl-4 text-gray-800"><p class="font-bold text-lg">${this.sale.branch?.name??'N/A'}</p><p>Attn: ${this.sale.contact?.name??'N/A'}</p><p>${this.sale.branch?.address??'N/A'}</p><p>C.P. ${this.sale.branch?.post_code??'N/A'}</p><p>Tel: ${this.getPrimaryDetail(this.sale.contact,'Teléfono')}</p></div>
-                        </div>
-                    </div>
-                    <div class="flex flex-col justify-between">
-                        ${box.isFragile?`<div class="border-4 border-red-500 rounded-lg p-4 text-center bg-red-50"><div class="flex items-center justify-center gap-4"><svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><div><h3 class="text-3xl font-extrabold text-red-600">CUIDADO</h3><p class="text-xl font-semibold text-red-500">FRÁGIL</p></div></div></div>`:''}
-                        <div class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 space-y-2 text-sm">
-                            <div class="flex justify-between"><span class="font-semibold text-gray-600">Orden de Venta:</span><span class="font-mono">OV-${this.sale.id.toString().padStart(4,'0')}</span></div>
-                            <div class="flex justify-between"><span class="font-semibold text-gray-600">Contenido:</span><span class="text-right">${contentDescription}</span></div>
-                            <div class="flex justify-between"><span class="font-semibold text-gray-600">Piezas en Caja:</span><span>${totalPieces}</span></div>
-                            <div class="flex justify-between"><span class="font-semibold text-gray-600">Paquete:</span><span>${packageInfo}</span></div>
-                            <div class="flex justify-between"><span class="font-semibold text-gray-600">Paquetería:</span><span>${shipment.shipping_company??'N/A'}</span></div>
-                        </div>
-                    </div>
-                </main>
-                <footer class="mt-8 border-t-2 border-gray-200 pt-4 text-center">
-                     <svg class="barcode-svg mx-auto" data-value="OV-${this.sale.id.toString().padStart(4, '0')}-C${boxNumber}"></svg>
-                </footer>
-            </div>`;
         },
         openGuideModal(shipment) {
             this.guideForm.shipment_id = shipment.id;
@@ -582,9 +602,9 @@ export default {
             this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
                 onSuccess: () => {
                     this.showGuideModal = false;
-                    ElMessage.success('Guía actualizada correctamente');
+                    ElMessage.success('Información actualizada correctamente');
                 },
-                onError: () => ElMessage.error('Error al actualizar la guía.')
+                onError: () => ElMessage.error('Error al actualizar la información.')
             });
         },
         openEvidenceModal(shipment) {
@@ -636,7 +656,8 @@ export default {
                 id: sp.id,
                 name: sp.sale_product?.product?.name || 'Producto Desconocido',
                 max_quantity: sp.quantity,
-                quantity: sp.quantity 
+                quantity: sp.quantity,
+                reason: '' // Nueva propiedad para atrapar la razón en caso de mandar menos
             }));
 
             this.dialogVisible = true;
@@ -651,7 +672,7 @@ export default {
                 onError: (errors) => { 
                     console.error('Error al actualizar el envío:', errors); 
                     if (!this.form.errors.sent_at && !this.form.errors.products) {
-                         ElMessage.error('Error al actualizar el envío. Revisa los datos.');
+                         ElMessage.error('Error al actualizar el envío. Revisa los datos y asegúrate de agregar una razón para las cantidades incompletas.');
                     }
                 }
             });

@@ -271,6 +271,8 @@ Route::post('shipments-get-matches', [ShipmentController::class, 'getMatches'])-
 // Rutas nuevas para actualizar guía y subir evidencia (reciben el ID del envío {shipment})
 Route::put('shipments/{shipment}/tracking', [ShipmentController::class, 'updateTracking'])->name('shipments.update-tracking');
 Route::post('shipments/{shipment}/evidence', [ShipmentController::class, 'storeEvidence'])->name('shipments.store-evidence');
+// NUEVA RUTA - Para poder actualizar individualmente la cantidad de un producto dentro de una parcialidad
+Route::put('shipments/products/{shipmentProduct}/quantity', [ShipmentController::class, 'updateProductQuantity'])->middleware('auth')->name('shipments.update-product-quantity');
 
 
 // ------- (Rutas de proveedores)  ---------

@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('shipment_id')->constrained()->cascadeOnDelete();
             $table->foreignId('sale_product_id')->constrained()->cascadeOnDelete();
+            $table->integer('original_quantity')->nullable()->after('quantity'); // This field is used to store the original quantity of the product before any adjustments.
+            $table->string('less_sent_reason', 500)->nullable()->after('original_quantity'); // This field is used to store the reason for sending less quantity than originally ordered, if applicable.
             $table->integer('quantity');
             $table->timestamps();
         });

@@ -12,7 +12,8 @@ class ProductionTaskObserver
      */
     public function created(ProductionTask $productionTask): void
     {
-        $this->createPmsTask($productionTask);
+        // LOGICA DESACTIVADA: El cliente solicitó no crear tareas automáticamente en el PMS. descomentar esta línea para reactivar la creación automática de tareas en el PMS
+        // $this->createPmsTask($productionTask);
     }
 
     /**
@@ -20,10 +21,12 @@ class ProductionTaskObserver
      */
     public function deleted(ProductionTask $productionTask): void
     {
-        // Buscamos y eliminamos la tarea del PMS asociada a esta tarea de producción
+        // LOGICA DESACTIVADA: El cliente solicitó no crear/eliminar tareas automáticamente en el PMS
+        /*
         PmsTask::where('sourceable_type', ProductionTask::class)
             ->where('sourceable_id', $productionTask->id)
             ->delete();
+        */
     }
 
     /**

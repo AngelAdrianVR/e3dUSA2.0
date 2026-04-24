@@ -123,7 +123,7 @@ export default {
     },
     data() {
         return {
-            isOpen: false // Cerrado por defecto
+            isOpen: true // Cerrado por defecto
         }
     },
     methods: {

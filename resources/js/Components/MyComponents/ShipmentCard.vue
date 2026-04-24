@@ -3,9 +3,9 @@
          :class="isShipped ? 'border-green-400 dark:border-green-600 shadow-green-500/20' : 'border-transparent'">
 
         <!-- ===== GRAN INDICADOR DE ENVIADO ===== -->
-        <div v-if="isShipped" class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 mb-5 flex flex-col sm:flex-row items-center justify-between border border-green-200 dark:border-green-800">
-            <div class="flex items-center gap-4">
-                <div class="bg-green-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl shadow-lg shadow-green-500/30">
+        <div v-if="isShipped" class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between border border-green-200 dark:border-green-800">
+            <div class="flex items-start gap-4">
+                <div class="bg-green-500 text-white rounded-full w-12 h-12 flex-shrink-0 flex items-center justify-center text-2xl shadow-lg shadow-green-500/30">
                     <i class="fa-solid fa-check"></i>
                 </div>
                 <div>
@@ -15,9 +15,17 @@
                         <span class="mx-2">•</span>
                         <i class="fa-regular fa-clock mr-1"></i> {{ formatDateTime(shipment.sent_at) }}
                     </p>
+                    
+                    <!-- NUEVO: Mostrar notas prominentemente si existen -->
+                    <div v-if="shipment.notes" class="mt-3 mb-1 bg-white/60 dark:bg-slate-800/60 p-3 rounded-lg border border-green-200 dark:border-green-800/50">
+                        <p class="text-xs font-bold text-green-800 dark:text-green-300 uppercase tracking-wider mb-1">
+                            <i class="fa-solid fa-note-sticky mr-1 opacity-70"></i> Notas del envío:
+                        </p>
+                        <p class="text-sm text-green-700 dark:text-green-400 italic">"{{ shipment.notes }}"</p>
+                    </div>
                 </div>
             </div>
-            <div class="mt-3 sm:mt-0">
+            <div class="mt-3 sm:mt-0 self-start sm:self-center">
                <el-tag type="success" effect="dark" size="large" class="!font-bold !px-4 tracking-wide"><i class="fa-solid fa-box-check mr-1"></i> COMPLETADO</el-tag>
             </div>
         </div>
@@ -49,9 +57,10 @@
                 </el-popconfirm>
 
                 <!-- Botón Marcar como Enviado -->
+                <!-- Se forza el false en disabled ya que a veces se quiere marcar como enviado aunque no esté se tenga la cantidad completa, se puede agregar la cantidad que en realidad se mandó. -->
                 <button v-if="!isShipped && $page.props.auth.user.permissions.includes('Marcar parcialidades como enviadas')"
                     @click="$emit('open-confirmation', shipment)"
-                    :disabled="!isReady"
+                    :disabled="!isReady && false"
                     class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 transition-colors duration-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-truck-fast"></i>
                     Marcar como Enviado
@@ -74,9 +83,18 @@
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Fecha Promesa</p>
                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDate(shipment.promise_date) || 'N/A' }}</span>
                 </div>
+                <!-- Editar paqueteria tambien incluye botón acá para que sea más obvio -->
                 <div class="col-span-2 sm:col-span-1">
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Paquetería</p>
-                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ shipment.shipping_company ?? 'N/A' }}</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ shipment.shipping_company ?? 'N/A' }}</span>
+                        
+                        <el-tooltip content="Editar paquetería y guía" placement="top">
+                            <button @click="$emit('open-guide', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors">
+                                <i class="fa-solid fa-pencil"></i>
+                            </button>
+                        </el-tooltip>
+                    </div>
                 </div>
                 <div class="col-span-2">
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Guía de Rastreo</p>
@@ -92,10 +110,6 @@
                             </button>
                         </el-tooltip>
                     </div>
-                </div>
-                <div v-if="shipment.notes" class="col-span-2 pt-2 border-t dark:border-gray-600 mt-2">
-                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Notas del envío</p>
-                     <p class="text-gray-700 dark:text-gray-300 italic">{{ shipment.notes }}</p>
                 </div>
             </div>
 
@@ -140,7 +154,8 @@
             <i class="fa-solid fa-box-open mr-2 text-gray-400"></i> Productos en este envío
         </h4>
         <div v-if="shipment.shipment_products?.length" class="space-y-3 max-h-[400px] overflow-auto pr-2">
-            <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="saleStatus" />
+            <!-- AGREGAMOS EL PROP NUEVO :is-shipment-shipped="isShipped" -->
+            <ShipmentProductCard v-for="item in shipment.shipment_products" :key="item.id" :shipment-product="item" :shipmentStatus="saleStatus" :is-shipment-shipped="isShipped" />
         </div>
         <div v-else class="text-center bg-gray-50 dark:bg-slate-700/30 rounded-lg border border-dashed dark:border-gray-600 text-gray-500 text-sm py-8 mt-2">
             <p>No se han registrado productos para este envío.</p>
