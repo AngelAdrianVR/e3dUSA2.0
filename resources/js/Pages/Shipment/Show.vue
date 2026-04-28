@@ -136,7 +136,7 @@
         <!-- Modal Confirmación -->
         <el-dialog v-model="dialogVisible" title="Confirmar Envío" width="600px">
             <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Estás a punto de marcar este envío como "Enviado". Puedes ajustar la fecha y modificar las cantidades si se enviará menos de lo planeado en esta parcialidad.
+                Estás a punto de marcar este envío como "Enviado". Confirma la fecha y la persona que realiza el envío. (Las cantidades que se descontarán son las que Producción dejó guardadas en la parcialidad).
             </p>
             <div class="space-y-4">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -156,38 +156,12 @@
                     <el-input v-model="form.notes" id="notes" type="textarea" :rows="2" placeholder="Añade notas sobre el envío aquí..." />
                     <p v-if="form.errors.notes" class="text-red-500 text-xs mt-1">{{ form.errors.notes }}</p>
                 </div>
-                
-                <div class="mt-4 border-t dark:border-gray-600 pt-4">
-                    <h4 class="font-semibold text-gray-800 dark:text-gray-200 mb-3">Cantidades a enviar en esta caja/parcialidad</h4>
-                    <p v-if="form.errors.products" class="text-red-500 bg-red-50 p-2 rounded text-xs mt-1 mb-2 font-semibold">{{ form.errors.products }}</p>
-                    
-                    <div class="space-y-3 max-h-[35vh] overflow-y-auto pr-2 custom-scrollbar">
-                        <div v-for="(prod, index) in form.products" :key="prod.id" class="flex flex-col bg-gray-50 dark:bg-slate-700/50 p-3 rounded-lg border dark:border-gray-600">
-                            <div class="flex justify-between items-center">
-                                <div class="w-2/3 pr-4">
-                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate" :title="prod.name">{{ prod.name }}</p>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Programado: <span class="font-bold text-gray-800 dark:text-gray-200">{{ prod.max_quantity }} pzas</span></p>
-                                </div>
-                                <div class="w-1/3 text-right">
-                                    <el-input-number v-model="prod.quantity" :min="0" :max="prod.max_quantity" size="small" class="!w-full" />
-                                </div>
-                            </div>
-                            
-                            <!-- Razón de envío incompleto (Aparece sólo si se manda menos de lo programado) -->
-                            <div v-if="prod.quantity > 0 && prod.quantity < prod.max_quantity" class="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600 transition-all duration-300">
-                                <label class="block text-xs font-semibold text-red-600 dark:text-red-400 mb-1">
-                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Razón de envío incompleto *
-                                </label>
-                                <el-input v-model="prod.reason" placeholder="Ej. 5 piezas estaban dañadas, merma de producción..." size="small" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="dialogVisible = false">Cancelar</el-button>
-                    <el-button type="primary" @click="confirmShipment" :loading="form.processing" :disabled="!hasProductsToShipConfirm">Confirmar Envío</el-button>
+                    <!-- Validamos simplemente que haya cargado el form.id de la parcialidad a confirmar -->
+                    <el-button type="primary" @click="confirmShipment" :loading="form.processing" :disabled="!form.id">Confirmar Envío</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -348,8 +322,7 @@ export default {
                 id: null,
                 sent_at: '',
                 notes: '',
-                sent_by: '',
-                products: []
+                sent_by: ''
             }),
             labelModalVisible: false,
             labelForm: {
@@ -380,10 +353,6 @@ export default {
         }
     },
     computed: {
-        hasProductsToShipConfirm() {
-            if (!this.form.products) return false;
-            return this.form.products.some(p => p.quantity > 0);
-        },
         assignedQuantities() {
             const totals = {};
             if (!this.labelForm.shipment) return totals;
@@ -532,7 +501,7 @@ export default {
                     .filter(p => box.productQuantities[p.sale_product.id] > 0)
                     .map(p => ({
                         name: p.sale_product.product.name,
-                        code: p.sale_product.product.code, // <-- Agregamos el code
+                        code: p.sale_product.product.code, 
                         quantity: box.productQuantities[p.sale_product.id]
                     }));
 
@@ -652,14 +621,6 @@ export default {
             const seconds = String(now.getSeconds()).padStart(2, '0');
             this.form.sent_at = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 
-            this.form.products = shipment.shipment_products.map(sp => ({
-                id: sp.id,
-                name: sp.sale_product?.product?.name || 'Producto Desconocido',
-                max_quantity: sp.quantity,
-                quantity: sp.quantity,
-                reason: '' // Nueva propiedad para atrapar la razón en caso de mandar menos
-            }));
-
             this.dialogVisible = true;
         },
         confirmShipment() {
@@ -671,8 +632,8 @@ export default {
                 },
                 onError: (errors) => { 
                     console.error('Error al actualizar el envío:', errors); 
-                    if (!this.form.errors.sent_at && !this.form.errors.products) {
-                         ElMessage.error('Error al actualizar el envío. Revisa los datos y asegúrate de agregar una razón para las cantidades incompletas.');
+                    if (!this.form.errors.sent_at) {
+                         ElMessage.error('Error al actualizar el envío. Revisa los datos.');
                     }
                 }
             });

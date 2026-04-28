@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
-use Carbon\Carbon; // Agregado para el manejo de fechas
+use Carbon\Carbon;
 
 class ShipmentController extends Controller
 {
@@ -159,21 +159,18 @@ class ShipmentController extends Controller
 
     public function show(Sale $sale)
     {
-        // Cargar la venta con todas las relaciones anidadas necesarias para la vista.
-        // Esto optimiza las consultas a la base de datos.
         $sale->load([
-            'branch:id,name,rfc,address,post_code,status', // Información del cliente
+            'branch:id,name,rfc,address,post_code,status', 
             'contact:id,name',
-            'contact.details', // Información del contacto
-            'user:id,name', // Usuario que creó la venta
+            'contact.details', 
+            'user:id,name', 
             'shipments' => function ($query) {
-                // Para cada envío, cargar los productos correspondientes
                 $query->with([
                     'shipmentProducts.saleProduct.product:id,name,code,measure_unit',
-                    'shipmentProducts.saleProduct.product.media', // Carga el producto de la venta, el producto maestro y sus imágenes
-                    'shipmentProducts.saleProduct.product.storages', // Carga el stock
-                    'media', // <--- AGREGADO: Cargar evidencias del envío
-                ])->oldest(); // Ordenar los envíos por los más recientes
+                    'shipmentProducts.saleProduct.product.media',
+                    'shipmentProducts.saleProduct.product.storages', 
+                    'media',
+                ])->oldest(); 
             }
         ]);
 
@@ -189,27 +186,12 @@ class ShipmentController extends Controller
 
     public function update(Request $request, Shipment $shipment)
     {
-        // Validación de los datos que vienen del modal incluyendo fecha y productos a despachar.
+        // Validación solo de los datos generales del envío (ya no modificamos productos aquí)
         $request->validate([
             'notes' => 'nullable|string|max:1000',
             'sent_by' => 'required|string|max:255',
             'sent_at' => 'required|date',
-            'products' => 'required|array|min:1',
-            'products.*.id' => 'required|exists:shipment_products,id',
-            'products.*.quantity' => 'required|integer|min:0',
-            'products.*.reason' => 'nullable|string|max:500', // Nueva validación para la razón
         ]);
-
-        // Validación personalizada antes de la transacción para asegurar que haya razón si mandan menos.
-        foreach ($request->products as $prod) {
-            $sp = ShipmentProduct::with('saleProduct.product')->find($prod['id']);
-            if ($sp && $prod['quantity'] > 0 && $prod['quantity'] < $sp->quantity) {
-                if (empty($prod['reason'])) {
-                    $productName = $sp->saleProduct->product->name ?? 'Desconocido';
-                    return back()->withErrors(['products' => "Es obligatorio especificar una razón al enviar menos piezas de las programadas para el producto: {$productName}."]);
-                }
-            }
-        }
 
         // Se envuelve la lógica en una transacción para asegurar la integridad de los datos.
         DB::transaction(function () use ($request, $shipment) {
@@ -222,34 +204,16 @@ class ShipmentController extends Controller
                 'sent_by' => $request->sent_by,
             ]);
 
-            // Mapear los productos recibidos para acceder a la nueva cantidad
-            $submittedProducts = collect($request->products)->keyBy('id');
-
-            // 2. Lógica para descontar stock y ajustar cantidades parciales
+            // 2. Lógica para descontar stock en base a las cantidades que quedaron configuradas por Producción
             $shipment->load('shipmentProducts.saleProduct.product.storages');
 
             foreach ($shipment->shipmentProducts as $shipmentProduct) {
-                if (!$submittedProducts->has($shipmentProduct->id)) {
-                    continue; 
-                }
+                // Usamos la cantidad actual configurada en el ShipmentProduct
+                $newQty = $shipmentProduct->quantity;
 
-                $submittedQty = $submittedProducts[$shipmentProduct->id]['quantity'];
-                $reason = $submittedProducts[$shipmentProduct->id]['reason'] ?? null;
-
-                // Evitar que despachen más de lo originalmente programado en la parcialidad
-                $newQty = min($submittedQty, $shipmentProduct->quantity);
-
-                // Si el usuario puso 0, se elimina el registro (se regresa a inventario "no enviado").
                 if ($newQty <= 0) {
                     $shipmentProduct->delete();
                     continue; 
-                } else if ($newQty < $shipmentProduct->quantity) {
-                    // Si mandaron menos, actualizamos el registro guardando la cantidad original y la razón
-                    $shipmentProduct->update([
-                        'quantity' => $newQty,
-                        'original_quantity' => $shipmentProduct->quantity,
-                        'less_sent_reason' => $reason
-                    ]);
                 }
 
                 $product = $shipmentProduct->saleProduct->product;
@@ -270,8 +234,7 @@ class ShipmentController extends Controller
                     // Cuánto nos queda permitido descontar del inventario general para esta orden
                     $leftToDeduct = max(0, $maxToDeduct - $previouslyShipped);
                     
-                    // Solo descontamos lo que trae la caja física (nueva cantidad) 
-                    // o lo que nos queda por descontar, lo que sea menor.
+                    // Solo descontamos lo que trae la caja física o lo que nos queda por descontar.
                     $quantityToDecrement = min($newQty, $leftToDeduct);
 
                     if ($quantityToDecrement > 0) {
@@ -301,7 +264,6 @@ class ShipmentController extends Controller
             $shipment->sale->updateStatus();
         });
 
-        // Redirige de vuelta a la página anterior con un mensaje de éxito.
         return redirect()->back()->with('success', 'El envío ha sido marcado como "Enviado" y el stock ha sido calculado y actualizado correctamente.');
     }
 
@@ -331,6 +293,7 @@ class ShipmentController extends Controller
     {
         $request->validate([
             'quantity' => 'required|integer|min:1',
+            'reason' => 'nullable|string|max:500', // Nueva validación para la razón
         ]);
 
         try {
@@ -352,6 +315,9 @@ class ShipmentController extends Controller
                   ->where('id', '!=', $shipmentProduct->id)
                   ->sum('quantity');
 
+                // Si original_quantity es null, significa que es la primera vez que se altera
+                $originalQty = $shipmentProduct->original_quantity ?? $shipmentProduct->quantity;
+
                 // Lo máximo que puede tener esta parcialidad es (Total de la orden) - (Asignado en otras parcialidades)
                 $maxAllowed = $saleProduct->quantity - $totalAssignedElsewhere;
 
@@ -359,10 +325,24 @@ class ShipmentController extends Controller
                     throw new \Exception("La cantidad máxima que puedes asignar a esta parcialidad es de {$maxAllowed} pzas (el resto ya está programado en otros envíos).");
                 }
 
-                // Actualizamos la cantidad en la base de datos
-                $shipmentProduct->update([
-                    'quantity' => $request->quantity
-                ]);
+                // Lógica de registro si envían menos de lo programado inicialmente
+                if ($request->quantity < $originalQty) {
+                    if (empty($request->reason)) {
+                        throw new \Exception("Es obligatorio especificar una razón al programar menos piezas de las originales ({$originalQty}).");
+                    }
+                    $shipmentProduct->update([
+                        'quantity' => $request->quantity,
+                        'original_quantity' => $originalQty,
+                        'less_sent_reason' => $request->reason
+                    ]);
+                } else {
+                    // Si regresan la cantidad al total original o lo superan (porque reasignaron de otra parcialidad)
+                    $shipmentProduct->update([
+                        'quantity' => $request->quantity,
+                        'original_quantity' => null,
+                        'less_sent_reason' => null
+                    ]);
+                }
             });
 
             return back()->with('success', 'Cantidad de la parcialidad actualizada correctamente.');

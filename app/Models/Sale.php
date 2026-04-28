@@ -39,6 +39,11 @@ class Sale extends Model implements HasMedia, Auditable
         'authorized_user_name',
         'authorized_at',
         'shipping_option', // indica cuantas parcialidades tiene la venta
+
+        // campos de facturación
+        'pre_invoice_folio', // folio de pre-factura (si aplica)
+        'stamped_invoice_folio', // folio de factura timbrada (si aplica)
+        'billing_status', // nuevo campo para indicar el estatus de facturación ('Pendiente Pre-factura', 'Pre-facturada', 'Pendiente Timbrado', 'Timbrada')
     ];
 
     protected $guarded = ['id'];
@@ -113,18 +118,6 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->hasManyThrough(Production::class, SaleProduct::class);
     }
 
-    // cambia el estatus de la sucursal a 'Cliente' si es 'Prospecto' al crear una venta
-    protected static function booted()
-    {
-        // Esto se ejecutará automáticamente cada vez que un nuevo registro de 'Sale' sea creado.
-        static::created(function ($sale) {
-            // Verificamos que la venta tenga una sucursal y que el estado sea 'Prospecto'
-            if ($sale->branch && $sale->branch->status === 'Prospecto') {
-                $sale->branch->update(['status' => 'Cliente']);
-            }
-        });
-    }
-
 
     /**
      * Calcula y devuelve los datos de utilidad para la venta.
@@ -133,9 +126,6 @@ class Sale extends Model implements HasMedia, Auditable
      */
     public function getUtilityDataAttribute()
     {
-        // Carga la relación si aún no ha sido cargada para evitar problemas N+1
-        // $this->loadMissing('saleProducts.product');
-
         $totalSale = 0;
         $totalCost = 0;
 
@@ -163,9 +153,6 @@ class Sale extends Model implements HasMedia, Auditable
      */
     public function getProductionSummaryAttribute()
     {
-        // Carga las relaciones necesarias si no están ya cargadas, para optimizar consultas.
-        // $this->loadMissing('productions.tasks');
-
         if ($this->productions->isEmpty()) {
             return [
                 'status' => 'Sin Producción',
@@ -221,8 +208,6 @@ class Sale extends Model implements HasMedia, Auditable
     /**
      * START: New Method
      * Checks if the promise date has passed and updates the priority to high.
-     * This method can be called from a controller or a scheduled job.
-     * It only acts if the date has passed and the priority is not already high.
      */
     public function updatePriorityBasedOnPromiseDate()
     {
@@ -232,7 +217,6 @@ class Sale extends Model implements HasMedia, Auditable
         }
 
         // 2. Check if the promise date is in the past
-        // Using startOfDay to ensure we compare dates only, not times.
         if (Carbon::parse($this->promise_date)->startOfDay()->isPast()) {
             $this->is_high_priority = true;
             $this->save();
@@ -241,16 +225,11 @@ class Sale extends Model implements HasMedia, Auditable
 
     /**
      * Actualiza el estatus de la venta basado en el estado de sus producciones y envíos.
-     * Este método debe ser llamado cuando ocurra un evento que pueda cambiar el estado general
-     * de la venta, como terminar una producción o enviar un paquete.
      *
      * @return void
      */
     public function updateStatus()
     {
-        // Cargar las relaciones necesarias para evitar consultas N+1
-        // $this->load(['productions', 'shipments']);
-
         $productions = $this->productions;
         $shipments = $this->shipments;
         
@@ -285,5 +264,69 @@ class Sale extends Model implements HasMedia, Auditable
             $this->status = $newStatus;
             $this->save();
         }
+    }
+
+    // --- SCOPES para filtrar por estatus de facturación ---
+     public function scopePendingPreInvoice($query)
+    {
+        return $query->where('billing_status', 'Pendiente Pre-factura');
+    }
+
+    public function scopePreInvoiced($query)
+    {
+        return $query->where('billing_status', 'Pre-facturada');
+    }
+
+    public function scopePendingStamping($query)
+    {
+        return $query->where('billing_status', 'Pendiente Timbrado');
+    }
+
+    public function scopeStamped($query)
+    {
+        return $query->where('billing_status', 'Timbrada');
+    }
+
+    protected static function booted()
+    {
+        static::created(function ($sale) {
+            // 1. Cambiar prospecto a cliente
+            if ($sale->branch && $sale->branch->status === 'Prospecto') {
+                $sale->branch->update(['status' => 'Cliente']);
+            }
+
+            // 2. Disparar notificación de creación de OV para cobranza
+            \App\Jobs\NotifyBillingDepartmentJob::dispatch($sale, 'pre_invoice_required');
+        });
+
+        // Detectar cambios cuando se actualiza la venta
+        static::updated(function ($sale) {
+            
+            // Lógica existente: Cambio a "En Proceso"
+            if ($sale->wasChanged('status') && $sale->status === 'En Proceso') {
+                if ($sale->billing_status === 'Pre-facturada') {
+                    $sale->updateQuietly(['billing_status' => 'Pendiente Timbrado']);
+                    \App\Jobs\NotifyBillingDepartmentJob::dispatch($sale, 'stamping_required');
+                }
+            }
+
+            // LÓGICA NUEVA: Cambio a "En Producción"
+            if ($sale->wasChanged('status') && $sale->status === 'En Producción') {
+                
+                // Caso 1: Ya existe pre factura, pero NO existe registro de timbrado
+                if (!empty($sale->pre_invoice_folio) && empty($sale->stamped_invoice_folio)) {
+                    // Opcional: Actualizar a "Pendiente Timbrado" si tus reglas de negocio lo permiten
+                    $sale->updateQuietly(['billing_status' => 'Pendiente Timbrado']);
+                    
+                    \App\Jobs\NotifyBillingDepartmentJob::dispatch($sale, 'production_pending_stamping');
+                }
+                
+                // Caso 2: No existe pre-factura (está vacía o nula)
+                elseif (empty($sale->pre_invoice_folio)) {
+                    \App\Jobs\NotifyBillingDepartmentJob::dispatch($sale, 'production_no_pre_invoice');
+                }
+            }
+
+        });
     }
 }
