@@ -233,7 +233,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" />
+                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante." />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">

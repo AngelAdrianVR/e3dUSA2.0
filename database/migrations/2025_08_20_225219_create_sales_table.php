@@ -36,6 +36,22 @@ return new class extends Migration
             $table->decimal('freight_cost', 10, 2)->nullable();
             $table->string('authorized_user_name')->nullable();
             $table->timestamp('authorized_at')->nullable();
+
+            // facturación
+            // Folio de la pre-factura externa
+            $table->string('pre_invoice_folio')->nullable();
+            
+            // Folio final timbrado (opcional si usas la tabla invoices, pero util para el dashboard)
+            $table->string('stamped_invoice_folio')->nullable();
+            
+            // Estado exclusivo de facturación para KPIs y Filtros
+            $table->enum('billing_status', [
+                'Pendiente Pre-factura', 
+                'Pre-facturada', 
+                'Pendiente Timbrado', 
+                'Timbrada'
+            ])->default('Pendiente Pre-factura');
+            
             $table->timestamps();
         });
     }

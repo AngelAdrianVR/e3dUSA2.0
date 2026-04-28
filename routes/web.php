@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppLayoutController;
 use App\Http\Controllers\AuditController;
+use App\Http\Controllers\BillingDashboardController;
 use App\Http\Controllers\BonusController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CalendarController;
@@ -255,6 +256,17 @@ Route::post('/invoices/import-historical', [InvoiceController::class, 'importHis
 // ------- CRM(Rutas de pagos de facturación)  ---------
 Route::post('/invoices/{invoice}/payments', [InvoicePaymentController::class, 'store'])->middleware('auth')->name('invoices.payments.store');
 
+
+// ------- CRM(Rutas del Dashboard de Cobranza)  ---------
+Route::get('/billing-dashboard', [BillingDashboardController::class, 'index'])
+    ->middleware(['auth']) 
+    ->name('billing.dashboard');
+
+// Ruta para actualizar los folios y estado desde el modal del dashboard
+Route::put('/billing/{sale}/update-folios', [BillingDashboardController::class, 'updateFolios'])
+    ->middleware(['auth'])
+    ->name('billing.update-folios');
+Route::get('/billing/report', [BillingDashboardController::class, 'report'])->name('billing.report');
 
 
 // ------- (Produccion Routes)  ---------
