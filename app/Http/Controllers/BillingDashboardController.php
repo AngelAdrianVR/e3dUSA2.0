@@ -32,7 +32,7 @@ class BillingDashboardController extends Controller
         ];
 
         // 2. Query Principal para la tabla
-        $query = Sale::with(['contact', 'user', 'branch.parent', 'saleProducts.product']);
+        $query = Sale::with(['contact', 'user', 'branch.parent', 'saleProducts.product.media']);
 
         // Filtro: Estado de Facturación
         if ($request->filled('billing_status')) {

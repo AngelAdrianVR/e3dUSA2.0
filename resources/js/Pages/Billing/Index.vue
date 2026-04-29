@@ -5,32 +5,11 @@
                 Panel de Control de Facturación
             </h2>
 
-            <!-- Botón de Reportes -->
+            <!-- Botón de Reportes (Abre Modal) -->
             <div class="flex items-center space-x-3">
-                <el-date-picker
-                    v-model="reportDates"
-                    type="daterange"
-                    range-separator="A"
-                    start-placeholder="Inicio"
-                    end-placeholder="Fin"
-                    format="YYYY-MM-DD"
-                    value-format="YYYY-MM-DD"
-                    size="small"
-                    style="width: 250px"
-                />
-                <el-dropdown @command="generateReport" trigger="click">
-                    <el-button type="primary" size="small">
-                        <i class="fa-solid fa-file-excel mr-2"></i> Generar Reporte <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
-                    </el-button>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item command="sin_prefactura">OVs sin pre-factura</el-dropdown-item>
-                            <el-dropdown-item command="prefacturadas">OVs pre-facturadas</el-dropdown-item>
-                            <el-dropdown-item command="timbradas">OVs timbradas</el-dropdown-item>
-                            <el-dropdown-item divided command="todas">Todas las OVs</el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
+                <el-button type="primary" size="small" @click="reportModalVisible = true">
+                    <i class="fa-solid fa-file-excel mr-2"></i> Generar Reporte
+                </el-button>
             </div>
         </div>
 
@@ -148,14 +127,14 @@
                         <table class="w-full whitespace-nowrap text-xs">
                             <thead class="bg-gray-50 dark:bg-slate-800">
                                 <tr class="text-left font-bold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                                    <th class="py-3 px-4">OV</th>
-                                    <th class="py-3 px-4">Razón Social</th>
-                                    <th class="py-3 px-4">Sucursal</th>
-                                    <th class="py-3 px-4">Monto</th>
-                                    <th class="py-3 px-4">Estado OV</th>
-                                    <th class="py-3 px-4 text-center">Estado Fact.</th>
-                                    <th class="py-3 px-4 text-center">Pre-factura</th>
-                                    <th class="py-3 px-4 text-center">Timbrado</th>
+                                    <th class="py-3 px-2">OV</th>
+                                    <th class="py-3 px-2">Razón Social</th>
+                                    <th class="py-3 px-2">Sucursal</th>
+                                    <th class="py-3 px-2">Monto</th>
+                                    <th class="py-3 px-2">Estado OV</th>
+                                    <th class="py-3 px-2 text-center">Estado Fact.</th>
+                                    <th class="py-3 px-2 text-center">Pre-factura</th>
+                                    <th class="py-3 px-2 text-center">Timbrado</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -163,29 +142,29 @@
                                     @click="openDetailsModal(sale)"
                                     class="hover:bg-indigo-50/50 cursor-pointer dark:hover:bg-slate-800/50 transition-colors">
                                     
-                                    <td class="px-4 py-3">
+                                    <td class="px-2 py-3">
                                         <span @click.stop="$inertia.visit(route('sales.show', sale.id))" class="font-semibold text-indigo-600 hover:underline hover:text-blue-600 dark:text-indigo-400">OV-{{ sale.id }}</span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
+                                    <td class="px-2 py-3 text-gray-700 dark:text-gray-300 font-medium">
                                         {{ sale.branch?.parent?.name || sale.branch?.name || 'N/A' }}
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                    <td class="px-2 py-3 text-gray-600 dark:text-gray-400">
                                         {{ sale.branch?.name || 'N/A' }}
                                     </td>
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                                    <td class="px-2 py-3 font-medium text-gray-900 dark:text-gray-100">
                                         ${{ formatCurrency(sale.total_amount) }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-2 py-3">
                                         <el-tag size="small" :type="getGeneralStatusType(sale.status)" effect="plain">{{ sale.status }}</el-tag>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center">
                                         <el-tag size="small" :type="getBillingStatusType(sale.billing_status)">{{ sale.billing_status }}</el-tag>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center max-w-[150px] truncate" :title="sale.pre_invoice_folio">
                                         <span v-if="sale.pre_invoice_folio" class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 font-mono">{{ sale.pre_invoice_folio }}</span>
                                         <span v-else class="text-gray-400 italic">-</span>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center max-w-[150px] truncate" :title="sale.stamped_invoice_folio">
                                         <span v-if="sale.stamped_invoice_folio" class="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded font-mono">{{ sale.stamped_invoice_folio }}</span>
                                         <span v-else class="text-gray-400 italic">-</span>
                                     </td>
@@ -223,6 +202,46 @@
             @saved="handleModalSaved"
         />
 
+        <!-- Modal para Generar Reporte -->
+        <el-dialog v-model="reportModalVisible" title="Generar Reporte de Facturación" width="500px">
+            <div class="space-y-5 py-2">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Rango de Fechas <span class="text-gray-400 font-normal">(Opcional)</span>
+                    </label>
+                    <el-date-picker
+                        v-model="reportForm.dates"
+                        type="daterange"
+                        range-separator="Hasta"
+                        start-placeholder="Fecha Inicio"
+                        end-placeholder="Fecha Fin"
+                        format="YYYY-MM-DD"
+                        value-format="YYYY-MM-DD"
+                        class="!w-full"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Estatus de las Facturas
+                    </label>
+                    <el-select v-model="reportForm.type" class="!w-full" placeholder="Seleccione el estatus">
+                        <el-option label="Todas las OVs" value="todas" />
+                        <el-option label="OVs sin pre-factura" value="sin_prefactura" />
+                        <el-option label="OVs pre-facturadas" value="prefacturadas" />
+                        <el-option label="OVs timbradas" value="timbradas" />
+                    </el-select>
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end space-x-2">
+                    <el-button @click="reportModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="generateReport" :disabled="!reportForm.type">
+                        <i class="fa-solid fa-download mr-2"></i> Generar y Descargar
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -247,9 +266,15 @@ export default {
                 search: this.filtersProp?.search || '',
                 kpi_filter: this.filtersProp?.kpi_filter || null,
             },
-            reportDates: null,
             detailsModalVisible: false,
             selectedSale: null,
+            
+            // Variables del Modal de Reporte
+            reportModalVisible: false,
+            reportForm: {
+                dates: null,
+                type: 'todas'
+            }
         };
     },
     computed: {
@@ -258,7 +283,6 @@ export default {
         }
     },
     created() {
-        // Inicializamos el debounce en el created para que mantenga la referencia
         this.debouncedSearch = debounce(this.syncUrl, 500);
     },
     methods: {
@@ -278,7 +302,6 @@ export default {
         },
         filterByKpi(kpiType) {
             this.filters.kpi_filter = kpiType;
-            // Limpiamos los otros filtros al dar clic en un KPI para que sea exacto
             this.filters.billing_status = null; 
             this.filters.search = '';
             this.syncUrl();
@@ -288,17 +311,16 @@ export default {
             this.detailsModalVisible = true;
         },
         handleModalSaved() {
-            // Refrescar los datos actuales sin recargar toda la página
             router.reload({ only: ['salesForBilling', 'kpis'] });
         },
-        generateReport(type) {
-            let url = route('billing.report', { type: type });
+        generateReport() {
+            let url = route('billing.report', { type: this.reportForm.type });
             
-            if (this.reportDates && this.reportDates.length === 2) {
-                url += `&start_date=${this.reportDates[0]}&end_date=${this.reportDates[1]}`;
+            if (this.reportForm.dates && this.reportForm.dates.length === 2) {
+                url += `&start_date=${this.reportForm.dates[0]}&end_date=${this.reportForm.dates[1]}`;
             }
             
-            // Abrir en nueva pestaña para descargar
+            this.reportModalVisible = false;
             window.open(url, '_blank');
         },
         getGeneralStatusType(status) {

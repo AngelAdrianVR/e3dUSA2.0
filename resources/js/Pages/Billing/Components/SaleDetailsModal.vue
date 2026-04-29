@@ -58,16 +58,15 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             <tr v-for="item in sale.sale_products" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-slate-800">
                                 <td class="p-2">
-                                    <!-- Imagen miniatura con zoom -->
                                     <el-image 
-                                        v-if="item.product?.images_urls?.length"
+                                        v-if="item.product?.media?.length"
                                         style="width: 40px; height: 40px; border-radius: 4px;"
-                                        :src="item.product.images_urls[0]" 
+                                        :src="item.product.media[0].original_url" 
                                         :zoom-rate="1.2"
                                         :max-scale="7"
                                         :min-scale="0.2"
-                                        :preview-src-list="item.product.images_urls"
-                                        :initial-index="0"
+                                        :preview-src-list="item.product.media[0].original_url ? [item.product.media[0].original_url] : []"
+                                      :initial-index="0"
                                         fit="cover"
                                         hide-on-click-modal
                                     />
@@ -89,19 +88,43 @@
 
             <!-- Formulario de Folios -->
             <form @submit.prevent="submitUpdate" class="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-lg border border-indigo-100 dark:border-indigo-900">
-                <h4 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-3">Captura de Folios</h4>
-                <p class="text-xs text-indigo-600 dark:text-indigo-400 mb-4">El estatus de facturación se actualizará automáticamente al guardar.</p>
+                <h4 class="text-sm font-bold text-indigo-800 dark:text-indigo-300 mb-2">Captura de Folios</h4>
+                <p class="text-xs text-indigo-600 dark:text-indigo-400 mb-4">
+                    Escribe el folio y presiona 'Enter' para agregar múltiples registros. El estatus se actualizará automáticamente.
+                </p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 block">Folio Pre-factura (Externa)</label>
-                        <el-input v-model="form.pre_invoice_folio" placeholder="Ej. PF-12345" clearable />
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 block">Folios Pre-factura (Externa)</label>
+                        <el-select
+                            v-model="folios.pre_invoice"
+                            multiple
+                            filterable
+                            allow-create
+                            default-first-option
+                            :reserve-keyword="false"
+                            placeholder="Escribe y presiona Enter..."
+                            class="!w-full"
+                            no-data-text="Escribe un folio y presiona Enter"
+                        >
+                        </el-select>
                         <span v-if="form.errors.pre_invoice_folio" class="text-red-500 text-xs mt-1">{{ form.errors.pre_invoice_folio }}</span>
                     </div>
 
                     <div>
-                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 block">Folio Factura Timbrada</label>
-                        <el-input v-model="form.stamped_invoice_folio" placeholder="Ej. A-9876" clearable />
+                        <label class="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1 block">Folios Factura Timbrada</label>
+                        <el-select
+                            v-model="folios.stamped_invoice"
+                            multiple
+                            filterable
+                            allow-create
+                            default-first-option
+                            :reserve-keyword="false"
+                            placeholder="Escribe y presiona Enter..."
+                            class="!w-full"
+                            no-data-text="Escribe un folio y presiona Enter"
+                        >
+                        </el-select>
                         <span v-if="form.errors.stamped_invoice_folio" class="text-red-500 text-xs mt-1">{{ form.errors.stamped_invoice_folio }}</span>
                     </div>
                 </div>
@@ -132,6 +155,11 @@ export default {
     emits: ['update:show', 'saved'],
     data() {
         return {
+            // Arrays temporales para el manejo visual múltiple en Element Plus
+            folios: {
+                pre_invoice: [],
+                stamped_invoice: []
+            },
             form: useForm({
                 pre_invoice_folio: '',
                 stamped_invoice_folio: '',
@@ -143,8 +171,14 @@ export default {
             immediate: true,
             handler(newVal) {
                 if (newVal) {
-                    this.form.pre_invoice_folio = newVal.pre_invoice_folio || '';
-                    this.form.stamped_invoice_folio = newVal.stamped_invoice_folio || '';
+                    // Convertimos la cadena separada por comas de la BD en un array para el input múltiple
+                    this.folios.pre_invoice = newVal.pre_invoice_folio 
+                        ? newVal.pre_invoice_folio.split(',').map(s => s.trim()).filter(s => s) 
+                        : [];
+                        
+                    this.folios.stamped_invoice = newVal.stamped_invoice_folio 
+                        ? newVal.stamped_invoice_folio.split(',').map(s => s.trim()).filter(s => s) 
+                        : [];
                 }
             }
         }
@@ -154,6 +188,10 @@ export default {
             return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         submitUpdate() {
+            // Unimos el array de nuevo en una sola cadena separada por comas para enviarla a tu controlador (ej. "PF-1, PF-2")
+            this.form.pre_invoice_folio = this.folios.pre_invoice.join(', ');
+            this.form.stamped_invoice_folio = this.folios.stamped_invoice.join(', ');
+
             this.form.put(route('billing.update-folios', this.sale.id), {
                 preserveScroll: true,
                 onSuccess: () => {

@@ -170,6 +170,7 @@ class ProductController extends Controller
             'FDC' => 'FIBRA DSE CARBONO',
             'RS' => 'RESINA',
             'ENC' => 'ENCAPSULADO',
+            'CDT' => 'CORTE DIAMANTE',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
@@ -414,6 +415,7 @@ class ProductController extends Controller
             'FDC' => 'FIBRA DSE CARBONO',
             'RS' => 'RESINA',
             'ENC' => 'ENCAPSULADO',
+            'CDT' => 'CORTE DIAMANTE',
         ];
 
         $validatedData['product_type'] = $productTypes[$validatedData['product_type_key']];
