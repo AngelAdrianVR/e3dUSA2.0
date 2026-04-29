@@ -285,7 +285,8 @@ Route::put('shipments/{shipment}/tracking', [ShipmentController::class, 'updateT
 Route::post('shipments/{shipment}/evidence', [ShipmentController::class, 'storeEvidence'])->name('shipments.store-evidence');
 // NUEVA RUTA - Para poder actualizar individualmente la cantidad de un producto dentro de una parcialidad
 Route::put('shipments/products/{shipmentProduct}/quantity', [ShipmentController::class, 'updateProductQuantity'])->middleware('auth')->name('shipments.update-product-quantity');
-
+Route::put('shipments/{shipment}/date', [ShipmentController::class, 'updateDate'])->name('shipments.update-date');
+Route::put('shipments/{shipment}/notes', [ShipmentController::class, 'updateNotes'])->name('shipments.update-notes');
 
 // ------- (Rutas de proveedores)  ---------
 Route::resource('suppliers', SupplierController::class)->middleware('auth');

@@ -16,6 +16,9 @@ return new class extends Migration
 
             // Datos de la empresa/sucursal
             $table->string('name');
+            $table->string('group_name')->nullable()->comment('Nombre del Grupo Empresarial (Ej. ANDRADE, DALTON)');
+            $table->string('business_name')->nullable()->comment('Razón Social oficial para facturación y cobranza');
+            $table->string('bank_account')->nullable()->comment('Cuenta bancaria o identificador de pago');
             $table->string('password'); //Para poder ingresar al portal de clientes
             $table->string('rfc', 30)->nullable();
             $table->string('address')->nullable();
