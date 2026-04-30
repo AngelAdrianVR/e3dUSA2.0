@@ -28,6 +28,11 @@ class Branch extends Model implements Auditable
         'parent_branch_id',
         'days_to_reactive',
         'account_manager_id', // vendedor asignado (usuario)
+        // --- NUEVOS CAMPOS BASADOS EN EL EXCEL ---
+        'group_name',    // GRUPO
+        'business_name', // RAZON SOCIAL
+        'bank_account',  // CUENTA BANCO
+        'client_number'  // NUMERO DE CLIENTE
     ];
 
     /**
@@ -80,7 +85,7 @@ class Branch extends Model implements Auditable
     }
 
     /**
-     * Obtiene la sucursal matriz de esta sucursal (si existe).
+     * Obtiene la sucursal matriz a la que pertenece esta sucursal.
      */
     public function parent()
     {
@@ -88,9 +93,9 @@ class Branch extends Model implements Auditable
     }
 
     /**
-     * Obtiene las sucursales hijas.
+     * Obtiene las sucursales hijas (si esta es una matriz).
      */
-    public function children()
+    public function children(): HasMany
     {
         return $this->hasMany(Branch::class, 'parent_branch_id');
     }

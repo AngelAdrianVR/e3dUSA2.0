@@ -16,8 +16,16 @@
                     <form @submit.prevent="store">
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 border-b dark:border-gray-600 pb-2">Datos Generales</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
+                            <!-- Nuevos campos incorporados -->
+                            <TextInput label="Número de Cliente" v-model="form.client_number" type="text" :error="form.errors.client_number" placeholder="Ej. C001" />
+                            <TextInput label="Nombre/Alias*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
+                            
+                            <TextInput label="Razón Social" v-model="form.business_name" type="text" :error="form.errors.business_name" placeholder="Razón social fiscal" />
                             <TextInput label="RFC" v-model="form.rfc" type="text" :error="form.errors.rfc" placeholder="Registro Federal de Contribuyentes" />
+                            
+                            <TextInput label="Grupo" v-model="form.group_name" type="text" :error="form.errors.group_name" placeholder="Ej. Andrade, Autocom (Opcional)" />
+                            <TextInput label="Cuenta Bancaria" v-model="form.bank_account" type="text" :error="form.errors.bank_account" placeholder="Ej. 1234 o Cuenta Completa" />
+                            
                             <div class="md:col-span-2">
                                 <TextInput label="Dirección" v-model="form.address" type="text" :error="form.errors.address" placeholder="Calle, número, colonia" />
                             </div>
@@ -38,7 +46,8 @@
                                 <InputError :message="form.errors.account_manager_id" />
                             </div>
                             <div>
-                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Matriz / Razón social (Opcional)</label>
+                                <!-- Se ajustó la etiqueta para evitar confusión con la nueva columna Razón social -->
+                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Sucursal Matriz (Opcional)</label>
                                 <el-select v-model="form.parent_branch_id" placeholder="Selecciona una matriz" class="!w-full" filterable clearable>
                                     <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
                                 </el-select>
@@ -50,7 +59,6 @@
                                     <el-option v-for="item in meetWays" :key="item" :value="item" :label="item" />
                                 </el-select>
                             </div>
-                             <!-- <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" /> -->
                         </div>
                         
                         <div class="flex justify-between items-center mt-8 mb-4 border-b dark:border-gray-600 pb-2">
@@ -236,6 +244,12 @@ export default {
         const form = useForm({
             name: null,
             rfc: null,
+            // Nuevos campos agregados
+            group_name: null,
+            business_name: null,
+            bank_account: null,
+            client_number: null,
+
             address: null,
             post_code: null,
             status: 'Prospecto',
@@ -244,7 +258,6 @@ export default {
             meet_way: null,
             contacts: [],
             products: [],
-            // --- NUEVA PROPIEDAD PARA EL FORMULARIO ---
             suggested_products: [],
         });
 

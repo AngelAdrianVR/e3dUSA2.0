@@ -17,9 +17,9 @@ class BranchController extends Controller
 {
     public function index()
     {
-        // Usamos with() para cargar las relaciones y evitar el problema N+1.
-        // Esto hace que la consulta sea mucho más eficiente.
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Cargamos solo las matrices (parent_branch_id = null) y sus sucursales hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest() // Ordena por los más recientes primero
             ->paginate(30); // Pagina los resultados
 
@@ -43,6 +43,13 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches',
             'rfc' => 'nullable|string|max:20',
+            
+            // Nuevas columnas validadas
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -75,6 +82,13 @@ class BranchController extends Controller
             $branch = Branch::create([
                 'name' => $validated['name'],
                 'rfc' => $validated['rfc'],
+                
+                // Nuevas columnas mapeadas para inserción
+                'group_name' => $validated['group_name'] ?? null,
+                'business_name' => $validated['business_name'] ?? null,
+                'bank_account' => $validated['bank_account'] ?? null,
+                'client_number' => $validated['client_number'] ?? null,
+
                 'address' => $validated['address'],
                 'post_code' => $validated['post_code'],
                 'status' => $validated['status'],
@@ -260,6 +274,13 @@ class BranchController extends Controller
                 Rule::unique('branches', 'name')->ignore($branch->id),
             ],
             'rfc' => 'nullable|string|max:20',
+            
+            // Nuevas columnas también agregadas al update por seguridad y consistencia
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -289,7 +310,7 @@ class BranchController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar datos de la sucursal
+            // 1. Actualizar datos de la sucursal (al usar collect except automáticamente recoge las nuevas si fueron validadas)
             $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
 
             // 2. Sincronizar contactos
@@ -453,20 +474,27 @@ class BranchController extends Controller
     {
         $query = $request->input('query');
 
-        // Realiza la búsqueda
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Realiza la búsqueda mostrando solo matrices y filtrando si hay coincidencias en las hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
                 ->orWhere('name', 'like', "%{$query}%")
+                ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda por Razón Social
                 ->orWhere('status', 'like', "%{$query}%")
-                // Busca dentro de la relación de la matriz (parent)
-                ->orWhereHas('parent', function ($parentQuery) use ($query) {
-                    $parentQuery->where('name', 'like', "%{$query}%");
-                })
-                // Correcto uso de whereHas para buscar en la relación
+                // Busca dentro de su propio account manager
                 ->orWhereHas('accountManager', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
+                })
+                // Busca si alguna sucursal hija coincide
+                ->orWhereHas('children', function ($childQuery) use ($query) {
+                    $childQuery->where('name', 'like', "%{$query}%")
+                               ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda en hijas
+                               ->orWhere('status', 'like', "%{$query}%")
+                               ->orWhereHas('accountManager', function($uq) use ($query){
+                                   $uq->where('name', 'like', "%{$query}%");
+                               });
                 });
             })
             ->get();
@@ -560,6 +588,11 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches,name',
             'rfc' => 'nullable|string|max:13',
+            // Agregado por si decides enviarlos desde la forma rápida también
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
         ]);
 
         $branch = Branch::create($validated + ['password' => bcrypt('e3d')]);

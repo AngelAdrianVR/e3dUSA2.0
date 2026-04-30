@@ -15,10 +15,11 @@ return new class extends Migration
             $table->id();
 
             // Datos de la empresa/sucursal
-            $table->string('name');
-            $table->string('group_name')->nullable()->comment('Nombre del Grupo Empresarial (Ej. ANDRADE, DALTON)');
-            $table->string('business_name')->nullable()->comment('Razón Social oficial para facturación y cobranza');
-            $table->string('bank_account')->nullable()->comment('Cuenta bancaria o identificador de pago');
+            $table->string('name'); // nombre o alias de la sucursal
+            $table->string('group_name')->nullable()->comment('Nombre del Grupo Empresarial (Ej. ANDRADE, DALTON)'); // nuevo campo para agrupar sucursales bajo un mismo grupo empresarial
+            $table->string('business_name')->nullable()->comment('Razón Social oficial para facturación y cobranza'); // nuevo campo para la razón social, que puede ser diferente al nombre de la sucursal
+            $table->string('bank_account')->nullable()->comment('Cuenta bancaria o identificador de pago'); // nuevo campo para la cuenta bancaria o método de pago preferido
+            $table->string('client_number')->nullable()->comment('Número de cliente o identificador'); // nuevo campo para el número de cliente o identificador
             $table->string('password'); //Para poder ingresar al portal de clientes
             $table->string('rfc', 30)->nullable();
             $table->string('address')->nullable();
