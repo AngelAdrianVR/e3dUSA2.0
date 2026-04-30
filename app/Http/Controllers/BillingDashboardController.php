@@ -12,27 +12,34 @@ class BillingDashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Lógica de KPIs actualizada a los nuevos requerimientos
+        // Definir el ID mínimo a mostrar para filtrar las OV viejas
+        $minSaleId = 4000;
+
+        // 1. Lógica de KPIs actualizada a los nuevos requerimientos y filtrada desde la OV 4000
         $kpis = [
             // Pendiente Pre-factura: No tiene folio de pre-factura
-            'total_pending_pre_invoice' => Sale::whereNull('pre_invoice_folio')
+            'total_pending_pre_invoice' => Sale::where('id', '>=', $minSaleId)
+                ->whereNull('pre_invoice_folio')
                 ->where('status', '!=', 'Cancelada') // Asumiendo que no facturamos canceladas
                 ->count(),
 
             // Pendiente Timbrado: Tiene pre-factura, NO tiene timbrado y su estatus indica que ya se produjo/envió
-            'total_pending_stamping'    => Sale::whereNotNull('pre_invoice_folio')
+            'total_pending_stamping'    => Sale::where('id', '>=', $minSaleId)
+                ->whereNotNull('pre_invoice_folio')
                 ->whereNull('stamped_invoice_folio')
                 ->whereIn('status', ['En Producción', 'Preparando Envío', 'Enviada'])
                 ->count(),
 
             // Timbradas en el mes actual
-            'total_stamped_month'       => Sale::whereNotNull('stamped_invoice_folio')
+            'total_stamped_month'       => Sale::where('id', '>=', $minSaleId)
+                ->whereNotNull('stamped_invoice_folio')
                 ->whereMonth('created_at', now()->month)
                 ->count(),
         ];
 
-        // 2. Query Principal para la tabla
-        $query = Sale::with(['contact', 'user', 'branch.parent', 'saleProducts.product.media']);
+        // 2. Query Principal para la tabla (también filtrada desde la OV 4000)
+        $query = Sale::where('id', '>=', $minSaleId)
+            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media']);
 
         // Filtro: Estado de Facturación
         if ($request->filled('billing_status')) {
@@ -42,7 +49,7 @@ class BillingDashboardController extends Controller
         // Filtro: Búsqueda (ID, RFC, Nombre de Sucursal)
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function (Builder $q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 // Buscar por ID de OV
                 $q->where('id', 'like', "%{$search}%")
                   // O buscar dentro de la sucursal

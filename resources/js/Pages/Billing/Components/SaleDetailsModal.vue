@@ -28,16 +28,23 @@
                         <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Monto Total de Venta</span>
                         <span class="text-emerald-600 dark:text-emerald-400 font-bold">${{ formatCurrency(sale.total_amount) }}</span>
                     </div>
+                    <div v-if="sale.user.name">
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Vendedor</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.user.name }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Sucursal/Alias</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.name }}</span>
+                    </div>
                 </div>
 
                 <!-- Notas y Pie de factura -->
                 <div class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
                     <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Datos para Pie de Factura</span>
                     <div class="bg-gray-100 dark:bg-gray-900 p-3 rounded mt-2 border border-gray-200 dark:border-gray-700">
-                        <p class="text-gray-800 dark:text-gray-200 uppercase font-mono text-xs whitespace-pre-line">
-                            {{ sale.branch?.name }}
-                            <template v-if="sale.notes"><br><br>{{ sale.notes }}</template>
-                        </p>
+                        <div class="text-gray-800 dark:text-gray-200 uppercase font-mono text-xs whitespace-pre-line">
+                            <p>{{ sale.notes ?? 'No hay notas disponibles' }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
