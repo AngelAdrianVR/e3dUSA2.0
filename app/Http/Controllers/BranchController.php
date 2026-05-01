@@ -575,7 +575,7 @@ class BranchController extends Controller
                         ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
                         ->orderBy('valid_from', 'desc');
                 }
-            ])
+            ])->whereNull('archived_at')
             ->get();
 
         return response()->json($products);

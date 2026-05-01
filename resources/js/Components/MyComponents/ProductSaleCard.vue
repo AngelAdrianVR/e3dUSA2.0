@@ -1,5 +1,7 @@
 <template>
-    <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl shadow-lg p-5 border border-transparent transition-all duration-300 hover:shadow-2xl hover:border-primary/50 relative overflow-hidden">
+    <div class="bg-gray-50 dark:bg-slate-800/80 rounded-2xl shadow-lg p-5 border transition-all duration-300 hover:shadow-2xl hover:border-primary/50 relative overflow-hidden"
+         :class="saleProduct.has_low_price && !isSaleAuthorized ? 'border-amber-300 dark:border-amber-700/50' : 'border-transparent'">
+        
         <div v-if="isHighPriority" class="absolute top-0 right-0 bg-red-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl z-10">
             <i class="fa-solid fa-star text-yellow-300 mr-1"></i>
             PRIORIDAD ALTA
@@ -17,7 +19,7 @@
                 </div>
             </div>
 
-            <div class="flex-1">
+            <div class="flex-1 relative">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ saleProduct.product?.name }}</h3>
                 <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
                 
@@ -43,10 +45,38 @@
                         </div>
                         <p class="font-semibold text-lg">{{ saleProduct.quantity?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                     </div>
+                    
+                    <!-- PRECIO DE VENTA Y TOOLTIP -->
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">Precio Unitario (Venta)</p>
-                        <p class="font-semibold text-lg text-green-600 dark:text-green-400">{{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
+                        <div class="flex items-center space-x-2 mt-0.5">
+                            <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
+                                {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
+                            </p>
+                            
+                            <!-- INDICADOR DE PRECIO BAJO -->
+                            <el-tooltip v-if="saleProduct.has_low_price && !isSaleAuthorized" placement="top" effect="dark">
+                                <template #content>
+                                    <div class="w-64 text-xs leading-relaxed">
+                                        El precio de venta es menor al establecido para el cliente.<br><br>
+                                        Si no autoriza este precio, <b>comuníquese con el vendedor</b> para que lo edite.<br>
+                                        Si autoriza el precio, solo tiene que <b>Autorizar la orden de venta</b> desde el botón principal.
+                                    </div>
+                                </template>
+                                <div class="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full size-6 flex items-center justify-center animate-pulse cursor-help">
+                                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                                </div>
+                            </el-tooltip>
+
+                            <!-- INDICADOR DE PRECIO AUTORIZADO -->
+                            <el-tooltip v-else-if="saleProduct.has_low_price && isSaleAuthorized" content="Precio Bajo Autorizado" placement="top" effect="dark">
+                                <div class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full size-6 flex items-center justify-center cursor-help">
+                                    <i class="fa-solid fa-check-double text-xs"></i>
+                                </div>
+                            </el-tooltip>
+                        </div>
                     </div>
+
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
                         <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
@@ -55,6 +85,14 @@
                         <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
                         <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
+                </div>
+
+                <!-- === JUSTIFICACIÓN DEL PRECIO BAJO === -->
+                <div v-if="saleProduct.has_low_price && saleProduct.low_price_reason" class="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-400 dark:border-amber-600 rounded-r-md">
+                    <p class="text-[11px] text-amber-700 dark:text-amber-400 font-bold mb-1 uppercase tracking-wider flex items-center">
+                        <i class="fa-solid fa-comment-dots mr-1"></i> Razón del precio bajo:
+                    </p>
+                    <p class="text-sm text-gray-700 dark:text-gray-300 italic pr-2">"{{ saleProduct.low_price_reason }}"</p>
                 </div>
             </div>
         </div>
@@ -229,6 +267,11 @@ export default {
         branchId: {
             type: Number,
             required: true,
+        },
+        // Propiedad nueva para saber si la orden padre está autorizada
+        isSaleAuthorized: {
+            type: Boolean,
+            default: false,
         }
     },
     data() {

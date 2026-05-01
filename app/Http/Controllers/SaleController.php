@@ -95,11 +95,15 @@ class SaleController extends Controller
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean', // NUEVO CAMPO
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -141,7 +145,9 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'type' => $validated['type'],
                 'user_id' => auth()->id(),
-                'status' => 'Pendiente',
+                'status' => 'Pendiente', // El status es pendiente por defecto (Esperando Autorización)
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
@@ -178,6 +184,8 @@ class SaleController extends Controller
                     'price' => $productData['price'] ?? 0,
                     'notes' => $productData['notes'] ?? null,
                     'customization_details' => $productData['customization_details'] ?? null,
+                    'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                    'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
                     'quantity_to_produce' => $productData['quantity'],
@@ -388,11 +396,15 @@ class SaleController extends Controller
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean',
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -439,10 +451,15 @@ class SaleController extends Controller
 
             // --- 4. ACTUALIZAR LA ORDEN ---
             $sale->update([
+                'status' => 'Pendiente', // NUEVA REGLA: Forzar a Pendiente al editar
+                'authorized_at' => null, // NUEVA REGLA: Forzar a Pendiente al editar
+                'authorized_user_name' => null, // NUEVA REGLA: Forzar a Pendiente al editar
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
@@ -468,6 +485,8 @@ class SaleController extends Controller
                         'price' => $productData['price'] ?? 0,
                         'notes' => $productData['notes'] ?? null,
                         'customization_details' => $productData['customization_details'] ?? null,
+                        'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                        'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     ]
                 );
             }

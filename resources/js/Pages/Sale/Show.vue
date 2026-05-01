@@ -106,6 +106,17 @@
             </div>
         </header>
 
+        <!-- === ALERTA DE PRECIO BAJO A NIVEL ORDEN === -->
+        <div v-if="sale.has_low_price && sale.status === 'Pendiente'" class="mb-4 animate-fade-in-down">
+            <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mr-4"></i>
+                <div>
+                    <h3 class="text-amber-800 dark:text-amber-400 font-bold">Órden pendiente de revisión de márgenes</h3>
+                    <p class="text-amber-700 dark:text-amber-300 text-sm">Esta orden contiene productos con precio por debajo del margen establecido. Por favor, revisa la justificación en los productos antes de autorizar.</p>
+                </div>
+            </div>
+        </div>
+
 
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
@@ -429,6 +440,7 @@
                                 :is-high-priority="sale.is_high_priority"
                                 :branch-id="sale.branch_id"
                                 :saleCurrency="sale.currency"
+                                :is-sale-authorized="sale.authorized_at !== null"
                             />
                         </div>
                         <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
