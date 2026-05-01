@@ -41,11 +41,18 @@
                             <i class="fa-solid fa-clock-rotate-left" :class="lastUpdateInfo?.colorClass" :title="lastUpdateInfo?.text"></i>
                          </div>
                          
-                         <div class="mb-2">
+                         <div class="mb-2" v-if="lastUpdateInfo?.text !== 'Sin precio vigente'">
                             <p class="mb-1 text-[10px] dark:text-gray-300">{{ lastUpdateInfo?.text }}</p>
                          </div>
 
-                         <ul class="max-h-32 overflow-y-auto space-y-1 mb-3 pr-1">
+                         <!-- Caso: No hay historial de precios para este cliente -->
+                         <div v-if="!item.product?.price_history?.length" class="text-gray-500 italic text-center py-4 bg-gray-50 rounded border border-gray-100">
+                            <i class="fa-solid fa-circle-info text-blue-400 mb-2 text-lg block"></i>
+                            Este producto no está registrado para este cliente, por lo tanto no cuenta con un historial.
+                         </div>
+
+                         <!-- Caso: Hay historial de precios -->
+                         <ul v-else class="max-h-32 overflow-y-auto space-y-1 mb-3 pr-1">
                             <li v-for="history in item.product?.price_history" :key="history.id" class="flex justify-between items-center bg-gray-50 p-1.5 rounded border border-gray-100">
                                 <span class="text-gray-500 text-[10px]">{{ formatDate(history.valid_from) }}</span>
                                 <div class="text-right">
@@ -53,13 +60,17 @@
                                     <span v-if="!history.valid_to" class="text-[9px] text-green-600 font-bold bg-green-50 px-1 rounded">ACTUAL</span>
                                 </div>
                             </li>
-                            <li v-if="!item.product?.price_history?.length" class="text-gray-400 italic text-center py-2">Sin historial registrado</li>
                          </ul>
 
-                         <button @click="goToBranchProducts" class="w-full bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded transition shadow-sm text-center font-bold flex items-center justify-center">
+                         <!-- BOTONES DINÁMICOS SEGÚN EL REGISTRO -->
+                         <button v-if="!item.product?.price_history?.length" @click="goToBranchProducts" class="w-full mt-3 bg-indigo-500 hover:bg-indigo-600 text-white py-1.5 rounded transition shadow-sm text-center font-bold flex items-center justify-center">
+                            <i class="fa-solid fa-plus mr-2"></i> Registrar Producto
+                         </button>
+                         <button v-else @click="openPriceModal" class="w-full mt-3 bg-amber-500 hover:bg-amber-600 text-white py-1.5 rounded transition shadow-sm text-center font-bold flex items-center justify-center">
                             <i class="fa-solid fa-pen-to-square mr-2"></i> Actualizar Precio
                          </button>
-                         <p class="text-[9px] text-gray-400 text-center mt-1">Ir a productos del cliente</p>
+                         
+                         <p v-if="!item.product?.price_history?.length" class="text-[9px] text-gray-400 text-center mt-1">Ir a productos del cliente</p>
                     </div>
                  </el-popover>
             </div>
@@ -95,9 +106,6 @@
             <div class="mt-2 pt-2 border-t print:mt-1 print:pt-1 grid grid-cols-2 gap-x-2 text-xs print:text-[9px]">
                 <!-- Dimensiones -->
                 <div class="space-y-1 print:space-y-0" v-if="item.product && (item.product.large || item.product.height || item.product.width || item.product.diameter)">
-                    <!-- <p class="uppercase text-gray-900 font-bold text-[10px] print:text-[8px] print:mb-0.5 border-b border-dashed">
-                        {{ quote.is_spanish_template ? 'Dimensiones' : 'Dimensions' }}
-                    </p> -->
                     <p v-if="item.product.large">{{ quote.is_spanish_template ? 'Largo' : 'Length' }}: <span class="font-semibold">{{ item.product.large }}mm</span></p>
                     <p v-if="item.product.height">{{ quote.is_spanish_template ? 'Alto' : 'Height' }}: <span class="font-semibold">{{ item.product.height }}mm</span></p>
                     <p v-if="item.product.width">{{ quote.is_spanish_template ? 'Ancho' : 'Width' }}: <span class="font-semibold">{{ item.product.width }}mm</span></p>
@@ -106,7 +114,6 @@
 
                 <!-- Precios -->
                 <div class="space-y-1 print:space-y-0" :class="{ 'col-span-2': !item.product || (!item.product.large && !item.product.height && !item.product.width && !item.product.diameter) }">
-                    <!-- <p class="uppercase text-gray-900 font-bold text-[10px] print:text-[8px] print:mb-0.5 border-b border-dashed">{{ quote.is_spanish_template ? 'Costo' : 'Cost' }}</p> -->
                     <div class="flex justify-between">
                         <span>{{ !labelChanged ? (quote.is_spanish_template ? 'Unidades' : 'Units') : 'MOQ' }}</span>
                         <span class="font-semibold">{{ Number(item.quantity).toLocaleString() }}</span>
@@ -152,6 +159,23 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ALERTA INTERNA DE PRECIO BAJO (Solo Uso Interno - Oculto al imprimir) -->
+            <div v-if="item.has_low_price && showAdditionalElements" class="mt-3 p-2 rounded border print:hidden" :class="!quote.authorized_by_user_id ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'">
+                <div class="flex items-start gap-2 mb-1">
+                    <i class="fa-solid mt-0.5 text-[14px]" :class="!quote.authorized_by_user_id ? 'fa-triangle-exclamation text-amber-500' : 'fa-check-circle text-green-500'"></i>
+                    <div class="flex-1">
+                        <p class="text-xs font-bold leading-tight" :class="!quote.authorized_by_user_id ? 'text-amber-800' : 'text-green-800'">
+                            {{ !quote.authorized_by_user_id ? 'Precio por debajo de lo establecido' : 'Precio especial autorizado' }}
+                        </p>
+                        <div class="flex justify-between text-[10px] mt-1">
+                            <span class="text-gray-500">Precio actual: <strong class="text-gray-700">${{ formatNumber(getEstablishedPrice(item)) }}</strong></span>
+                            <span class="text-gray-500">Ofrecido: <strong :class="!quote.authorized_by_user_id ? 'text-red-600' : 'text-green-700'">${{ formatNumber(item.unit_price) }}</strong></span>
+                        </div>
+                        <p class="text-[10px] text-gray-600 italic mt-1 leading-tight"><span class="font-semibold not-italic">Justificación:</span> {{ item.low_price_reason }}</p>
+                    </div>
+                </div>
+            </div>
             
             <!-- Botones de Aprobación -->
             <div class="mt-auto pt-3 print:hidden flex items-center space-x-2" v-show="showAdditionalElements">
@@ -177,6 +201,61 @@
                 </button>
             </div>
         </div>
+
+        <!-- Modal para actualizar precio especial -->
+        <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
+            <template #title>
+                Actualizar precio de <span class="text-blue-500">{{ item.product?.name }}</span>
+            </template>
+            <template #content>
+                <div class="space-y-4 text-sm dark:text-gray-300 text-left">
+                    <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                        <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+                    </p>
+                    <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div>
+                            <label class="font-semibold">Aumento en porcentaje*</label>
+                                <el-input v-model="priceForm.percentage" @input="updatePriceFromPercentage" placeholder="Ej. 5" class="mt-1">
+                                <template #append>%</template>
+                            </el-input>
+                        </div>
+                            <div>
+                            <label class="font-semibold">Precio nuevo en moneda*</label>
+                                <el-input v-model="priceForm.amount" @input="updatePriceFromAmount" placeholder="Ej. 44.10" class="mt-1">
+                                <template #prepend>$</template>
+                            </el-input>
+                        </div>
+                    </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="font-semibold">Moneda*</label>
+                            <el-select v-model="priceForm.currency" placeholder="Moneda" :teleported="false" class="!w-full mt-1">
+                                <el-option label="MXN" value="MXN" />
+                                <el-option label="USD" value="USD" />
+                            </el-select>
+                        </div>
+                        <div>
+                            <label class="font-semibold">Fecha de cambio (Vigente desde)*</label>
+                            <el-date-picker v-model="priceForm.valid_from" type="date" :teleported="false" placeholder="Selecciona una fecha" class="!w-full mt-1" />
+                        </div>
+                    </div>
+                    <!-- MENSAJE DE ERROR -->
+                    <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+                        <i class="fa-solid fa-circle-exclamation mr-1"></i>
+                        El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
+                    </div>
+                </div>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showPriceModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="submitNewPrice" :disabled="isPriceInvalid" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">Actualizar precio</PrimaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
+
     </div>
 </template>
 
@@ -184,9 +263,19 @@
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { router } from '@inertiajs/vue3';
+import ConfirmationModal from "@/Components/ConfirmationModal.vue";
+import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
+import axios from 'axios';
+import { ElMessage } from 'element-plus';
 
 export default {
     name: 'QuoteProductCard',
+    components: {
+        ConfirmationModal,
+        CancelButton,
+        PrimaryButton
+    },
     props: {
         item: { type: Object, required: true },
         quote: { type: Object, required: true },
@@ -198,15 +287,32 @@ export default {
         return {
             showIva: false,
             activeImageIndex: 0,
+            showPriceModal: false,
+            priceForm: {
+                amount: null,
+                percentage: null,
+                currency: 'MXN',
+                valid_from: new Date(),
+                current_base_price: 0,
+                min_allowed_price: 0,
+            },
         }
     },
     computed: {
         productMedia() {
             return this.item.product ? this.item.product.media : this.item.media;
         },
+        canBypassPriceRule() {
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+        },
+        isPriceInvalid() {
+            if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
+            if (this.canBypassPriceRule) return false;
+            return this.priceForm.amount < this.priceForm.min_allowed_price;
+        },
         lastUpdateInfo() {
             const product = this.item.product;
-            if (!product || !product.price_history || product.price_history.length === 0) return null;
+            if (!product || !product.price_history || product.price_history.length === 0) return { text: 'Sin precio vigente', colorClass: 'text-gray-400' };
 
             const activePrice = product.price_history.find(h => h.valid_to === null);
             if (!activePrice) return { text: 'Sin precio vigente', colorClass: 'text-gray-400' };
@@ -258,7 +364,71 @@ export default {
             if (value === null || value === undefined || value === '') return '0.00';
             const num = Number(value);
             return isNaN(num) ? value : new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
-        }
+        },
+        getEstablishedPrice(item) {
+            if (!item.product_id) return item.custom_cost || 0;
+            
+            if (item.product?.price_history && item.product.price_history.length > 0) {
+                const validPrice = item.product.price_history.find(h => !h.valid_to);
+                if (validPrice) {
+                    return validPrice.price;
+                }
+            }
+            return item.product?.base_price || 0;
+        },
+        openPriceModal() {
+            const product = this.item.product;
+            const basePrice = product.price_history?.[0]?.price ?? product.base_price;
+            
+            this.priceForm = {
+                amount: null,
+                percentage: null,
+                currency: 'MXN',
+                valid_from: new Date(),
+                current_base_price: basePrice,
+                min_allowed_price: basePrice * 1.04, 
+            };
+            this.showPriceModal = true;
+        },
+        updatePriceFromAmount() {
+            if (this.priceForm.amount && this.priceForm.current_base_price > 0) {
+                const percentage = ((this.priceForm.amount / this.priceForm.current_base_price) - 1) * 100;
+                this.priceForm.percentage = percentage.toFixed(2);
+            } else {
+                this.priceForm.percentage = null;
+            }
+        },
+        updatePriceFromPercentage() {
+            if (this.priceForm.percentage !== null && this.priceForm.percentage !== '') {
+                const newAmount = this.priceForm.current_base_price * (1 + (this.priceForm.percentage / 100));
+                this.priceForm.amount = newAmount.toFixed(2);
+            } else {
+                this.priceForm.amount = null;
+            }
+        },
+        async submitNewPrice() {
+            if (this.isPriceInvalid) {
+                ElMessage.error('El precio ingresado no es válido o es menor al permitido.');
+                return;
+            }
+
+            try {
+                const routeName = 'branches.products.price.store';
+                const routeParams = { branch: this.quote.branch_id, product: this.item.product.id };
+                
+                const response = await axios.post(route(routeName, routeParams), this.priceForm);
+
+                if (response.status === 200) {
+                    ElMessage.success('Precio actualizado correctamente.');
+                    this.showPriceModal = false;
+                    // Recargamos el componente principal para que se refresque el historial
+                    router.reload({ preserveScroll: true });
+                }
+            } catch (error) {
+                console.error("Error al actualizar el precio:", error);
+                ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
+            }
+        },
     }
 }
 </script>

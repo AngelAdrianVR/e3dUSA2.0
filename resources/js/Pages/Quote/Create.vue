@@ -224,9 +224,25 @@
 
                                 <!-- Siempre visibles: Cantidad y Precio -->
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true" :error="unitPriceError">
+                                
+                                <div class="w-full">
+                                    <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-                                </TextInput>
+                                    </TextInput>
+                                </div>
+
+                                <!-- NUEVO: Alerta y campo de justificación cuando el precio es bajo -->
+                                <div v-if="isPriceLow" class="col-span-full mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800 animate-fade-in-down">
+                                    <p class="text-amber-600 dark:text-amber-400 text-xs font-bold mb-2">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Precio por debajo del mínimo permitido. Por favor, justifica esta decisión para su validación.
+                                    </p>
+                                    <TextInput 
+                                        label="Razón del precio*" 
+                                        v-model="currentProduct.low_price_reason" 
+                                        :isTextarea="true" 
+                                        placeholder="Justifica este precio..." 
+                                    />
+                                </div>
 
                                 <!-- Estado de carga -->
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
@@ -376,6 +392,11 @@
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
                                             </p>
+                                            
+                                            <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Razón precio bajo: <span class="font-normal italic">{{ product.low_price_reason }}</span>
+                                            </p>
+
                                             <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
                                             
                                             <!-- Mostrar detalles de personalización en la lista -->
@@ -437,6 +458,14 @@
                                 </TextInput>
                             </div>
 
+                        </div>
+
+                        <!-- Alerta global de precios bajos -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del precio establecido. La cotización requerirá autorización después de ser creada.</p>
+                            </div>
                         </div>
 
                         <!-- Botón de envío -->
@@ -523,6 +552,8 @@ export default {
                 has_early_payment_discount: false,
                 early_payment_discount_amount: null,
                 has_customization: false,
+                has_low_price: false, 
+                low_price_reason: '', 
                 products: [], 
             }),
 
@@ -536,18 +567,19 @@ export default {
 
             branchNotes: [],
             
-            // Modificado para soportar productos nuevos
             currentProduct: {
                 id: null,
-                is_custom: false, // <-- NUEVO: Bandera
-                custom_name: '', // <-- NUEVO
-                custom_cost: 0, // <-- NUEVO
-                custom_measure_unit: '', // <-- NUEVO
-                image: null, // <-- NUEVO: Para guardar el File
-                image_preview: null, // <-- NUEVO: Para previsualizar
+                is_custom: false, 
+                custom_name: '', 
+                custom_cost: 0, 
+                custom_measure_unit: '', 
+                image: null, 
+                image_preview: null, 
                 quantity: 1,
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '',
                 customization_details: [],
                 isClientProduct: false,
@@ -585,21 +617,23 @@ export default {
         branches: Array,
     },
     computed: {
-        unitPriceError() {
-            const userRole = this.$page.props.auth.user.role;
-            const isSuperAdmin = Array.isArray(userRole) ? userRole.includes('Super Administrador') : userRole === 'Super Administrador';
-            if (isSuperAdmin) return null;
-
+        // Verifica si el precio ingresado es menor al precio establecido
+        isPriceLow() {
+            if (!this.currentProduct.unit_price || this.currentProduct.is_custom) return false;
+            
             const price = parseFloat(this.currentProduct.unit_price);
             const min = parseFloat(this.currentProduct.min_price);
-            if (min > 0 && price < min) return `El precio mínimo es $${this.formatNumber(min)}`;
-            return null;
+            const isLow = (min > 0 && price < (min - 0.01));
+            
+            this.currentProduct.has_low_price = isLow;
+            return isLow;
         },
-        // Verifica si debe exigirse el costo de herramental
+        hasLowPrices() {
+            return this.form.products.some(p => p.has_low_price);
+        },
         isToolingCostRequired() {
             return this.form.products.some(p => p.is_custom);
         },
-        // Lógica consolidada para habilitar/deshabilitar botón de agregar
         isAddProductDisabled() {
             if (this.currentProduct.is_custom) {
                 if (!this.currentProduct.custom_name) return true;
@@ -607,10 +641,14 @@ export default {
                 if (!this.currentProduct.id) return true;
             }
 
-            return !this.currentProduct.quantity || !this.currentProduct.unit_price || this.unitPriceError;
+            if (!this.currentProduct.quantity || !this.currentProduct.unit_price) return true;
+            
+            // Si tiene precio bajo, requiere la justificación.
+            if (this.isPriceLow && !this.currentProduct.low_price_reason) return true;
+
+            return false;
         },
         tinymceInit() {
-            // ... Mantiene configuración de TinyMCE ...
             return {
                 height: 250, menubar: false,
                 plugins: ['advlist', 'autolink', 'lists', 'link', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'],
@@ -639,7 +677,6 @@ export default {
             }
         },
         
-        // Manejar subida de imagen para productos nuevos
         handleImageUpload(event) {
             const file = event.target.files[0];
             if (file) {
@@ -652,7 +689,6 @@ export default {
         },
 
         store() {
-            // Validación local: Si hay producto nuevo, el costo de herramental es obligatorio.
             if (this.isToolingCostRequired && !this.form.tooling_cost) {
                 ElMessage.error('El costo de herramental es obligatorio debido a que hay productos nuevos.');
                 return;
@@ -671,6 +707,9 @@ export default {
         addProduct() {
             const productToAdd = { ...this.currentProduct };
             
+            // Asigna el estado final del calculo de precio bajo antes de agregar
+            productToAdd.has_low_price = this.isPriceLow;
+            
             if (this.editIndex !== null) {
                 this.form.products[this.editIndex] = productToAdd;
             } else {
@@ -681,7 +720,6 @@ export default {
         editProduct(index) {
             this.currentProduct = JSON.parse(JSON.stringify(this.form.products[index]));
             
-            // Re-asignar la referencia del archivo de imagen si existe porque JSON.parse se deshace de objetos File
             if (this.form.products[index].image) {
                 this.currentProduct.image = this.form.products[index].image;
                 this.currentProduct.image_preview = this.form.products[index].image_preview;
@@ -697,15 +735,17 @@ export default {
         resetCurrentProduct() {
             this.currentProduct = { 
                 id: null, 
-                is_custom: false, // <-- RESET
-                custom_name: '', // <-- RESET
-                custom_cost: null, // <-- RESET
-                custom_measure_unit: '', // <-- RESET
-                image: null, // <-- RESET
-                image_preview: null, // <-- RESET
+                is_custom: false, 
+                custom_name: '', 
+                custom_cost: null, 
+                custom_measure_unit: '', 
+                image: null, 
+                image_preview: null, 
                 quantity: 1, 
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '', 
                 customization_details: [],
                 isClientProduct: false,
@@ -798,7 +838,6 @@ export default {
         handleBranchChange(branchId) { /* ... Lógica existente de contactos ... */ },
         handleContactChange(contactId) { /* ... Lógica existente de contactos ... */ },
         
-        // MÉTODOS DE CREACIÓN RÁPIDA 
         async storeQuickBranch() {
             this.quickBranchForm.processing = true;
             this.quickBranchForm.errors = {};
@@ -807,10 +846,7 @@ export default {
                 if (response.status === 200) {
                     const newBranch = response.data;
                     this.localBranches.push(newBranch);
-                    
-                    // Al asginarlo al formulario, el watcher llamará de nuevo a fetchClientProducts
                     this.form.branch_id = newBranch.id;
-                    
                     this.branchModalVisible = false;
                     this.quickBranchForm.name = '';
                     this.quickBranchForm.rfc = '';
@@ -837,6 +873,9 @@ export default {
             if (newVal) this.fetchClientProducts(newVal);
         },
         branches(newVal) { this.localBranches = [...newVal]; },
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        }
     },
 };
 </script>

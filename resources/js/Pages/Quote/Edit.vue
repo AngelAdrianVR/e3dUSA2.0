@@ -224,9 +224,25 @@
 
                                 <!-- Siempre visibles: Cantidad y Precio -->
                                 <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true" :error="unitPriceError">
+                                
+                                <div class="w-full">
+                                    <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-                                </TextInput>
+                                    </TextInput>
+                                </div>
+
+                                <!-- NUEVO: Alerta y campo de justificación cuando el precio es bajo -->
+                                <div v-if="isPriceLow" class="col-span-full mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800 animate-fade-in-down">
+                                    <p class="text-amber-600 dark:text-amber-400 text-xs font-bold mb-2">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Precio por debajo del mínimo permitido. Por favor, justifica esta decisión para su validación.
+                                    </p>
+                                    <TextInput 
+                                        label="Razón del precio*" 
+                                        v-model="currentProduct.low_price_reason" 
+                                        :isTextarea="true" 
+                                        placeholder="Justifica este precio..." 
+                                    />
+                                </div>
 
                                 <!-- Estado de carga -->
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
@@ -376,6 +392,12 @@
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
                                             </p>
+                                            
+                                            <!-- Mostrar justificación si hay precio bajo -->
+                                            <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Razón precio bajo: <span class="font-normal italic">{{ product.low_price_reason }}</span>
+                                            </p>
+
                                             <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
                                             
                                             <!-- Mostrar detalles de personalización en la lista -->
@@ -439,6 +461,14 @@
 
                         </div>
 
+                        <!-- Alerta global de precios bajos -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del precio establecido. La cotización requerirá autorización después de ser actualizada.</p>
+                            </div>
+                        </div>
+
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing">
@@ -450,40 +480,15 @@
             </div>
         </div>
 
-        <!-- Drawer para productos del cliente -->
-        <el-drawer v-model="showClientProductsDrawer" title="Productos del Cliente" direction="rtl" :size="drawerSize">
-            <div class="md:p-3">
-                <p v-if="!clientProducts.length && !loadingClientProducts">Este cliente no tiene productos registrados.</p>
-                <LoadingIsoLogo class="col-span-full" v-if="loadingClientProducts" />
-                <div v-else class="space-y-4">
-                    <div v-for="product in clientProducts" :key="product.id" class="relative bg-gray-100 dark:bg-slate-900 shadow-md rounded-2xl p-4 transition hover:shadow-xl duration-300">
-                        <div class="absolute top-2 right-2 flex items-center space-x-1">
-                            <el-tooltip content="Actualizar precio especial" placement="top"><button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors"><i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-600"></i></button></el-tooltip>
-                            <el-tooltip content="Ver producto" placement="top"><button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors"><i class="fa-solid fa-eye text-gray-500 dark:text-gray-600"></i></button></el-tooltip>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <img v-if="product.media?.length" :src="product.media[0].original_url" class="w-20 h-20 object-cover rounded-xl border dark:border-gray-700"/>
-                            <div class="flex-1">
-                                <p class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ product.name }}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">Código: {{ product.code }}</p>
-                                <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center justify-between">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
-                            <p class="font-medium text-blue-400">${{ product.base_price }} {{product.currency}}</p>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
-                            <p class="font-semibold text-green-600 dark:text-green-400">${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price ? product.price_history[0].price + ' ' + product.price_history[0].currency : product.base_price + ' ' + product.currency }}</p>
-                        </div>
-                        <div v-if="product.price_history?.length" class="mt-2 text-sm rounded-sm py-1 px-2" :class="getPriceChangeClass(product.price_history[0].valid_from)">
-                            <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </el-drawer>
+        <!-- Drawer de productos de cliente externalizado -->
+        <ClientProductsDrawer v-if="form.branch_id"
+            :show="showClientProductsDrawer"
+            @update:show="showClientProductsDrawer = $event"
+            :branch-id="form.branch_id"
+            @products-loaded="clientProducts = $event"
+            :branches="branches"
+            :catalog_products="catalogProducts"
+        />
 
         <!-- MODAL DE CREACIÓN RÁPIDA DE CLIENTE -->
         <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
@@ -519,12 +524,13 @@ import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import Back from "@/Components/MyComponents/Back.vue";
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
 import Editor from '@tinymce/tinymce-vue';
+import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 
 export default {
     data() {
@@ -547,6 +553,7 @@ export default {
                 has_early_payment_discount: false,
                 early_payment_discount_amount: null,
                 has_customization: false,
+                has_low_price: false, 
                 products: [], 
             }),
 
@@ -559,12 +566,6 @@ export default {
             quickContactForm: { name: '', charge: '', processing: false, errors: {} },
 
             branchNotes: [],
-            showClosePriceConfirmModal: false,
-            priceHistoryToClose: null,
-
-            showPriceModal: false,
-            productForUpdate: null,
-            priceForm: { amount: null, percentage: null, currency: 'MXN', valid_from: new Date(), current_base_price: 0, min_allowed_price: 0 },
 
             currentProduct: {
                 quote_product_id: null,
@@ -578,6 +579,8 @@ export default {
                 quantity: 1,
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '',
                 customization_details: [],
                 isClientProduct: false,
@@ -600,7 +603,6 @@ export default {
             clientProducts: [],
             loadingClientProducts: false,
             loadingProductData: false,
-            drawerSize: "35%",
             firstProductionDaysList: ['Inmediata', '1 a 2 días', '2 a 3 días', '3 a 4 días', '4 a 5 días', '5 a 6 días', '1 semana', '1 a 2 semanas', '3 a 4 semanas', '5 a 6 semanas', '7 a 8 semanas', '9 a 10 semanas', '11 a 12 semanas', '13 a 14 semanas', '15 a 16 semanas', '17 a 18 semanas'],
             firstProductionDaysListEnglish: ['Immediate', '1 to 2 days', '2 to 3 days', '3 to 4 days', '4 to 5 days', '5 to 6 days', '1 to 2 weeks', '3 to 4 weeks', '5 to 6 weeks', '7 to 8 weeks', '9 to 10 weeks', '11 to 12 weeks', '13 to 14 weeks', '15 to 16 weeks', '17 to 18 weeks'],
             tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
@@ -609,6 +611,7 @@ export default {
     components: {
         Back, Editor, Checkbox, TextInput, AppLayout, InputError, InputLabel, BranchNotes,
         CancelButton, PrimaryButton, LoadingIsoLogo, SecondaryButton, ConfirmationModal,
+        ClientProductsDrawer,
     },
     props: {
         catalogProducts: Array,
@@ -616,19 +619,18 @@ export default {
         quote: Object, // Trae todo el modelo cargado con $quote->load('quoteProducts.media', 'quoteProducts.product.media')
     },
     computed: {
-        unitPriceError() {
-            const userRole = this.$page.props.auth.user.role;
-            const isSuperAdmin = Array.isArray(userRole) ? userRole.includes('Super Administrador') : userRole === 'Super Administrador';
-            if (isSuperAdmin) return null;
-
+        isPriceLow() {
+            if (!this.currentProduct.unit_price || this.currentProduct.is_custom) return false;
+            
             const price = parseFloat(this.currentProduct.unit_price);
             const min = parseFloat(this.currentProduct.min_price);
-            if (min > 0 && price < min) return `El precio mínimo es $${this.formatNumber(min)}`;
-            return null;
+            const isLow = (min > 0 && price < (min - 0.01));
+            
+            this.currentProduct.has_low_price = isLow;
+            return isLow;
         },
-        isPriceInvalid() {
-            if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
-            return this.priceForm.amount < this.priceForm.min_allowed_price;
+        hasLowPrices() {
+            return this.form.products.some(p => p.has_low_price);
         },
         isToolingCostRequired() {
             return this.form.products.some(p => p.is_custom);
@@ -640,7 +642,12 @@ export default {
                 if (!this.currentProduct.id) return true;
             }
 
-            return !this.currentProduct.quantity || !this.currentProduct.unit_price || this.unitPriceError;
+            if (!this.currentProduct.quantity || !this.currentProduct.unit_price) return true;
+            
+            // Si tiene precio bajo, requiere la justificación obligatoriamente.
+            if (this.isPriceLow && !this.currentProduct.low_price_reason) return true;
+
+            return false;
         },
         tinymceInit() {
             return {
@@ -682,12 +689,10 @@ export default {
             }
         },
 
-        // Nuevo método: descarga la imagen desde la URL actual para que viaje de nuevo al Backend
         async recoverCustomProductImages() {
             const qProducts = this.quote.quote_products || this.quote.quoteProducts || [];
             for (let i = 0; i < this.form.products.length; i++) {
                 const product = this.form.products[i];
-                // Si es personalizado, tiene previsualización pero el File real (image) está vacío:
                 if (product.is_custom && product.image_preview && !product.image) {
                     try {
                         const response = await fetch(product.image_preview);
@@ -696,7 +701,6 @@ export default {
                         const filename = mediaObj?.file_name || `imagen_recuperada_${i}.jpg`;
                         const mimeType = mediaObj?.mime_type || blob.type || 'image/jpeg';
                         
-                        // Re-asignamos el blob como si el usuario lo hubiera seleccionado desde su PC
                         product.image = new File([blob], filename, { type: mimeType });
                     } catch (error) {
                         console.warn("No se pudo rehidratar la imagen. Verifica configuraciones CORS si los archivos están en otro dominio.", error);
@@ -711,7 +715,6 @@ export default {
                 return;
             }
 
-            // Transformamos el método del formulario para asegurar que envíe los archivos
             this.form.transform((data) => ({
                 ...data,
                 _method: 'put', 
@@ -728,6 +731,9 @@ export default {
         addProduct() {
             const productToAdd = { ...this.currentProduct };
             
+            // Asigna el estado final del cálculo de precio bajo antes de agregarlo
+            productToAdd.has_low_price = this.isPriceLow;
+
             if (this.editIndex !== null) {
                 this.form.products[this.editIndex] = productToAdd;
             } else {
@@ -763,6 +769,8 @@ export default {
                 quantity: 1, 
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '', 
                 customization_details: [],
                 isClientProduct: false,
@@ -800,34 +808,6 @@ export default {
             const num = Number(value);
             if (isNaN(num)) return '0.00';
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
-        },
-        openProduct(id) { window.open(`/catalog-products/${id}`, "_blank"); },
-        timeSince(dateString) { return "calculado"; }, 
-        getPriceChangeClass(dateString) { return "bg-green-200"; },
-        updateDrawerSize() {
-            const width = window.innerWidth;
-            if (width < 640) this.drawerSize = "90%";
-            else if (width < 1024) this.drawerSize = "60%";
-            else this.drawerSize = "35%";
-        },
-        confirmCloseSpecialPrice(historyId) {
-            this.priceHistoryToClose = historyId;
-            this.showClosePriceConfirmModal = true;
-        },
-        async closeSpecialPrice() {
-            if (!this.priceHistoryToClose) return;
-            try {
-                const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
-                if (response.status === 200) {
-                    ElMessage.success('El precio especial ha sido finalizado.');
-                    this.fetchClientProducts(this.form.branch_id);
-                }
-            } catch (error) {
-                ElMessage.error(error.response?.data?.message || 'No se pudo finalizar el precio.');
-            } finally {
-                this.showClosePriceConfirmModal = false;
-                this.priceHistoryToClose = null;
-            }
         },
         async getProductData() {
             if (!this.currentProduct.id) return;
@@ -880,12 +860,11 @@ export default {
                 this.loadingClientProducts = false;
             }
         },
-        openPriceModal(product) { /* Lógica conservada de create */ },
-        updatePriceFromAmount() { /* Lógica conservada de create */ },
-        updatePriceFromPercentage() { /* Lógica conservada de create */ },
-        async submitNewPrice() { /* Lógica conservada de create */ },
-        handleBranchChange(branchId) { /* Lógica conservada de create */ },
-        handleContactChange(contactId) { /* Lógica conservada de create */ },
+        handleBranchChange(branchId) {
+            // Lógica para cambiar contactos (puede ser personalizada si se maneja aquí)
+            const selectedBranch = this.localBranches.find(b => b.id === branchId);
+            this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
+        },
         
         // MÉTODOS DE CREACIÓN RÁPIDA DE CLIENTE
         async storeQuickBranch() {
@@ -916,7 +895,6 @@ export default {
                 this.quickBranchForm.processing = false;
             }
         },
-        async storeQuickContact() { /* Lógica conservada de create */ },
     },
     created() { 
         this.localBranches = [...this.branches]; 
@@ -937,6 +915,7 @@ export default {
         this.form.show_breakdown = Boolean(this.quote.show_breakdown);
         this.form.has_early_payment_discount = Boolean(this.quote.has_early_payment_discount);
         this.form.early_payment_discount_amount = this.quote.early_payment_discount_amount;
+        this.form.has_low_price = Boolean(this.quote.has_low_price);
         
         // Precarga de los productos agregados iterando sobre las relaciones retornadas de backend
         const qProducts = this.quote.quote_products || this.quote.quoteProducts || [];
@@ -944,7 +923,7 @@ export default {
         this.form.products = qProducts.map(qp => {
             const isCustom = qp.product_id === null;
             return {
-                quote_product_id: qp.id, // <-- Importante: Añadimos el ID original para poder identificarlo
+                quote_product_id: qp.id, 
                 id: qp.product_id,
                 is_custom: isCustom,
                 custom_name: qp.custom_name,
@@ -955,6 +934,8 @@ export default {
                 quantity: qp.quantity,
                 unit_price: qp.unit_price,
                 min_price: qp.product ? (qp.product.base_price || 0) : 0,
+                has_low_price: Boolean(qp.has_low_price),
+                low_price_reason: qp.low_price_reason || '',
                 notes: qp.notes || '',
                 customization_details: qp.customization_details || [],
                 isClientProduct: qp.product_id ? true : false, 
@@ -977,11 +958,9 @@ export default {
             if (newVal) this.fetchClientProducts(newVal);
         },
         branches(newVal) { this.localBranches = [...newVal]; },
-    },
-    mounted() {
-        this.updateDrawerSize();
-        window.addEventListener("resize", this.updateDrawerSize);
-    },
-    beforeUnmount() { window.removeEventListener("resize", this.updateDrawerSize); },
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        }
+    }
 };
 </script>

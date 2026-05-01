@@ -23,6 +23,8 @@ class QuoteProduct extends Pivot implements HasMedia
     
     protected $fillable = [
         'id',
+        'has_low_price',
+        'low_price_reason',
         'quote_id',
         'product_id',
         'custom_name',
@@ -42,6 +44,7 @@ class QuoteProduct extends Pivot implements HasMedia
      * @var array<string, string>
      */
     protected $casts = [
+        'has_low_price' => 'boolean',
         'quantity' => 'float',
         'unit_price' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3
         'custom_cost' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3 (opcional pero recomendado)
