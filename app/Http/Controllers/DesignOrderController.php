@@ -24,35 +24,55 @@ class DesignOrderController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = DesignOrder::with(['requester:id,name', 'designer:id,name', 'designCategory:id,name']);
+        // Cargamos también las pausas para que la vista Index pueda calcular el tiempo
+        $query = DesignOrder::with(['requester:id,name', 'designer:id,name', 'designCategory:id,name', 'pauses']);
 
-        // Contar órdenes sin asignar para el indicador numérico.
-        // Este conteo se realiza antes de aplicar los filtros de vista.
+        // Contar órdenes sin asignar
         $unassignedOrdersCount = DesignOrder::whereNull('designer_id')->count();
 
         // Lógica de visibilidad
         if ($request->input('view') === 'all') {
-            // Muestra todas las órdenes, sin filtro de usuario.
+            // Muestra todas las órdenes
         } 
         else if ($request->input('view') === 'unassigned') {
-            // Nuevo: Filtra para mostrar solo órdenes sin diseñador asignado.
             $query->whereNull('designer_id');
         }
-        // Si el usuario es un diseñador
         else if ($user->hasRole(['Diseñador', 'Jefe de Diseño'])) {
             $query->where('designer_id', $user->id);
         }
-        // Para cualquier otro caso (vista "Mías" por defecto para solicitantes o gerentes)
         else {
             $query->where('requester_id', $user->id);
         }
 
         $designOrders = $query->latest()->paginate(15)->withQueryString();
 
+        // Mapear el atributo "is_paused" y dar formato al tiempo invertido
+        $designOrders->getCollection()->transform(function ($order) {
+            $order->is_paused = $order->is_paused;
+            
+            // Calculamos el tiempo formateado para enviarlo listo a Vue
+            if ($order->started_at) {
+                $seconds = $order->getActiveTimeInSeconds();
+                
+                // Si tardó menos de 1 minuto, lo ponemos como tal
+                if ($seconds < 60 && !$order->finished_at && !$order->is_paused) {
+                    $order->active_time_formatted = 'Menos de 1 min';
+                } elseif ($seconds == 0) {
+                    $order->active_time_formatted = '0s';
+                } else {
+                    $order->active_time_formatted = CarbonInterval::seconds($seconds)->cascade()->forHumans(['short' => true]);
+                }
+            } else {
+                $order->active_time_formatted = 'N/A';
+            }
+
+            return $order;
+        });
+
         return Inertia::render('Design/Index', [
             'designOrders' => $designOrders,
             'filters' => $request->only(['view']),
-            'unassignedOrdersCount' => $unassignedOrdersCount, // Pasamos el contador a la vista
+            'unassignedOrdersCount' => $unassignedOrdersCount,
         ]);
     }
 
@@ -64,15 +84,19 @@ class DesignOrderController extends Controller
 
         // --- Handle design modification requests ---
         $originalDesign = null;
+        $parentOrder = null;
         if ($request->has('modifies_design')) {
             $originalDesign = Design::find($request->input('modifies_design'));
+            // Buscamos la orden original que generó este diseño
+            $parentOrder = DesignOrder::where('design_id', $originalDesign->id)->first();
         }
 
         return Inertia::render('Design/Create', [
             'designCategories' => $designCategories,
             'designers' => $designers,
             'branches' => $branches,
-            'originalDesign' => $originalDesign, // Pass original design to the view
+            'originalDesign' => $originalDesign,
+            'parentOrder' => $parentOrder, // <-- Se envía la orden padre a la vista
         ]);
     }
 
@@ -156,6 +180,7 @@ class DesignOrderController extends Controller
     {
         $designOrders = DesignOrder::select('id', 'order_title')->latest()->take(300)->get();
 
+        // Cargar las pausas de la orden de diseño ordenadas por fecha
         $designOrder->load([
             'designAuthorization', 
             'assignmentLogs.newDesigner:id,name', 
@@ -167,21 +192,22 @@ class DesignOrderController extends Controller
             'contact', 
             'designCategory:id,name,complexity', 
             'design.media',
-            'media', 
+            'media',
+            'pauses' // <--- AÑADIDO A LA CARGA
         ]);
 
-        // --- Logic to get all design versions ---
+        // Añadimos la variable is_paused calculada
+        $designOrder->is_paused = $designOrder->is_paused;
+
         $designVersions = collect([]);
         if ($designOrder->design) {
             $originalDesign = $designOrder->design;
-            // Traverse up to find the absolute original design
             while ($originalDesign->original_design_id) {
                 $originalDesign = Design::find($originalDesign->original_design_id);
-                if (!$originalDesign) break; // Break if something is wrong with the chain
+                if (!$originalDesign) break; 
             }
 
             if ($originalDesign) {
-                // Get the original and all designs that reference it
                 $designVersions = Design::with('media')
                     ->where('id', $originalDesign->id)
                     ->orWhere('original_design_id', $originalDesign->id)
@@ -190,11 +216,31 @@ class DesignOrderController extends Controller
             }
         }
 
-        // return $designOrder;
+        // Cálculo de la duración de la orden padre si esta orden es un retrabajo
+        $parentOrderDuration = null;
+
+        if ($designOrder->modifies_design_id) {
+            // Buscar la orden que originó ese diseño (AGREGAMOS with('pauses'))
+            $parentOrder = DesignOrder::with('pauses')->where('design_id', $designOrder->modifies_design_id)->first();
+            
+            if ($parentOrder && $parentOrder->started_at && $parentOrder->finished_at) {
+                // Ahora sí tiene cargadas las pausas para hacer bien la matemática
+                $seconds = $parentOrder->getActiveTimeInSeconds();
+                
+                // Hacemos que sea más intuitivo visualmente
+                if ($seconds < 60) {
+                    $parentOrderDuration = 'Menos de 1 min';
+                } else {
+                    $parentOrderDuration = CarbonInterval::seconds($seconds)->cascade()->forHumans(['short' => true]);
+                }
+            }
+        }
+
         return Inertia::render('Design/Show', [
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
-            'designVersions' => $designVersions, // Pass versions to the view
+            'designVersions' => $designVersions,
+            'parentOrderDuration' => $parentOrderDuration,
         ]);
     }
 
@@ -309,19 +355,67 @@ class DesignOrderController extends Controller
      */
     public function startWork(DesignOrder $designOrder)
     {
-        // Autorización: solo el diseñador asignado puede iniciar.
         if (Auth::id() !== $designOrder->designer_id) {
             abort(403, 'No tienes permiso para realizar esta acción.');
         }
 
-        // Validación: no se puede iniciar si ya se inició o no está en el estado correcto.
         if ($designOrder->started_at || $designOrder->status !== 'Autorizada') {
             return back()->with('error', 'Esta orden no se puede iniciar.');
         }
 
-        $designOrder->update(['started_at' => now()]);
+        // Actualizamos estado a "En proceso" si lo tienes en tu enum, esto es ideal visualmente
+        $designOrder->update([
+            'started_at' => now(),
+            'status' => 'En proceso'
+        ]);
 
         return back()->with('success', 'El trabajo ha sido iniciado.');
+    }
+
+    /**
+     * PAUSAR LA ORDEN DE DISEÑO
+     */
+    public function pauseWork(DesignOrder $designOrder)
+    {
+        if (Auth::id() !== $designOrder->designer_id) {
+            abort(403, 'No tienes permiso para realizar esta acción.');
+        }
+
+        if (!$designOrder->started_at || $designOrder->finished_at) {
+            return back()->with('error', 'Solo las órdenes en progreso pueden pausarse.');
+        }
+
+        if ($designOrder->is_paused) {
+            return back()->with('error', 'La orden ya se encuentra pausada.');
+        }
+
+        $designOrder->pauses()->create([
+            'paused_at' => now()
+        ]);
+
+        return back()->with('success', 'El temporizador de la orden se ha pausado correctamente.');
+    }
+
+    /**
+     * REANUDAR LA ORDEN DE DISEÑO
+     */
+    public function resumeWork(DesignOrder $designOrder)
+    {
+        if (Auth::id() !== $designOrder->designer_id) {
+            abort(403, 'No tienes permiso para realizar esta acción.');
+        }
+
+        $activePause = $designOrder->pauses()->whereNull('resumed_at')->first();
+
+        if (!$activePause) {
+            return back()->with('error', 'La orden no está pausada actualmente.');
+        }
+
+        $activePause->update([
+            'resumed_at' => now()
+        ]);
+
+        return back()->with('success', 'El temporizador de la orden se ha reanudado.');
     }
 
     /**
@@ -332,27 +426,28 @@ class DesignOrderController extends Controller
      */
     public function finishWork(Request $request, DesignOrder $designOrder)
     {
-        // Autorización
         if (Auth::id() !== $designOrder->designer_id) {
             abort(403, 'No tienes permiso para realizar esta acción.');
         }
         
-        // Validación de estado
         if (!$designOrder->started_at || $designOrder->finished_at) {
             return back()->with('error', 'Esta orden no se puede finalizar.');
         }
 
-        // --- INICIO: NUEVA VALIDACIÓN ---
-        // Validar que se hayan subido los archivos finales
         $request->validate([
             'final_files' => 'required|array|min:1',
-            'final_files.*' => 'file|max:20480', // Límite de 20MB por archivo, puedes ajustarlo
+            'final_files.*' => 'file|max:20480',
         ]);
-        // --- FIN: NUEVA VALIDACIÓN ---
 
-        // Usar una transacción para asegurar la integridad de los datos
         DB::transaction(function () use ($designOrder, $request) {
-            // 1. Crear el activo de diseño
+            
+            // 1. Cerrar pausas activas si el diseñador olvidó reanudar antes de terminar
+            $activePause = $designOrder->pauses()->whereNull('resumed_at')->first();
+            if ($activePause) {
+                $activePause->update(['resumed_at' => now()]);
+            }
+
+            // 2. Crear el activo de diseño
             $design = Design::create([
                 'name' => $designOrder->order_title,
                 'description' => $designOrder->specifications,
@@ -360,12 +455,9 @@ class DesignOrderController extends Controller
                 'original_design_id' => $designOrder->modifies_design_id,
             ]);
 
-            // --- INICIO: NUEVA LÓGICA DE ARCHIVOS ---
-            // 2. Asociar los archivos finales al nuevo activo de diseño
             foreach ($request->file('final_files') as $file) {
                 $design->addMedia($file)->toMediaCollection('completed_files');
             }
-            // --- FIN: NUEVA LÓGICA DE ARCHIVOS ---
 
             // 3. Actualizar la orden de diseño
             $designOrder->update([
@@ -375,13 +467,12 @@ class DesignOrderController extends Controller
             ]);
         });
 
-        // --- LÓGICA PARA ENVIAR LA NOTIFICACIÓN ---
         $designOrder->load('requester');
         $folio = 'OD-' . str_pad($designOrder->id, 4, "0", STR_PAD_LEFT);
         $designOrder->requester->notify(new DesignOrderFinishedNotification(
             'Orden de Diseño',
             $folio,
-            'design_order_finished', // Un tipo para identificarla en el frontend si es necesario
+            'design_order_finished',
             route('design-orders.show', $designOrder->id)
         ));
 
@@ -574,7 +665,9 @@ class DesignOrderController extends Controller
         $year = $month->year;
 
         foreach ($designers as $designer) {
-            $orders = DesignOrder::where('designer_id', $designer->id)
+            // Se le carga la relación 'pauses' para calcular el tiempo real de forma masiva y rápida
+            $orders = DesignOrder::with('pauses')
+                ->where('designer_id', $designer->id)
                 ->where('status', 'Terminada')
                 ->whereYear('finished_at', $year)
                 ->whereMonth('finished_at', $month->month)
@@ -582,20 +675,19 @@ class DesignOrderController extends Controller
 
             $totalDurationInSeconds = 0;
             $processedOrders = [];
-            $canCalculateAnyDuration = false; // Flag to check if any order has dates
+            $canCalculateAnyDuration = false;
 
             foreach ($orders as $order) {
                 $duration = 'N/A';
                 if ($order->started_at && $order->finished_at) {
-                    $canCalculateAnyDuration = true; // We can calculate for at least one order
+                    $canCalculateAnyDuration = true;
                     
-                    $start = $order->started_at; // Casts to Carbon automatically
-                    $finish = $order->finished_at;
-                    $diffInSeconds = $finish->diffInSeconds($start);
+                    // LLAMADA A LA NUEVA FUNCIÓN MÁGICA CON PAUSAS DESCONTADAS
+                    $diffInSeconds = $order->getActiveTimeInSeconds();
                     $totalDurationInSeconds += $diffInSeconds;
 
                     $duration = CarbonInterval::seconds($diffInSeconds)->cascade()->forHumans(['short' => true]);
-                     if ($diffInSeconds === 0) {
+                    if ($diffInSeconds === 0) {
                         $duration = '0s';
                     }
                 }
@@ -612,7 +704,6 @@ class DesignOrderController extends Controller
             if ($canCalculateAnyDuration) {
                  $totalDurationFormatted = CarbonInterval::seconds($totalDurationInSeconds)->cascade()->forHumans();
                  if (empty($totalDurationFormatted)) {
-                    // If total is 0 seconds, forHumans() might return empty string.
                     $totalDurationFormatted = '0 minutos';
                 }
             }

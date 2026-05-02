@@ -348,7 +348,9 @@ Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController
 Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
 Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
 Route::get('/design-orders-reports/designers-activity', [DesignOrderController::class, 'getDesignersActivityReport'])->middleware('auth')->name('design-orders.reports.designers-activity');
-
+// ------- (Nuevas rutas para pausar y reanudar)  ---------
+Route::put('design-orders/{designOrder}/pause', [DesignOrderController::class, 'pauseWork'])->middleware('auth')->name('design-orders.pause');
+Route::put('design-orders/{designOrder}/resume', [DesignOrderController::class, 'resumeWork'])->middleware('auth')->name('design-orders.resume');
 
 // Ruta para almacenar las categorías de diseño creadas desde el modal
 Route::post('design-categories', [DesignCategoryController::class, 'store'])->name('design-categories.store');
