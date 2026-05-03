@@ -180,7 +180,6 @@ class DesignOrderController extends Controller
     {
         $designOrders = DesignOrder::select('id', 'order_title')->latest()->take(300)->get();
 
-        // Cargar las pausas de la orden de diseño ordenadas por fecha
         $designOrder->load([
             'designAuthorization', 
             'assignmentLogs.newDesigner:id,name', 
@@ -193,10 +192,9 @@ class DesignOrderController extends Controller
             'designCategory:id,name,complexity', 
             'design.media',
             'media',
-            'pauses' // <--- AÑADIDO A LA CARGA
+            'pauses'
         ]);
 
-        // Añadimos la variable is_paused calculada
         $designOrder->is_paused = $designOrder->is_paused;
 
         $designVersions = collect([]);
@@ -216,23 +214,14 @@ class DesignOrderController extends Controller
             }
         }
 
-        // Cálculo de la duración de la orden padre si esta orden es un retrabajo
-        $parentOrderDuration = null;
+        // Enviamos los segundos crudos para que Vue haga el formato dinámico
+        $parentOrderDurationSeconds = null;
 
         if ($designOrder->modifies_design_id) {
-            // Buscar la orden que originó ese diseño (AGREGAMOS with('pauses'))
             $parentOrder = DesignOrder::with('pauses')->where('design_id', $designOrder->modifies_design_id)->first();
             
             if ($parentOrder && $parentOrder->started_at && $parentOrder->finished_at) {
-                // Ahora sí tiene cargadas las pausas para hacer bien la matemática
-                $seconds = $parentOrder->getActiveTimeInSeconds();
-                
-                // Hacemos que sea más intuitivo visualmente
-                if ($seconds < 60) {
-                    $parentOrderDuration = 'Menos de 1 min';
-                } else {
-                    $parentOrderDuration = CarbonInterval::seconds($seconds)->cascade()->forHumans(['short' => true]);
-                }
+                $parentOrderDurationSeconds = $parentOrder->getActiveTimeInSeconds();
             }
         }
 
@@ -240,7 +229,7 @@ class DesignOrderController extends Controller
             'designOrder' => $designOrder,
             'designOrders' => $designOrders,
             'designVersions' => $designVersions,
-            'parentOrderDuration' => $parentOrderDuration,
+            'parentOrderDurationSeconds' => $parentOrderDurationSeconds,
         ]);
     }
 
@@ -665,7 +654,7 @@ class DesignOrderController extends Controller
         $year = $month->year;
 
         foreach ($designers as $designer) {
-            // Se le carga la relación 'pauses' para calcular el tiempo real de forma masiva y rápida
+            // Se le carga la relación 'pauses' para calcular el tiempo real
             $orders = DesignOrder::with('pauses')
                 ->where('designer_id', $designer->id)
                 ->where('status', 'Terminada')
@@ -679,10 +668,11 @@ class DesignOrderController extends Controller
 
             foreach ($orders as $order) {
                 $duration = 'N/A';
+                $pausesData = [];
+
                 if ($order->started_at && $order->finished_at) {
                     $canCalculateAnyDuration = true;
                     
-                    // LLAMADA A LA NUEVA FUNCIÓN MÁGICA CON PAUSAS DESCONTADAS
                     $diffInSeconds = $order->getActiveTimeInSeconds();
                     $totalDurationInSeconds += $diffInSeconds;
 
@@ -690,13 +680,32 @@ class DesignOrderController extends Controller
                     if ($diffInSeconds === 0) {
                         $duration = '0s';
                     }
+
+                    // Procesar el historial de pausas para la vista
+                    foreach ($order->pauses as $pause) {
+                        $pStart = $pause->paused_at;
+                        $pEnd = $pause->resumed_at;
+                        $pDuration = 'En curso';
+
+                        if ($pEnd) {
+                            $pDuration = CarbonInterval::seconds($pEnd->diffInSeconds($pStart))->cascade()->forHumans(['short' => true]);
+                        }
+
+                        $pausesData[] = [
+                            'paused_at' => $pStart?->format('d/m/Y H:i'),
+                            'resumed_at' => $pEnd?->format('d/m/Y H:i') ?? 'N/A',
+                            'duration' => $pDuration,
+                        ];
+                    }
                 }
+
                 $processedOrders[] = [
                     'id' => $order->id,
                     'order_title' => $order->order_title,
                     'started_at' => $order->started_at?->format('d/m/Y H:i'),
                     'finished_at' => $order->finished_at?->format('d/m/Y H:i'),
                     'duration' => $duration,
+                    'pauses' => $pausesData, // Enviamos el historial de pausas
                 ];
             }
             

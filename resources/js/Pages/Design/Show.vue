@@ -275,7 +275,7 @@
                                 :finishedAt="designOrder.finished_at" 
                                 :pauses="designOrder.pauses"
                                 :isPaused="designOrder.is_paused"
-                                :parentOrderDuration="parentOrderDuration"
+                                :parentOrderDurationSeconds="parentOrderDurationSeconds"
                             />
                         </el-tab-pane>
 
@@ -450,7 +450,7 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import DialogModal from '@/Components/DialogModal.vue'; 
-import DesignTimeLog from "@/Components/MyComponents/DesignTimeLog.vue"; // <-- NUEVO COMPONENTE IMPORTADO
+import DesignTimeLog from "@/Components/MyComponents/DesignTimeLog.vue"; 
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { format } from 'date-fns';
@@ -469,7 +469,6 @@ export default {
                 final_files: [],
             }),
 
-            // asignación de diseñador
             showAssignModal: false,
             designers: [],
             assignmentForm: this.$inertia.form({
@@ -492,14 +491,14 @@ export default {
         SecondaryButton,
         DesignersWorkload,
         ConfirmationModal,
-        DesignTimeLog, // <-- REGISTRAR EL NUEVO COMPONENTE
+        DesignTimeLog,
     },
     props: {
         designOrder: Object,
         designOrders: Array,
         auth: Object,
         designVersions: Array, 
-        parentOrderDuration: Number, // Duración del pedido original para referencia en retrabajos
+        parentOrderDurationSeconds: Number, // Recibimos el número puro del backend
     },
     computed: {
         isAssignedDesigner() {
@@ -520,7 +519,6 @@ export default {
                 onError: () => ElMessage.error('No se pudo iniciar el trabajo.')
             });
         },
-        // NUEVO: Método para pausar
         pauseWork() {
             this.$inertia.put(route('design-orders.pause', this.designOrder.id), {}, {
                 preserveScroll: true,
@@ -528,7 +526,6 @@ export default {
                 onError: () => ElMessage.error('No se pudo pausar el temporizador.')
             });
         },
-        // NUEVO: Método para reanudar
         resumeWork() {
             this.$inertia.put(route('design-orders.resume', this.designOrder.id), {}, {
                 preserveScroll: true,
@@ -548,15 +545,15 @@ export default {
                 preserveScroll: true,
                 onSuccess: () => {
                     this.showFinishModal = false;
-                    this.finishForm.reset(); // Limpiar el formulario
-                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
+                    this.finishForm.reset(); 
+                    router.reload({ preserveScroll: true }); 
                     ElMessage.success('¡Excelente! Diseño terminado y archivado.');
                 },
                 onError: (errors) => {
-                    this.showFinishModal = false; // Ocultar modal si hay error
+                    this.showFinishModal = false; 
                     let message = 'No se pudo terminar el diseño.';
                     if (errors.final_files) {
-                        message = errors.final_files; // Mostrar el error específico de los archivos
+                        message = errors.final_files; 
                     }
                     ElMessage.error(message);
                 }
@@ -604,7 +601,7 @@ export default {
                 onSuccess: () => {
                     this.closeAssignModal();
                     ElMessage.success('Diseñador asignado correctamente.');
-                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
+                    router.reload({ preserveScroll: true }); 
                 },
                 onError: (errors) => {
                      let message = 'Ocurrió un error al asignar el diseñador.';
@@ -619,9 +616,7 @@ export default {
             try {
                 const response = await axios.get(route('design-orders.authorize', this.designOrder.id));
                 if (response.status === 200) {
-                    router.reload({ 
-                        preserveScroll: true,
-                    })                    
+                    router.reload({ preserveScroll: true });                    
                     ElMessage.success(response.data.message);
                 }
             } catch (err) {
@@ -676,10 +671,10 @@ export default {
 
             const date = new Date(dateString);
             const now = new Date();
-            const diffMs = now - date; // Diferencia en milisegundos
+            const diffMs = now - date; 
 
             if (diffMs < 0) {
-                return "En el futuro"; // por si la fecha viene futura
+                return "En el futuro"; 
             }
 
             const seconds = Math.floor(diffMs / 1000);

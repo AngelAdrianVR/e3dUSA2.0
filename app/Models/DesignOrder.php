@@ -113,19 +113,32 @@ class DesignOrder extends Model implements HasMedia
             return 0;
         }
 
-        // Si no ha terminado, calculamos el tiempo hasta el momento actual
-        $endTime = $this->finished_at ?? now();
-        $totalRawSeconds = $endTime->diffInSeconds($this->started_at);
+        // Usar timestamps enteros elimina los errores de desfase de zona horaria de diffInSeconds
+        $endTimeTs = $this->finished_at ? $this->finished_at->timestamp : now()->timestamp;
+        $startTimeTs = $this->started_at->timestamp;
 
+        // Validar integridad
+        if ($endTimeTs < $startTimeTs) {
+            return 0;
+        }
+
+        $totalRawSeconds = $endTimeTs - $startTimeTs;
         $pausedSeconds = 0;
 
-        // Sumar todos los segundos que la orden pasó pausada
         foreach ($this->pauses as $pause) {
-            // Si la pausa aún no tiene resumed_at, significa que sigue pausada hasta el "endTime"
-            $pauseEnd = $pause->resumed_at ?? $endTime;
+            if (!$pause->paused_at) continue;
+
+            $pauseStartTs = $pause->paused_at->timestamp;
+            $pauseEndTs = $pause->resumed_at ? $pause->resumed_at->timestamp : $endTimeTs;
             
-            if ($pauseEnd > $pause->paused_at) {
-                $pausedSeconds += $pauseEnd->diffInSeconds($pause->paused_at);
+            if ($pauseEndTs > $pauseStartTs) {
+                // Prevención de datos corruptos cruzados fuera del tiempo base
+                $actualPauseStart = max($pauseStartTs, $startTimeTs);
+                $actualPauseEnd = min($pauseEndTs, $endTimeTs);
+                
+                if ($actualPauseEnd > $actualPauseStart) {
+                    $pausedSeconds += ($actualPauseEnd - $actualPauseStart);
+                }
             }
         }
 
