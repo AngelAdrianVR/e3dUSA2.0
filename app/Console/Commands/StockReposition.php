@@ -32,9 +32,13 @@ class StockReposition extends Command
         Log::info('Iniciando comando app:stock-reposition');
 
         // 1. Obtener productos candidatos:
+        // - Que no estén obsoletos (archived_at es null)
+        // - Que su stock mínimo sea mayor a 0 (Ignora los que tienen 0)
         // - Tipo "Materia prima"
         // - O Tipo "Catálogo" y is_purchasable = true
         $candidates = Product::with('storages')
+            ->whereNull('archived_at')      // <-- Filtro para ignorar productos obsoletos
+            ->where('min_quantity', '>', 0) // <-- Filtro agregado previamente
             ->where(function ($query) {
                 $query->where('product_type', 'Materia prima')
                       ->orWhere(function ($q) {
@@ -49,8 +53,9 @@ class StockReposition extends Command
             // Sumamos el stock de todos los almacenes (relación morphMany)
             $currentStock = $product->storages->sum('quantity');
             
-            // Comparamos contra el mínimo establecido en el producto
-            return $currentStock < $product->min_quantity;
+            // Comparamos contra el mínimo establecido en el producto.
+            // Se actualizó a "<=" basándonos en la descripción del comentario.
+            return $currentStock <= $product->min_quantity;
         });
 
         if ($lowStockProducts->isEmpty()) {

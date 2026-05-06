@@ -60,8 +60,12 @@ class QuoteController extends Controller
 
     public function store(Request $request)
     {
-        $hasCustomProduct = collect($request->products)->contains(function ($product) {
-            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $requiresTooling = collect($request->products)->contains(function ($product) {
+            $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $isRestock = filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            
+            // Requiere herramental si NO ES resurtido (primera venta) O si ES custom (nuevo fuera de catálogo)
+            return !$isRestock || $isCustom;
         });
 
         $request->validate([
@@ -69,7 +73,18 @@ class QuoteController extends Controller
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
+            'tooling_cost' => [
+                $requiresTooling ? 'required' : 'nullable',
+                function ($attribute, $value, $fail) use ($requiresTooling) {
+                    if ($requiresTooling && $value !== null) {
+                        // Filtramos para obtener el número en caso de que incluyan texto como "USD" o "MXN"
+                        $numericValue = (float) filter_var($value, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        if ($numericValue <= 0) {
+                            $fail('El costo de herramental debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                        }
+                    }
+                }
+            ],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
@@ -80,6 +95,7 @@ class QuoteController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'nullable|exists:products,id',
             'products.*.is_custom' => 'required|boolean',
+            'products.*.is_restock' => 'nullable|boolean',
             'products.*.custom_name' => 'nullable|string',
             'products.*.custom_cost' => 'nullable|numeric|min:0',
             'products.*.image' => 'nullable|file|image|max:2048',
@@ -139,6 +155,8 @@ class QuoteController extends Controller
                     'customer_approval_status' => 'Aprobado',
                     'has_low_price' => filter_var($product['has_low_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'low_price_reason' => $product['low_price_reason'] ?? null,
+                    // Aseguramos que los productos nuevos se guarden con is_restock en false para consistencia
+                    'is_restock' => $isCustom ? false : filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN), 
                 ]);
 
                 if ($isCustom && isset($product['image']) && $product['image'] instanceof \Illuminate\Http\UploadedFile) {
@@ -223,8 +241,12 @@ class QuoteController extends Controller
 
     public function update(Request $request, Quote $quote)
     {
-        $hasCustomProduct = collect($request->products)->contains(function ($product) {
-            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $requiresTooling = collect($request->products)->contains(function ($product) {
+            $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $isRestock = filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            
+            // Requiere herramental si NO ES resurtido (primera venta) O si ES custom (nuevo fuera de catálogo)
+            return !$isRestock || $isCustom;
         });
 
         $request->validate([
@@ -232,7 +254,17 @@ class QuoteController extends Controller
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
+            'tooling_cost' => [
+                $requiresTooling ? 'required' : 'nullable',
+                function ($attribute, $value, $fail) use ($requiresTooling) {
+                    if ($requiresTooling && $value !== null) {
+                        $numericValue = (float) filter_var($value, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        if ($numericValue <= 0) {
+                            $fail('El costo de herramental debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                        }
+                    }
+                }
+            ],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
@@ -243,6 +275,7 @@ class QuoteController extends Controller
             'products' => 'required|array|min:1',
             'products.*.id' => 'nullable|exists:products,id',
             'products.*.is_custom' => 'required|boolean',
+            'products.*.is_restock' => 'nullable|boolean',
             'products.*.custom_name' => 'nullable|string',
             'products.*.custom_cost' => 'nullable|numeric|min:0',
             'products.*.quantity' => 'required|numeric|min:0.01',
@@ -308,6 +341,7 @@ class QuoteController extends Controller
                     'customer_approval_status' => 'Aprobado',
                     'has_low_price' => filter_var($product['has_low_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'low_price_reason' => $product['low_price_reason'] ?? null,
+                    'is_restock' => $isCustom ? false : filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN), // Guardamos el estado asegurado
                 ]);
 
                 if ($isCustom) {

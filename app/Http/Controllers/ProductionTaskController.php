@@ -58,31 +58,14 @@ class ProductionTaskController extends Controller
             $production_task->started_at = Carbon::now();
         }
 
-        // --- NUEVO: MANEJO DE UNIDADES PARCIALES AL PAUSAR O SIN MATERIAL ---
+         // --- NUEVO: MANEJO DE UNIDADES PARCIALES AL PAUSAR O SIN MATERIAL ---
         if (in_array($newStatus, ['Pausada', 'Sin material'])) {
             $partialUnits = (int) $request->input('partial_units', 0);
             if ($partialUnits > 0) {
                 $production = $production_task->production;
-                $product = $production->saleProduct->product;
                 
-                // 1. Añadir al inventario general para poder ser enviado
-                if ($product) {
-                    $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
-                    $storage->increment('quantity', $partialUnits);
-                    
-                    StockMovement::create([
-                        'product_id' => $product->id,
-                        'storage_id' => $storage->id,
-                        'quantity_change' => $partialUnits,
-                        'type' => 'Entrada',
-                        'notes' => "Entrada parcial (Tarea {$newStatus}) de OV/OS-{$production->saleProduct->sale_id}"
-                    ]);
-                }
-                
-                // 2. Descontar estas unidades de lo que "falta por producir"
-                // Así cuando terminen la orden ya no les pedirá las originales, sino solo las restantes
-                $production->quantity_to_produce = max(0, $production->quantity_to_produce - $partialUnits);
-                $production->save();
+                // 1. Añadir al inventario general y registrar el progreso
+                $production->registerProductionProgress($partialUnits, 0, null);
             }
         }
 
@@ -109,16 +92,14 @@ class ProductionTaskController extends Controller
             // --- FIN DE LA VALIDACIÓN ---
 
             $production_task->finished_at = Carbon::now();
-            // También actualizar cantidades en la producción si se proporcionan
+            
+            // Actualizar cantidades de progreso (Merma y piezas buenas) de manera centralizada
             $production = $production_task->production;
-            if ($request->has('good_units')) {
-                $production->good_units = $request->input('good_units');
-            }
-            if ($request->has('scrap')) {
-                $production->scrap += $request->input('scrap');
-                $production->scrap_reason = $request->input('scrap_reason');
-            }
-            $production->save();
+            $production->registerProductionProgress(
+                (int) $request->input('good_units', 0),
+                (int) $request->input('scrap', 0),
+                $request->input('scrap_reason')
+            );
         }
 
         $production_task->save();

@@ -33,6 +33,7 @@ class QuoteProduct extends Pivot implements HasMedia
         'quantity',
         'unit_price',
         'notes',
+        'is_restock', // para marcar si es una reposición de un producto previamente cotizado
         'customization_details',
         'show_image', // muestra o no la imagen del producto en la cotización.
         'customer_approval_status', // 'Pendiente', 'Aprobado', 'Rechazado'
@@ -45,6 +46,7 @@ class QuoteProduct extends Pivot implements HasMedia
      */
     protected $casts = [
         'has_low_price' => 'boolean',
+        'is_restock' => 'boolean',
         'quantity' => 'float',
         'unit_price' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3
         'custom_cost' => 'decimal:3', // <--- CAMBIAR de decimal:2 a decimal:3 (opcional pero recomendado)

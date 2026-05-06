@@ -2,7 +2,8 @@
     <AppLayout title="Dashboard de Cobranza">
         <div class="flex justify-between items-center mb-6 max-w-[100em] mx-auto sm:px-6 lg:px-8 pt-7">
             <h2 class="font-semibold text-2xl text-gray-800 dark:text-gray-200 leading-tight">
-                Panel de Control de Facturación
+                Panel de Control de Facturación <br>
+                <small class="font-thin italic">Todas las notificaciones de facturación serán recibidas por el personal con rol "Cobranza"</small>
             </h2>
 
             <!-- Botón de Reportes (Abre Modal) -->

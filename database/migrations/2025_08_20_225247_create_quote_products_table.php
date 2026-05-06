@@ -31,6 +31,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->boolean('show_image')->default(true);
             $table->json('customization_details')->nullable(); // Se guardan los detalles de personalizacion como info de grabado de medallon, etc.
+            $table->boolean('is_restock')->default(false); // Nuevo campo para marcar si el producto es un restock
             
             $table->string('customer_approval_status')->default('Pendiente'); // Pendiente, Aprobado, Rechazado
             

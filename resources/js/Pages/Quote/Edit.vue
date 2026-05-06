@@ -306,6 +306,34 @@
                                         style="--el-switch-on-color: #0355B5; --el-switch-off-color: #CCCCCC" active-text="Si"
                                         inactive-text="No" />
                                 </div>
+
+                                <!-- CHECKBOX DE RESURTIDO A NIVEL PRODUCTO (Solo si es de catálogo) -->
+                                <div v-if="currentProduct.id && !currentProduct.is_custom" class="col-span-full flex items-center bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 w-max animate-fade-in mb-2 mt-1">
+                                    <label class="flex items-center cursor-pointer">
+                                        <Checkbox v-model:checked="currentProduct.is_restock" class="bg-transparent border-blue-500 text-blue-600 focus:ring-blue-500" />
+                                        <span class="ml-2 text-blue-700 dark:text-blue-400 font-bold text-sm">Es resurtido</span>
+                                    </label>
+                                    <el-tooltip placement="top">
+                                        <template #content>
+                                            <div class="text-center">
+                                                Marca esta casilla si el cliente ya había<br>
+                                                comprado este producto antes. Así, el<br>
+                                                costo de herramental <b>no será obligatorio</b>.
+                                            </div>
+                                        </template>
+                                        <div class="rounded-full border border-primary size-4 flex items-center justify-center ml-2 cursor-help transition hover:bg-primary hover:text-white">
+                                            <i class="fa-solid fa-info text-primary hover:text-white text-[9px]"></i>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+
+                                <!-- MENSAJE INFORMATIVO PARA PRODUCTOS CUSTOM -->
+                                <div v-if="currentProduct.is_custom" class="col-span-full mt-1 mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 animate-fade-in-down">
+                                    <p class="text-blue-600 dark:text-blue-400 text-xs font-bold">
+                                        <i class="fa-solid fa-circle-info"></i> Al ser un producto nuevo (fuera de catálogo), es obligatorio un costo de herramental.
+                                    </p>
+                                </div>
+
                                 <div class="lg:col-span-full">
                                      <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" :withMaxLength="true" :maxLength="500" />
                                 </div>
@@ -388,6 +416,7 @@
                                             <p class="font-bold text-primary flex items-center space-x-2">
                                                 <span>{{ product.is_custom ? product.custom_name : getProductName(product.id) }}</span>
                                                 <el-tag v-if="product.is_custom" type="primary" size="small" effect="dark">Nuevo / Personalizado</el-tag>
+                                                <el-tag v-if="!product.is_custom && product.is_restock" type="success" size="small" effect="dark">Resurtido</el-tag>
                                             </p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
@@ -571,6 +600,7 @@ export default {
                 quote_product_id: null,
                 id: null,
                 is_custom: false,
+                is_restock: false,
                 custom_name: '',
                 custom_cost: 0,
                 custom_measure_unit: '',
@@ -633,7 +663,8 @@ export default {
             return this.form.products.some(p => p.has_low_price);
         },
         isToolingCostRequired() {
-            return this.form.products.some(p => p.is_custom);
+            // Es obligatorio si al menos un producto NO es resurtido O ES un producto custom
+            return this.form.products.some(p => !p.is_restock || p.is_custom);
         },
         isAddProductDisabled() {
             if (this.currentProduct.is_custom) {
@@ -710,9 +741,12 @@ export default {
         },
 
         update() {
-            if (this.isToolingCostRequired && !this.form.tooling_cost) {
-                ElMessage.error('El costo de herramental es obligatorio debido a que hay productos nuevos.');
-                return;
+            if (this.isToolingCostRequired) {
+                const cost = parseFloat(this.form.tooling_cost);
+                if (!this.form.tooling_cost || isNaN(cost) || cost <= 0) {
+                    ElMessage.error('El costo de herramental es obligatorio y debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                    return;
+                }
             }
 
             this.form.transform((data) => ({
@@ -731,6 +765,11 @@ export default {
         addProduct() {
             const productToAdd = { ...this.currentProduct };
             
+            // Si es un producto nuevo, forzar que no sea resurtido
+            if (productToAdd.is_custom) {
+                productToAdd.is_restock = false;
+            }
+
             // Asigna el estado final del cálculo de precio bajo antes de agregarlo
             productToAdd.has_low_price = this.isPriceLow;
 
@@ -761,6 +800,7 @@ export default {
                 quote_product_id: null,
                 id: null, 
                 is_custom: false,
+                is_restock: false,
                 custom_name: '',
                 custom_cost: null, 
                 custom_measure_unit: '', 
@@ -926,6 +966,7 @@ export default {
                 quote_product_id: qp.id, 
                 id: qp.product_id,
                 is_custom: isCustom,
+                is_restock: Boolean(qp.is_restock),
                 custom_name: qp.custom_name,
                 custom_cost: qp.custom_cost,
                 custom_measure_unit: qp.custom_measure_unit,

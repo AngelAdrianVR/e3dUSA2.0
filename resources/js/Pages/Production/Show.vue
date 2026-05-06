@@ -286,8 +286,13 @@
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
-                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Pendiente de Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedProduction?.quantity_to_produce ?? selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
+                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">A Producir (Original)</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
+                                        <!-- <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedProduction?.quantity_to_produce ?? selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p> -->
+                                    </div>
+                                    <div class="bg-indigo-50 dark:bg-indigo-900/40 rounded-lg p-4 text-center">
+                                        <p class="text-sm font-medium text-indigo-600 dark:text-indigo-300">Producido / Avances</p>
+                                        <p class="text-3xl font-bold text-indigo-800 dark:text-indigo-100 mt-1">{{ selectedProduction?.good_units?.toLocaleString() || 0 }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
@@ -477,7 +482,6 @@ export default {
                     lastDate = logDate;
                 });
                 
-                // Add the final segment from the last log to the end of the task
                 if (lastDate < taskEnd) {
                     const duration = differenceInMilliseconds(taskEnd, lastDate);
                      segments.push({
@@ -497,7 +501,6 @@ export default {
         }
     },
     methods: {
-        // Maneja errores de carga de imagen intentando una URL alternativa oara ver en local las imagenes de production
         handleImageError(event) {
             const img = event.target;
             const currentSrc = img.src;
@@ -538,7 +541,7 @@ export default {
                     ...log,
                     operator: operatorMap[log.user_id] || { name: 'Operador Desconocido', profile_photo_url: 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=?' }
                 }))
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Sort recent first
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             this.historyModalVisible = true;
         },
@@ -696,8 +699,11 @@ export default {
         startTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
         resumeTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
         
-        // --- MODIFICADO: Preguntar si quieren enviar parcialidades a stock ---
         pauseTask(task) {
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
             ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
                 confirmButtonText: 'Siguiente',
                 cancelButtonText: 'Cancelar',
@@ -706,41 +712,60 @@ export default {
                 inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
             }).then(({ value: pause_reason }) => {
                 
-                // Segundo Modal: Preguntar por unidades parciales
-                ElMessageBox.prompt('Si ya terminaste algunas unidades y deseas enviarlas al almacén para que puedan ser empaquetadas/enviadas, ingresa la cantidad. Si no, ingresa 0.', 'Unidades Parciales Terminadas', {
-                    confirmButtonText: 'Confirmar Pausa',
-                    cancelButtonText: 'Omitir',
-                    inputType: 'number',
-                    inputValue: 0,
-                }).then(({ value: partial_units }) => {
-                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units });
-                }).catch(() => {
-                    // Si le da a omitir, pausa sin unidades
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se agregará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar Pausa',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                    });
+                } else {
                     this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
-                });
+                }
 
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
         
-        // --- MODIFICADO: Preguntar si quieren enviar parcialidades a stock ---
         reportIssue(task) {
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
                 { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
             ).then(() => {
                 
-                 // Segundo Modal: Preguntar por unidades parciales
-                ElMessageBox.prompt('Si ya terminaste algunas unidades y deseas enviarlas al almacén para que puedan ser empaquetadas/enviadas, ingresa la cantidad. Si no, ingresa 0.', 'Unidades Parciales Terminadas', {
-                    confirmButtonText: 'Confirmar',
-                    cancelButtonText: 'Omitir',
-                    inputType: 'number',
-                    inputValue: 0,
-                }).then(({ value: partial_units }) => {
-                    this.updateTaskStatus(task.id, 'Sin material', { partial_units });
-                }).catch(() => {
-                    // Si le da a omitir, pausa sin unidades
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales Terminadas', {
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                    });
+                } else {
                     this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
-                });
+                }
 
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
@@ -759,30 +784,60 @@ export default {
                 }
             }
 
-            // MODIFICADO: Ahora tomamos lo que queda de Production, porque pudo haberse modificado al enviar parciales
+            // Identificar si es la última tarea
+            const pendingTasks = this.selectedProduction.tasks.filter(t => t.status !== 'Terminada' && t.id !== task.id);
+            const isLastTask = pendingTasks.length === 0;
+
             const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
 
+            // Si no es la última tarea, solo actualizar estatus sin preguntar piezas ni mermas (se hace al final)
+            if (!isLastTask) {
+                this.updateTaskStatus(task.id, 'Terminada');
+                return;
+            }
+
+            // Si ES la última tarea, solicitamos los datos
             try {
-                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas (Restantes).', 'Finalizar Tarea', {
-                    confirmButtonText: 'Siguiente',
-                    cancelButtonText: 'Cancelar',
-                    inputType: 'number',
-                    inputValue: quantityToProduce,
-                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
-                });
+                let good_units = 0;
+                let scrap = 0;
+                let scrap_reason = '';
 
-                const { value: scrap } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
+                // Solo preguntar unidades si quedan piezas por producir
+                if (quantityToProduce > 0 && remainingToProduce > 0) {
+                    const { value: goodUnitsValue } = await ElMessageBox.prompt(
+                        `Ingresa la cantidad de UNIDADES BUENAS terminadas (No se cuentan las piezas tomadas de stock). La cantidad se sumará al stock. (Restantes a reportar: ${remainingToProduce}).`, 
+                        'Finalizar Producción', 
+                        {
+                            confirmButtonText: 'Siguiente',
+                            cancelButtonText: 'Cancelar',
+                            inputType: 'number',
+                            inputValue: remainingToProduce,
+                            inputValidator: (v) => {
+                                if (v === null || v === '') return 'La cantidad es requerida.';
+                                if (v < 0) return 'No puede ser negativo.';
+                                if (v > remainingToProduce) return `No puedes exceder el restante por producir (${remainingToProduce}).`;
+                                return true;
+                            },
+                        }
+                    );
+                    good_units = Number(goodUnitsValue);
+                }
+
+                // Siempre preguntar por merma, sin importar si fue de stock
+                const { value: scrapValue } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
                     confirmButtonText: 'Siguiente',
                     cancelButtonText: 'Cancelar',
                     inputType: 'number',
                     inputValue: 0,
-                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
+                    inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'Cantidad inválida.',
                 });
+                scrap = Number(scrapValue);
 
-                let scrap_reason = '';
                 if (scrap > 0) {
                     const { value: reason } = await ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
-                        confirmButtonText: 'Finalizar Tarea',
+                        confirmButtonText: 'Finalizar Producción',
                         cancelButtonText: 'Cancelar',
                         inputType: 'textarea',
                         inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
