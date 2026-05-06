@@ -198,10 +198,107 @@ class BranchController extends Controller
 
         $allBranches = Branch::select('id', 'name')->get();
 
+        // ---- NUEVO: Datos de Consumo y Analítica ----
+        $oneYearAgo = now()->subYear();
+        
+        $annualConsumption = $branch->sales()->where('created_at', '>=', $oneYearAgo)->where('type', 'venta')->where('status', '!=', 'Cancelada')->sum('total_amount');
+        $monthlyConsumption = $annualConsumption / 12;
+
+        // Cargar productos de ventas del último año
+        $salesProductsLastYear = \App\Models\SaleProduct::with('product.media')
+            ->whereHas('sale', function($query) use ($branch, $oneYearAgo) {
+                $query->where('branch_id', $branch->id)
+                      ->where('created_at', '>=', $oneYearAgo)
+                      ->where('type', 'venta')
+                      ->where('status', '!=', 'Cancelada');
+            })
+            ->get();
+            
+        $productConsumption = $salesProductsLastYear->groupBy('product_id')->map(function ($items) {
+            $first = $items->first();
+            $annualQuantity = $items->sum('quantity');
+            $annualTotal = $items->sum(function($item) { return $item->quantity * $item->price; });
+            
+            $imageUrl = null;
+            if ($first->product && $first->product->media && $first->product->media->isNotEmpty()) {
+                $imageUrl = $first->product->media->first()->original_url;
+            }
+
+            return [
+                'product_id' => $first->product_id,
+                'name' => $first->product->name ?? 'Producto temporal',
+                'code' => $first->product->code ?? 'N/A',
+                'image_url' => $imageUrl,
+                'annual_quantity' => $annualQuantity,
+                'monthly_quantity' => round($annualQuantity / 12, 2),
+                'annual_total' => $annualTotal,
+                'monthly_total' => $annualTotal / 12,
+            ];
+        })->values()->sortByDesc('annual_quantity')->toArray();
+
+        // MODIFICACIÓN: Histórico de Ventas (Con desglose de productos)
+        $allSales = $branch->sales()
+            ->with('saleProducts.product') // Cargamos los productos de cada venta
+            ->where('type', 'venta')
+            ->where('status', '!=', 'Cancelada')
+            ->get();
+
+        $salesByYearMonth = [];
+        foreach ($allSales as $sale) {
+            $year = \Carbon\Carbon::parse($sale->created_at)->format('Y');
+            $month = (int)\Carbon\Carbon::parse($sale->created_at)->format('m');
+
+            if (!isset($salesByYearMonth[$year])) {
+                // Inicializamos los 12 meses con su total y un arreglo vacío de productos
+                $salesByYearMonth[$year] = array_fill(1, 12, ['total' => 0, 'products' => []]);
+            }
+
+            // Sumamos al total del mes
+            $salesByYearMonth[$year][$month]['total'] += (float)$sale->total_amount;
+
+            // Agrupamos los productos de ese mes
+            if ($sale->saleProducts) {
+                foreach ($sale->saleProducts as $sp) {
+                    $prodId = $sp->product_id;
+                    $prodName = $sp->product->name ?? 'Producto Eliminado';
+                    
+                    if (!isset($salesByYearMonth[$year][$month]['products'][$prodId])) {
+                        $salesByYearMonth[$year][$month]['products'][$prodId] = [
+                            'name' => $prodName,
+                            'quantity' => 0,
+                            'total' => 0,
+                        ];
+                    }
+                    
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['quantity'] += $sp->quantity;
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['total'] += ($sp->quantity * $sp->price);
+                }
+            }
+        }
+
+        // Limpiar las llaves del array de productos para que JavaScript lo lea como array (y ordenamos por mayor venta)
+        foreach ($salesByYearMonth as $year => &$months) {
+            foreach ($months as $month => &$data) {
+                usort($data['products'], function($a, $b) {
+                    return $b['total'] <=> $a['total']; // Mayor monto arriba
+                });
+                $data['products'] = array_values($data['products']);
+            }
+        }
+
+        $consumptionData = [
+            'annual_consumption' => $annualConsumption,
+            'monthly_consumption' => $monthlyConsumption,
+            'product_breakdown' => $productConsumption,
+            'sales_by_year_month' => $salesByYearMonth,
+        ];
+        // ----------------------------------------------
+
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get()
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'consumptionData' => $consumptionData, // <-- NUEVA VARIABLE
         ]);
     }
 

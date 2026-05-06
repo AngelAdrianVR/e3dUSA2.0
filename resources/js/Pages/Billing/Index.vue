@@ -69,7 +69,7 @@
                                 <i class="fa-solid fa-check-double text-2xl"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Timbradas (Este mes)</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Timbradas (Mes Seleccionado)</p>
                                 <p class="text-3xl font-bold text-gray-800 dark:text-gray-200">{{ kpis.total_stamped_month }}</p>
                             </div>
                         </div>
@@ -97,13 +97,27 @@
                             </el-input>
                         </div>
 
-                        <!-- Filtro Estado Facturación -->
-                        <div class="!w-72 md:w-auto flex items-center space-x-2">
+                        <!-- Agrupación de Filtros Derechos -->
+                        <div class="w-full md:w-auto flex flex-col md:flex-row items-center space-y-3 md:space-y-0 space-x-0 md:space-x-3">
+                            
+                            <!-- Filtro de Mes y Año -->
+                            <el-date-picker
+                                v-model="filters.month_year"
+                                type="month"
+                                placeholder="Mes a consultar"
+                                format="MMM YYYY"
+                                value-format="YYYY-MM"
+                                :clearable="false"
+                                @change="syncUrl"
+                                class="!w-full md:!w-40"
+                            />
+
+                            <!-- Filtro Estado Facturación -->
                             <el-select
                                 v-model="filters.billing_status"
                                 placeholder="Estatus de Facturación"
                                 clearable
-                                class="w-56"
+                                class="!w-full md:!w-56"
                                 @change="syncUrl"
                             >
                                 <el-option label="Pendiente Pre-factura" value="Pendiente Pre-factura" />
@@ -112,7 +126,7 @@
                                 <el-option label="Timbrada" value="Timbrada" />
                             </el-select>
 
-                            <el-tooltip v-if="hasActiveFilters" content="Limpiar todos los filtros" placement="top">
+                            <el-tooltip v-if="hasActiveFilters" content="Limpiar sub-filtros (Mantiene el mes)" placement="top">
                                 <button 
                                     @click="clearFilters"
                                     class="size-9 flex-shrink-0 flex items-center justify-center rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
@@ -174,7 +188,7 @@
                                     <td colspan="8" class="text-center py-10">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fa-solid fa-inbox text-4xl mb-3"></i>
-                                            <p class="text-sm">No hay órdenes de venta que coincidan con los filtros.</p>
+                                            <p class="text-sm">No hay órdenes de venta que coincidan con los filtros y periodo seleccionado.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -266,6 +280,8 @@ export default {
                 billing_status: this.filtersProp?.billing_status || null,
                 search: this.filtersProp?.search || '',
                 kpi_filter: this.filtersProp?.kpi_filter || null,
+                // Leemos el mes/año inyectado por el backend
+                month_year: this.filtersProp?.month_year || '',
             },
             detailsModalVisible: false,
             selectedSale: null,
@@ -280,6 +296,8 @@ export default {
     },
     computed: {
         hasActiveFilters() {
+            // El filtro de mes_año se considera el "contexto base" así que el botón
+            // de limpiar filtros sólo aparece si hay algún filtro adicional aplicado.
             return this.filters.billing_status || this.filters.search || this.filters.kpi_filter;
         }
     },
@@ -298,7 +316,10 @@ export default {
             });
         },
         clearFilters() {
-            this.filters = { billing_status: null, search: '', kpi_filter: null };
+            // Limpiamos todo EXCEPTO el mes_año para no sacarlo del contexto que estaba viendo
+            this.filters.billing_status = null;
+            this.filters.search = '';
+            this.filters.kpi_filter = null;
             this.syncUrl();
         },
         filterByKpi(kpiType) {

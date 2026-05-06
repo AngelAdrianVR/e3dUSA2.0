@@ -16,15 +16,6 @@
                 </el-select>
             </div>
             <div class="flex items-center space-x-2 dark:text-white">
-                <!-- BOTÓN NUEVO: Facturas Pendientes -->
-                <!-- <el-tooltip content="Ver facturas pendientes de este cliente" placement="top">
-                    <Link :href="route('invoices.index', { client_id: branch.id, tab: 'sales_without_invoice' })">
-                        <button class="px-3 h-9 flex items-center justify-center rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors text-xs font-bold">
-                            <i class="fa-solid fa-file-invoice-dollar mr-2"></i> Facturas pendientes
-                        </button>
-                    </Link>
-                </el-tooltip> -->
-
                 <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar clientes')" content="Editar Cliente" placement="top">
                     <Link :href="route('branches.edit', branch.id)">
                         <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
@@ -204,6 +195,7 @@
                                 </li>
                             </ul>
                         </el-tab-pane>
+                        
                         <el-tab-pane name="products">
                              <template #label>
                                 <div class="flex items-center">
@@ -228,6 +220,17 @@
                                 <SuggestedProducts :products="branch.suggested_products" />
                             </div>
                              <p v-else class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">No hay productos sugeridos para este cliente.</p>
+                        </el-tab-pane>
+
+                        <!-- PESTAÑA COMPONENTIZADA: Análisis de Consumo -->
+                        <el-tab-pane name="analytics">
+                             <template #label>
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-chart-bar mr-2"></i>
+                                    <span>Análisis de Consumo</span>
+                                </div>
+                            </template>
+                            <ConsumptionAnalytics :consumption-data="consumptionData" />
                         </el-tab-pane>
 
                         <el-tab-pane label="Cotizaciones" name="quotes">
@@ -286,6 +289,7 @@ import Products from "@/Pages/Branch/Tabs/Products.vue";
 import Quotes from "@/Pages/Branch/Tabs/Quotes.vue";
 import Sales from "@/Pages/Branch/Tabs/Sales.vue";
 import SuggestedProducts from "@/Pages/Branch/Tabs/SuggestedProducts.vue";
+import ConsumptionAnalytics from "@/Pages/Branch/Tabs/ConsumptionAnalytics.vue"; // <- El nuevo componente
 
 // Modals
 import AddProductsModal from "@/Pages/Branch/Modals/AddProductsModal.vue";
@@ -362,6 +366,7 @@ export default {
         Quotes,
         Sales,
         SuggestedProducts, 
+        ConsumptionAnalytics,
         AddProductsModal,
         ModalCrearEditarContacto,
     },
@@ -369,12 +374,13 @@ export default {
         branch: Object,
         branches: Array,
         catalog_products: Array,
+        consumptionData: Object,
     },
     computed: {
         availableProducts() {
             const assignedProductIds = this.branch.products.map(p => p.id);
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
-        }
+        },
     },
     methods: {
         formatPhone(number) {
