@@ -164,7 +164,7 @@ Route::post('/branches/{branch}/add-products', [BranchController::class, 'addPro
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
 Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
-// Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
+Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------

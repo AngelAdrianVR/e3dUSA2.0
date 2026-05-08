@@ -27,7 +27,7 @@
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
                 </el-tag>
 
-                <div class="grid grid-cols-2 gap-x-6 gap-y-3 mt-4 text-sm">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-2 mt-4 text-sm">
                     <div>
                         <div class="flex items-center space-x-2">
                             <p class="text-gray-500 dark:text-gray-400">Cantidad ordenada</p>
@@ -85,6 +85,14 @@
                         <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
                         <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400">Stock mínimo</p>
+                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400">Stock máximo</p>
+                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.max_quantity?.toLocaleString() }}</p>
+                    </div>
                 </div>
 
                 <!-- === JUSTIFICACIÓN DEL PRECIO BAJO === -->
@@ -137,19 +145,25 @@
             <el-collapse v-if="saleProduct.product.price_history?.length">
                 <el-collapse-item title="Historial de precios especiales del cliente" name="history">
                     <ul class="max-h-32 overflow-y-auto pr-2 text-sm">
-                        <li v-for="history in saleProduct.product.price_history" :key="history.id" class="flex justify-between items-center text-gray-600 dark:text-gray-400 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700/50">
-                            <div class="flex items-center space-x-2">
-                                <span>{{ formatDate(history.valid_from) }}</span>
-                                <el-tag v-if="!history.valid_to" type="success" size="small" effect="dark" round>Actual</el-tag>
-                                <el-tag v-else type="info" size="small" effect="light" round>Cerrado</el-tag>
+                        <li v-for="history in saleProduct.product.price_history" :key="history.id" class="flex flex-col text-gray-600 dark:text-gray-400 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700/50 border-b dark:border-slate-700/50 last:border-0">
+                            <div class="flex justify-between items-center w-full">
+                                <div class="flex items-center space-x-2">
+                                    <span>{{ formatDate(history.valid_from) }}</span>
+                                    <el-tag v-if="!history.valid_to" type="success" size="small" effect="dark" round>Actual</el-tag>
+                                    <el-tag v-else type="info" size="small" effect="light" round>Cerrado</el-tag>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <span class="font-medium text-black dark:text-white">${{ history.price }} {{ history.currency }}</span>
+                                    <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
+                                        <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
+                                            <i class="fa-solid fa-calendar-xmark text-sm"></i>
+                                        </button>
+                                    </el-tooltip>
+                                </div>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <span class="font-medium text-black dark:text-white">${{ history.price }} {{ history.currency }}</span>
-                                <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
-                                    <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
-                                        <i class="fa-solid fa-calendar-xmark text-sm"></i>
-                                    </button>
-                                </el-tooltip>
+                            <!-- NUEVO: Usuario que registró el precio -->
+                            <div class="text-[11px] text-gray-400 mt-1">
+                                Registrado por: <span v-if="history.user" class="font-medium text-gray-500 dark:text-gray-300">{{ history.user.name }}</span><span v-else class="italic">Sistema</span>
                             </div>
                         </li>
                     </ul>
@@ -167,13 +181,18 @@
         </div>
     </div>
 
+    <!-- Modal para actualizar precio especial -->
     <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
         <template #title>
             Actualizar precio de <span class="text-primary dark:text-sky-400">{{ saleProduct.product?.name }}</span>
         </template>
         <template #content>
             <div class="space-y-4 text-sm dark:text-gray-300">
-                <p>El precio base actual del catálogo es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio especial se aplicará a este cliente para futuras compras.</p>
+                <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                    <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+                </p>
+                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
                         <label class="font-semibold">Aumento en porcentaje*</label>
@@ -201,9 +220,9 @@
                         <el-date-picker v-model="priceForm.valid_from" type="date" :teleported="false" placeholder="Selecciona una fecha" class="!w-full mt-1" />
                     </div>
                 </div>
-                <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+                <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
-                    El aumento del precio especial debe ser de al menos un 4% sobre el precio base.
+                    El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price?.toFixed(2) }} (aumento mínimo del 4%).
                 </div>
             </div>
         </template>
@@ -285,19 +304,26 @@ export default {
                 currency: 'MXN', // Asumido por defecto
                 valid_from: new Date(),
                 current_base_price: 0,
+                min_allowed_price: 0,
             }),
         };
     },
     computed: {
+        // NUEVO: Permiso "Cambiar precio especial"
+        canBypassPriceRule() {
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+        },
         totalAmount() {
             return (this.saleProduct.quantity * this.saleProduct.price).toFixed(2);
         },
+        // MODIFICADO: Agregada lógica para el permiso y mejorando comparativa numérica
         isPriceInvalid() {
-            if (!this.priceForm.amount || this.priceForm.amount <= 0 || !this.priceForm.current_base_price) {
+            if (!this.priceForm.amount || Number(this.priceForm.amount) <= 0) {
                 return true;
             }
-            const percentageIncrease = ((this.priceForm.amount / this.priceForm.current_base_price) - 1) * 100;
-            return percentageIncrease < 4;
+            if (this.canBypassPriceRule) return false;
+            
+            return Number(this.priceForm.amount) < this.priceForm.min_allowed_price;
         },
         parsedCustomization() {
             try {
@@ -364,23 +390,27 @@ export default {
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
         },
         openPriceModal() {
-            const basePrice = this.saleProduct.product?.base_price ?? 0;
+            // Modificado: Toma el precio especial activo actual si existe, de lo contrario toma el base
+            const basePrice = Number(this.activeSpecialPrice?.price ?? this.saleProduct.product?.base_price ?? 0);
             
             this.priceForm.reset();
             this.priceForm.current_base_price = basePrice;
+            this.priceForm.min_allowed_price = basePrice * 1.04;
             this.showPriceModal = true;
         },
         updatePriceFromAmount() {
-            if (this.priceForm.amount && this.priceForm.current_base_price > 0) {
-                const percentage = ((this.priceForm.amount / this.priceForm.current_base_price) - 1) * 100;
+            const amount = Number(this.priceForm.amount);
+            if (amount && this.priceForm.current_base_price > 0) {
+                const percentage = ((amount / this.priceForm.current_base_price) - 1) * 100;
                 this.priceForm.percentage = percentage.toFixed(2);
             } else {
                 this.priceForm.percentage = null;
             }
         },
         updatePriceFromPercentage() {
+            const percentage = Number(this.priceForm.percentage);
             if (this.priceForm.percentage !== null && this.priceForm.percentage !== '') {
-                const newAmount = this.priceForm.current_base_price * (1 + (this.priceForm.percentage / 100));
+                const newAmount = this.priceForm.current_base_price * (1 + (percentage / 100));
                 this.priceForm.amount = newAmount.toFixed(2);
             } else {
                 this.priceForm.amount = null;
@@ -388,7 +418,7 @@ export default {
         },
         async submitNewPrice() {
             if (this.isPriceInvalid) {
-                ElMessage.error('El aumento de precio debe ser de al menos un 4% sobre el precio base.');
+                ElMessage.error('El precio ingresado no es válido o es menor al permitido.');
                 return;
             }
 

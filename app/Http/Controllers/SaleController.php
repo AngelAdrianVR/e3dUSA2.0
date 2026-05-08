@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y notificar si está por debajo del minimo permitido
 
 class SaleController extends Controller
 {
@@ -298,6 +299,14 @@ class SaleController extends Controller
 
             DB::commit();
 
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se ejecuta después del commit para asegurar que los descuentos 
+            // de inventario ya están aplicados en la base de datos.
+            // --------------------------------------------------------------------------
+            CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
+
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
 
             return redirect()->route('sales.show', $sale->id);
@@ -312,15 +321,18 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load([
+            $sale->load([
             'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
+            
+            // AQUÍ ESTÁ EL CAMBIO: Agregamos ->with('user')
             'saleProducts.product.priceHistory' => function ($q) {
-                $q->orderBy('created_at', 'desc');
+                $q->with('user')->orderBy('created_at', 'desc'); 
             },
+            
             'shipments',
             'contact:id,name',
             'contact.details',
@@ -597,6 +609,11 @@ class SaleController extends Controller
             }
             
             DB::commit();
+
+            // ---> DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
+            // --------------------------------------------------------------------------
+            CheckLowStockAndNotifyJob::dispatch($sale);
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
             return redirect()->route('sales.show', $sale->id);

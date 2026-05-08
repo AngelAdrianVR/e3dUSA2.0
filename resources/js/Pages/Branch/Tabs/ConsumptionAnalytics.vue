@@ -31,7 +31,7 @@
         </div>
 
         <!-- Gráfica de ventas por año -->
-        <div class="bg-white dark:bg-slate-800 p-5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-6">
+        <div class="bg-white dark:bg-slate-800 p-4 mx-7 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-gray-800 dark:text-gray-200">Histórico de Ventas</h3>
                 <div class="flex items-center space-x-3">
@@ -50,8 +50,13 @@
                     <div v-for="(monthData, index) in normalizedYearData" :key="index"
                         class="flex-1 flex flex-col justify-end items-center group relative h-full">
                         
-                        <!-- Tooltip Avanzado -->
-                        <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-gray-800 text-white text-xs py-2 px-3 rounded-lg shadow-xl transition-all duration-200 whitespace-nowrap z-50 pointer-events-none min-w-[300px]">
+                        <!-- Tooltip Avanzado (Con posicionamiento dinámico) -->
+                        <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-gray-800 text-white text-xs py-2 px-3 rounded-lg shadow-xl transition-all duration-200 whitespace-nowrap z-50 pointer-events-none group-hover:pointer-events-auto min-w-[280px] sm:min-w-[300px]"
+                            :class="{
+                                'left-1/2 -translate-x-8': index <= 3,
+                                'right-1/2 translate-x-8': index >= 8,
+                                'left-1/2 -translate-x-1/2': index > 3 && index < 8
+                            }">
                             <!-- Mes y Año -->
                             <p class="font-bold border-b border-gray-600 pb-1 mb-1.5 text-center text-gray-200">{{ monthNamesShort[index] }} {{ selectedYear }}</p>
                             
@@ -80,8 +85,13 @@
                                 <span v-else class="text-primary-light">***</span>
                             </div>
 
-                            <!-- Flecha apuntando a la barra -->
-                            <div class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-gray-800 rotate-45 border-r border-b border-gray-800"></div>
+                            <!-- Flecha apuntando a la barra (Se mueve dinámicamente) -->
+                            <div class="absolute -bottom-1.5 w-3 h-3 bg-gray-800 rotate-45 border-r border-b border-gray-800"
+                                :class="{
+                                    'left-8': index <= 3,
+                                    'right-8': index >= 8,
+                                    'left-1/2 -translate-x-1/2': index > 3 && index < 8
+                                }"></div>
                         </div>
 
                         <!-- Bar -->

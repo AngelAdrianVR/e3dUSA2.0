@@ -87,6 +87,12 @@
                         <p class="text-gray-500 dark:text-gray-300">
                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                         </p>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock mínimo: <strong>{{ currentProduct.min_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
+                        </p>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock máximo: <strong>{{ currentProduct.max_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
+                        </p>
                         <p v-if="saleType === 'venta' && !currentProduct.current_price" class="text-gray-500 dark:text-gray-300">
                             Precio base <small>(para todos los clientes que no tengan precio asignado)</small>: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
                         </p>
@@ -340,6 +346,8 @@ export default {
                 storages: [], 
                 has_customization: false,
                 customization_details: [],
+                min_quantity: null,
+                max_quantity: null,
             },
             newCustomization: {
                 type: null,
@@ -496,6 +504,8 @@ export default {
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
                     this.currentProduct.components = productData.components;
+                    this.currentProduct.min_quantity = productData.min_quantity;
+                    this.currentProduct.max_quantity = productData.max_quantity;
                     
                     // La lógica de precios solo aplica para 'venta'
                     if (this.saleType === 'venta') {

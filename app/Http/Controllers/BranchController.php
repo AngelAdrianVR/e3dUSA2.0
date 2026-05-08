@@ -188,7 +188,7 @@ class BranchController extends Controller
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
-                      ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
+                      ->with('user:id,name')
                       ->orderBy('valid_from', 'desc');
             }
         ])->get();
@@ -198,7 +198,32 @@ class BranchController extends Controller
 
         $allBranches = Branch::select('id', 'name')->get();
 
-        // ---- NUEVO: Datos de Consumo y Analítica ----
+        // Mandamos llamar a nuestro nuevo método refactorizado
+        $consumptionData = $this->calculateSalesAnalytics($branch);
+
+        return Inertia::render('Branch/Show', [
+            'branch' => $branch,
+            'branches' => $allBranches,
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'consumptionData' => $consumptionData, 
+        ]);
+    }
+
+    /**
+     * NUEVO MÉTODO: Endpoint para obtener analíticas vía petición (Axios)
+     */
+    public function getSalesAnalytics(Branch $branch)
+    {
+        // Retornamos la data en formato JSON para peticiones frontend
+        return response()->json($this->calculateSalesAnalytics($branch));
+    }
+
+    /**
+     * NUEVO MÉTODO PRIVADO: Centraliza la lógica de cálculos de consumo
+     * para usarla tanto en el show como en el endpoint JSON.
+     */
+    private function calculateSalesAnalytics(Branch $branch)
+    {
         $oneYearAgo = now()->subYear();
         
         $annualConsumption = $branch->sales()->where('created_at', '>=', $oneYearAgo)->where('type', 'venta')->where('status', '!=', 'Cancelada')->sum('total_amount');
@@ -236,9 +261,9 @@ class BranchController extends Controller
             ];
         })->values()->sortByDesc('annual_quantity')->toArray();
 
-        // MODIFICACIÓN: Histórico de Ventas (Con desglose de productos)
+        // Histórico de Ventas (Con desglose de productos)
         $allSales = $branch->sales()
-            ->with('saleProducts.product') // Cargamos los productos de cada venta
+            ->with('saleProducts.product') 
             ->where('type', 'venta')
             ->where('status', '!=', 'Cancelada')
             ->get();
@@ -249,14 +274,11 @@ class BranchController extends Controller
             $month = (int)\Carbon\Carbon::parse($sale->created_at)->format('m');
 
             if (!isset($salesByYearMonth[$year])) {
-                // Inicializamos los 12 meses con su total y un arreglo vacío de productos
                 $salesByYearMonth[$year] = array_fill(1, 12, ['total' => 0, 'products' => []]);
             }
 
-            // Sumamos al total del mes
             $salesByYearMonth[$year][$month]['total'] += (float)$sale->total_amount;
 
-            // Agrupamos los productos de ese mes
             if ($sale->saleProducts) {
                 foreach ($sale->saleProducts as $sp) {
                     $prodId = $sp->product_id;
@@ -276,30 +298,21 @@ class BranchController extends Controller
             }
         }
 
-        // Limpiar las llaves del array de productos para que JavaScript lo lea como array (y ordenamos por mayor venta)
         foreach ($salesByYearMonth as $year => &$months) {
             foreach ($months as $month => &$data) {
                 usort($data['products'], function($a, $b) {
-                    return $b['total'] <=> $a['total']; // Mayor monto arriba
+                    return $b['total'] <=> $a['total']; 
                 });
                 $data['products'] = array_values($data['products']);
             }
         }
 
-        $consumptionData = [
+        return [
             'annual_consumption' => $annualConsumption,
             'monthly_consumption' => $monthlyConsumption,
             'product_breakdown' => $productConsumption,
             'sales_by_year_month' => $salesByYearMonth,
         ];
-        // ----------------------------------------------
-
-        return Inertia::render('Branch/Show', [
-            'branch' => $branch,
-            'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
-            'consumptionData' => $consumptionData, // <-- NUEVA VARIABLE
-        ]);
     }
 
     public function edit(Branch $branch)
