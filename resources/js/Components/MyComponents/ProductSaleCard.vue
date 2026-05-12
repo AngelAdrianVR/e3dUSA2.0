@@ -27,7 +27,7 @@
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
                 </el-tag>
 
-                <div class="grid grid-cols-2 gap-x-6 gap-y-2 mt-4 text-sm">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-1 mt-4 text-sm">
                     <div>
                         <div class="flex items-center space-x-2">
                             <p class="text-gray-500 dark:text-gray-400">Cantidad ordenada</p>
@@ -87,11 +87,11 @@
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">Stock mínimo</p>
-                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }}</p>
+                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                     </div>
                     <div>
                         <p class="text-gray-500 dark:text-gray-400">Stock máximo</p>
-                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.max_quantity?.toLocaleString() }}</p>
+                        <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.max_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                     </div>
                 </div>
 

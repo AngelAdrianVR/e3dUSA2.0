@@ -43,25 +43,23 @@ class CheckLowStockAndNotifyJob implements ShouldQueue
             $product = $saleProduct->product;
             if (!$product) continue;
 
-            // 1. Revisar stock del producto principal (usamos sum() igual que en el comando)
-            $stockFinishedProduct = $product->storages->sum('quantity');
-
-            // Ignoramos si el minimo es 0 (como en tu comando)
-            if (!is_null($product->min_quantity) && $product->min_quantity > 0 && $stockFinishedProduct <= $product->min_quantity) {
-                $product->current_stock = $stockFinishedProduct; // Agregamos un atributo temporal para el correo
-                $lowStockProducts->put($product->id, $product);
-            }
-
-            // 2. Revisar stock de los componentes
             if ($product->components->isNotEmpty()) {
+                // Es un producto compuesto: Solo revisamos el stock de sus componentes
                 foreach ($product->components as $component) {
-                    // Usamos sum() igual que en el comando
                     $stockComponent = $component->storages->sum('quantity');
 
                     if (!is_null($component->min_quantity) && $component->min_quantity > 0 && $stockComponent <= $component->min_quantity) {
                         $component->current_stock = $stockComponent;
                         $lowStockProducts->put($component->id, $component);
                     }
+                }
+            } else {
+                // Es un producto simple (sin componentes): Revisamos el stock del producto principal
+                $stockFinishedProduct = $product->storages->sum('quantity');
+
+                if (!is_null($product->min_quantity) && $product->min_quantity > 0 && $stockFinishedProduct <= $product->min_quantity) {
+                    $product->current_stock = $stockFinishedProduct; // Agregamos un atributo temporal para el correo
+                    $lowStockProducts->put($product->id, $product);
                 }
             }
         }

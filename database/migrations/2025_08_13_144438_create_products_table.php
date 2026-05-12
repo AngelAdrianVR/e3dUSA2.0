@@ -35,6 +35,7 @@ return new class extends Migration
             $table->integer('max_quantity')->nullable();
             $table->foreignId('brand_id')->constrained('brands'); 
             $table->foreignId('product_family_id')->nullable()->constrained('product_families'); 
+            $table->foreignId('parent_id')->nullable()->constrained('products')->nullOnDelete(); // referencia al producto padre si es un producto con persnalización o variante
             $table->timestamps();
         });
     }

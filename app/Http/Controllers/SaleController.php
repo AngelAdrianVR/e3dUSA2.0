@@ -462,10 +462,7 @@ class SaleController extends Controller
             // }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
-            $sale->update([
-                'status' => 'Pendiente', // NUEVA REGLA: Forzar a Pendiente al editar
-                'authorized_at' => null, // NUEVA REGLA: Forzar a Pendiente al editar
-                'authorized_user_name' => null, // NUEVA REGLA: Forzar a Pendiente al editar
+            $updateData = [
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
@@ -483,7 +480,16 @@ class SaleController extends Controller
                 'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * ($product['price'] ?? 0));
                 }, 0) : 0,
-            ]);
+            ];
+
+            // Validar si debemos resetear el estatus a "Pendiente"
+            if (in_array($sale->status, ['Pendiente', 'Autorizada'])) {
+                $updateData['status'] = 'Pendiente';
+                $updateData['authorized_at'] = null;
+                $updateData['authorized_user_name'] = null;
+            }
+
+            $sale->update($updateData);
 
             // --- 5. SINCRONIZAR PRODUCTOS DE LA ORDEN ---
             $productIdsFromRequest = collect($validated['products'])->pluck('id');
@@ -610,10 +616,12 @@ class SaleController extends Controller
             
             DB::commit();
 
-            // ---> DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
             // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
             // --------------------------------------------------------------------------
             CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
             return redirect()->route('sales.show', $sale->id);

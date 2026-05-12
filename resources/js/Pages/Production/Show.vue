@@ -59,47 +59,7 @@
                         <template v-if="sale.type === 'venta'">
                             <li class="flex justify-between items-center">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-
-                                <!-- Tooltip de cliente -->
-                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
-                                    <template #content>
-                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                        <!-- Header -->
-                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                            {{ sale.branch?.name }}
-                                            </h4>
-                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                            {{ sale.branch?.status ?? 'N/A' }}
-                                            </span>
-                                        </div>
-
-                                        <!-- Datos principales -->
-                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                        </div>
-
-                                        <!-- Footer -->
-                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                            <Link :href="route('branches.show', sale.branch?.id)">
-                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                <i class="fa-solid fa-eye"></i> Ver Cliente
-                                            </SecondaryButton>
-                                            </Link>
-                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                        </div>
-                                        </div>
-                                    </template>
-
-                                    <!-- Nombre clickable -->
-                                    <span class="text-blue-500 hover:underline cursor-pointer">
-                                        {{ sale.branch?.name ?? 'N/A' }}
-                                    </span>
-                                </el-tooltip>
+                                <BranchInfoTooltip v-if="sale.branch" :branch="sale.branch" />
                                 <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
                             </li>
                             <li class="flex justify-between">
@@ -403,6 +363,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
+import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; 
 import { Link, router } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
 import { ElMessageBox, ElMessage } from 'element-plus';
@@ -412,6 +373,7 @@ export default {
     components: {
         AppLayout,
         SecondaryButton,
+        BranchInfoTooltip,
         Empty,
         Link
     },
