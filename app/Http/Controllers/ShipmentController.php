@@ -431,4 +431,38 @@ class ShipmentController extends Controller
 
         return back()->with('success', 'Evidencias subidas correctamente.');
     }
+
+    /**
+     * Actualiza la fecha de envío antes de ser marcado como completado.
+     * Nueva función para que Producción asigne la fecha.
+     */
+    public function updateDate(Request $request, Shipment $shipment)
+    {
+        $request->validate([
+            'sent_at' => 'required|date',
+        ]);
+
+        $shipment->update([
+            'sent_at' => Carbon::parse($request->sent_at),
+        ]);
+
+        return back()->with('success', 'Fecha de envío registrada correctamente.');
+    }
+
+    /**
+     * Actualiza o crea las notas de un envío (incluso si ya fue completado).
+     * Nueva función para la visualización de Cobranza.
+     */
+    public function updateNotes(Request $request, Shipment $shipment)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $shipment->update([
+            'notes' => $request->notes,
+        ]);
+
+        return back()->with('success', 'Notas del envío actualizadas exitosamente.');
+    }
 }

@@ -26,9 +26,23 @@
             <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
             
             <!-- El precio solo es para 'venta' -->
-            <TextInput v-if="saleType === 'venta'" label="Precio Unitario*" v-model="currentProduct.price" type="number" :formatAsNumber="true">
-                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-            </TextInput>
+            <div v-if="saleType === 'venta'" class="w-full">
+                <TextInput label="Precio Unitario*" v-model="currentProduct.price" type="number" :formatAsNumber="true">
+                    <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                </TextInput>
+            </div>
+            <!-- NUEVO: Indicador visual y justificación de precio bajo -->
+            <div v-if="isPriceLow" class="col-span-full mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800 animate-fade-in-down">
+                <p class="text-amber-600 dark:text-amber-400 text-xs font-bold mb-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Precio por debajo del mínimo permitido. Por favor, justifica esta decisión para su validación.
+                </p>
+                <TextInput 
+                    label="Razón del precio*" 
+                    v-model="currentProduct.low_price_reason" 
+                    :isTextarea="true" 
+                    placeholder="Justifica este precio..." 
+                />
+            </div>
 
             <!-- Estado de carga -->
             <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
@@ -72,6 +86,12 @@
 
                         <p class="text-gray-500 dark:text-gray-300">
                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
+                        </p>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock mínimo: <strong>{{ currentProduct.min_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
+                        </p>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock máximo: <strong>{{ currentProduct.max_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
                         </p>
                         <p v-if="saleType === 'venta' && !currentProduct.current_price" class="text-gray-500 dark:text-gray-300">
                             Precio base <small>(para todos los clientes que no tengan precio asignado)</small>: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
@@ -223,7 +243,7 @@
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Diseño nuevo</span>
             </label>
             <div class="pt-2 col-span-full">
-                <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || (saleType === 'venta' && !currentProduct.price)">
+                <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || (saleType === 'venta' && !currentProduct.price) || (isPriceLow && !currentProduct.low_price_reason)">
                     {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
                 </SecondaryButton>
                 <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
@@ -247,6 +267,9 @@
                             <template v-if="saleType === 'venta'">
                                 | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
                             </template>
+                        </p>
+                        <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Razón precio bajo: <span class="font-normal italic">{{ product.low_price_reason }}</span>
                         </p>
                         <small v-if="product.notes" class="text-xs text-gray-500 dark:text-gray-400">{{ product.notes }}</small>
                         
@@ -316,11 +339,15 @@ export default {
                 id: null,
                 quantity: 1,
                 price: null,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '',
                 is_new_design: false,
                 storages: [], 
                 has_customization: false,
                 customization_details: [],
+                min_quantity: null,
+                max_quantity: null,
             },
             newCustomization: {
                 type: null,
@@ -346,6 +373,19 @@ export default {
             set(value) {
                 this.$emit('update:modelValue', value);
             }
+        },
+        // NUEVO: Computed para identificar si el precio es bajo mientras se escribe
+        isPriceLow() {
+            if (this.saleType !== 'venta' || !this.currentProduct.id || !this.currentProduct.price) return false;
+            
+            let minPrice = this.currentProduct.base_price || 0;
+            if (this.currentProduct.isClientProduct && this.currentProduct.current_price !== null && this.currentProduct.current_price !== undefined) {
+                minPrice = this.currentProduct.current_price;
+            }
+            
+            const isLow = parseFloat(this.currentProduct.price) < (parseFloat(minPrice) - 0.01);
+            this.currentProduct.has_low_price = isLow;
+            return isLow;
         },
         // Calcula cuántos productos completos se pueden hacer según el stock de componentes
         maxProducibleQuantity() {
@@ -420,6 +460,8 @@ export default {
                 id: null, 
                 quantity: 1, 
                 price: null, 
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '', 
                 is_new_design: false,
                 storages: [],
@@ -462,6 +504,8 @@ export default {
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
                     this.currentProduct.components = productData.components;
+                    this.currentProduct.min_quantity = productData.min_quantity;
+                    this.currentProduct.max_quantity = productData.max_quantity;
                     
                     // La lógica de precios solo aplica para 'venta'
                     if (this.saleType === 'venta') {

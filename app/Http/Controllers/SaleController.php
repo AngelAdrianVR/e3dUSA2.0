@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y notificar si está por debajo del minimo permitido
 
 class SaleController extends Controller
 {
@@ -95,11 +96,15 @@ class SaleController extends Controller
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean', // NUEVO CAMPO
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -141,7 +146,9 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'type' => $validated['type'],
                 'user_id' => auth()->id(),
-                'status' => 'Pendiente',
+                'status' => 'Pendiente', // El status es pendiente por defecto (Esperando Autorización)
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
@@ -178,6 +185,8 @@ class SaleController extends Controller
                     'price' => $productData['price'] ?? 0,
                     'notes' => $productData['notes'] ?? null,
                     'customization_details' => $productData['customization_details'] ?? null,
+                    'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                    'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
                     'quantity_to_produce' => $productData['quantity'],
@@ -290,6 +299,14 @@ class SaleController extends Controller
 
             DB::commit();
 
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se ejecuta después del commit para asegurar que los descuentos 
+            // de inventario ya están aplicados en la base de datos.
+            // --------------------------------------------------------------------------
+            CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
+
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
 
             return redirect()->route('sales.show', $sale->id);
@@ -304,15 +321,18 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-        $sale->load([
+            $sale->load([
             'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
+            
+            // AQUÍ ESTÁ EL CAMBIO: Agregamos ->with('user')
             'saleProducts.product.priceHistory' => function ($q) {
-                $q->orderBy('created_at', 'desc');
+                $q->with('user')->orderBy('created_at', 'desc'); 
             },
+            
             'shipments',
             'contact:id,name',
             'contact.details',
@@ -388,11 +408,15 @@ class SaleController extends Controller
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean',
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -438,11 +462,13 @@ class SaleController extends Controller
             // }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
-            $sale->update([
+            $updateData = [
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
@@ -454,7 +480,16 @@ class SaleController extends Controller
                 'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * ($product['price'] ?? 0));
                 }, 0) : 0,
-            ]);
+            ];
+
+            // Validar si debemos resetear el estatus a "Pendiente"
+            if (in_array($sale->status, ['Pendiente', 'Autorizada'])) {
+                $updateData['status'] = 'Pendiente';
+                $updateData['authorized_at'] = null;
+                $updateData['authorized_user_name'] = null;
+            }
+
+            $sale->update($updateData);
 
             // --- 5. SINCRONIZAR PRODUCTOS DE LA ORDEN ---
             $productIdsFromRequest = collect($validated['products'])->pluck('id');
@@ -468,6 +503,8 @@ class SaleController extends Controller
                         'price' => $productData['price'] ?? 0,
                         'notes' => $productData['notes'] ?? null,
                         'customization_details' => $productData['customization_details'] ?? null,
+                        'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                        'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     ]
                 );
             }
@@ -578,6 +615,13 @@ class SaleController extends Controller
             }
             
             DB::commit();
+
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
+            // --------------------------------------------------------------------------
+            CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
             return redirect()->route('sales.show', $sale->id);

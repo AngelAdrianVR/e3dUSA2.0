@@ -68,14 +68,12 @@
                     </button>
                 </el-tooltip>
 
-                <!-- <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top"> -->
-                    <Link :href="route('sales.edit', sale.id)">
-                        <button 
-                            class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-                            <i class="fa-solid fa-pencil text-sm"></i>
-                        </button>
-                    </Link>
-                <!-- </el-tooltip> -->
+                <Link :href="route('sales.edit', sale.id)">
+                    <button 
+                        class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="fa-solid fa-pencil text-sm"></i>
+                    </button>
+                </Link>
                 
                 <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
                     <template #trigger>
@@ -106,6 +104,16 @@
             </div>
         </header>
 
+        <!-- === ALERTA DE PRECIO BAJO A NIVEL ORDEN === -->
+        <div v-if="sale.has_low_price && sale.status === 'Pendiente'" class="mb-4 animate-fade-in-down">
+            <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mr-4"></i>
+                <div>
+                    <h3 class="text-amber-800 dark:text-amber-400 font-bold">Órden pendiente de revisión de márgenes</h3>
+                    <p class="text-amber-700 dark:text-amber-300 text-sm">Esta orden contiene productos con precio por debajo del margen establecido. Por favor, revisa la justificación en los productos antes de autorizar.</p>
+                </div>
+            </div>
+        </div>
 
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
@@ -120,52 +128,6 @@
                     <ul class="space-y-3 text-sm">
                         <!-- Campos para Venta -->
                         <template v-if="sale.type === 'venta'">
-                            <li class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-
-                                <!-- Tooltip de cliente -->
-                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
-                                    <template #content>
-                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                        <!-- Header -->
-                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                            {{ sale.branch?.name }}
-                                            </h4>
-                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                            {{ sale.branch?.status ?? 'N/A' }}
-                                            </span>
-                                        </div>
-
-                                        <!-- Datos principales -->
-                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                        </div>
-
-                                        <!-- Footer -->
-                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                            <Link :href="route('branches.show', sale.branch?.id)">
-                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                <i class="fa-solid fa-eye"></i> Ver Cliente
-                                            </SecondaryButton>
-                                            </Link>
-                                            <span class="text-[11px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                        </div>
-                                        </div>
-                                    </template>
-
-                                    <!-- Nombre clickable -->
-                                    <span class="text-blue-500 hover:underline cursor-default">
-                                        {{ sale.branch?.name ?? 'N/A' }}
-                                    </span>
-                                </el-tooltip>
-                                <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
-                            </li>
-
                             <!-- Contacto -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
@@ -182,7 +144,6 @@
                                         <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
                                         </p>
 
-                                        <!-- MODIFICACIÓN: Mostrar todos los teléfonos -->
                                         <template v-if="getContactDetails(sale.contact, 'Teléfono').length">
                                             <p v-for="phone in getContactDetails(sale.contact, 'Teléfono')" :key="phone.id" class="flex items-center gap-2">
                                                 <i class="fa-solid fa-phone text-green-400"></i>
@@ -205,6 +166,12 @@
                                 </el-tooltip>
 
                                 <span v-else class="text-gray-400 italic">N/A</span>
+                            </li>
+
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
+                                <!-- AQUÍ UTILIZAMOS NUESTRO NUEVO COMPONENTE REUTILIZABLE -->
+                                <BranchInfoTooltip :branch="sale.branch" />
                             </li>
 
                             <!-- Cotización -->
@@ -429,6 +396,7 @@
                                 :is-high-priority="sale.is_high_priority"
                                 :branch-id="sale.branch_id"
                                 :saleCurrency="sale.currency"
+                                :is-sale-authorized="sale.authorized_at !== null"
                             />
                         </div>
                         <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
@@ -685,8 +653,9 @@ import ProductSaleCard from "@/Components/MyComponents/ProductSaleCard.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
-import DialogModal from "@/Components/DialogModal.vue"; // Asegúrate de tener este componente o usa uno equivalente
-import { useForm } from "@inertiajs/vue3"; // Importante para manejar archivos
+import DialogModal from "@/Components/DialogModal.vue";
+import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; // <-- NUEVO COMPONENTE
+import { useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
@@ -710,6 +679,7 @@ export default {
         SecondaryButton,
         ProductSaleCard,
         ConfirmationModal,
+        BranchInfoTooltip, // <-- REGISTRADO
     },
     props: {
         sale: Object,
@@ -727,7 +697,7 @@ export default {
 
             activeTab: 'products',
             showExchangeModal: false,
-            evidencePreviews: [], // Array para las URLs de preview
+            evidencePreviews: [], 
             exchangeForm: useForm({
                 sale_id: this.sale.id,
                 returned_product_id: null,
@@ -739,7 +709,6 @@ export default {
                 evidence_images: [],
             }),
             
-            // --- NUEVOS DATOS PARA GUÍA ---
             showGuideModal: false,
             guideForm: useForm({
                 shipment_id: null,
@@ -804,41 +773,15 @@ export default {
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);
         },
-        formatRelative(dateString) {
-            if (!dateString) return "Sin registro";
-
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date; // Diferencia en milisegundos
-
-            if (diffMs < 0) {
-                return "En el futuro"; // por si la fecha viene futura
-            }
-
-            const seconds = Math.floor(diffMs / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            const months = Math.floor(days / 30);
-            const years = Math.floor(months / 12);
-
-            if (seconds < 60) return `Hace ${seconds} segundos`;
-            if (minutes < 60) return `Hace ${minutes} minutos`;
-            if (hours < 24) return `Hace ${hours} horas`;
-            if (days < 30) return `Hace ${days} días`;
-            if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
-            return `Hace ${years} año${years > 1 ? "s" : ""}`;
-        },
         openExchangeModal() {
             this.exchangeForm.reset();
-            this.evidencePreviews = []; // Limpiar previews
+            this.evidencePreviews = []; 
             this.showExchangeModal = true;
         },
         handleFileChange(e) {
             const files = Array.from(e.target.files);
             this.exchangeForm.evidence_images = files;
 
-            // Generar previsualizaciones
             this.evidencePreviews = [];
             files.forEach(file => {
                 const reader = new FileReader();
@@ -902,7 +845,6 @@ export default {
                 this.loadingSales = false;
             }
         },
-        // --- MÉTODOS PARA GUÍA ---
         openGuideModal(shipment) {
             this.guideForm.shipment_id = shipment.id;
             this.guideForm.shipping_company = shipment.shipping_company;
@@ -914,7 +856,6 @@ export default {
                 onSuccess: () => {
                     this.showGuideModal = false;
                     ElMessage.success('Guía actualizada correctamente');
-                    // Opcionalmente recargar datos o actualizar localmente si inertia no lo hace auto
                 },
                 onError: () => {
                     ElMessage.error('Error al actualizar la guía.');

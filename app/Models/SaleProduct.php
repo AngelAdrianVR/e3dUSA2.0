@@ -22,6 +22,8 @@ class SaleProduct extends Model
         'is_new_design',
         'customization_details',
         'notes',
+        'has_low_price', // NUEVO
+        'low_price_reason', // NUEVO
         'quantity_produced',
         'quantity_shipped',
     ];
@@ -30,6 +32,7 @@ class SaleProduct extends Model
 
     protected $casts = [
         'customization_details' => 'array',
+        'has_low_price' => 'boolean', // NUEVO: Casteo a booleano
     ];
 
     // --- RELACIONES ---

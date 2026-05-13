@@ -89,6 +89,14 @@
                             :available-products="productsForManager"
                             :products-error="form.errors.products"
                         />
+
+                        <!-- ALERTA GLOBAL DE PRECIO BAJO (SIN EL TEXTAREA) -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del establecido. Especifica la razón en cada producto. La orden requerirá autorización después de ser creada.</p>
+                            </div>
+                        </div>
                         
                         <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
                         <template v-if="form.type === 'venta'">
@@ -233,7 +241,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante." />
+                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante para su facturación." />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">
@@ -355,6 +363,7 @@ export default {
                 notes: '',
                 currency: 'MXN',
                 is_high_priority: false,
+                has_low_price: false, // NUEVO: Control de precio bajo general
                 products: [],
                 oce_media: null,
                 anotherFiles: null,
@@ -414,9 +423,35 @@ export default {
         productsForManager() {
             // Devuelve los productos de cliente para 'venta' o todo el catálogo para 'stock'
             return this.form.type === 'venta' ? this.clientProducts : this.catalog_products;
+        },
+        hasLowPrices() {
+            if (this.form.type !== 'venta' || !this.form.products.length) return false;
+            
+            return this.form.products.some(p => {
+                const original = this.getProductInfo(p.id);
+                if (!original) return false;
+                
+                let minPrice = original.base_price || 0;
+                
+                // Tratar de obtener el precio vigente del cliente
+                if (original.price_history && original.price_history.length > 0) {
+                    const validPrice = original.price_history.find(h => !h.valid_to);
+                    if (validPrice) {
+                        minPrice = validPrice.price;
+                    }
+                } else if (original.current_price !== undefined && original.current_price !== null) {
+                    minPrice = original.current_price;
+                }
+                
+                // Permitir margen de centavos para redondeo
+                return parseFloat(p.price) < (parseFloat(minPrice) - 0.01);
+            });
         }
     },
     watch: {
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        },
         branches(newVal) {
             this.localBranches = [...newVal];
         },
@@ -425,7 +460,7 @@ export default {
             if (newType === 'stock') {
                 this.form.reset(
                     'branch_id', 'quote_id', 'contact_id', 'order_via', 
-                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments'
+                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];

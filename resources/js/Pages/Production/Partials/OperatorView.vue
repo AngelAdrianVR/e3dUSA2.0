@@ -127,6 +127,10 @@
                                                 <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ getQuantityToProduce(task).toLocaleString() }}</span>
                                             </div>
                                             <div>
+                                                <span class="text-gray-400">Producido:</span>
+                                                <span class="font-bold text-indigo-500 dark:text-indigo-400 ml-1">{{ (task.production.good_units || 0).toLocaleString() }}</span>
+                                            </div>
+                                            <div>
                                                 <span class="text-gray-400">De Stock:</span>
                                                 <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ stockUsed(task) }}</span>
                                             </div>
@@ -166,7 +170,7 @@
                                     </el-tooltip>
 
                                     <el-tooltip content="Pausar Tarea" placement="top">
-                                        <button @click="pauseTask(task.id)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
+                                        <button @click="pauseTask(task)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
                                         <i class="fa-solid fa-pause"></i>
                                     </button>
                                     </el-tooltip>
@@ -372,7 +376,12 @@ export default {
         },
         startTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
         resumeTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
-        pauseTask(taskId) {
+        
+        pauseTask(task) {
+            const quantityToProduce = this.getQuantityToProduce(task);
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
             ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
                 confirmButtonText: 'Confirmar Pausa',
                 cancelButtonText: 'Cancelar',
@@ -380,17 +389,66 @@ export default {
                 inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
                 inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
             }).then(({ value: pause_reason }) => {
-                this.updateTaskStatus(taskId, 'Pausada', { pause_reason });
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar Pausa',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                }
+
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
+
         reportIssue(task) {
+            const quantityToProduce = this.getQuantityToProduce(task);
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
                 { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
-            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
-            ).catch(() => ElMessage.info('Acción cancelada'));
+            ).then(() => {
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                }
+
+            }).catch(() => ElMessage.info('Acción cancelada'));
         },
-        finishTask(task) {
+
+        async finishTask(task) {
             if ((task.status === 'En Proceso' || task.status === 'Pausada')  && task.started_at) {
                 const startTime = new Date(task.started_at);
                 const now = new Date();
@@ -405,34 +463,41 @@ export default {
             }
 
             const quantityToProduce = this.getQuantityToProduce(task);
-            ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
-                confirmButtonText: 'Siguiente',
-                cancelButtonText: 'Cancelar',
-                inputType: 'number',
-                inputValue: quantityToProduce,
-                inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
-            }).then(({ value: good_units }) => {
-                 ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
+            // TOMA AUTOMÁTICAMENTE EL RESTANTE
+            const good_units = remainingToProduce;
+
+            try {
+                 const { value: scrapValue } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
                     confirmButtonText: 'Siguiente',
                     cancelButtonText: 'Cancelar',
                     inputType: 'number',
                     inputValue: 0,
-                    inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
-                }).then(({ value: scrap }) => {
-                    if (scrap > 0) {
-                        ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
-                            confirmButtonText: 'Finalizar Tarea',
-                            cancelButtonText: 'Cancelar',
-                            inputType: 'textarea',
-                            inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
-                        }).then(({ value: scrap_reason }) => {
-                            this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
-                        }).catch(() => ElMessage.info('Finalización cancelada en el último paso.'));
-                    } else {
-                        this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason: '' });
-                    }
-                }).catch(() => ElMessage.info('Finalización cancelada en paso de merma.'));
-            }).catch(() => ElMessage.info('Acción cancelada'));
+                    inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'Cantidad inválida.',
+                });
+                const scrap = Number(scrapValue);
+
+                let scrap_reason = '';
+                if (scrap > 0) {
+                    const { value: reason } = await ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
+                        confirmButtonText: 'Finalizar Tarea',
+                        cancelButtonText: 'Cancelar',
+                        inputType: 'textarea',
+                        inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
+                    });
+                    scrap_reason = reason;
+                }
+                
+                this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
+
+            } catch (error) {
+                if (error !== 'cancel') {
+                    console.error('Error al finalizar la tarea:', error);
+                }
+                ElMessage.info('Acción cancelada');
+            }
         },
         getQuantityToProduce(task) {
             const saleProduct = task.production?.sale_product;

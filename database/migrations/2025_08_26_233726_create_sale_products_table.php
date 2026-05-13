@@ -19,6 +19,8 @@ return new class extends Migration
             $table->integer('quantity');
             $table->integer('quantity_to_produce')->default(0);
             $table->decimal('price', 10, 2);
+            $table->boolean('has_low_price')->default(false); // Indicador de precio bajo
+            $table->text('low_price_reason')->nullable(); // Razón del precio bajo
             $table->boolean('is_new_design')->default(false);
             $table->json('customization_details')->nullable();
             $table->text('notes')->nullable();

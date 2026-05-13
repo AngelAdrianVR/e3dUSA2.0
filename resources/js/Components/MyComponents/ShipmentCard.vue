@@ -4,11 +4,11 @@
 
         <!-- ===== GRAN INDICADOR DE ENVIADO ===== -->
         <div v-if="isShipped" class="bg-green-50 dark:bg-green-900/30 rounded-lg p-4 mb-5 flex flex-col sm:flex-row items-start sm:items-center justify-between border border-green-200 dark:border-green-800">
-            <div class="flex items-start gap-4">
+            <div class="flex items-start gap-4 w-full">
                 <div class="bg-green-500 text-white rounded-full w-12 h-12 flex-shrink-0 flex items-center justify-center text-2xl shadow-lg shadow-green-500/30">
                     <i class="fa-solid fa-check"></i>
                 </div>
-                <div>
+                <div class="flex-grow">
                     <h3 class="font-extrabold text-green-700 dark:text-green-400 text-lg">¡Parcialidad Enviada!</h3>
                     <p class="text-sm text-green-600 dark:text-green-500 mt-0.5">
                         <i class="fa-solid fa-user-check mr-1"></i> Enviado por: <strong>{{ shipment.sent_by || 'N/A' }}</strong>
@@ -16,16 +16,28 @@
                         <i class="fa-regular fa-clock mr-1"></i> {{ formatDateTime(shipment.sent_at) }}
                     </p>
                     
-                    <!-- NUEVO: Mostrar notas prominentemente si existen -->
-                    <div v-if="shipment.notes" class="mt-3 mb-1 bg-white/60 dark:bg-slate-800/60 p-3 rounded-lg border border-green-200 dark:border-green-800/50">
+                    <!-- NUEVO: Mostrar notas y permitir edición -->
+                    <div v-if="shipment.notes" class="mt-3 mb-1 bg-white/60 dark:bg-slate-800/60 p-3 rounded-lg border border-green-200 dark:border-green-800/50 relative group">
                         <p class="text-xs font-bold text-green-800 dark:text-green-300 uppercase tracking-wider mb-1">
                             <i class="fa-solid fa-note-sticky mr-1 opacity-70"></i> Notas del envío:
                         </p>
                         <p class="text-sm text-green-700 dark:text-green-400 italic">"{{ shipment.notes }}"</p>
+                        
+                        <!-- Botón para Editar Notas cuando ya existen -->
+                        <button @click="$emit('open-edit-notes', shipment)" class="absolute top-2 right-2 text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 opacity-0 group-hover:opacity-100 transition-opacity" title="Editar notas">
+                           <i class="fa-solid fa-pencil"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- NUEVO: Botón para añadir notas si el envío fue completado pero quedó sin notas -->
+                    <div v-else class="mt-3 mb-1">
+                        <button @click="$emit('open-edit-notes', shipment)" class="text-xs text-green-700 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300 font-semibold underline decoration-dashed underline-offset-2 transition-colors">
+                           <i class="fa-solid fa-plus mr-1"></i> Agregar notas adicionales
+                        </button>
                     </div>
                 </div>
             </div>
-            <div class="mt-3 sm:mt-0 self-start sm:self-center">
+            <div class="mt-3 sm:mt-0 self-start sm:self-center flex-shrink-0">
                <el-tag type="success" effect="dark" size="large" class="!font-bold !px-4 tracking-wide"><i class="fa-solid fa-box-check mr-1"></i> COMPLETADO</el-tag>
             </div>
         </div>
@@ -57,7 +69,6 @@
                 </el-popconfirm>
 
                 <!-- Botón Marcar como Enviado -->
-                <!-- Se forza el false en disabled ya que a veces se quiere marcar como enviado aunque no esté se tenga la cantidad completa, se puede agregar la cantidad que en realidad se mandó. -->
                 <button v-if="!isShipped && $page.props.auth.user.permissions.includes('Marcar parcialidades como enviadas')"
                     @click="$emit('open-confirmation', shipment)"
                     :disabled="!isReady && false"
@@ -83,29 +94,44 @@
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Fecha Promesa</p>
                     <span class="font-medium text-gray-800 dark:text-gray-200">{{ formatDate(shipment.promise_date) || 'N/A' }}</span>
                 </div>
-                <!-- Editar paqueteria tambien incluye botón acá para que sea más obvio -->
+                
+                <!-- NUEVO: Fecha de Envío con su botón de edición para Producción -->
+                <div class="col-span-2 sm:col-span-1">
+                    <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Fecha de Envío</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="font-medium text-gray-800 dark:text-gray-200" v-if="shipment.sent_at">{{ formatDateTime(shipment.sent_at) }}</span>
+                        <span v-else class="text-gray-400 italic text-sm">No asignada</span>
+                        
+                        <el-tooltip v-if="!isShipped" content="Editar fecha de envío real" placement="top">
+                            <button @click="$emit('open-edit-date', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors">
+                                <i class="fa-solid fa-pencil"></i>
+                            </button>
+                        </el-tooltip>
+                    </div>
+                </div>
+
                 <div class="col-span-2 sm:col-span-1">
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Paquetería</p>
                     <div class="flex items-center gap-2 mt-1">
                         <span class="font-medium text-gray-800 dark:text-gray-200">{{ shipment.shipping_company ?? 'N/A' }}</span>
                         
                         <el-tooltip content="Editar paquetería y guía" placement="top">
-                            <button @click="$emit('open-guide', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors">
+                            <button @click="$emit('open-guide', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors flex-shrink-0">
                                 <i class="fa-solid fa-pencil"></i>
                             </button>
                         </el-tooltip>
                     </div>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-2 sm:col-span-1">
                     <p class="font-semibold text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wider mb-1">Guía de Rastreo</p>
                     <div class="flex items-center gap-2 mt-1">
-                        <span v-if="shipment.tracking_guide" class="font-mono bg-white dark:bg-gray-800 px-3 py-1 rounded-md text-sm select-all border dark:border-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-semibold">
+                        <span v-if="shipment.tracking_guide" class="font-mono bg-white dark:bg-gray-800 px-3 py-1 rounded-md text-sm select-all border dark:border-gray-600 shadow-sm text-blue-600 dark:text-blue-400 font-semibold break-all">
                             {{ shipment.tracking_guide }}
                         </span>
                         <span v-else class="text-gray-400 italic text-sm">No asignada</span>
                         
                         <el-tooltip content="Editar información de rastreo" placement="top">
-                            <button @click="$emit('open-guide', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors">
+                            <button @click="$emit('open-guide', shipment)" class="text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 p-1.5 rounded transition-colors flex-shrink-0">
                                 <i class="fa-solid fa-pencil"></i>
                             </button>
                         </el-tooltip>
@@ -191,7 +217,7 @@ export default {
             required: true
         }
     },
-    emits: ['open-label', 'open-confirmation', 'open-guide', 'open-evidence', 'delete-media'],
+    emits: ['open-label', 'open-confirmation', 'open-guide', 'open-evidence', 'delete-media', 'open-edit-date', 'open-edit-notes'],
     computed: {
         isShipped() {
             return this.shipment.status === 'Enviado';

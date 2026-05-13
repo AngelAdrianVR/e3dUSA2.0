@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.idtoString().padStart(4, '0')}` }}
+                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.id.toString().padStart(4, '0')}` }}
                 </h2>
             </div>
         </div>
@@ -75,6 +75,14 @@
                             :available-products="productsForManager"
                             :products-error="form.errors.products"
                         />
+
+                        <!-- ALERTA GLOBAL DE PRECIO BAJO -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del margen. Especifica la razón en cada producto. La orden requerirá autorización.</p>
+                            </div>
+                        </div>
                         
                         <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
                         <template v-if="form.type === 'venta'">
@@ -311,14 +319,16 @@ export default {
                 freight_cost: this.sale.freight_cost,
                 notes: this.sale.notes,
                 currency: this.sale.currency,
-                // promise_date: this.sale.promise_date,
                 is_high_priority: this.sale.is_high_priority,
+                has_low_price: this.sale.has_low_price, // NUEVO
                 products: this.sale.sale_products.map(p => ({
                     id: p.product_id,
                     quantity: p.quantity,
                     price: p.price,
                     notes: p.notes,
                     customization_details: p.customization_details || [],
+                    has_low_price: p.has_low_price, // NUEVO
+                    low_price_reason: p.low_price_reason, // NUEVO
                     is_new_design: false,
                 })),
                 shipping_option: this.sale.shipping_option, // Deberás cargar esto si lo guardas en la BD
@@ -362,15 +372,44 @@ export default {
         productsForManager() {
             // Devuelve los productos de cliente para 'venta' o todo el catálogo para 'stock'
             return this.form.type === 'venta' ? this.clientProducts : this.catalog_products;
+        },
+        hasLowPrices() {
+            if (this.form.type !== 'venta' || !this.form.products.length) return false;
+            
+            return this.form.products.some(p => {
+                // Si el producto ya tiene la bandera (desde BD o por el ProductManager)
+                if (p.has_low_price) return true;
+
+                const original = this.getProductInfo(p.id);
+                if (!original) return false;
+                
+                let minPrice = original.base_price || 0;
+                
+                // Tratar de obtener el precio vigente del cliente
+                if (original.price_history && original.price_history.length > 0) {
+                    const validPrice = original.price_history.find(h => !h.valid_to);
+                    if (validPrice) {
+                        minPrice = validPrice.price;
+                    }
+                } else if (original.current_price !== undefined && original.current_price !== null) {
+                    minPrice = original.current_price;
+                }
+                
+                // Permitir margen de centavos para redondeo
+                return parseFloat(p.price) < (parseFloat(minPrice) - 0.01);
+            });
         }
     },
     watch: {
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        },
         'form.type'(newType) {
             // Limpia el formulario al cambiar de tipo para evitar enviar datos incorrectos
             if (newType === 'stock') {
                 this.form.reset(
                     'branch_id', 'quote_id', 'contact_id', 'order_via', 
-                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments'
+                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
@@ -588,6 +627,8 @@ export default {
                 price: product.unit_price,
                 notes: product.notes,
                 customization_details: product.customization_details || [],
+                has_low_price: false,
+                low_price_reason: '',
                 is_new_design: false,
             });
         }

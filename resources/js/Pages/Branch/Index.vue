@@ -52,14 +52,53 @@
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
 
                             <el-table-column type="selection" width="30" />
+                            
+                            <!-- NUEVA COLUMNA EXPANDIBLE PARA SUCURSALES HIJAS -->
+                            <el-table-column type="expand">
+                                <template #default="props">
+                                    <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md m-2 border border-gray-200 dark:border-slate-700">
+                                        <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">Sucursales Hijas</h4>
+                                        <el-table v-if="props.row.children && props.row.children.length > 0" 
+                                            :data="props.row.children" 
+                                            style="width: 100%" 
+                                            size="small" 
+                                            :border="true"
+                                            @row-click="handleRowClick"
+                                            class="cursor-pointer dark:!bg-slate-800 dark:!text-gray-300">
+                                            <el-table-column prop="name" label="Nombre / Alias" />
+                                            <el-table-column prop="address" label="Dirección">
+                                                <template #default="scope">
+                                                    {{ scope.row.address || 'No registrada' }}
+                                                </template>
+                                            </el-table-column>
+                                            <el-table-column label="Vendedor Asignado">
+                                                <template #default="scope">
+                                                    {{ scope.row.account_manager?.name ?? 'No asignado' }}
+                                                </template>
+                                            </el-table-column>
+                                            <el-table-column align="right" width="100">
+                                                <template #default="scope">
+                                                    <el-button size="small" type="primary" plain @click.stop="handleRowClick(scope.row)">
+                                                        Ver
+                                                    </el-button>
+                                                </template>
+                                            </el-table-column>
+                                        </el-table>
+                                        <p v-else class="text-sm text-gray-500 italic">
+                                            No hay sucursales hijas registradas para esta matriz.
+                                        </p>
+                                    </div>
+                                </template>
+                            </el-table-column>
+
                             <el-table-column prop="id" label="ID" width="60" />
                             <el-table-column prop="name" label="Nombre" width="250">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
-                                        <el-tooltip v-if="!scope.row.parent" content="Sucursal matriz" placement="top">
+                                        <el-tooltip content="Sucursal matriz" placement="top">
                                             <i class="fa-solid fa-crown text-yellow-500"></i>
                                         </el-tooltip>
-                                        <p>{{ scope.row.name }}</p>
+                                        <p class="font-medium">{{ scope.row.name }}</p>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -75,11 +114,14 @@
                                     {{ scope.row.account_manager?.name ?? 'No asignado' }}
                                 </template>
                             </el-table-column>
-                             <el-table-column label="Matriz" width="200">
+                            
+                            <!-- NUEVA COLUMNA: Razón Social -->
+                            <el-table-column prop="business_name" label="Razón Social" width="220">
                                 <template #default="scope">
-                                    {{ scope.row.parent?.name ?? 'N/A' }}
+                                    {{ scope.row.business_name || 'N/A' }}
                                 </template>
                             </el-table-column>
+                            
                             <el-table-column prop="rfc" label="RFC" />
 
                             <!-- Menú de acciones por fila -->
@@ -134,14 +176,13 @@ import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 
 export default {
-    // Usando Options API como solicitaste
     data() {
         return {
             loading: false,
             search: '',
             selectedItems: [],
             tableData: this.branches.data,
-            SearchProps: ['Nombre', 'Estatus', 'Matriz', 'Vendedor asignado'], // indica por cuales propiedades del registro puedes buscar
+            SearchProps: ['Nombre', 'Estatus', 'Razón Social', 'Vendedor asignado'], // Actualizado en las opciones de búsqueda
         };
     },
     components: {

@@ -12,27 +12,54 @@ class BillingDashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Lógica de KPIs actualizada a los nuevos requerimientos
+        // Definir el ID mínimo a mostrar para filtrar las OV viejas
+        $minSaleId = 4000;
+
+        // Extraer el mes y año del request (formato YYYY-MM) o usar el actual por defecto
+        $monthYear = $request->input('month_year');
+        if ($monthYear) {
+            $parts = explode('-', $monthYear);
+            $year = $parts[0] ?? now()->year;
+            $month = $parts[1] ?? now()->month;
+        } else {
+            $year = now()->year;
+            $month = now()->month;
+            // Formateamos para devolverlo a la vista
+            $monthYear = $year . '-' . str_pad($month, 2, '0', STR_PAD_LEFT);
+        }
+
+        // 1. Lógica de KPIs actualizada a los nuevos requerimientos y filtrada por el mes/año seleccionado
         $kpis = [
             // Pendiente Pre-factura: No tiene folio de pre-factura
-            'total_pending_pre_invoice' => Sale::whereNull('pre_invoice_folio')
+            'total_pending_pre_invoice' => Sale::where('id', '>=', $minSaleId)
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->whereNull('pre_invoice_folio')
                 ->where('status', '!=', 'Cancelada') // Asumiendo que no facturamos canceladas
                 ->count(),
 
             // Pendiente Timbrado: Tiene pre-factura, NO tiene timbrado y su estatus indica que ya se produjo/envió
-            'total_pending_stamping'    => Sale::whereNotNull('pre_invoice_folio')
+            'total_pending_stamping'    => Sale::where('id', '>=', $minSaleId)
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->whereNotNull('pre_invoice_folio')
                 ->whereNull('stamped_invoice_folio')
                 ->whereIn('status', ['En Producción', 'Preparando Envío', 'Enviada'])
                 ->count(),
 
-            // Timbradas en el mes actual
-            'total_stamped_month'       => Sale::whereNotNull('stamped_invoice_folio')
-                ->whereMonth('created_at', now()->month)
+            // Timbradas en el mes seleccionado
+            'total_stamped_month'       => Sale::where('id', '>=', $minSaleId)
+                ->whereYear('created_at', $year)
+                ->whereMonth('created_at', $month)
+                ->whereNotNull('stamped_invoice_folio')
                 ->count(),
         ];
 
-        // 2. Query Principal para la tabla
-        $query = Sale::with(['contact', 'user', 'branch.parent', 'saleProducts.product']);
+        // 2. Query Principal para la tabla (también filtrada por mes/año)
+        $query = Sale::where('id', '>=', $minSaleId)
+            ->whereYear('created_at', $year)
+            ->whereMonth('created_at', $month)
+            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media']);
 
         // Filtro: Estado de Facturación
         if ($request->filled('billing_status')) {
@@ -42,7 +69,7 @@ class BillingDashboardController extends Controller
         // Filtro: Búsqueda (ID, RFC, Nombre de Sucursal)
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function (Builder $q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 // Buscar por ID de OV
                 $q->where('id', 'like', "%{$search}%")
                   // O buscar dentro de la sucursal
@@ -69,8 +96,7 @@ class BillingDashboardController extends Controller
                           ->whereIn('status', ['En Producción', 'Preparando Envío', 'Enviada']);
                     break;
                 case 'stamped_month':
-                    $query->whereNotNull('stamped_invoice_folio')
-                          ->whereMonth('created_at', now()->month);
+                    $query->whereNotNull('stamped_invoice_folio');
                     break;
             }
         }
@@ -80,7 +106,11 @@ class BillingDashboardController extends Controller
         return Inertia::render('Billing/Index', [
             'kpis' => $kpis,
             'salesForBilling' => $salesForBilling,
-            'filtersProp' => $request->only('billing_status', 'search', 'kpi_filter'),
+            // Agregamos el mes_año a las propiedades que regresan a Vue para mantener el estado
+            'filtersProp' => array_merge(
+                $request->only('billing_status', 'search', 'kpi_filter'),
+                ['month_year' => $monthYear]
+            ),
         ]);
     }
 

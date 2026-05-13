@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('quotes', function (Blueprint $table) {
             $table->id();
             $table->string('status')->default('Esperando respuesta'); // Esperando respuesta, Aceptada, Rechazada
+            $table->boolean('has_low_price')->default(false); // Nuevo campo para marcar si la cotización tiene productos por debajo del margen establecido
             $table->string('receiver')->nullable();
             $table->string('department')->nullable();
             

@@ -17,9 +17,9 @@ class BranchController extends Controller
 {
     public function index()
     {
-        // Usamos with() para cargar las relaciones y evitar el problema N+1.
-        // Esto hace que la consulta sea mucho más eficiente.
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Cargamos solo las matrices (parent_branch_id = null) y sus sucursales hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest() // Ordena por los más recientes primero
             ->paginate(30); // Pagina los resultados
 
@@ -43,6 +43,13 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches',
             'rfc' => 'nullable|string|max:20',
+            
+            // Nuevas columnas validadas
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -75,6 +82,13 @@ class BranchController extends Controller
             $branch = Branch::create([
                 'name' => $validated['name'],
                 'rfc' => $validated['rfc'],
+                
+                // Nuevas columnas mapeadas para inserción
+                'group_name' => $validated['group_name'] ?? null,
+                'business_name' => $validated['business_name'] ?? null,
+                'bank_account' => $validated['bank_account'] ?? null,
+                'client_number' => $validated['client_number'] ?? null,
+
                 'address' => $validated['address'],
                 'post_code' => $validated['post_code'],
                 'status' => $validated['status'],
@@ -174,7 +188,7 @@ class BranchController extends Controller
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
-                      ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
+                      ->with('user:id,name')
                       ->orderBy('valid_from', 'desc');
             }
         ])->get();
@@ -184,11 +198,121 @@ class BranchController extends Controller
 
         $allBranches = Branch::select('id', 'name')->get();
 
+        // Mandamos llamar a nuestro nuevo método refactorizado
+        $consumptionData = $this->calculateSalesAnalytics($branch);
+
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get()
+            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'consumptionData' => $consumptionData, 
         ]);
+    }
+
+    /**
+     * NUEVO MÉTODO: Endpoint para obtener analíticas vía petición (Axios)
+     */
+    public function getSalesAnalytics(Branch $branch)
+    {
+        // Retornamos la data en formato JSON para peticiones frontend
+        return response()->json($this->calculateSalesAnalytics($branch));
+    }
+
+    /**
+     * NUEVO MÉTODO PRIVADO: Centraliza la lógica de cálculos de consumo
+     * para usarla tanto en el show como en el endpoint JSON.
+     */
+    private function calculateSalesAnalytics(Branch $branch)
+    {
+        $oneYearAgo = now()->subYear();
+        
+        $annualConsumption = $branch->sales()->where('created_at', '>=', $oneYearAgo)->where('type', 'venta')->where('status', '!=', 'Cancelada')->sum('total_amount');
+        $monthlyConsumption = $annualConsumption / 12;
+
+        // Cargar productos de ventas del último año
+        $salesProductsLastYear = \App\Models\SaleProduct::with('product.media')
+            ->whereHas('sale', function($query) use ($branch, $oneYearAgo) {
+                $query->where('branch_id', $branch->id)
+                      ->where('created_at', '>=', $oneYearAgo)
+                      ->where('type', 'venta')
+                      ->where('status', '!=', 'Cancelada');
+            })
+            ->get();
+            
+        $productConsumption = $salesProductsLastYear->groupBy('product_id')->map(function ($items) {
+            $first = $items->first();
+            $annualQuantity = $items->sum('quantity');
+            $annualTotal = $items->sum(function($item) { return $item->quantity * $item->price; });
+            
+            $imageUrl = null;
+            if ($first->product && $first->product->media && $first->product->media->isNotEmpty()) {
+                $imageUrl = $first->product->media->first()->original_url;
+            }
+
+            return [
+                'product_id' => $first->product_id,
+                'name' => $first->product->name ?? 'Producto temporal',
+                'code' => $first->product->code ?? 'N/A',
+                'image_url' => $imageUrl,
+                'annual_quantity' => $annualQuantity,
+                'monthly_quantity' => round($annualQuantity / 12, 2),
+                'annual_total' => $annualTotal,
+                'monthly_total' => $annualTotal / 12,
+            ];
+        })->values()->sortByDesc('annual_quantity')->toArray();
+
+        // Histórico de Ventas (Con desglose de productos)
+        $allSales = $branch->sales()
+            ->with('saleProducts.product') 
+            ->where('type', 'venta')
+            ->where('status', '!=', 'Cancelada')
+            ->get();
+
+        $salesByYearMonth = [];
+        foreach ($allSales as $sale) {
+            $year = \Carbon\Carbon::parse($sale->created_at)->format('Y');
+            $month = (int)\Carbon\Carbon::parse($sale->created_at)->format('m');
+
+            if (!isset($salesByYearMonth[$year])) {
+                $salesByYearMonth[$year] = array_fill(1, 12, ['total' => 0, 'products' => []]);
+            }
+
+            $salesByYearMonth[$year][$month]['total'] += (float)$sale->total_amount;
+
+            if ($sale->saleProducts) {
+                foreach ($sale->saleProducts as $sp) {
+                    $prodId = $sp->product_id;
+                    $prodName = $sp->product->name ?? 'Producto Eliminado';
+                    
+                    if (!isset($salesByYearMonth[$year][$month]['products'][$prodId])) {
+                        $salesByYearMonth[$year][$month]['products'][$prodId] = [
+                            'name' => $prodName,
+                            'quantity' => 0,
+                            'total' => 0,
+                        ];
+                    }
+                    
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['quantity'] += $sp->quantity;
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['total'] += ($sp->quantity * $sp->price);
+                }
+            }
+        }
+
+        foreach ($salesByYearMonth as $year => &$months) {
+            foreach ($months as $month => &$data) {
+                usort($data['products'], function($a, $b) {
+                    return $b['total'] <=> $a['total']; 
+                });
+                $data['products'] = array_values($data['products']);
+            }
+        }
+
+        return [
+            'annual_consumption' => $annualConsumption,
+            'monthly_consumption' => $monthlyConsumption,
+            'product_breakdown' => $productConsumption,
+            'sales_by_year_month' => $salesByYearMonth,
+        ];
     }
 
     public function edit(Branch $branch)
@@ -260,6 +384,13 @@ class BranchController extends Controller
                 Rule::unique('branches', 'name')->ignore($branch->id),
             ],
             'rfc' => 'nullable|string|max:20',
+            
+            // Nuevas columnas también agregadas al update por seguridad y consistencia
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -289,7 +420,7 @@ class BranchController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar datos de la sucursal
+            // 1. Actualizar datos de la sucursal (al usar collect except automáticamente recoge las nuevas si fueron validadas)
             $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
 
             // 2. Sincronizar contactos
@@ -453,20 +584,27 @@ class BranchController extends Controller
     {
         $query = $request->input('query');
 
-        // Realiza la búsqueda
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Realiza la búsqueda mostrando solo matrices y filtrando si hay coincidencias en las hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
                 ->orWhere('name', 'like', "%{$query}%")
+                ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda por Razón Social
                 ->orWhere('status', 'like', "%{$query}%")
-                // Busca dentro de la relación de la matriz (parent)
-                ->orWhereHas('parent', function ($parentQuery) use ($query) {
-                    $parentQuery->where('name', 'like', "%{$query}%");
-                })
-                // Correcto uso de whereHas para buscar en la relación
+                // Busca dentro de su propio account manager
                 ->orWhereHas('accountManager', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
+                })
+                // Busca si alguna sucursal hija coincide
+                ->orWhereHas('children', function ($childQuery) use ($query) {
+                    $childQuery->where('name', 'like', "%{$query}%")
+                               ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda en hijas
+                               ->orWhere('status', 'like', "%{$query}%")
+                               ->orWhereHas('accountManager', function($uq) use ($query){
+                                   $uq->where('name', 'like', "%{$query}%");
+                               });
                 });
             })
             ->get();
@@ -547,7 +685,7 @@ class BranchController extends Controller
                         ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
                         ->orderBy('valid_from', 'desc');
                 }
-            ])
+            ])->whereNull('archived_at')
             ->get();
 
         return response()->json($products);
@@ -560,6 +698,11 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches,name',
             'rfc' => 'nullable|string|max:13',
+            // Agregado por si decides enviarlos desde la forma rápida también
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
         ]);
 
         $branch = Branch::create($validated + ['password' => bcrypt('e3d')]);

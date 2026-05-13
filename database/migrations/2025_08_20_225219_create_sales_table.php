@@ -24,7 +24,8 @@ return new class extends Migration
             // Columnas de la tabla
             $table->char('currency', 3)->default('MXN');
             $table->enum('type', ['venta', 'stock'])->default('venta');
-            $table->string('status')->default('Pendiente'); // Pendiente, Autorizada, En Proceso, Completada, Enviada
+            $table->string('status')->default('Pendiente'); // Pendiente, Autorizada, En Proceso, En Producción, Preparando de envío, Enviada
+            $table->boolean('has_low_price')->default(false)->comment('Indica si la venta se hizo por debajo del margen establecido');
             $table->string('oce_name')->nullable();
             $table->string('order_via')->nullable();
             $table->string('shipping_option')->nullable();

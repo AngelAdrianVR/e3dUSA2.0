@@ -140,6 +140,7 @@ Route::get('catalog-products-export-excel', [ProductController::class, 'exportEx
 Route::get('catalog-products-export-excel-abc', [ProductController::class, 'exportExcelABC'])->name('catalog-products.export-excel-abc');
 Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
 Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
+Route::post('catalog-products-search-parents', [ProductController::class, 'searchParents'])->middleware('auth')->name('catalog-products.search-parents'); // Ruta para buscar productos padres desde el modal al crear/editar un producto
 
 
 // ------- product families Routes ---------
@@ -164,6 +165,7 @@ Route::post('/branches/{branch}/add-products', [BranchController::class, 'addPro
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
 Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
+Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
@@ -285,7 +287,8 @@ Route::put('shipments/{shipment}/tracking', [ShipmentController::class, 'updateT
 Route::post('shipments/{shipment}/evidence', [ShipmentController::class, 'storeEvidence'])->name('shipments.store-evidence');
 // NUEVA RUTA - Para poder actualizar individualmente la cantidad de un producto dentro de una parcialidad
 Route::put('shipments/products/{shipmentProduct}/quantity', [ShipmentController::class, 'updateProductQuantity'])->middleware('auth')->name('shipments.update-product-quantity');
-
+Route::put('shipments/{shipment}/date', [ShipmentController::class, 'updateDate'])->name('shipments.update-date');
+Route::put('shipments/{shipment}/notes', [ShipmentController::class, 'updateNotes'])->name('shipments.update-notes');
 
 // ------- (Rutas de proveedores)  ---------
 Route::resource('suppliers', SupplierController::class)->middleware('auth');
@@ -347,7 +350,9 @@ Route::put('design-orders/{designOrder}/assign-designer', [DesignOrderController
 Route::post('/design-orders/check-similar', [DesignOrderController::class, 'checkSimilar'])->name('design-orders.check-similar');
 Route::post('design-orders/massive-delete', [DesignOrderController::class, 'massiveDelete'])->middleware('auth')->name('design-orders.massive-delete');
 Route::get('/design-orders-reports/designers-activity', [DesignOrderController::class, 'getDesignersActivityReport'])->middleware('auth')->name('design-orders.reports.designers-activity');
-
+// ------- (Nuevas rutas para pausar y reanudar)  ---------
+Route::put('design-orders/{designOrder}/pause', [DesignOrderController::class, 'pauseWork'])->middleware('auth')->name('design-orders.pause');
+Route::put('design-orders/{designOrder}/resume', [DesignOrderController::class, 'resumeWork'])->middleware('auth')->name('design-orders.resume');
 
 // Ruta para almacenar las categorías de diseño creadas desde el modal
 Route::post('design-categories', [DesignCategoryController::class, 'store'])->name('design-categories.store');

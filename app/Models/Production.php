@@ -36,7 +36,7 @@ class Production extends Model implements Auditable
      *
      * @var array
      */
-    protected $appends = ['total_estimated_time_minutes']; // Agregamos el nuevo accesor
+    protected $appends = ['total_estimated_time_minutes'];
 
     protected $casts = [
         'started_at' => 'datetime',
@@ -45,10 +45,6 @@ class Production extends Model implements Auditable
 
     // --- ACCESORES Y MUTADORES ---
 
-    /**
-     * Accesor para obtener el tiempo total estimado de producción.
-     * Suma los tiempos estimados de todas las tareas asociadas.
-     */
     public function totalEstimatedTimeMinutes(): Attribute
     {
         return Attribute::make(
@@ -57,10 +53,65 @@ class Production extends Model implements Auditable
     }
 
     // --- MÉTODOS ---
+
+    /**
+     * Registra el avance de piezas y genera los movimientos de stock correspondientes.
+     * Esto se llama desde el controlador cuando se pausan o terminan tareas.
+     */
+    public function registerProductionProgress($goodUnits = 0, $scrap = 0, $scrapReason = null)
+    {
+        $product = $this->saleProduct->product;
+        // Busca el registro de stock para el producto o lo crea con 0 si no existe.
+        $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
+
+        // 1. Registro de unidades buenas (Parcialidades o Fin de tarea)
+        if ($goodUnits > 0) {
+            $this->increment('good_units', $goodUnits);
+
+            if (in_array($this->saleProduct->sale->type, ['stock', 'venta'])) {
+                $storage->increment('quantity', $goodUnits);
+                
+                StockMovement::create([
+                    'product_id' => $product->id,
+                    'storage_id' => $storage->id,
+                    'quantity_change' => $goodUnits,
+                    'type' => 'Entrada',
+                    'notes' => 'Avance/Terminación de orden ' . ($this->saleProduct->sale->type === 'stock' ? 'OS-' : 'OV-') . $this->saleProduct->sale->id
+                ]);
+            }
+        }
+
+        // 2. Registro de Merma (Descuenta del stock y lo guarda)
+        if ($scrap > 0) {
+            $this->increment('scrap', $scrap);
+            
+            if ($scrapReason) {
+                // Concatena si ya había una razón antes
+                $this->scrap_reason = $this->scrap_reason ? $this->scrap_reason . ' | ' . $scrapReason : $scrapReason;
+                $this->save();
+            }
+
+            if (in_array($this->saleProduct->sale->type, ['stock', 'venta'])) {
+                // Prevenir stock negativo: solo descontar la merma posible según el stock actual
+                $deductibleScrap = min($scrap, $storage->quantity);
+
+                if ($deductibleScrap > 0) {
+                    $storage->decrement('quantity', $deductibleScrap);
+                    
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'storage_id' => $storage->id,
+                        'quantity_change' => $deductibleScrap, // Negativo para salida
+                        'type' => 'Salida',
+                        'notes' => 'Merma en orden ' . ($this->saleProduct->sale->type === 'stock' ? 'OS-' : 'OV-') . $this->saleProduct->sale->id . ' - Razón: ' . $scrapReason
+                    ]);
+                }
+            }
+        }
+    }
     
     /**
      * Actualiza el estatus de la producción basado en el estatus de sus tareas.
-     * La lógica sigue las reglas especificadas.
      */
     public function updateStatusFromTasks(): void
     {
@@ -72,77 +123,34 @@ class Production extends Model implements Auditable
         $totalTasks = $taskStatuses->count();
         $newStatus = $this->status;
 
-        // Prioridad 1: "Sin material" (bloqueante, máxima prioridad)
+        // Prioridades
         if ($taskStatuses->contains('Sin material')) {
             $newStatus = 'Sin material';
-        }
-        // Prioridad 2: Si TODAS las tareas están "Terminada"
-        elseif ($this->tasks->where('status', 'Terminada')->count() === $totalTasks) {
+        } elseif ($this->tasks->where('status', 'Terminada')->count() === $totalTasks) {
             $newStatus = 'Terminada';
-        }
-        // Prioridad 3: Si AL MENOS UNA tarea está "En Proceso" (la producción está activa)
-        elseif ($taskStatuses->contains('En Proceso')) {
+        } elseif ($taskStatuses->contains('En Proceso')) {
             $newStatus = 'En Proceso';
-        }
-        // Prioridad 4: Si todas las tareas no finalizadas están en pausa (es decir, no hay 'Pendiente' o 'En Proceso')
-        elseif ($taskStatuses->every(fn($status) => in_array($status, ['Pausada', 'Terminada']))) {
+        } elseif ($taskStatuses->every(fn($status) => in_array($status, ['Pausada', 'Terminada']))) {
             $newStatus = 'Pausada';
-        }
-        // Prioridad 5: Si se ha iniciado alguna tarea (no es 'Pendiente') y no cumple las condiciones anteriores
-        // (Ej: mezcla de Pendiente y Terminada), la producción está "En proceso".
-        elseif ($taskStatuses->some(fn($status) => $status !== 'Pendiente')) {
+        } elseif ($taskStatuses->some(fn($status) => $status !== 'Pendiente')) {
             $newStatus = 'En proceso';
         }
         
-         // Asignamos el nuevo estatus al modelo para que isDirty() lo detecte si cambia.
         $this->status = $newStatus;
 
-        // --- Lógica para actualizar las fechas ---
-
-        // Si al menos una tarea está "En Proceso" y no se ha registrado la fecha de inicio, la establecemos.
+        // Fechas
         if ($taskStatuses->contains('En Proceso') && is_null($this->started_at)) {
             $this->started_at = now();
         }
 
-        // Si el nuevo estatus es "Terminada" y no se ha registrado la fecha de fin, la establecemos.
         if ($newStatus === 'Terminada' && is_null($this->finished_at)) {
             $this->finished_at = now();
-
-            // Si la venta es de tipo "stock" O "venta", se procede a agregar al inventario.
-            if ($this->saleProduct->sale->type === 'stock' || $this->saleProduct->sale->type === 'venta') {
-                $product = $this->saleProduct->product;
-                // Priorizamos las unidades buenas, si no, la cantidad que se mandó a producir.
-                $quantityToAdd = $this->good_units ?? $this->quantity_to_produce;
-
-                if ($product && ($quantityToAdd > 0)) {
-                    // Busca el registro de stock para el producto o lo crea con 0 si no existe.
-                    $storage = $product->storages()->firstOrCreate(
-                        [], // Busca el primer registro existente sin condiciones específicas.
-                        ['quantity' => 0] // Si no existe, lo crea con cantidad inicial 0.
-                    );
-
-                    // Incrementa la cantidad de forma atómica para evitar condiciones de carrera.
-                    $storage->increment('quantity', $quantityToAdd);
-                    
-                    // if ($this->saleProduct->sale->type === 'stock') {
-                        StockMovement::create([
-                            'product_id' => $product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $quantityToAdd,
-                            'type' => 'Entrada',
-                            'notes' => 'Entrada por orden terminada ' . $this->saleProduct->sale->type === 'stock' ? 'OS-' : 'OV-' . $this->saleProduct->sale->id
-                        ]);
-                    // }
-                }
-            }
         }
 
         // --- Guardar cambios si es necesario ---
-        if ($this->isDirty()) { // isDirty() revisa si algún atributo del modelo ha cambiado.
+        if ($this->isDirty()) {
             $this->save();
 
-            // Si el estatus fue lo que cambió, le decimos a la venta a la que pertenece 
-            // que re-evalúe su propio estado general.
             if ($this->wasChanged('status')) {
                 $this->saleProduct->sale->updateStatus();
             }
@@ -151,13 +159,11 @@ class Production extends Model implements Auditable
 
     // --- RELACIONES ---
 
-    /** Una orden de producción pertenece a un producto de una venta */
     public function saleProduct(): BelongsTo
     {
         return $this->belongsTo(SaleProduct::class);
     }
 
-    /** Una orden de producción es asignada a un operador (User) */
     public function operator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'operator_id');
@@ -168,19 +174,16 @@ class Production extends Model implements Auditable
         return $this->hasOneThrough(Sale::class, SaleProduct::class, 'id', 'id', 'sale_product_id', 'sale_id');
     }
 
-    /** Una orden de producción fue creada por un usuario (supervisor) */
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by_user_id');
     }
 
-    /** Una orden de producción tiene un historial de logs */
     public function logs(): HasMany
     {
         return $this->hasMany(ProductionLog::class);
     }
 
-    /** Una orden de producción tiene muchas tareas */
     public function tasks(): HasMany
     {
         return $this->hasMany(ProductionTask::class);

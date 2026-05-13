@@ -15,7 +15,7 @@ class Quote extends Model implements Auditable
     use AuditableTrait;
     
     protected $fillable = [
-        'id', 'status', 'receiver', 'department', 'currency', 'tooling_cost',
+        'id', 'status', 'has_low_price', 'receiver', 'department', 'currency', 'tooling_cost',
         'is_tooling_cost_stroked', 'is_freight_cost_stroked', 'freight_option',
         'freight_cost', 'first_production_days', 'notes', 'rejection_reason',
         'customer_responded_at', 'authorized_by_user_id', 'authorized_at',
@@ -26,6 +26,7 @@ class Quote extends Model implements Auditable
     ];
 
     protected $casts = [
+        'has_low_price' => 'boolean',
         'tooling_cost' => 'string', 
         'is_tooling_cost_waived' => 'boolean', 
         'is_tooling_cost_stroked' => 'boolean', 

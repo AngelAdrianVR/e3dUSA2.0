@@ -183,26 +183,92 @@
                                 
                                 <!-- Toggle Nuevo/Catalogo -->
                                 <div class="col-span-full mb-1">
-                                    <label class="flex items-center">
+                                    <label class="flex items-center cursor-pointer w-max">
                                         <Checkbox v-model:checked="currentProduct.is_custom" class="bg-transparent border-blue-500 text-blue-600 focus:ring-blue-500" />
                                         <span class="ml-2 text-blue-700 font-bold dark:text-blue-400">Es producto nuevo (Fuera de catálogo)</span>
                                     </label>
                                 </div>
 
-                                <!-- PRODUCTO DE CATÁLOGO -->
-                                <div v-if="!currentProduct.is_custom" class="lg:col-span-2">
-                                    <InputLabel value="Producto de catálogo*" />
-                                    <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <el-option class="!w-96" v-for="product in localCatalogProducts" 
-                                            :key="product.id" 
-                                            :label="`${product.name} (${product.code})`" 
-                                            :value="product.id"
-                                             />
-                                    </el-select>
+                                <!-- PRODUCTO DE CATÁLOGO (CON PADRES Y VARIANTES) -->
+                                <div v-if="!currentProduct.is_custom" class="lg:col-span-full bg-white dark:bg-slate-900/50 p-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm mb-3">
+                                    <div class="mb-4">
+                                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-2 font-semibold">
+                                            <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">1</span>
+                                            Selecciona el producto base (sin personalización). <span class="font-normal text-gray-500 text-xs ml-1">Ej. Llavero chevrolet (negro) con medallón</span>
+                                        </p>
+                                        <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
+                                            <el-option class="!w-96" v-for="product in localCatalogProducts" 
+                                                :key="product.id" 
+                                                :label="`${product.name} (${product.code})`" 
+                                                :value="product.id"
+                                                 />
+                                        </el-select>
+                                    </div>
+
+                                    <!-- Variants Section -->
+                                    <div v-if="selectedBaseProductId && availableVariants.length" class="animate-fade-in-down">
+                                        <el-divider border-style="dashed" />
+                                        
+                                        <!-- Buscador de Variantes -->
+                                        <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
+                                            <p class="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                                                <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">2</span>
+                                                (Opcional) Selecciona una variante o personalización:
+                                            </p>
+                                            <el-input
+                                                v-model="variantSearchQuery"
+                                                placeholder="Buscar variante por nombre o código..."
+                                                clearable
+                                                class="w-full md:w-72"
+                                            >
+                                                <template #prefix>
+                                                    <i class="fa-solid fa-search"></i>
+                                                </template>
+                                            </el-input>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                            <!-- Base Product Card (Option to not use variant) -->
+                                            <div v-show="!variantSearchQuery" @click="selectVariant(null)"
+                                                 :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === null ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-gray-50 dark:bg-slate-800/50']">
+                                                <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
+                                                    <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
+                                                </div>
+                                                <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Sin personalización</p>
+                                                <p class="text-[10px] text-gray-500 text-center mt-1">(Usar producto base)</p>
+                                            </div>
+
+                                            <!-- Mensaje si no hay resultados en la búsqueda -->
+                                            <div v-if="filteredVariants.length === 0" class="col-span-full py-4 text-center text-gray-500 text-sm">
+                                                No se encontraron variantes que coincidan con "{{ variantSearchQuery }}".
+                                            </div>
+
+                                            <!-- Variants Cards -->
+                                            <div v-for="variant in filteredVariants" :key="variant.id"
+                                                 @click="selectVariant(variant)"
+                                                 :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === variant.id ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-white dark:bg-slate-800']">
+                                                <div class="w-full aspect-square mb-2 rounded-lg overflow-hidden relative group bg-gray-100 dark:bg-slate-700">
+                                                    <el-image
+                                                        v-if="variant.media?.length"
+                                                        :src="variant.media[0].original_url"
+                                                        :preview-src-list="[variant.media[0].original_url]"
+                                                        :preview-teleported="true"
+                                                        fit="cover"
+                                                        class="w-full h-full cursor-zoom-in"
+                                                        @click.stop
+                                                    />
+                                                    <div v-else class="w-full h-full flex items-center justify-center">
+                                                        <i class="fa-solid fa-image text-gray-400 text-3xl"></i>
+                                                    </div>
+                                                </div>
+                                                <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight w-full line-clamp-2" :title="variant.name">{{ variant.name }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <!-- PRODUCTO NUEVO (CUSTOM) -->
-                                <div v-else class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+                                <div v-else class="lg:col-span-full grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
                                     <div class="col-span-full">
                                         <InputLabel value="Nombre del producto*" />
                                         <TextInput v-model="currentProduct.custom_name" placeholder="Ej. Troquel especial" />
@@ -223,10 +289,27 @@
                                 </div>
 
                                 <!-- Siempre visibles: Cantidad y Precio -->
-                                <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
-                                <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true" :error="unitPriceError">
+                                <div class="lg:col-span-2">
+                                    <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
+                                </div>
+                                <div class="lg:col-span-2">
+                                    <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-                                </TextInput>
+                                    </TextInput>
+                                </div>
+
+                                <!-- NUEVO: Alerta y campo de justificación cuando el precio es bajo -->
+                                <div v-if="isPriceLow" class="col-span-full mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800 animate-fade-in-down">
+                                    <p class="text-amber-600 dark:text-amber-400 text-xs font-bold mb-2">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> Precio por debajo del mínimo permitido. Por favor, justifica esta decisión para su validación.
+                                    </p>
+                                    <TextInput 
+                                        label="Razón del precio*" 
+                                        v-model="currentProduct.low_price_reason" 
+                                        :isTextarea="true" 
+                                        placeholder="Justifica este precio..." 
+                                    />
+                                </div>
 
                                 <!-- Estado de carga -->
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
@@ -268,10 +351,13 @@
                                                 Producto de cliente
                                             </span>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Stock: <strong>{{ currentProduct.storages[0]?.quantity ?? 0 }}</strong> unidades
+                                                Producto Seleccionado: <strong class="text-primary">{{ getProductName(currentProduct.id) }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
+                                                Stock: <strong>{{ currentProduct.storages?.[0]?.quantity ?? 0 }}</strong> unidades
+                                            </p>
+                                            <p class="text-gray-500 dark:text-gray-300">
+                                                Ubicación: <strong>{{ currentProduct.storages?.[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
@@ -290,6 +376,34 @@
                                         style="--el-switch-on-color: #0355B5; --el-switch-off-color: #CCCCCC" active-text="Si"
                                         inactive-text="No" />
                                 </div>
+
+                                <!-- CHECKBOX DE RESURTIDO A NIVEL PRODUCTO (Solo si es de catálogo) -->
+                                <div v-if="currentProduct.id && !currentProduct.is_custom" class="col-span-full flex items-center bg-gray-50 dark:bg-slate-800 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-700 w-max animate-fade-in mb-2 mt-1">
+                                    <label class="flex items-center cursor-pointer">
+                                        <Checkbox v-model:checked="currentProduct.is_restock" class="bg-transparent border-blue-500 text-blue-600 focus:ring-blue-500" />
+                                        <span class="ml-2 text-blue-700 dark:text-blue-400 font-bold text-sm">Es resurtido</span>
+                                    </label>
+                                    <el-tooltip placement="top">
+                                        <template #content>
+                                            <div class="text-center">
+                                                Marca esta casilla si el cliente ya había<br>
+                                                comprado este producto antes. Así, el<br>
+                                                costo de herramental <b>no será obligatorio</b>.
+                                            </div>
+                                        </template>
+                                        <div class="rounded-full border border-primary size-4 flex items-center justify-center ml-2 cursor-help transition hover:bg-primary hover:text-white">
+                                            <i class="fa-solid fa-info text-primary hover:text-white text-[9px]"></i>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+
+                                <!-- MENSAJE INFORMATIVO PARA PRODUCTOS CUSTOM -->
+                                <div v-if="currentProduct.is_custom" class="col-span-full mt-1 mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800 animate-fade-in-down">
+                                    <p class="text-blue-600 dark:text-blue-400 text-xs font-bold">
+                                        <i class="fa-solid fa-circle-info"></i> Al ser un producto nuevo (fuera de catálogo), es obligatorio un costo de herramental.
+                                    </p>
+                                </div>
+
                                 <div class="lg:col-span-full">
                                      <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" :withMaxLength="true" :maxLength="500" />
                                 </div>
@@ -372,10 +486,17 @@
                                             <p class="font-bold text-primary flex items-center space-x-2">
                                                 <span>{{ product.is_custom ? product.custom_name : getProductName(product.id) }}</span>
                                                 <el-tag v-if="product.is_custom" type="primary" size="small" effect="dark">Nuevo</el-tag>
+                                                <!-- No mostrar tag resurtido si es producto custom -->
+                                                <el-tag v-if="!product.is_custom && product.is_restock" type="success" size="small" effect="dark">Resurtido</el-tag>
                                             </p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
                                                 Cantidad: {{ product.quantity }} | P.U: ${{ formatNumber(product.unit_price) }} | Subtotal: ${{ formatNumber(product.quantity * product.unit_price) }}
                                             </p>
+                                            
+                                            <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Razón precio bajo: <span class="font-normal italic">{{ product.low_price_reason }}</span>
+                                            </p>
+
                                             <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
                                             
                                             <!-- Mostrar detalles de personalización en la lista -->
@@ -439,6 +560,14 @@
 
                         </div>
 
+                        <!-- Alerta global de precios bajos -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del precio establecido. La cotización requerirá autorización después de ser creada.</p>
+                            </div>
+                        </div>
+
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
                             <SecondaryButton :loading="form.processing">
@@ -497,7 +626,7 @@ import Back from "@/Components/MyComponents/Back.vue";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3"; 
 import axios from 'axios';
 import Editor from '@tinymce/tinymce-vue';
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
@@ -523,6 +652,8 @@ export default {
                 has_early_payment_discount: false,
                 early_payment_discount_amount: null,
                 has_customization: false,
+                has_low_price: false, 
+                low_price_reason: '', 
                 products: [], 
             }),
 
@@ -536,18 +667,26 @@ export default {
 
             branchNotes: [],
             
-            // Modificado para soportar productos nuevos
+            // Variables para manejar los padres, variantes y la búsqueda
+            selectedBaseProductId: null,
+            selectedVariantId: null,
+            availableVariants: [],
+            variantSearchQuery: '', // <- Nueva variable para la búsqueda
+
             currentProduct: {
                 id: null,
-                is_custom: false, // <-- NUEVO: Bandera
-                custom_name: '', // <-- NUEVO
-                custom_cost: 0, // <-- NUEVO
-                custom_measure_unit: '', // <-- NUEVO
-                image: null, // <-- NUEVO: Para guardar el File
-                image_preview: null, // <-- NUEVO: Para previsualizar
+                is_custom: false, 
+                is_restock: false,
+                custom_name: '', 
+                custom_cost: 0, 
+                custom_measure_unit: '', 
+                image: null, 
+                image_preview: null, 
                 quantity: 1,
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '',
                 customization_details: [],
                 isClientProduct: false,
@@ -585,21 +724,36 @@ export default {
         branches: Array,
     },
     computed: {
-        unitPriceError() {
-            const userRole = this.$page.props.auth.user.role;
-            const isSuperAdmin = Array.isArray(userRole) ? userRole.includes('Super Administrador') : userRole === 'Super Administrador';
-            if (isSuperAdmin) return null;
-
+        // Filtrar las variantes mostradas según la búsqueda
+        filteredVariants() {
+            if (!this.variantSearchQuery) {
+                return this.availableVariants;
+            }
+            const query = this.variantSearchQuery.toLowerCase().trim();
+            return this.availableVariants.filter(variant => {
+                return (variant.name && variant.name.toLowerCase().includes(query)) ||
+                       (variant.code && variant.code.toLowerCase().includes(query));
+            });
+        },
+        
+        // Verifica si el precio ingresado es menor al precio establecido
+        isPriceLow() {
+            if (!this.currentProduct.unit_price || this.currentProduct.is_custom) return false;
+            
             const price = parseFloat(this.currentProduct.unit_price);
             const min = parseFloat(this.currentProduct.min_price);
-            if (min > 0 && price < min) return `El precio mínimo es $${this.formatNumber(min)}`;
-            return null;
+            const isLow = (min > 0 && price < (min - 0.01));
+            
+            this.currentProduct.has_low_price = isLow;
+            return isLow;
         },
-        // Verifica si debe exigirse el costo de herramental
+        hasLowPrices() {
+            return this.form.products.some(p => p.has_low_price);
+        },
         isToolingCostRequired() {
-            return this.form.products.some(p => p.is_custom);
+            // Es obligatorio si al menos un producto NO es resurtido O ES un producto custom
+            return this.form.products.some(p => !p.is_restock || p.is_custom);
         },
-        // Lógica consolidada para habilitar/deshabilitar botón de agregar
         isAddProductDisabled() {
             if (this.currentProduct.is_custom) {
                 if (!this.currentProduct.custom_name) return true;
@@ -607,10 +761,14 @@ export default {
                 if (!this.currentProduct.id) return true;
             }
 
-            return !this.currentProduct.quantity || !this.currentProduct.unit_price || this.unitPriceError;
+            if (!this.currentProduct.quantity || !this.currentProduct.unit_price) return true;
+            
+            // Si tiene precio bajo, requiere la justificación.
+            if (this.isPriceLow && !this.currentProduct.low_price_reason) return true;
+
+            return false;
         },
         tinymceInit() {
-            // ... Mantiene configuración de TinyMCE ...
             return {
                 height: 250, menubar: false,
                 plugins: ['advlist', 'autolink', 'lists', 'link', 'charmap', 'preview', 'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen', 'insertdatetime', 'media', 'table', 'help', 'wordcount'],
@@ -639,7 +797,6 @@ export default {
             }
         },
         
-        // Manejar subida de imagen para productos nuevos
         handleImageUpload(event) {
             const file = event.target.files[0];
             if (file) {
@@ -651,11 +808,35 @@ export default {
             }
         },
 
+        // --- MANEJO DE SELECCIÓN DE PRODUCTOS PADRE E HIJOS ---
+        handleBaseProductChange(productId) {
+            const baseProduct = this.localCatalogProducts.find(p => p.id === productId);
+            this.availableVariants = baseProduct ? (baseProduct.variants || []) : [];
+            this.selectedVariantId = null; // Reiniciar selección de variante
+            this.variantSearchQuery = ''; // Reiniciar la búsqueda al cambiar de padre
+            this.currentProduct.id = productId; // Por default se cotiza el padre
+            this.getProductData();
+        },
+        
+        selectVariant(variant) {
+            if (!variant) {
+                this.selectedVariantId = null;
+                this.currentProduct.id = this.selectedBaseProductId; // Volver al padre
+            } else {
+                this.selectedVariantId = variant.id;
+                this.currentProduct.id = variant.id; // Cotizar la variante
+            }
+            this.getProductData();
+        },
+
         store() {
-            // Validación local: Si hay producto nuevo, el costo de herramental es obligatorio.
-            if (this.isToolingCostRequired && !this.form.tooling_cost) {
-                ElMessage.error('El costo de herramental es obligatorio debido a que hay productos nuevos.');
-                return;
+            // Validar de lado del cliente que tooling_cost sea numérico y > 0 si es obligatorio
+            if (this.isToolingCostRequired) {
+                const cost = parseFloat(this.form.tooling_cost);
+                if (!this.form.tooling_cost || isNaN(cost) || cost <= 0) {
+                    ElMessage.error('El costo de herramental es obligatorio y debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                    return;
+                }
             }
 
             this.form.post(route("quotes.store"), {
@@ -671,6 +852,14 @@ export default {
         addProduct() {
             const productToAdd = { ...this.currentProduct };
             
+            // Si es un producto nuevo, forzar que no sea resurtido
+            if (productToAdd.is_custom) {
+                productToAdd.is_restock = false;
+            }
+
+            // Asigna el estado final del calculo de precio bajo antes de agregar
+            productToAdd.has_low_price = this.isPriceLow;
+            
             if (this.editIndex !== null) {
                 this.form.products[this.editIndex] = productToAdd;
             } else {
@@ -681,12 +870,34 @@ export default {
         editProduct(index) {
             this.currentProduct = JSON.parse(JSON.stringify(this.form.products[index]));
             
-            // Re-asignar la referencia del archivo de imagen si existe porque JSON.parse se deshace de objetos File
             if (this.form.products[index].image) {
                 this.currentProduct.image = this.form.products[index].image;
                 this.currentProduct.image_preview = this.form.products[index].image_preview;
             }
 
+            // Restaurar visualmente si se trataba de un producto base o variante
+            if (!this.currentProduct.is_custom && this.currentProduct.id) {
+                let foundBase = this.localCatalogProducts.find(p => p.id === this.currentProduct.id);
+                if (foundBase) {
+                    // Era un producto padre
+                    this.selectedBaseProductId = foundBase.id;
+                    this.availableVariants = foundBase.variants || [];
+                    this.selectedVariantId = null;
+                } else {
+                    // Era una variante, hay que buscar cuál era su padre
+                    for (const base of this.localCatalogProducts) {
+                        const foundVariant = base.variants?.find(v => v.id === this.currentProduct.id);
+                        if (foundVariant) {
+                            this.selectedBaseProductId = base.id;
+                            this.availableVariants = base.variants || [];
+                            this.selectedVariantId = foundVariant.id;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            this.variantSearchQuery = ''; // Reiniciar la búsqueda al editar
             this.editIndex = index;
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
         },
@@ -697,15 +908,18 @@ export default {
         resetCurrentProduct() {
             this.currentProduct = { 
                 id: null, 
-                is_custom: false, // <-- RESET
-                custom_name: '', // <-- RESET
-                custom_cost: null, // <-- RESET
-                custom_measure_unit: '', // <-- RESET
-                image: null, // <-- RESET
-                image_preview: null, // <-- RESET
+                is_custom: false, 
+                is_restock: false,
+                custom_name: '', 
+                custom_cost: null, 
+                custom_measure_unit: '', 
+                image: null, 
+                image_preview: null, 
                 quantity: 1, 
                 unit_price: null,
                 min_price: 0,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '', 
                 customization_details: [],
                 isClientProduct: false,
@@ -716,6 +930,10 @@ export default {
                 base_price: null,
                 show_image: true,
             };
+            this.selectedBaseProductId = null;
+            this.selectedVariantId = null;
+            this.availableVariants = [];
+            this.variantSearchQuery = ''; // Reiniciar búsqueda al cancelar o agregar
             this.editIndex = null;
         },
         addCustomizationDetail() {
@@ -731,8 +949,13 @@ export default {
             ElMessage.info('Detalle de personalización eliminado.');
         },
         getProductName(productId) {
-            const product = this.localCatalogProducts.find(p => p.id === productId);
-            return product ? product.name : 'Producto no encontrado';
+            // Buscar nombre tanto en bases como en sus variantes
+            for (const base of this.localCatalogProducts) {
+                if (base.id === productId) return base.name;
+                const variant = base.variants?.find(v => v.id === productId);
+                if (variant) return variant.name;
+            }
+            return 'Producto no encontrado';
         },
         formatDate(dateString) {
             if (!dateString) return '';
@@ -775,13 +998,15 @@ export default {
             }
         },
         async fetchCatalogProducts() {
-            try {
-                const response = await axios.post(route('products.fetch-products'), { params: { product_type: 'Catálogo' }});
-                this.localCatalogProducts = response.data;
-                ElMessage.success('Lista actualizada');
-            } catch (error) {
-                ElMessage.error('Error al actualizar');
-            }
+            // Modificado: Usar router.reload para recargar de la base de datos usando 
+            // la lógica de QuoteController@create para traer padres + variantes correctamente
+            router.reload({
+                only: ['catalogProducts'],
+                onSuccess: () => {
+                    this.localCatalogProducts = [...this.catalogProducts];
+                    ElMessage.success('Lista de productos actualizada');
+                }
+            });
         },
         async fetchClientProducts(branchId) {
             if (!branchId) return;
@@ -798,7 +1023,6 @@ export default {
         handleBranchChange(branchId) { /* ... Lógica existente de contactos ... */ },
         handleContactChange(contactId) { /* ... Lógica existente de contactos ... */ },
         
-        // MÉTODOS DE CREACIÓN RÁPIDA 
         async storeQuickBranch() {
             this.quickBranchForm.processing = true;
             this.quickBranchForm.errors = {};
@@ -807,10 +1031,7 @@ export default {
                 if (response.status === 200) {
                     const newBranch = response.data;
                     this.localBranches.push(newBranch);
-                    
-                    // Al asginarlo al formulario, el watcher llamará de nuevo a fetchClientProducts
                     this.form.branch_id = newBranch.id;
-                    
                     this.branchModalVisible = false;
                     this.quickBranchForm.name = '';
                     this.quickBranchForm.rfc = '';
@@ -837,6 +1058,9 @@ export default {
             if (newVal) this.fetchClientProducts(newVal);
         },
         branches(newVal) { this.localBranches = [...newVal]; },
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        }
     },
 };
 </script>

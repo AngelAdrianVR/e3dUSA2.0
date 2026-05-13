@@ -28,6 +28,7 @@ class Sale extends Model implements HasMedia, Auditable
         'currency',
         'type',
         'status',
+        'has_low_price', // NUEVO: Bandera de precio bajo
         'oce_name',
         'order_via',
         'notes',
@@ -52,6 +53,7 @@ class Sale extends Model implements HasMedia, Auditable
         'authorized_at' => 'datetime',
         'promise_date' => 'date',
         'is_high_priority' => 'boolean',
+        'has_low_price' => 'boolean', // NUEVO: Casteo a booleano
     ];
 
     protected $appends = ['utility_data', 'production_summary'];

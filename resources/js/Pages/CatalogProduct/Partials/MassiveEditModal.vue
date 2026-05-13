@@ -1,177 +1,248 @@
 <template>
-    <DialogModal :show="show" @close="close" max-width="4xl">
-        <template #title>
-            Edición Masiva de Productos
-        </template>
-
-        <template #content>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Modifica los campos para cada uno de los <b>{{ form.products.length }}</b> productos seleccionados. El código se regenerará automáticamente.
+    <el-dialog v-model="internalShow" title="Edición Masiva de Productos" width="95%" :before-close="handleClose" top="5vh">
+        
+        <div class="mb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400">
+                Ajusta rápidamente las propiedades principales, selecciona un producto padre (si aplica) o cambia la familia de los {{ editList.length }} productos seleccionados.
             </p>
-            
-            <div class="hidden md:grid grid-cols-12 gap-x-4 font-bold text-sm text-gray-700 dark:text-gray-300 border-b pb-2 mb-2">
-                <div class="col-span-3">Producto</div>
-                <div class="col-span-2">Tipo</div>
-                <div class="col-span-3">Familia</div>
-                <div class="col-span-2">Material</div>
-                <div class="col-span-2 text-center">¿Componente?</div>
-            </div>
+        </div>
 
-            <div class="space-y-3 min-h-56 max-h-96 overflow-y-auto pr-2">
-                 <div v-for="(product, index) in form.products" :key="product.id"
-                     class="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-2 items-center border-b dark:border-slate-700 py-2">
-                    
-                    <div class="col-span-full md:col-span-3">
-                         <p class="font-semibold text-gray-800 dark:text-gray-200">{{ product.name }}</p>
-                         <p class="text-xs text-gray-500">{{ product.code }}</p>
-                    </div>
+        <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                <thead class="bg-gray-50 dark:bg-slate-800">
+                    <tr>
+                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300">Img</th>
+                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[180px]">Producto</th>
+                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-store" title="¿Se Vende?"></i> Venta</th>
+                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-truck" title="¿Se Compra?"></i> Compra</th>
+                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-puzzle-piece" title="¿Es Componente?"></i> Comp.</th>
+                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[200px]">Producto Padre</th>
+                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[150px]">Familia</th>
+                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[120px]">Tipo</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-gray-700">
+                    <tr v-for="(item, index) in form.products" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
+                        <!-- Imagen -->
+                        <td class="px-3 py-2">
+                            <img v-if="originalProducts[index]?.media?.length" 
+                                 :src="originalProducts[index].media[0].original_url" 
+                                 class="w-12 h-12 object-cover rounded cursor-pointer border border-gray-200 dark:border-gray-600 hover:opacity-80" 
+                                 @click="openPreview(originalProducts[index].media[0].original_url)" />
+                            <div v-else class="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center text-gray-400">
+                                <i class="fa-solid fa-image"></i>
+                            </div>
+                        </td>
+                        
+                        <!-- Nombre (solo lectura) -->
+                        <td class="px-3 py-2 text-gray-800 dark:text-gray-200 font-medium">
+                            {{ originalProducts[index]?.name }}
+                            <div class="text-xs text-gray-400">{{ originalProducts[index]?.code }}</div>
+                        </td>
 
-                    <div class="col-span-full md:col-span-2">
-                         <InputLabel :for="'type-' + product.id" value="Tipo" class="md:hidden mb-1" />
-                         <el-select v-model="product.product_type_key" :teleported="false" filterable clearable placeholder="Tipo" class="w-full" :id="'type-' + product.id">
-                            <el-option v-for="item in typeOptions" :key="item.key" :label="item.label" :value="item.key" />
-                         </el-select>
-                         <InputError :message="form.errors[`products.${index}.product_type_key`]" class="mt-1" />
-                    </div>
+                        <!-- Checkbox Venta -->
+                        <td class="px-3 py-2 text-center">
+                            <el-checkbox v-model="item.is_sellable" />
+                        </td>
+                        
+                        <!-- Checkbox Compra -->
+                        <td class="px-3 py-2 text-center">
+                            <el-checkbox v-model="item.is_purchasable" />
+                        </td>
 
-                    <div class="col-span-full md:col-span-3">
-                         <InputLabel :for="'family-' + product.id" value="Familia" class="md:hidden mb-1" />
-                         <el-select v-model="product.product_family_id" :teleported="false" filterable clearable placeholder="Familia" class="w-full" :id="'family-' + product.id" :disabled="product.product_type_key === 'I'">
-                            <el-option v-for="item in product_families" :key="item.id" :label="item.name" :value="item.id" />
-                         </el-select>
-                         <InputError :message="form.errors[`products.${index}.product_family_id`]" class="mt-1" />
-                    </div>
+                        <!-- Checkbox Componente -->
+                        <td class="px-3 py-2 text-center">
+                            <el-checkbox v-model="item.is_used_as_component" />
+                        </td>
 
-                    <div class="col-span-full md:col-span-2">
-                        <InputLabel :for="'material-' + product.id" value="Material" class="md:hidden mb-1" />
-                        <el-select v-model="product.material" filterable :teleported="false" clearable placeholder="Material" class="w-full" :id="'material-' + product.id" :disabled="product.product_type_key === 'I'">
-                            <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
-                        </el-select>
-                        <InputError :message="form.errors[`products.${index}.material`]" class="mt-1" />
-                    </div>
+                        <!-- Selector Padre -->
+                        <td class="px-3 py-2">
+                            <el-select 
+                                v-model="item.parent_id" 
+                                filterable 
+                                remote 
+                                clearable
+                                reserve-keyword
+                                placeholder="Buscar padre..."
+                                :remote-method="searchParents"
+                                :loading="loadingParents"
+                                class="w-full">
+                                <el-option
+                                    v-for="parent in parentOptions"
+                                    :key="parent.id"
+                                    :label="parent.name"
+                                    :value="parent.id"
+                                    :disabled="parent.id === item.id"> <!-- Evita asignarse a sí mismo -->
+                                </el-option>
+                            </el-select>
+                        </td>
 
-                    <div class="col-span-full md:col-span-2 flex justify-center items-center pt-2 md:pt-0">
-                         <Checkbox v-model:checked="product.is_used_as_component" :name="'component-' + product.id" />
-                         <InputError :message="form.errors[`products.${index}.is_used_as_component`]" class="mt-1" />
-                    </div>
-                 </div>
-            </div>
+                        <!-- Selector Familia -->
+                        <td class="px-3 py-2">
+                            <el-select v-model="item.product_family_id" filterable clearable placeholder="Familia" class="w-full" :disabled="item.product_type_key === 'I'">
+                                <el-option v-for="fam in product_families" :key="fam.id" :label="fam.name" :value="fam.id" />
+                            </el-select>
+                        </td>
 
-             <InputError :message="form.errors.massive_update" class="mt-2" />
-        </template>
+                        <!-- Selector Tipo -->
+                        <td class="px-3 py-2">
+                            <el-select v-model="item.product_type_key" placeholder="Tipo" class="w-full">
+                                <el-option label="Producto" value="P" />
+                                <el-option label="Insumo" value="I" />
+                            </el-select>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <template #footer>
-            <CancelButton @click="close" :disabled="form.processing">
-                Cancelar
-            </CancelButton>
-            <SecondaryButton @click="submit" :loading="form.processing" :disabled="form.processing" class="ml-2">
-                Actualizar {{ form.products.length }} Productos
-            </SecondaryButton>
+            <div class="flex justify-end gap-3 mt-4">
+                <el-button @click="handleClose" :disabled="form.processing">Cancelar</el-button>
+                <el-button type="primary" @click="submit" :loading="form.processing">
+                    <i class="fa-solid fa-floppy-disk mr-2"></i> Guardar Cambios
+                </el-button>
+            </div>
         </template>
-    </DialogModal>
+
+        <!-- Visor de imagen manual -->
+        <el-image-viewer
+            v-if="showImageViewer"
+            :url-list="[previewImageUrl]"
+            @close="showImageViewer = false"
+            :hide-on-click-modal="true"
+            teleported
+        />
+    </el-dialog>
 </template>
 
 <script>
-import DialogModal from '@/Components/DialogModal.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import CancelButton from '@/Components/MyComponents/CancelButton.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import InputError from '@/Components/InputError.vue';
-import Checkbox from '@/Components/Checkbox.vue';
 import { useForm } from '@inertiajs/vue3';
-import { ElMessage } from 'element-plus';
-import { watch } from 'vue';
+import { ElMessage, ElImageViewer } from 'element-plus';
+import axios from 'axios';
 
 export default {
-    name: 'MassiveEditModal',
     components: {
-        DialogModal,
-        SecondaryButton,
-        CancelButton,
-        InputLabel,
-        InputError,
-        Checkbox,
+        ElImageViewer
     },
     props: {
-        show: {
-            type: Boolean,
-            default: false,
-        },
-        selected_products: {
-            type: Array,
-            required: true,
-        },
-        product_families: {
-            type: Array,
-            required: true,
-        },
+        show: Boolean,
+        selected_products: Array,
+        product_families: Array,
     },
     emits: ['close'],
-    setup(props, { emit }) {
-        const form = useForm({
-            products: [],
-        });
-
-        // Opciones y mapeo inverso para los materiales
-        const materialOptions = [
-            { label: 'METAL', key: 'M' }, { label: 'PLASTICO', key: 'PLS' }, { label: 'PIEL DE LUJO', key: 'PL' },
-            { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
-            { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
-            { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-            { label: 'VINILPIEL', key: 'VPL' }
-        ];
-        const materialReverseMap = Object.fromEntries(materialOptions.map(opt => [opt.label, opt.key]));
-
-        // Opciones y mapeo inverso para el tipo de producto
-        const typeOptions = [
-            { label: 'Catálogo', key: 'C' },
-            { label: 'Materia Prima', key: 'MP' },
-            { label: 'Insumo', key: 'I' }
-        ];
-        const typeReverseMap = { 'Catálogo': 'C', 'Materia Prima': 'MP', 'Insumo': 'I' };
-
-        const initializeForm = () => {
-            form.products = props.selected_products.map(p => ({
-                id: p.id,
-                name: p.name,
-                code: p.code,
-                product_type_key: p.product_type ? typeReverseMap[p.product_type] : null,
-                product_family_id: p.product_family_id,
-                material: p.material ? materialReverseMap[p.material] : null,
-                is_used_as_component: p.is_used_as_component,
-            }));
-             form.clearErrors();
-        };
-
-        const submit = () => {
-            form.post(route('products.massive-update'), {
-                onSuccess: () => {
-                    ElMessage.success('Productos actualizados correctamente');
-                    close();
-                },
-                onError: () => {
-                     ElMessage.error('Ocurrió un error al actualizar. Revisa los datos.');
-                }
-            });
-        };
-
-        const close = () => {
-            emit('close');
-        };
-
-        watch(() => props.show, (newVal) => {
-            if (newVal) {
-                initializeForm();
-            }
-        });
-
+    data() {
         return {
-            form,
-            typeOptions,
-            materialOptions,
-            submit,
-            close,
+            internalShow: this.show,
+            originalProducts: [],
+            editList: [],
+            form: useForm({
+                products: []
+            }),
+            
+            // Opciones dinámicas para el select de padres
+            parentOptions: [],
+            loadingParents: false,
+
+            // Visor de imagenes
+            showImageViewer: false,
+            previewImageUrl: ''
         };
     },
+    watch: {
+        show(newVal) {
+            this.internalShow = newVal;
+            if (newVal) {
+                this.initForm();
+                this.searchParents(''); // Carga inicial de padres sugeridos
+            }
+        }
+    },
+    methods: {
+        initForm() {
+            // Guardamos referencias para la UI (nombres, imagenes, codigo)
+            this.originalProducts = [...this.selected_products];
+            
+            // Construimos la estructura exacta para enviar al backend
+            this.editList = this.selected_products.map(p => ({
+                id: p.id,
+                parent_id: p.parent_id ?? null,
+                product_family_id: p.product_family_id ?? null,
+                is_sellable: p.is_sellable == 1,
+                is_purchasable: p.is_purchasable == 1,
+                is_used_as_component: p.is_used_as_component == 1,
+                product_type_key: p.product_type === 'Insumo' ? 'I' : 'P',
+                material: p.material ? this.reverseMaterial(p.material) : null
+            }));
+
+            this.form.products = this.editList;
+        },
+        async searchParents(query) {
+            this.loadingParents = true;
+            try {
+                // Se utiliza la nueva ruta optimizada
+                const response = await axios.post(route('catalog-products.search-parents'), {
+                    query: query 
+                });
+                
+                if (response.data && response.data.items) {
+                    this.parentOptions = response.data.items.map(i => ({
+                        id: i.id,
+                        // Concatenamos nombre y código para que el usuario identifique mejor al padre
+                        name: `${i.name} (${i.code})`
+                    }));
+                }
+            } catch (error) {
+                console.error("Error buscando padres: ", error);
+            } finally {
+                this.loadingParents = false;
+            }
+        },
+        openPreview(url) {
+            if (url) {
+                this.previewImageUrl = url;
+                this.showImageViewer = true;
+            }
+        },
+        submit() {
+            // Corrección aquí: se cambia de catalog-products.massive-update a products.massive-update
+            this.form.post(route('products.massive-update'), {
+                onSuccess: () => {
+                    ElMessage.success('Productos actualizados correctamente');
+                    this.$emit('close');
+                },
+                onError: (err) => {
+                    ElMessage.error('Ocurrió un error. Revisa la validación.');
+                    console.error(err);
+                }
+            });
+        },
+        handleClose() {
+            this.form.reset();
+            this.$emit('close');
+        },
+        // Helper para invertir material a key
+        reverseMaterial(materialName) {
+            const map = {
+                'METAL': 'M', 'PLASTICO': 'PLS', 'PIEL DE LUJO': 'PL', 'ORIGINAL': 'O',
+                'LUJO': 'L', 'PIEL': 'P', 'ZAMAK': 'ZK', 'SOLIDCHROME': 'SCH',
+                'MICROMETAL': 'MM', 'FLEXCHROME': 'FCH', 'ALUMINIO': 'AL', 'ESTIRENO': 'ES',
+                'ABS': 'ABS', 'PVC': 'PVC', 'TELA': 'T', 'CAUCHO': 'CAU', 'VINILPIEL': 'VPL', 
+                'FIBRA DE CARBONO': 'FC', 'OVERLAY': 'OV', 'ACERO': 'AC', 'FIBRA DSE CARBONO': 'FDC',
+                'RESINA': 'RS', 'ENCAPSULADO': 'ENC', 'CORTE DIAMANTE': 'CDT' 
+            };
+            return map[materialName] || null;
+        }
+    },
+    mounted() {
+        if (this.show) {
+            this.initForm();
+            this.searchParents('');
+        }
+    }
 };
 </script>
+
+<style scoped>
+/* Asegurar visibilidad correcta de los dropdowns anidados si fuera necesario */
+</style>

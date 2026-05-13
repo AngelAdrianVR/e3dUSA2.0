@@ -2,35 +2,15 @@
     <AppLayout title="Dashboard de Cobranza">
         <div class="flex justify-between items-center mb-6 max-w-[100em] mx-auto sm:px-6 lg:px-8 pt-7">
             <h2 class="font-semibold text-2xl text-gray-800 dark:text-gray-200 leading-tight">
-                Panel de Control de Facturación
+                Panel de Control de Facturación <br>
+                <small class="font-thin italic">Todas las notificaciones de facturación serán recibidas por el personal con rol "Cobranza"</small>
             </h2>
 
-            <!-- Botón de Reportes -->
+            <!-- Botón de Reportes (Abre Modal) -->
             <div class="flex items-center space-x-3">
-                <el-date-picker
-                    v-model="reportDates"
-                    type="daterange"
-                    range-separator="A"
-                    start-placeholder="Inicio"
-                    end-placeholder="Fin"
-                    format="YYYY-MM-DD"
-                    value-format="YYYY-MM-DD"
-                    size="small"
-                    style="width: 250px"
-                />
-                <el-dropdown @command="generateReport" trigger="click">
-                    <el-button type="primary" size="small">
-                        <i class="fa-solid fa-file-excel mr-2"></i> Generar Reporte <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
-                    </el-button>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item command="sin_prefactura">OVs sin pre-factura</el-dropdown-item>
-                            <el-dropdown-item command="prefacturadas">OVs pre-facturadas</el-dropdown-item>
-                            <el-dropdown-item command="timbradas">OVs timbradas</el-dropdown-item>
-                            <el-dropdown-item divided command="todas">Todas las OVs</el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
+                <el-button type="primary" size="small" @click="reportModalVisible = true">
+                    <i class="fa-solid fa-file-excel mr-2"></i> Generar Reporte
+                </el-button>
             </div>
         </div>
 
@@ -89,7 +69,7 @@
                                 <i class="fa-solid fa-check-double text-2xl"></i>
                             </div>
                             <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Timbradas (Este mes)</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Timbradas (Mes Seleccionado)</p>
                                 <p class="text-3xl font-bold text-gray-800 dark:text-gray-200">{{ kpis.total_stamped_month }}</p>
                             </div>
                         </div>
@@ -117,13 +97,27 @@
                             </el-input>
                         </div>
 
-                        <!-- Filtro Estado Facturación -->
-                        <div class="!w-72 md:w-auto flex items-center space-x-2">
+                        <!-- Agrupación de Filtros Derechos -->
+                        <div class="w-full md:w-auto flex flex-col md:flex-row items-center space-y-3 md:space-y-0 space-x-0 md:space-x-3">
+                            
+                            <!-- Filtro de Mes y Año -->
+                            <el-date-picker
+                                v-model="filters.month_year"
+                                type="month"
+                                placeholder="Mes a consultar"
+                                format="MMM YYYY"
+                                value-format="YYYY-MM"
+                                :clearable="false"
+                                @change="syncUrl"
+                                class="!w-full md:!w-40"
+                            />
+
+                            <!-- Filtro Estado Facturación -->
                             <el-select
                                 v-model="filters.billing_status"
                                 placeholder="Estatus de Facturación"
                                 clearable
-                                class="w-56"
+                                class="!w-full md:!w-56"
                                 @change="syncUrl"
                             >
                                 <el-option label="Pendiente Pre-factura" value="Pendiente Pre-factura" />
@@ -132,7 +126,7 @@
                                 <el-option label="Timbrada" value="Timbrada" />
                             </el-select>
 
-                            <el-tooltip v-if="hasActiveFilters" content="Limpiar todos los filtros" placement="top">
+                            <el-tooltip v-if="hasActiveFilters" content="Limpiar sub-filtros (Mantiene el mes)" placement="top">
                                 <button 
                                     @click="clearFilters"
                                     class="size-9 flex-shrink-0 flex items-center justify-center rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
@@ -148,14 +142,14 @@
                         <table class="w-full whitespace-nowrap text-xs">
                             <thead class="bg-gray-50 dark:bg-slate-800">
                                 <tr class="text-left font-bold text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                                    <th class="py-3 px-4">OV</th>
-                                    <th class="py-3 px-4">Razón Social</th>
-                                    <th class="py-3 px-4">Sucursal</th>
-                                    <th class="py-3 px-4">Monto</th>
-                                    <th class="py-3 px-4">Estado OV</th>
-                                    <th class="py-3 px-4 text-center">Estado Fact.</th>
-                                    <th class="py-3 px-4 text-center">Pre-factura</th>
-                                    <th class="py-3 px-4 text-center">Timbrado</th>
+                                    <th class="py-3 px-2">OV</th>
+                                    <th class="py-3 px-2">Razón Social</th>
+                                    <th class="py-3 px-2">Sucursal</th>
+                                    <th class="py-3 px-2">Monto</th>
+                                    <th class="py-3 px-2">Estado OV</th>
+                                    <th class="py-3 px-2 text-center">Estado Fact.</th>
+                                    <th class="py-3 px-2 text-center">Pre-factura</th>
+                                    <th class="py-3 px-2 text-center">Timbrado</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -163,29 +157,29 @@
                                     @click="openDetailsModal(sale)"
                                     class="hover:bg-indigo-50/50 cursor-pointer dark:hover:bg-slate-800/50 transition-colors">
                                     
-                                    <td class="px-4 py-3">
+                                    <td class="px-2 py-3">
                                         <span @click.stop="$inertia.visit(route('sales.show', sale.id))" class="font-semibold text-indigo-600 hover:underline hover:text-blue-600 dark:text-indigo-400">OV-{{ sale.id }}</span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
+                                    <td class="px-2 py-3 text-gray-700 dark:text-gray-300 font-medium">
                                         {{ sale.branch?.parent?.name || sale.branch?.name || 'N/A' }}
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                    <td class="px-2 py-3 text-gray-600 dark:text-gray-400">
                                         {{ sale.branch?.name || 'N/A' }}
                                     </td>
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
+                                    <td class="px-2 py-3 font-medium text-gray-900 dark:text-gray-100">
                                         ${{ formatCurrency(sale.total_amount) }}
                                     </td>
-                                    <td class="px-4 py-3">
+                                    <td class="px-2 py-3">
                                         <el-tag size="small" :type="getGeneralStatusType(sale.status)" effect="plain">{{ sale.status }}</el-tag>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center">
                                         <el-tag size="small" :type="getBillingStatusType(sale.billing_status)">{{ sale.billing_status }}</el-tag>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center max-w-[150px] truncate" :title="sale.pre_invoice_folio">
                                         <span v-if="sale.pre_invoice_folio" class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-gray-600 dark:text-gray-300 font-mono">{{ sale.pre_invoice_folio }}</span>
                                         <span v-else class="text-gray-400 italic">-</span>
                                     </td>
-                                    <td class="px-4 py-3 text-center">
+                                    <td class="px-2 py-3 text-center max-w-[150px] truncate" :title="sale.stamped_invoice_folio">
                                         <span v-if="sale.stamped_invoice_folio" class="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded font-mono">{{ sale.stamped_invoice_folio }}</span>
                                         <span v-else class="text-gray-400 italic">-</span>
                                     </td>
@@ -194,7 +188,7 @@
                                     <td colspan="8" class="text-center py-10">
                                         <div class="flex flex-col items-center text-gray-400">
                                             <i class="fa-solid fa-inbox text-4xl mb-3"></i>
-                                            <p class="text-sm">No hay órdenes de venta que coincidan con los filtros.</p>
+                                            <p class="text-sm">No hay órdenes de venta que coincidan con los filtros y periodo seleccionado.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -223,6 +217,46 @@
             @saved="handleModalSaved"
         />
 
+        <!-- Modal para Generar Reporte -->
+        <el-dialog v-model="reportModalVisible" title="Generar Reporte de Facturación" width="500px">
+            <div class="space-y-5 py-2">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Rango de Fechas <span class="text-gray-400 font-normal">(Opcional)</span>
+                    </label>
+                    <el-date-picker
+                        v-model="reportForm.dates"
+                        type="daterange"
+                        range-separator="Hasta"
+                        start-placeholder="Fecha Inicio"
+                        end-placeholder="Fecha Fin"
+                        format="YYYY-MM-DD"
+                        value-format="YYYY-MM-DD"
+                        class="!w-full"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Estatus de las Facturas
+                    </label>
+                    <el-select v-model="reportForm.type" class="!w-full" placeholder="Seleccione el estatus">
+                        <el-option label="Todas las OVs" value="todas" />
+                        <el-option label="OVs sin pre-factura" value="sin_prefactura" />
+                        <el-option label="OVs pre-facturadas" value="prefacturadas" />
+                        <el-option label="OVs timbradas" value="timbradas" />
+                    </el-select>
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end space-x-2">
+                    <el-button @click="reportModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="generateReport" :disabled="!reportForm.type">
+                        <i class="fa-solid fa-download mr-2"></i> Generar y Descargar
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
+
     </AppLayout>
 </template>
 
@@ -246,19 +280,28 @@ export default {
                 billing_status: this.filtersProp?.billing_status || null,
                 search: this.filtersProp?.search || '',
                 kpi_filter: this.filtersProp?.kpi_filter || null,
+                // Leemos el mes/año inyectado por el backend
+                month_year: this.filtersProp?.month_year || '',
             },
-            reportDates: null,
             detailsModalVisible: false,
             selectedSale: null,
+            
+            // Variables del Modal de Reporte
+            reportModalVisible: false,
+            reportForm: {
+                dates: null,
+                type: 'todas'
+            }
         };
     },
     computed: {
         hasActiveFilters() {
+            // El filtro de mes_año se considera el "contexto base" así que el botón
+            // de limpiar filtros sólo aparece si hay algún filtro adicional aplicado.
             return this.filters.billing_status || this.filters.search || this.filters.kpi_filter;
         }
     },
     created() {
-        // Inicializamos el debounce en el created para que mantenga la referencia
         this.debouncedSearch = debounce(this.syncUrl, 500);
     },
     methods: {
@@ -273,12 +316,14 @@ export default {
             });
         },
         clearFilters() {
-            this.filters = { billing_status: null, search: '', kpi_filter: null };
+            // Limpiamos todo EXCEPTO el mes_año para no sacarlo del contexto que estaba viendo
+            this.filters.billing_status = null;
+            this.filters.search = '';
+            this.filters.kpi_filter = null;
             this.syncUrl();
         },
         filterByKpi(kpiType) {
             this.filters.kpi_filter = kpiType;
-            // Limpiamos los otros filtros al dar clic en un KPI para que sea exacto
             this.filters.billing_status = null; 
             this.filters.search = '';
             this.syncUrl();
@@ -288,17 +333,16 @@ export default {
             this.detailsModalVisible = true;
         },
         handleModalSaved() {
-            // Refrescar los datos actuales sin recargar toda la página
             router.reload({ only: ['salesForBilling', 'kpis'] });
         },
-        generateReport(type) {
-            let url = route('billing.report', { type: type });
+        generateReport() {
+            let url = route('billing.report', { type: this.reportForm.type });
             
-            if (this.reportDates && this.reportDates.length === 2) {
-                url += `&start_date=${this.reportDates[0]}&end_date=${this.reportDates[1]}`;
+            if (this.reportForm.dates && this.reportForm.dates.length === 2) {
+                url += `&start_date=${this.reportForm.dates[0]}&end_date=${this.reportForm.dates[1]}`;
             }
             
-            // Abrir en nueva pestaña para descargar
+            this.reportModalVisible = false;
             window.open(url, '_blank');
         },
         getGeneralStatusType(status) {

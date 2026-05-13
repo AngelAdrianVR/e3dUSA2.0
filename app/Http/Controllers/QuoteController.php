@@ -49,7 +49,19 @@ class QuoteController extends Controller
 
     public function create()
     {
-        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
+        // Modificado: Solo traemos productos padre que sean vendibles,
+        // y precargamos sus variantes (y las imágenes de las variantes).
+        $catalogProducts = Product::whereNull('archived_at')
+            ->where('is_sellable', true)
+            ->whereNull('parent_id')
+            ->select('id', 'name', 'code')
+            ->with(['variants' => function($q) {
+                $q->where('is_sellable', true)
+                  ->whereNull('archived_at')
+                  ->select('id', 'name', 'code', 'parent_id');
+            }, 'variants.media'])
+            ->get();
+
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Create', [
@@ -60,9 +72,12 @@ class QuoteController extends Controller
 
     public function store(Request $request)
     {
-        // 1. Verificamos si en la lista de productos viene alguno marcado como "custom" (nuevo)
-        $hasCustomProduct = collect($request->products)->contains(function ($product) {
-            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $requiresTooling = collect($request->products)->contains(function ($product) {
+            $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $isRestock = filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            
+            // Requiere herramental si NO ES resurtido (primera venta) O si ES custom (nuevo fuera de catálogo)
+            return !$isRestock || $isCustom;
         });
 
         $request->validate([
@@ -70,25 +85,38 @@ class QuoteController extends Controller
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            // El costo de herramental es dinámicamente requerido si hay productos custom
-            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
+            'tooling_cost' => [
+                $requiresTooling ? 'required' : 'nullable',
+                function ($attribute, $value, $fail) use ($requiresTooling) {
+                    if ($requiresTooling && $value !== null) {
+                        // Filtramos para obtener el número en caso de que incluyan texto como "USD" o "MXN"
+                        $numericValue = (float) filter_var($value, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        if ($numericValue <= 0) {
+                            $fail('El costo de herramental debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                        }
+                    }
+                }
+            ],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
-            'validity' => 'nullable|string|max:255', // NUEVA VALIDACIÓN AGREGADA
+            'validity' => 'nullable|string|max:255',
             'has_early_payment_discount' => 'nullable|boolean',
             'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
+            'has_low_price' => 'nullable|boolean',
             'products' => 'required|array|min:1',
-            // Validaciones combinadas para soporte de catálogos y productos nuevos
             'products.*.id' => 'nullable|exists:products,id',
             'products.*.is_custom' => 'required|boolean',
+            'products.*.is_restock' => 'nullable|boolean',
             'products.*.custom_name' => 'nullable|string',
             'products.*.custom_cost' => 'nullable|numeric|min:0',
-            'products.*.image' => 'nullable|file|image|max:2048', // Hasta 2MB
+            'products.*.image' => 'nullable|file|image|max:2048',
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'nullable|boolean',
+            'products.*.low_price_reason' => 'nullable|string',
         ]);
 
         $quote = null;
@@ -106,13 +134,15 @@ class QuoteController extends Controller
             $quote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $quote->freight_option = $request->freight_option;
             $quote->first_production_days = $request->first_production_days;
-            $quote->validity = $request->validity; // GUARDADO DEL NUEVO CAMPO
+            $quote->validity = $request->validity;
             $quote->notes = $request->notes;
             $quote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
             $quote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);
             $quote->has_early_payment_discount = filter_var($request->has_early_payment_discount, FILTER_VALIDATE_BOOLEAN);
             $quote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
             
+            $quote->has_low_price = filter_var($request->has_low_price, FILTER_VALIDATE_BOOLEAN);
+
             $quote->version = 1;
             $quote->is_active = true;
             $quote->status = 'Esperando respuesta';
@@ -121,7 +151,6 @@ class QuoteController extends Controller
             $quote->root_quote_id = $quote->id;
             $quote->save();
 
-            // 3. Adjuntar productos (Usando la relación quoteProducts HasMany en vez de attach)
             foreach ($request->products as $product) {
                 $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
@@ -136,9 +165,12 @@ class QuoteController extends Controller
                     'show_image' => filter_var($product['show_image'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado',
+                    'has_low_price' => filter_var($product['has_low_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'low_price_reason' => $product['low_price_reason'] ?? null,
+                    // Aseguramos que los productos nuevos se guarden con is_restock en false para consistencia
+                    'is_restock' => $isCustom ? false : filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN), 
                 ]);
 
-                // 4. Si es un producto custom y se adjuntó una imagen, la guardamos
                 if ($isCustom && isset($product['image']) && $product['image'] instanceof \Illuminate\Http\UploadedFile) {
                     $quoteProduct->addMedia($product['image'])->toMediaCollection('custom_product_images');
                 }
@@ -160,12 +192,11 @@ class QuoteController extends Controller
         $quote->load('branch');
         $productSourceBranch = $this->getProductTargetBranch($quote->branch);
 
-        // Actualizado para cargar quoteProducts en lugar de products
         $quote->load([
             'user', 
             'authorizedBy',
-            'quoteProducts.media', // Para imágenes de productos al vuelo
-            'quoteProducts.product.media', // Para imágenes de catálogo
+            'quoteProducts.media',
+            'quoteProducts.product.media',
             'quoteProducts.product.priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
                       ->orderBy('valid_from', 'desc');
@@ -208,10 +239,20 @@ class QuoteController extends Controller
 
     public function edit(Quote $quote)
     {
-        // Eager load completo para la edición
         $quote->load('quoteProducts.media', 'quoteProducts.product.media');
 
-        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
+        // Modificado: Igual que en create(), cargamos solo bases vendibles y sus variantes
+        $catalogProducts = Product::whereNull('archived_at')
+            ->where('is_sellable', true)
+            ->whereNull('parent_id')
+            ->select('id', 'name', 'code')
+            ->with(['variants' => function($q) {
+                $q->where('is_sellable', true)
+                  ->whereNull('archived_at')
+                  ->select('id', 'name', 'code', 'parent_id');
+            }, 'variants.media'])
+            ->get();
+
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Edit', [
@@ -223,8 +264,12 @@ class QuoteController extends Controller
 
     public function update(Request $request, Quote $quote)
     {
-        $hasCustomProduct = collect($request->products)->contains(function ($product) {
-            return filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $requiresTooling = collect($request->products)->contains(function ($product) {
+            $isCustom = filter_var($product['is_custom'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $isRestock = filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            
+            // Requiere herramental si NO ES resurtido (primera venta) O si ES custom (nuevo fuera de catálogo)
+            return !$isRestock || $isCustom;
         });
 
         $request->validate([
@@ -232,20 +277,34 @@ class QuoteController extends Controller
             'receiver' => 'required|string|max:255',
             'department' => 'required|string|max:255',
             'currency' => 'required|string|max:3',
-            'tooling_cost' => [$hasCustomProduct ? 'required' : 'nullable', 'string'],
+            'tooling_cost' => [
+                $requiresTooling ? 'required' : 'nullable',
+                function ($attribute, $value, $fail) use ($requiresTooling) {
+                    if ($requiresTooling && $value !== null) {
+                        $numericValue = (float) filter_var($value, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        if ($numericValue <= 0) {
+                            $fail('El costo de herramental debe ser mayor a 0 debido a que hay productos nuevos o de primera venta (no resurtido).');
+                        }
+                    }
+                }
+            ],
             'freight_cost' => 'required_unless:freight_option,El cliente manda la guia,Client sends the shipping label,Por cuenta del cliente,Paid by the client|nullable|numeric|min:0',
             'freight_option' => 'required|string',
             'first_production_days' => 'required|string',
-            'validity' => 'nullable|string|max:255', // NUEVA VALIDACIÓN EN UPDATE
+            'validity' => 'nullable|string|max:255',
             'has_early_payment_discount' => 'nullable|boolean',
             'early_payment_discount_amount' => ['exclude_unless:has_early_payment_discount,true', 'required', 'numeric', 'min:1', 'max:100'],
+            'has_low_price' => 'nullable|boolean',
             'products' => 'required|array|min:1',
             'products.*.id' => 'nullable|exists:products,id',
             'products.*.is_custom' => 'required|boolean',
+            'products.*.is_restock' => 'nullable|boolean',
             'products.*.custom_name' => 'nullable|string',
             'products.*.custom_cost' => 'nullable|numeric|min:0',
             'products.*.quantity' => 'required|numeric|min:0.01',
             'products.*.unit_price' => 'required|numeric|min:0',
+            'products.*.has_low_price' => 'nullable|boolean',
+            'products.*.low_price_reason' => 'nullable|string',
         ]);
 
         $newQuote = null;
@@ -269,12 +328,14 @@ class QuoteController extends Controller
             $newQuote->is_freight_cost_stroked = filter_var($request->is_freight_cost_stroked, FILTER_VALIDATE_BOOLEAN);
             $newQuote->freight_option = $request->freight_option;
             $newQuote->first_production_days = $request->first_production_days;
-            $newQuote->validity = $request->validity; // GUARDADO EN UPDATE
+            $newQuote->validity = $request->validity;
             $newQuote->notes = $request->notes;
             $newQuote->is_spanish_template = filter_var($request->is_spanish_template, FILTER_VALIDATE_BOOLEAN);
             $newQuote->show_breakdown = filter_var($request->show_breakdown, FILTER_VALIDATE_BOOLEAN);
             $newQuote->has_early_payment_discount = filter_var($request->has_early_payment_discount, FILTER_VALIDATE_BOOLEAN);
             $newQuote->early_payment_discount_amount = $request->early_payment_discount_amount ?? 0;
+            
+            $newQuote->has_low_price = filter_var($request->has_low_price, FILTER_VALIDATE_BOOLEAN);
 
             $newQuote->version = $latestVersionNum + 1;
             $newQuote->is_active = true;
@@ -301,15 +362,15 @@ class QuoteController extends Controller
                     'show_image' => filter_var($product['show_image'] ?? true, FILTER_VALIDATE_BOOLEAN),
                     'customization_details' => !empty($product['customization_details']) ? $product['customization_details'] : null,
                     'customer_approval_status' => 'Aprobado',
+                    'has_low_price' => filter_var($product['has_low_price'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'low_price_reason' => $product['low_price_reason'] ?? null,
+                    'is_restock' => $isCustom ? false : filter_var($product['is_restock'] ?? false, FILTER_VALIDATE_BOOLEAN), // Guardamos el estado asegurado
                 ]);
 
-                // 4. Si es un producto custom manejamos la imagen
                 if ($isCustom) {
                     if (isset($product['image']) && $product['image'] instanceof \Illuminate\Http\UploadedFile) {
-                        // Si el usuario subió una NUEVA imagen al editar, la guardamos
                         $quoteProduct->addMedia($product['image'])->toMediaCollection('custom_product_images');
                     } elseif (!empty($product['quote_product_id'])) {
-                        // Si no hay imagen nueva, buscamos el producto original de la versión anterior y clonamos su imagen
                         $oldQp = QuoteProduct::find($product['quote_product_id']);
                         if ($oldQp && $oldQp->hasMedia('custom_product_images')) {
                             $oldQp->getFirstMedia('custom_product_images')->copy($quoteProduct, 'custom_product_images');

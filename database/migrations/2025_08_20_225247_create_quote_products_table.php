@@ -26,9 +26,12 @@ return new class extends Migration
             // 3. CAMPOS ORIGINALES
             $table->float('quantity')->unsigned();
             $table->decimal('unit_price', 12, 2);
+            $table->boolean('has_low_price')->default(false); // Nuevo campo para marcar si el precio está por debajo del establecido
+            $table->text('low_price_reason')->nullable(); // Nuevo campo para que el usuario explique la razón del precio bajo
             $table->text('notes')->nullable();
             $table->boolean('show_image')->default(true);
             $table->json('customization_details')->nullable(); // Se guardan los detalles de personalizacion como info de grabado de medallon, etc.
+            $table->boolean('is_restock')->default(false); // Nuevo campo para marcar si el producto es un restock
             
             $table->string('customer_approval_status')->default('Pendiente'); // Pendiente, Aprobado, Rechazado
             

@@ -14,11 +14,6 @@ class DesignOrder extends Model implements HasMedia
 {
     use HasFactory, InteractsWithMedia;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'id',
         'order_title',
@@ -29,7 +24,7 @@ class DesignOrder extends Model implements HasMedia
         'designer_id',
         'design_category_id',
         'design_id',
-        'modifies_design_id', // id del diseño original que se va a modificar
+        'modifies_design_id',
         'reuse_justification',
         'branch_id',
         'contact_id',
@@ -41,11 +36,6 @@ class DesignOrder extends Model implements HasMedia
         'authorized_at',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'is_hight_priority' => 'boolean',
         'assigned_at' => 'datetime',
@@ -55,70 +45,111 @@ class DesignOrder extends Model implements HasMedia
         'authorized_at' => 'datetime',
     ];
 
-    /**
-     * Relación: Una orden de diseño tiene un formato de autorización.
-     */
+    // ====================================================
+    // ================= Relaciones =======================
+    
     public function designAuthorization(): HasOne
     {
         return $this->hasOne(DesignAuthorization::class);
     }
 
-    /**
-     * Get the user who requested the design order.
-     */
     public function requester(): BelongsTo
     {
         return $this->belongsTo(User::class, 'requester_id');
     }
 
-    /**
-     * Get the user (designer) assigned to the design order.
-     */
     public function designer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'designer_id');
     }
-
 
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class, 'branch_id');
     }
 
-    
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class, 'contact_id');
     }
 
-    /**
-     * Get the category for the design order.
-     */
     public function designCategory(): BelongsTo
     {
         return $this->belongsTo(DesignCategory::class);
     }
 
-    /**
-     * Get the final design associated with the order.
-     */
     public function design(): BelongsTo
     {
         return $this->belongsTo(Design::class);
     }
 
-    /**
-     * Get the assignment logs for the design order.
-     */
     public function assignmentLogs(): HasMany
     {
         return $this->hasMany(DesignAssignmentLog::class);
     }
 
+    /**
+     * Historial de pausas de esta orden de diseño.
+     */
+    public function pauses(): HasMany
+    {
+        return $this->hasMany(DesignOrderPause::class);
+    }
+
     // ====================================================
-    // ================= metodos ==========================
+    // ================= Métodos y Cálculos ===============
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('design_order_files');
+    }
+
+    /**
+     * Calcula el tiempo total invertido en segundos, DESCONTANDO las pausas.
+     */
+    public function getActiveTimeInSeconds(): int
+    {
+        if (!$this->started_at) {
+            return 0;
+        }
+
+        // Usar timestamps enteros elimina los errores de desfase de zona horaria de diffInSeconds
+        $endTimeTs = $this->finished_at ? $this->finished_at->timestamp : now()->timestamp;
+        $startTimeTs = $this->started_at->timestamp;
+
+        // Validar integridad
+        if ($endTimeTs < $startTimeTs) {
+            return 0;
+        }
+
+        $totalRawSeconds = $endTimeTs - $startTimeTs;
+        $pausedSeconds = 0;
+
+        foreach ($this->pauses as $pause) {
+            if (!$pause->paused_at) continue;
+
+            $pauseStartTs = $pause->paused_at->timestamp;
+            $pauseEndTs = $pause->resumed_at ? $pause->resumed_at->timestamp : $endTimeTs;
+            
+            if ($pauseEndTs > $pauseStartTs) {
+                // Prevención de datos corruptos cruzados fuera del tiempo base
+                $actualPauseStart = max($pauseStartTs, $startTimeTs);
+                $actualPauseEnd = min($pauseEndTs, $endTimeTs);
+                
+                if ($actualPauseEnd > $actualPauseStart) {
+                    $pausedSeconds += ($actualPauseEnd - $actualPauseStart);
+                }
+            }
+        }
+
+        return (int) max(0, $totalRawSeconds - $pausedSeconds);
+    }
+
+    /**
+     * Comprueba si la orden está actualmente pausada (tiene una pausa sin reanudar).
+     */
+    public function getIsPausedAttribute(): bool
+    {
+        return $this->pauses()->whereNull('resumed_at')->exists();
     }
 }

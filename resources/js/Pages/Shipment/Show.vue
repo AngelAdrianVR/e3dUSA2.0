@@ -74,6 +74,8 @@
                             @open-evidence="openEvidenceModal"
                             @delete-media="deleteMedia"
                             @delete-shipment="deleteShipment"
+                            @open-edit-date="openEditDate"
+                            @open-edit-notes="openEditNotes"
                         />
                     </ShipmentAccordion>
                 </template>
@@ -166,9 +168,96 @@
             </template>
         </el-dialog>
 
+        <!-- Modal Info Rastreo -->
+        <el-dialog v-model="showGuideModal" title="Información de Rastreo" width="500px">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                    <el-input v-model="guideForm.shipping_company" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
+                    <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-xs mt-1">{{ guideForm.errors.shipping_company }}</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                    <el-input v-model="guideForm.tracking_guide" placeholder="Ingresa el número de rastreo..." />
+                    <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-xs mt-1">{{ guideForm.errors.tracking_guide }}</p>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showGuideModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitGuide" :loading="guideForm.processing">Guardar Información</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- Modal Editar Fecha (Para Producción) -->
+        <el-dialog v-model="showDateModal" title="Editar Fecha de Envío Real" width="500px">
+            <div class="space-y-4">
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Ingresa la fecha en que se realizó el envío. Esta información puede ser prellenada por Producción antes de que Cobranza confirme la salida.
+                </p>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha de Envío Real</label>
+                    <el-date-picker v-model="dateForm.sent_at" type="datetime" placeholder="Selecciona la fecha" format="YYYY/MM/DD hh:mm a" value-format="YYYY-MM-DD HH:mm:ss" class="!w-full" />
+                    <p v-if="dateForm.errors.sent_at" class="text-red-500 text-xs mt-1">{{ dateForm.errors.sent_at }}</p>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showDateModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitDate" :loading="dateForm.processing">Guardar Fecha</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- Modal Editar/Añadir Notas (Incluso tras ser enviado) -->
+        <el-dialog v-model="showNotesModal" title="Notas del Envío" width="500px">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observaciones / Notas adicionales</label>
+                    <el-input v-model="notesForm.notes" type="textarea" :rows="3" placeholder="Escribe aquí las notas..." />
+                    <p v-if="notesForm.errors.notes" class="text-red-500 text-xs mt-1">{{ notesForm.errors.notes }}</p>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showNotesModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitNotes" :loading="notesForm.processing">Guardar Notas</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- Modal Evidencia -->
+        <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
+            <div class="space-y-4">
+                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
+                    <input type="file" @change="handleEvidenceFileChange" multiple accept="image/*,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                    <div class="space-y-2">
+                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400"></i>
+                            <p class="text-sm text-gray-500">Haz clic o arrastra archivos aquí</p>
+                            <p class="text-xs text-gray-400">(Imágenes o PDF, máx 5MB)</p>
+                    </div>
+                </div>
+                <p v-if="evidenceForm.errors.evidence_files" class="text-red-500 text-xs mt-1">{{ evidenceForm.errors.evidence_files }}</p>
+                <div v-if="evidenceForm.evidence_files.length" class="mt-3 space-y-2">
+                    <p class="text-xs font-semibold uppercase text-gray-500">Archivos seleccionados:</p>
+                    <div v-for="(file, idx) in evidenceForm.evidence_files" :key="idx" class="text-xs flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
+                        <i class="fa-solid fa-file mr-2"></i> {{ file.name }}
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="showEvidenceModal = false">Cancelar</el-button>
+                    <el-button type="primary" @click="submitEvidence" :loading="evidenceForm.processing" :disabled="!evidenceForm.evidence_files.length">Subir Archivos</el-button>
+                </span>
+            </template>
+        </el-dialog>
+
         <!-- Modal Etiquetas -->
         <el-dialog v-model="labelModalVisible" title="Crear Etiquetas para el Envío" width="900px">
              <div v-if="labelForm.shipment">
+                <!-- Contenido Omitido para mantenerlo breve en este ejemplo, está igual que original... -->
                 <div class="bg-gray-100 dark:bg-slate-700 p-4 rounded-lg mb-6">
                     <h3 class="font-semibold text-lg mb-2 text-gray-800 dark:text-gray-200">Productos disponibles para empacar</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -215,55 +304,6 @@
                     <el-button type="primary" @click="generateAndPrintLabels" :disabled="isOverAllocation || !hasProductsInBoxes">
                         <i class="fa-solid fa-print mr-2"></i> Generar {{ labelForm.boxes.length }} Etiqueta(s)
                     </el-button>
-                </span>
-            </template>
-        </el-dialog>
-
-        <!-- Modal Info Rastreo -->
-        <el-dialog v-model="showGuideModal" title="Información de Rastreo" width="500px">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
-                    <el-input v-model="guideForm.shipping_company" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
-                    <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-xs mt-1">{{ guideForm.errors.shipping_company }}</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
-                    <el-input v-model="guideForm.tracking_guide" placeholder="Ingresa el número de rastreo..." />
-                    <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-xs mt-1">{{ guideForm.errors.tracking_guide }}</p>
-                </div>
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showGuideModal = false">Cancelar</el-button>
-                    <el-button type="primary" @click="submitGuide" :loading="guideForm.processing">Guardar Información</el-button>
-                </span>
-            </template>
-        </el-dialog>
-
-        <!-- Modal Evidencia -->
-        <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
-            <div class="space-y-4">
-                <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
-                    <input type="file" @change="handleEvidenceFileChange" multiple accept="image/*,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                    <div class="space-y-2">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl text-gray-400"></i>
-                            <p class="text-sm text-gray-500">Haz clic o arrastra archivos aquí</p>
-                            <p class="text-xs text-gray-400">(Imágenes o PDF, máx 5MB)</p>
-                    </div>
-                </div>
-                <p v-if="evidenceForm.errors.evidence_files" class="text-red-500 text-xs mt-1">{{ evidenceForm.errors.evidence_files }}</p>
-                <div v-if="evidenceForm.evidence_files.length" class="mt-3 space-y-2">
-                    <p class="text-xs font-semibold uppercase text-gray-500">Archivos seleccionados:</p>
-                    <div v-for="(file, idx) in evidenceForm.evidence_files" :key="idx" class="text-xs flex items-center bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200">
-                        <i class="fa-solid fa-file mr-2"></i> {{ file.name }}
-                    </div>
-                </div>
-            </div>
-            <template #footer>
-                <span class="dialog-footer">
-                    <el-button @click="showEvidenceModal = false">Cancelar</el-button>
-                    <el-button type="primary" @click="submitEvidence" :loading="evidenceForm.processing" :disabled="!evidenceForm.evidence_files.length">Subir Archivos</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -323,6 +363,16 @@ export default {
                 sent_at: '',
                 notes: '',
                 sent_by: ''
+            }),
+            showDateModal: false,
+            dateForm: useForm({
+                shipment_id: null,
+                sent_at: '',
+            }),
+            showNotesModal: false,
+            notesForm: useForm({
+                shipment_id: null,
+                notes: '',
             }),
             labelModalVisible: false,
             labelForm: {
@@ -474,6 +524,38 @@ export default {
                 onError: (errors) => ElMessage.error(errors.message || 'Error al eliminar la parcialidad.')
             });
         },
+        openEditDate(shipment) {
+            this.dateForm.clearErrors();
+            this.dateForm.shipment_id = shipment.id;
+            this.dateForm.sent_at = shipment.sent_at || '';
+            this.showDateModal = true;
+        },
+        submitDate() {
+            this.dateForm.put(route('shipments.update-date', this.dateForm.shipment_id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.showDateModal = false;
+                    ElMessage.success('Fecha actualizada correctamente.');
+                },
+                onError: () => ElMessage.error('Error al actualizar la fecha.')
+            });
+        },
+        openEditNotes(shipment) {
+            this.notesForm.clearErrors();
+            this.notesForm.shipment_id = shipment.id;
+            this.notesForm.notes = shipment.notes || '';
+            this.showNotesModal = true;
+        },
+        submitNotes() {
+            this.notesForm.put(route('shipments.update-notes', this.notesForm.shipment_id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.showNotesModal = false;
+                    ElMessage.success('Notas actualizadas correctamente.');
+                },
+                onError: () => ElMessage.error('Error al actualizar las notas.')
+            });
+        },
         openLabelModal(shipment) {
             this.labelForm.shipment = shipment;
             this.labelForm.boxes = [];
@@ -612,14 +694,19 @@ export default {
             this.form.notes = shipment.notes || ''; 
             this.form.sent_by = this.$page.props.auth.user.name; 
             
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = String(now.getMonth() + 1).padStart(2, '0');
-            const day = String(now.getDate()).padStart(2, '0');
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            this.form.sent_at = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            // Si la fecha ya fue definida por Producción, usarla. De lo contrario usar "ahora"
+            if (shipment.sent_at) {
+                this.form.sent_at = shipment.sent_at;
+            } else {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                this.form.sent_at = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            }
 
             this.dialogVisible = true;
         },
