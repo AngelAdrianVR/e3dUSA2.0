@@ -49,7 +49,19 @@ class QuoteController extends Controller
 
     public function create()
     {
-        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
+        // Modificado: Solo traemos productos padre que sean vendibles,
+        // y precargamos sus variantes (y las imágenes de las variantes).
+        $catalogProducts = Product::whereNull('archived_at')
+            ->where('is_sellable', true)
+            ->whereNull('parent_id')
+            ->select('id', 'name', 'code')
+            ->with(['variants' => function($q) {
+                $q->where('is_sellable', true)
+                  ->whereNull('archived_at')
+                  ->select('id', 'name', 'code', 'parent_id');
+            }, 'variants.media'])
+            ->get();
+
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Create', [
@@ -229,7 +241,18 @@ class QuoteController extends Controller
     {
         $quote->load('quoteProducts.media', 'quoteProducts.product.media');
 
-        $catalogProducts = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name', 'code')->get();
+        // Modificado: Igual que en create(), cargamos solo bases vendibles y sus variantes
+        $catalogProducts = Product::whereNull('archived_at')
+            ->where('is_sellable', true)
+            ->whereNull('parent_id')
+            ->select('id', 'name', 'code')
+            ->with(['variants' => function($q) {
+                $q->where('is_sellable', true)
+                  ->whereNull('archived_at')
+                  ->select('id', 'name', 'code', 'parent_id');
+            }, 'variants.media'])
+            ->get();
+
         $branches = Branch::select('id', 'name', 'status')->get();
 
         return Inertia::render('Quote/Edit', [

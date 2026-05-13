@@ -41,6 +41,7 @@ class Product extends Model implements HasMedia, Auditable
         'product_family_id',
         'is_used_as_component', // indica is el producto es usado como componente
         'base_price_updated_at', // fecha de la ultima actualización de precio base (para revision automatica de cada año)
+        'parent_id' // para productos que son variantes de otro producto (ejemplo: un producto llavero chevrolet puede tener variantes de grabados para diferentes agencias)
     ];
 
     protected $casts = [
@@ -179,4 +180,75 @@ class Product extends Model implements HasMedia, Auditable
     {
         return $query->whereNotNull('archived_at');
     }
+
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'parent_id');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(Product::class, 'parent_id');
+    }
+
+    public function scopeBaseProducts(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
+    }
+
+    // --- MAGIA DE HERENCIA (ACCESSORS) ---
+
+    /**
+     * Obtiene los componentes reales: Los propios o los del padre si es variante.
+     * Así ya no tienes que hacer IFs en tus controladores.
+     * Uso: $product->actual_components
+     */
+    public function getActualComponentsAttribute()
+    {
+        if ($this->components->isNotEmpty()) {
+            return $this->components;
+        }
+        
+        if ($this->parent_id && $this->parent) {
+            return $this->parent->components;
+        }
+
+        return collect();
+    }
+
+    /**
+     * Obtiene los procesos de producción: Los propios o los del padre.
+     * Uso: $product->actual_production_costs
+     */
+    public function getActualProductionCostsAttribute()
+    {
+        if ($this->productionCosts->isNotEmpty()) {
+            return $this->productionCosts;
+        }
+
+        if ($this->parent_id && $this->parent) {
+            return $this->parent->productionCosts;
+        }
+
+        return collect();
+    }
+
+    /**
+     * Sobrescribimos o creamos un método para obtener la imagen principal.
+     * Si la variante no tiene imagen, devuelve la imagen del padre.
+     */
+    public function getDisplayImageUrlAttribute()
+    {
+        if ($this->hasMedia('images')) {
+            return $this->getFirstMediaUrl('images');
+        }
+
+        if ($this->parent_id && $this->parent && $this->parent->hasMedia('images')) {
+            return $this->parent->getFirstMediaUrl('images');
+        }
+
+        return asset('images/default-product.png'); // Placeholder
+    }
 }
+

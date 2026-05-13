@@ -140,6 +140,7 @@ Route::get('catalog-products-export-excel', [ProductController::class, 'exportEx
 Route::get('catalog-products-export-excel-abc', [ProductController::class, 'exportExcelABC'])->name('catalog-products.export-excel-abc');
 Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
 Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
+Route::post('catalog-products-search-parents', [ProductController::class, 'searchParents'])->middleware('auth')->name('catalog-products.search-parents'); // Ruta para buscar productos padres desde el modal al crear/editar un producto
 
 
 // ------- product families Routes ---------

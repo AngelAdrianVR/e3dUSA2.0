@@ -24,7 +24,62 @@
                                 <InputError :message="form.errors.product_type_key" class="mt-1" />
                             </div>
 
-                            <div v-if="form.product_type_key !== 'I'">
+                            <!-- Selector de Producto Padre (Variantes) -->
+                            <div v-if="form.product_type_key === 'P'" class="col-span-1 sm:col-span-2">
+                                <InputLabel value="¿Es variante de otro producto? (Opcional)" />
+                                <el-select 
+                                    v-model="form.parent_id" 
+                                    filterable clearable 
+                                    placeholder="Selecciona el producto padre" 
+                                    class="w-full"
+                                    @change="handleParentChange"
+                                >
+                                    <el-option v-for="item in parents" :key="item.id" :label="item.name" :value="item.id" class="!w-[35rem] truncate">
+                                        <span style="float: left">{{ item.name }}</span>
+                                        <span style="float: right; color: #cccccc; font-size: 13px;">{{ item.code }}</span>
+                                    </el-option>
+                                </el-select>
+                                <InputError :message="form.errors.parent_id" class="mt-1" />
+                            </div>
+                        </div>
+
+                        <!-- Miniatura del Producto Padre (Si se seleccionó) -->
+                        <div v-if="selectedParentImage && form.parent_id" class="animate-fade-in flex flex-col items-start bg-gray-50 dark:bg-slate-700 p-3 rounded-lg border border-gray-200 dark:border-slate-600">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                                Imagen del Producto Padre seleccionado:
+                            </span>
+                            <el-image 
+                                style="width: 80px; height: 80px; border-radius: 8px;"
+                                :src="selectedParentImage" 
+                                :preview-src-list="[selectedParentImage]"
+                                fit="cover"
+                            />
+                            <span class="text-[10px] text-gray-400 mt-1">Clic en la imagen para ampliar</span>
+                        </div>
+
+                        <!-- Banderas Booleanas Universales (Preguntas Clave) -->
+                        <div v-if="form.product_type_key === 'P'" class="col-span-full bg-indigo-50 dark:bg-slate-700/50 p-4 rounded-lg border border-indigo-100 dark:border-slate-600 mb-4 animate-fade-in">
+                            <h4 class="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-3">
+                                Propiedades operativas del Producto
+                            </h4>
+                            <div class="flex flex-col sm:flex-row gap-6">
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_sellable" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se vende?</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_purchasable" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se compra a proveedor?</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_used_as_component" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se usa como componente?</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Familia de producto *</span>
@@ -44,8 +99,8 @@
                                 <InputError :message="form.errors.product_family_id" class="mt-1" />
                             </div>
 
-                            <!-- Brand select for Catalog and Raw Material -->
-                            <div v-if="form.product_type_key !== 'I'">
+                            <!-- Brand select for Producto -->
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Marca del producto/Agencia*</span>
@@ -75,7 +130,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div v-if="form.product_type_key !== 'I'">
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel value="Material*" />
                                 <el-select v-model="form.material" filterable placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
@@ -93,7 +148,7 @@
                             </div>
                         </div>
 
-                        <p v-if="form.material == 'T' && form.product_type_key !== 'I'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
+                        <p v-if="form.material == 'T' && form.product_type_key === 'P'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
                         Si el producto se vende por medidas personalizadas, indicar stock y costo tomando como unidad el metro lineal.  
                         (Ejemplo: un rollo de tela de 1.52m x 30m equivale a 30 en stock y la unidad es Metro(s)).
                         </p>
@@ -113,8 +168,10 @@
                                     <i class="fa-solid fa-dollar-sign"></i>
                                 </template>
                              </TextInput>
+
+                             <!-- Precios sólo visibles si se Vende -->
                              <TextInput 
-                                v-if="form.product_type_key === 'C'"
+                                v-if="form.is_sellable"
                                 v-model="form.base_price" 
                                 :error="form.errors.base_price"
                                 :helpContent="'Si no hay precio especial para el cliente se toma el precio base'"
@@ -124,7 +181,7 @@
                                     <i class="fa-solid fa-dollar-sign"></i>
                                 </template>
                             </TextInput>
-                            <div v-if="form.product_type_key === 'C'">
+                            <div v-if="form.is_sellable">
                                 <InputLabel value="Moneda*" />
                                 <el-select v-model="form.currency" clearable placeholder="Selecciona la moneda"
                                     no-data-text="No hay información"
@@ -133,17 +190,9 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" class="mt-1" />
                             </div>
-
-                            <div v-if="form.product_type_key === 'C'" class="mt-5">
-                                <label class="flex items-center">
-                                    <Checkbox v-model:checked="form.is_used_as_component" name="is_used_as_component" class="bg-transparent text-indigo-500 border-gray-500" />
-                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">¿Se usa como componente?</span>
-                                </label>
-                                <InputError :message="form.errors.is_used_as_component" class="mt-1" />
-                            </div>
                         </div>
 
-                        <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                        <div v-if="form.product_type_key === 'P'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_circular" @change="resetDimentions" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
@@ -160,15 +209,15 @@
                         </div>
 
                         <!-- SECCIÓN DE COMPONENTES -->
-                        <div v-if="form.product_type_key === 'C'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
+                        <div v-if="form.product_type_key === 'P'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
                             class="space-y-4 p-4 border rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="form.hasComponents" name="is_circular" />
-                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes</span>
+                                    <Checkbox v-model:checked="form.hasComponents" name="hasComponents" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes para ensamblarse</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
-                                    Componentes (Materia Prima)
+                                    Componentes
                                 </h3>
                             </div>
 
@@ -214,10 +263,10 @@
                                         <!-- informacion de almacén -->
                                         <div>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Stock: <strong>{{ currentComponent.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ currentComponent.measure_unit }}</strong>
+                                                Stock: <strong>{{ currentComponent.storages?.[0]?.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") ?? 0 }} {{ currentComponent.measure_unit }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Ubicación: <strong>{{ currentComponent.storages[0]?.location ?? 'No asignado' }}</strong>
+                                                Ubicación: <strong>{{ currentComponent.storages?.[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Costo: <strong>${{ currentComponent.cost ?? '0.00' }} {{ currentComponent.currency }}</strong>
@@ -265,10 +314,10 @@
                         </div>
 
                         <!-- SECCIÓN DE PROCESOS -->
-                        <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
+                        <div v-if="form.product_type_key === 'P'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="hasProductionProcesses" name="is_circular" />
+                                    <Checkbox v-model:checked="hasProductionProcesses" name="hasProductionProcesses" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Lleva procesos de producción</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
@@ -468,7 +517,8 @@ export default {
         product_families: Array,
         consecutive: Number,
         production_processes: Array,
-        components: Array, 
+        components: Array,
+        parents: Array, // Productos Padre (No variantes)
     },
     data() {
         return {
@@ -480,8 +530,14 @@ export default {
                 brand_id: null,
                 brand_name: null, 
                 product_family_id: null,
+                parent_id: null, // Nuevo
+                
+                // Banderas Universales
+                is_sellable: true,
+                is_purchasable: false,
                 is_used_as_component: false,
-                product_type_key: 'C', 
+
+                product_type_key: 'P', // P = Producto, I = Insumo
                 material: null,
                 measure_unit: 'Pieza(s)',
                 currency: 'MXN',
@@ -506,8 +562,8 @@ export default {
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
 
-            // Almacena la URL de la imagen que viene de la cotización
             quoteImageUrl: null,
+            selectedParentImage: null, // URL de imagen del padre
 
             currentComponent: { product_id: null, quantity: 1 },
             loadingComponentMedia: false,
@@ -527,8 +583,7 @@ export default {
 
             currencies: ['MXN', 'USD'],
             productTypeOptions: [
-                { label: 'Catálogo', key: 'C' },
-                { label: 'Materia Prima', key: 'MP' },
+                { label: 'Producto', key: 'P' },
                 { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
@@ -547,8 +602,6 @@ export default {
     watch: {
         'form.product_type_key'(newVal) {
             this.generatePartNumber();
-            this.form.is_used_as_component = newVal === 'MP';
-
             if (newVal === 'I') {
                 this.form.product_family_id = null;
                 this.form.brand_id = null;
@@ -562,6 +615,12 @@ export default {
                 this.form.hasComponents = false;
                 this.form.production_processes = [];
                 this.hasProductionProcesses = false;
+                this.form.parent_id = null;
+                
+                // Insumos por defecto
+                this.form.is_sellable = false;
+                this.form.is_purchasable = true;
+                this.form.is_used_as_component = false;
             } else {
                 this.form.brand_name = null;
             }
@@ -589,6 +648,31 @@ export default {
     },
 
     methods: {
+        handleParentChange(parentId) {
+            const parent = this.parents.find(p => p.id === parentId);
+            if (parent) {
+                // Autocompletar datos del padre para la variante
+                this.form.product_family_id = parent.product_family_id;
+                this.form.brand_id = parent.brand_id;
+                this.form.material = parent.material;
+                this.form.measure_unit = parent.measure_unit;
+                this.form.currency = parent.currency;
+                this.form.base_price = parent.base_price;
+                this.form.cost = parent.cost;
+                this.form.is_sellable = parent.is_sellable;
+                this.form.is_purchasable = parent.is_purchasable;
+                this.form.is_used_as_component = parent.is_used_as_component;
+
+                // Extraer imagen del padre para visualizarla
+                if (parent.media && parent.media.length > 0) {
+                    this.selectedParentImage = parent.media[0].original_url;
+                } else {
+                    this.selectedParentImage = null;
+                }
+            } else {
+                this.selectedParentImage = null;
+            }
+        },
         resetDimentions() {
             this.form.width = null;
             this.form.large = null;
@@ -616,7 +700,7 @@ export default {
             this.isCheckingForDuplicates = true;
 
             try {
-                this. searchingSimilarProducts = true;
+                this.searchingSimilarProducts = true;
                 const response = await axios.get(route('catalog-products.find-similar', { base_code: baseCode }));
 
                 if (response.data.length > 0) {
@@ -630,7 +714,7 @@ export default {
                 ElMessage.error('Hubo un problema al verificar duplicados. Por favor, intenta de nuevo.');
             } finally {
                 this.isCheckingForDuplicates = false;
-                this. searchingSimilarProducts = false;
+                this.searchingSimilarProducts = false;
             }
         },
         isComponentSelected(productId) {
@@ -705,12 +789,8 @@ export default {
                 const brandObj = this.brands.find(b => b.id == this.form.brand_id);
                 const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
 
-                if (type && family && material) {
-                    if ( type === 'MP' ) {
-                        this.form.code = `${type}-${material}-${family}-${brand}-${id}`;
-                    } else {
-                        this.form.code = `${family}-${material}-${brand}-${id}`;
-                    }
+                if (family && material) {
+                    this.form.code = `${family}-${material}-${brand}-${id}`;
                 } else {
                     this.form.code = '';
                 }
