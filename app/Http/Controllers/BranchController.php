@@ -28,6 +28,81 @@ class BranchController extends Controller
         ]);
     }
 
+    // --- MÉTODO PARA EL REPORTE ---
+    public function report()
+    {
+        // Consultamos todas las matrices y sus hijas sin paginación para el reporte completo
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc') // Orden alfabético para el reporte
+            ->get();
+
+        return Inertia::render('Branch/Report', [
+            'matrices' => $matrices,
+        ]);
+    }
+
+    // --- MÉTODO PARA EXPORTAR A EXCEL (CSV) ---
+    public function export()
+    {
+        $fileName = 'Directorio_Clientes_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['ID', 'Nombre', 'RFC', 'Direccion', 'Razon Social', 'Vendedor Asignado', 'Tipo (Matriz/Sucursal)'];
+
+        $callback = function() use($matrices, $columns) {
+            $file = fopen('php://output', 'w');
+            
+            // Agregar BOM para que Excel lea correctamente los caracteres especiales (UTF-8, Acentos, etc.)
+            fputs($file, $bom =(chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            
+            // Escribir cabeceras
+            fputcsv($file, $columns);
+
+            foreach ($matrices as $matriz) {
+                // Escribir fila de la matriz
+                fputcsv($file, [
+                    $matriz->id,
+                    $matriz->name,
+                    $matriz->rfc,
+                    $matriz->address,
+                    $matriz->business_name,
+                    $matriz->accountManager->name ?? 'No asignado',
+                    'Matriz'
+                ]);
+
+                foreach ($matriz->children as $hija) {
+                    // Escribir fila de la hija
+                    fputcsv($file, [
+                        $hija->id,
+                        '   -> ' . $hija->name, // Se indenta el nombre para fácil lectura
+                        $hija->rfc,
+                        $hija->address,
+                        $hija->business_name,
+                        $hija->accountManager->name ?? 'No asignado',
+                        'Sucursal'
+                    ]);
+                }
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function create()
     {
         // Pasamos los datos necesarios para los selects del formulario

@@ -267,8 +267,17 @@ class ProductController extends Controller
         return to_route('catalog-products.index')->with('success', 'Producto creado con éxito.');
     }
 
-    public function show(Product $catalog_product): Response
+    public function show(Product $catalog_product)
     {
+        // Si el producto es una variante (tiene un parent_id),
+        // redirigir a la vista del padre pasando el id de la variante en la URL.
+        if ($catalog_product->parent_id) {
+            return redirect()->route('catalog-products.show', [
+                'catalog_product' => $catalog_product->parent_id,
+                'variant_id' => $catalog_product->id
+            ]);
+        }
+
         // Se agregaron 'variants.media' y 'components.storages'
         $catalog_product->load([
             'media',
@@ -278,10 +287,10 @@ class ProductController extends Controller
                 $query->latest()->limit(100); 
             },
             'components.media',
-            'components.storages', // <--- Agregado para ver el stock de los componentes
+            'components.storages', 
             'productionCosts',
             'priceHistory.branch',
-            'variants.media', // <--- Agregado para listar las variantes y sus fotos
+            'variants.media', 
         ]);
 
         return Inertia::render('CatalogProduct/Show', [
@@ -644,6 +653,7 @@ class ProductController extends Controller
 
         if ( $type === 'Todos' ) {
             $products = Product::query()
+                ->whereNull('parent_id') // Solo productos "padre"
                 ->whereNull('archived_at') // Corrección: Ocultar obsoletos
                 ->select('id', 'name')
                 ->orderBy('name')

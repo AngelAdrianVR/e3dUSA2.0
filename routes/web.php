@@ -158,6 +158,8 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 
 // ------- CRM(branches sucursales Routes)  ---------
 Route::resource('branches', BranchController::class)->middleware('auth');
+Route::get('branches-report', [BranchController::class, 'report'])->middleware('auth')->name('branches.report');
+Route::get('branches-export', [BranchController::class, 'export'])->middleware('auth')->name('branches.export');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');

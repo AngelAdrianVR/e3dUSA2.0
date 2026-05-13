@@ -54,18 +54,14 @@ class SaleController extends Controller
 
     public function create(Request $request)
     {
-        // Valida que el quote_id, si existe, sea un número
         $request->validate([
             'quote_id' => 'nullable|integer|exists:quotes,id'
         ]);
 
-        // Obtiene el quote_id de la solicitud
         $quoteToConvertId = intval($request->input('quote_id'));
 
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -76,11 +72,19 @@ class SaleController extends Controller
                     ->take(100)
                     ->get();
         
+        // MODIFICACIÓN: Cargar productos padre (parent_id es null) junto con sus variantes y multimedia
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
+
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
-            // Pasa el ID de la cotización a convertir como un prop
+            'catalog_products' => $catalog_products,
             'quoteToConvertId' => $quoteToConvertId,
         ]);
     }
@@ -376,10 +380,8 @@ class SaleController extends Controller
 
     public function edit(Sale $sale)
     {
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -389,11 +391,20 @@ class SaleController extends Controller
                     ->with('branch:id,name')
                     ->take(100)
                     ->get();
+        
+        // MODIFICACIÓN: Igualmente en edición, cargar productos con estructura parent-variant
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
 
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => $catalog_products,
             'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
         ]);
     }

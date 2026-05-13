@@ -133,6 +133,15 @@
                                             <el-table-column align="right" width="120">
                                                 <template #default="scope">
                                                     <!-- Botón editar -->
+                                                    <!-- <el-button
+                                                        size="small"
+                                                        type="warning"
+                                                        circle
+                                                        @click.stop="handleCommand('show-' + scope.row.id)"
+                                                    >
+                                                        <i class="fas fa-eye"></i>
+                                                    </el-button> -->
+
                                                     <el-button
                                                         size="small"
                                                         type="primary"

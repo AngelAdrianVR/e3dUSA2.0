@@ -227,7 +227,7 @@
                                             </el-input>
                                         </div>
 
-                                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto">
                                             <!-- Base Product Card (Option to not use variant) -->
                                             <div v-show="!variantSearchQuery" @click="selectVariant(null)"
                                                  :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === null ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-gray-50 dark:bg-slate-800/50']">
