@@ -12,7 +12,7 @@
         </div>
 
         <div class="py-7">
-            <div class="max-w-[87rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[88rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="lg:flex justify-between items-center mb-6 space-y-4 lg:space-y-0">
                         <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"

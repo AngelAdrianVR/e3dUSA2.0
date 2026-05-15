@@ -227,7 +227,8 @@ class SaleController extends Controller
             }
             // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
             foreach ($validated['products'] as $productData) {
-                $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                // CORRECCIÓN: Cargar parent.components.storages para que las variantes encuentren el stock de sus componentes heredados
+                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                 $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
 
                 $quantityToProduce = 0;
@@ -263,17 +264,18 @@ class SaleController extends Controller
                 }
 
                 // 6.3 Descontar stock de los componentes (se ejecuta siempre que haya algo que producir)
-                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                    foreach ($product->components as $component) {
+                // CORRECCIÓN: Usar actual_components en lugar de components para soportar productos variables
+                if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                    foreach ($product->actual_components as $component) {
                         $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                         $componentStorage = $component->storages->first();
 
-                        if ($componentStorage) {
+                        if ($componentStorage && $componentStorage->quantity > 0) {
                             $currentStock = $componentStorage->quantity;
                             $discountQuantity = min($requiredQuantity, $currentStock);
 
-                            // Se descuenta la cantidad requerida, asegurando que el stock no sea negativo.
-                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+                            // CORRECCIÓN: Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
+                            $componentStorage->decrement('quantity', $discountQuantity);
 
                             if ($discountQuantity > 0) {
                                 // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
@@ -468,9 +470,9 @@ class SaleController extends Controller
         try {
 
             // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
-            // if ($isSaleType) {
+            if ($isSaleType && method_exists($this, 'revertStockForSale')) {
                 $this->revertStockForSale($sale);
-            // }
+            }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
             $updateData = [
@@ -574,7 +576,8 @@ class SaleController extends Controller
             // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
             if ($isSaleType) {
                 foreach ($validated['products'] as $productData) {
-                    $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                    // CORRECCIÓN: Cargar parent.components.storages igual que en store
+                    $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                     $saleProduct = $sale->saleProducts()->where('product_id', $product->id)->first();
                     $quantityInSale = $productData['quantity'];
                     
@@ -598,13 +601,18 @@ class SaleController extends Controller
                     }
 
                     // Lógica para descontar componentes (si aplica)
-                    if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                        foreach ($product->components as $component) {
+                    // CORRECCIÓN: Usar actual_components en lugar de components
+                    if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                        foreach ($product->actual_components as $component) {
                             $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                             $componentStorage = $component->storages->first();
+                            
                             if ($componentStorage && $componentStorage->quantity > 0) {
                                 $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
+                                
+                                // Ya tenías decrement() aquí, se mantiene
                                 $componentStorage->decrement('quantity', $discountQuantity);
+                                
                                 StockMovement::create([
                                     'product_id' => $component->id,
                                     'storage_id' => $componentStorage->id,
@@ -631,7 +639,7 @@ class SaleController extends Controller
             // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
             // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
             // --------------------------------------------------------------------------
-            CheckLowStockAndNotifyJob::dispatch($sale);
+             CheckLowStockAndNotifyJob::dispatch($sale);
             // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());

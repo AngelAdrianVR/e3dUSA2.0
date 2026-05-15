@@ -1,6 +1,13 @@
 <template>
-  <div v-for="product in products" :key="product.id" class="bg-gray-100 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all hover:shadow-md">
-    <!-- ... Información del producto ... -->
+  <!-- CAMBIO AQUÍ: Clases dinámicas dependiendo de si el producto tiene parent_id -->
+  <div v-for="product in products" :key="product.id" 
+       :class="[
+           'bg-gray-100 dark:bg-slate-900/50 border rounded-lg p-4 transition-all hover:shadow-md relative overflow-hidden',
+           product.parent_id 
+            ? 'border-l-4 border-l-blue-400 border-gray-200 dark:border-gray-700' 
+            : 'border-l-4 border-l-emerald-500 border-gray-200 dark:border-gray-700'
+       ]">
+    
     <div class="flex items-start space-x-4">
         <figure class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border dark:border-slate-600">
             <img v-if="product.media?.length" :src="product.media[0]?.original_url" :alt="product.name" @error="handleImageError" class="w-full h-full object-cover">
@@ -11,8 +18,18 @@
         <div class="flex-grow">
             <div class="flex justify-between items-start">
                 <div>
-                    <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400">{{ product.name }}</h4>
-                    <el-tag v-if="product.archived_at" type="warning" class="mb-1">Obsoleto</el-tag>
+                    <!-- CAMBIO AQUÍ: Etiquetas visuales para diferenciar productos Base de Variantes -->
+                    <div class="flex items-center gap-2 mb-1">
+                        <el-tag v-if="!product.parent_id" type="success" size="small" effect="dark" round>Producto Base</el-tag>
+                        
+                        <el-tag v-else type="primary" size="small" round>
+                            <i class="fa-solid fa-code-branch mr-1"></i> Variante de: <span class="font-bold">{{ product.parent?.name || 'Producto Desconocido' }}</span>
+                        </el-tag>
+
+                        <el-tag v-if="product.archived_at" type="warning" size="small">Obsoleto</el-tag>
+                    </div>
+
+                    <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400 mt-1">{{ product.name }}</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ product.code }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -29,9 +46,10 @@
                 </div>
             </div>
             <div class="text-sm mt-2 space-y-px">
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio actual:</strong> ${{ currentPrice(product).price }} {{ currentPrice(product).currency }}</p>
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Material:</strong> {{ product.material }}</p>
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Stock disponible:</strong> {{ product.storages[0]?.quantity }} {{ product.measure_unit }}</p>
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Precio actual:</strong> ${{ currentPrice(product).price }} {{ currentPrice(product).currency }}</p>
+                <!-- <p><strong class="font-bold text-gray-500 dark:text-gray-400">Material:</strong> {{ product.material }}</p> -->
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Stock disponible:</strong> {{ product.storages?.[0]?.quantity || 0 }} {{ product.measure_unit }}</p>
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Stock mínimo:</strong> {{ product.min_quantity?.toLocaleString() }} {{ product.measure_unit }}</p>
             </div>
         </div>
     </div>
@@ -46,7 +64,7 @@
     </div>
     
     <!-- Historial de Precios Especiales -->
-    <div v-if="product.price_history.length" class="mt-4">
+    <div v-if="product.price_history?.length" class="mt-4">
         <el-collapse>
             <el-collapse-item>
                 <template #title>
@@ -67,7 +85,6 @@
                         <tbody>
                             <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
                                 <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }} {{ history.currency }}</td>
-                                <!-- NUEVA COLUMNA DE USUARIO -->
                                 <td class="px-4 py-2">
                                     <span v-if="history.user">{{ history.user.name }}</span>
                                     <span v-else class="text-gray-400 italic text-xs">Sistema</span>
@@ -227,11 +244,9 @@ props:{
     branchId: Number
 },
 computed: {
-    // NUEVO: Verificamos si el usuario tiene el permiso
     canBypassPriceRule() {
         return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
     },
-    // MODIFICADO: Ignora la validación del 4% si el usuario tiene permiso
     isPriceInvalid() {
         if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
         if (this.canBypassPriceRule) return false;

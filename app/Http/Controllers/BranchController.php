@@ -109,7 +109,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Create', [
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
     }
 
@@ -258,6 +258,7 @@ class BranchController extends Controller
 
         // Cargamos los productos desde la sucursal matriz
         $products = $productSourceBranch->products()->with([
+            'parent:id,name', // <--- NUEVO: Cargar producto padre para identificar si es variante
             'storages',
             'media',
             // El historial de precios también se consulta con el ID de la matriz
@@ -279,7 +280,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'consumptionData' => $consumptionData, 
         ]);
     }
@@ -444,7 +445,7 @@ class BranchController extends Controller
             'formattedProducts' => $formattedProducts,
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
         ]);
     }
