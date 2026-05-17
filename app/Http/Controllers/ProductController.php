@@ -29,22 +29,29 @@ class ProductController extends Controller
         $familyId = $request->input('family_id');
         $searchTerm = $request->input('search');
 
-        // Iniciar la consulta base para el index - Solo obtenemos padres, incluyendo sus variantes.
+        // Iniciar la consulta base para el index (sin baseProducts() todavía)
         $query = Product::query()
-            ->baseProducts() // Scope para productos 'padres' (parent_id == null)
             ->with([
-                'variants.media', 
-                'variants.storages', 
-                'variants.brand', 
                 'storages:id,storable_id,storable_type,quantity,location', 
                 'brand:id,name', 
                 'media'
             ]);
 
         if ($productType === 'Obsoleto') {
-            $query->obsolete(); 
+            // NO usamos baseProducts() para incluir variantes que fueron marcadas como obsoletas de forma individual.
+            $query->obsolete()
+                  ->with(['variants' => function ($q) {
+                      $q->with(['media', 'storages', 'brand']);
+                  }]); 
         } else {
-            $query->active()->ofType($productType); 
+            // Usamos baseProducts() para listar solo los padres en la tabla principal,
+            // y en la relación 'variants' aplicamos active() para que NO devuelva las variantes obsoletas.
+            $query->baseProducts()
+                  ->active()
+                  ->ofType($productType)
+                  ->with(['variants' => function ($q) {
+                      $q->active()->with(['media', 'storages', 'brand']);
+                  }]); 
         }
 
         if ($familyId) {

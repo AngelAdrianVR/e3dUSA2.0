@@ -92,9 +92,14 @@ class ProductionController extends Controller
             $myTasks = ProductionTask::where('operator_id', $user->id)
                 ->with([
                     'production:id,sale_product_id,status,quantity_to_produce',
+                    'production.tasks:id,production_id,status', // REQUERIDO para saber si es la última tarea
                     'production.saleProduct:id,sale_id,product_id,quantity_to_produce,quantity',
-                    'production.saleProduct.product:id,name',
+                    'production.saleProduct.product:id,name,parent_id', // REQUERIDO parent_id para herencia de componentes
                     'production.saleProduct.product.media',
+                    'production.saleProduct.product.components:id,name', // REQUERIDO
+                    'production.saleProduct.product.components.media', // REQUERIDO
+                    'production.saleProduct.product.parent.components:id,name', // REQUERIDO
+                    'production.saleProduct.product.parent.components.media', // REQUERIDO
                     'production.saleProduct.sale:id,branch_id,type,is_high_priority,promise_date',
                     'production.saleProduct.sale.branch:id,name',
                     'production.saleProduct.sale.saleProducts.product:id,name,measure_unit',
@@ -106,7 +111,6 @@ class ProductionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(15); 
                 
-                // return $myTasks;
             return Inertia::render('Production/Index', [
                 'viewType' => 'operator',
                 'tasks' => $myTasks,
@@ -225,8 +229,14 @@ class ProductionController extends Controller
             'user:id,name,profile_photo_path', // Usuario que creó la venta
 
             // Productos de la venta
-            'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
-            'saleProducts.product.media', 
+            'saleProducts.product:id,name,code,measure_unit,parent_id', // Asegúrate de traer 'parent_id'
+            'saleProducts.product.media',
+            'saleProducts.product.components.media', 
+            'saleProducts.product.parent.components.media', // <--- ESTO ES VITAL
+
+            // Productos de la venta
+            // 'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
+            // 'saleProducts.product.media', 
 
             // Producciones relacionadas a través de los productos de la venta
             'productions' => function ($query) {

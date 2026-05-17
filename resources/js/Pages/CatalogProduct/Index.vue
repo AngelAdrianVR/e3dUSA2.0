@@ -130,25 +130,42 @@
                                             </el-table-column>
                                             <el-table-column prop="code" label="Código" width="160" />
                                             <el-table-column prop="name" label="Nombre" />
-                                            <el-table-column align="right" width="120">
+                                            
+                                            <el-table-column align="right" width="160">
                                                 <template #default="scope">
                                                     <!-- Botón editar -->
-                                                    <!-- <el-button
-                                                        size="small"
-                                                        type="warning"
-                                                        circle
-                                                        @click.stop="handleCommand('show-' + scope.row.id)"
-                                                    >
-                                                        <i class="fas fa-eye"></i>
-                                                    </el-button> -->
-
                                                     <el-button
                                                         size="small"
                                                         type="primary"
                                                         circle
+                                                        title="Editar variante"
                                                         @click.stop="handleCommand('edit-' + scope.row.id)"
                                                     >
                                                         <i class="fas fa-edit"></i>
+                                                    </el-button>
+
+                                                    <!-- Botón obsoleto -->
+                                                    <el-button
+                                                        v-if="!scope.row.archived_at"
+                                                        size="small"
+                                                        type="warning"
+                                                        circle
+                                                        title="Marcar como obsoleto"
+                                                        @click.stop="handleCommand('obsolet-' + scope.row.id)"
+                                                    >
+                                                        <i class="fa-solid fa-box-archive"></i>
+                                                    </el-button>
+                                                    
+                                                    <!-- Botón reestablecer (En caso de que se listen los obsoletos) -->
+                                                    <el-button
+                                                        v-else
+                                                        size="small"
+                                                        type="success"
+                                                        circle
+                                                        title="Reestablecer variante"
+                                                        @click.stop="handleCommand('obsolet-' + scope.row.id)"
+                                                    >
+                                                        <i class="fa-solid fa-rotate-left"></i>
                                                     </el-button>
 
                                                     <!-- Botón eliminar -->
@@ -156,6 +173,7 @@
                                                         size="small"
                                                         type="danger"
                                                         circle
+                                                        title="Eliminar variante"
                                                         @click.stop="handleCommand('delete-' + scope.row.id)"
                                                     >
                                                         <i class="fas fa-trash"></i>

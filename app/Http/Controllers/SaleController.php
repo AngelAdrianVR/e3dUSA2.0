@@ -327,46 +327,43 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-            $sale->load([
+        $sale->load([
             'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
             
-            // AQUÍ ESTÁ EL CAMBIO: Agregamos ->with('user')
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->with('user')->orderBy('created_at', 'desc'); 
             },
             
+            // --- AQUÍ ESTÁN LOS CAMBIOS PARA EL STOCK COMPUESTO ---
+            'saleProducts.product.storages', // Almacenes del producto simple
+            'saleProducts.product.components.storages', // Almacenes de los componentes (si es padre compuesto)
+            'saleProducts.product.parent.components.storages', // Almacenes de los componentes (si es hijo/variante)
+            // -----------------------------------------------------
+
             'shipments',
             'contact:id,name',
             'contact.details',
-            // Cargar historial de cambios con sus relaciones necesarias
             'productExchanges.returnedProduct',
             'productExchanges.newProduct',
             'productExchanges.user',
             'productExchanges.media',
         ]);
 
-        // Listas necesarias para el formulario de cambio
-        $storages = Storage::select('id', 'location')->get();
+        $storages = \App\Models\Storage::select('id', 'location')->get();
         
-        // 2. CORRECCIÓN: Cargar SOLO los productos relacionados con el Cliente (Sucursal)
-        // Usamos join con la tabla pivote 'branch_product' que se menciona en el modelo Branch.
-        // Esto asegura que en el select del modal solo aparezcan productos que el cliente puede comprar/cambiar.
         $products = [];
         
         if ($sale->branch_id) {
-            // Obtenemos la sucursal completa para verificar si tiene matriz (padre)
             $branch = \App\Models\Branch::find($sale->branch_id);
             
-            // Si tiene padre, usamos la matriz como fuente de productos. Si no, usamos la sucursal misma.
             $productSourceBranch = $branch->parent_branch_id 
                 ? \App\Models\Branch::find($branch->parent_branch_id) 
                 : $branch;
 
-            // Obtenemos los productos desde la sucursal fuente correcta
             $products = $productSourceBranch->products()
                 ->where('is_sellable', true)
                 ->select('products.id', 'products.name', 'products.code')

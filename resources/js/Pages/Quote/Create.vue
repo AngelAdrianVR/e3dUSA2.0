@@ -315,62 +315,148 @@
                                 <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
                                 <!-- Tarjeta de producto seleccionado (Previsualización) -->
-                                <div class="flex items-start space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mb-2" v-else-if="currentProduct.id || currentProduct.is_custom">
-                                    <figure class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg bg-white dark:bg-slate-800 transition transform hover:shadow-xl">
-                                        <!-- Imagen de producto nuevo -->
-                                        <img v-if="currentProduct.is_custom && currentProduct.image_preview"
-                                            :src="currentProduct.image_preview" 
-                                            class="rounded-2xl w-full h-full object-cover transition duration-300 ease-in-out hover:opacity-95">
-                                        <!-- Imagen de producto de catalogo -->
-                                        <img v-else-if="!currentProduct.is_custom && currentProduct.media?.length"
-                                            :src="currentProduct.media[0]?.original_url" 
-                                            class="rounded-2xl w-full h-full object-cover transition duration-300 ease-in-out hover:opacity-95">
-                                        <!-- Placeholder -->
-                                        <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                            </svg>
-                                            <p class="text-xs">Sin imagen</p>
+                                <div class="p-4 bg-gray-100 dark:bg-slate-900/50 rounded-lg col-span-full mb-2 border border-gray-200 dark:border-slate-800" v-else-if="currentProduct.id || currentProduct.is_custom">
+                                    <div class="flex items-start space-x-4">
+                                        <figure class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg bg-white dark:bg-slate-800 transition transform hover:shadow-xl">
+                                            <!-- Imagen de producto nuevo -->
+                                            <img v-if="currentProduct.is_custom && currentProduct.image_preview"
+                                                :src="currentProduct.image_preview" 
+                                                class="rounded-2xl w-full h-full object-cover transition duration-300 ease-in-out hover:opacity-95">
+                                            <!-- Imagen de producto de catalogo -->
+                                            <img v-else-if="!currentProduct.is_custom && currentProduct.media?.length"
+                                                :src="currentProduct.media[0]?.original_url" 
+                                                class="rounded-2xl w-full h-full object-cover transition duration-300 ease-in-out hover:opacity-95">
+                                            <!-- Placeholder -->
+                                            <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                </svg>
+                                                <p class="text-xs">Sin imagen</p>
+                                            </div>
+                                        </figure>
+
+                                        <!-- informacion  -->
+                                        <div class="text-sm">
+                                            <template v-if="currentProduct.is_custom">
+                                                <span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-200 rounded-full mb-2 inline-block">Producto Nuevo</span>
+                                                <p class="text-gray-700 dark:text-gray-300">
+                                                    Nombre: <strong>{{ currentProduct.custom_name || 'Sin especificar' }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-400">
+                                                    Precio: <strong>${{ formatNumber(currentProduct.custom_cost) }}</strong>
+                                                </p>
+                                            </template>
+                                            <template v-else>
+                                                <!-- Etiqueta de producto de cliente -->
+                                                <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
+                                                    Producto de cliente
+                                                </span>
+                                                <p class="text-gray-500 dark:text-gray-300">
+                                                    Producto Seleccionado: <strong class="text-primary">{{ getProductName(currentProduct.id) }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300 flex items-center flex-wrap mt-1">
+                                                    Stock de p. terminado: &nbsp;
+                                                    <strong :class="{'text-red-600 flex items-center ml-1': (currentProduct.storages?.[0]?.quantity ?? 0) == 0}">
+                                                        <i v-if="(currentProduct.storages?.[0]?.quantity ?? 0) == 0" class="fa-solid fa-circle-exclamation mr-1 text-red-500 animate-pulse"></i>
+                                                        {{ currentProduct.storages?.[0]?.quantity ?? 0 }}
+                                                    </strong>
+                                                    &nbsp;unidades
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300">
+                                                    Ubicación: <strong>{{ currentProduct.storages?.[0]?.location ?? 'No asignado' }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300">
+                                                    Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                                                </p>
+                                                <!-- Precio actual del cliente -->
+                                                <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                                                    Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
+                                                </p>
+                                            </template>
                                         </div>
-                                    </figure>
-
-                                    <!-- informacion  -->
-                                    <div class="text-sm">
-                                        <template v-if="currentProduct.is_custom">
-                                            <span class="px-2 py-1 text-xs font-semibold text-blue-800 bg-blue-200 rounded-full mb-2 inline-block">Producto Nuevo</span>
-                                            <p class="text-gray-700 dark:text-gray-300">
-                                                Nombre: <strong>{{ currentProduct.custom_name || 'Sin especificar' }}</strong>
-                                            </p>
-                                            <p class="text-gray-500 dark:text-gray-400">
-                                                Precio: <strong>${{ formatNumber(currentProduct.custom_cost) }}</strong>
-                                            </p>
-                                        </template>
-                                        <template v-else>
-                                            <!-- Etiqueta de producto de cliente -->
-                                            <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
-                                                Producto de cliente
-                                            </span>
-                                            <p class="text-gray-500 dark:text-gray-300">
-                                                Producto Seleccionado: <strong class="text-primary">{{ getProductName(currentProduct.id) }}</strong>
-                                            </p>
-                                            <p class="text-gray-500 dark:text-gray-300">
-                                                Stock: <strong>{{ currentProduct.storages?.[0]?.quantity ?? 0 }}</strong> unidades
-                                            </p>
-                                            <p class="text-gray-500 dark:text-gray-300">
-                                                Ubicación: <strong>{{ currentProduct.storages?.[0]?.location ?? 'No asignado' }}</strong>
-                                            </p>
-                                            <p class="text-gray-500 dark:text-gray-300">
-                                                Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
-                                            </p>
-                                            <!-- Precio actual del cliente -->
-                                            <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
-                                                Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
-                                            </p>
-                                        </template>
                                     </div>
-                                </div>
 
-                                <div v-if="currentProduct.id || currentProduct.is_custom" class="col-span-full flex space-x-2 items-center">
+                                    <!-- ALERTA DE MATERIA PRIMA INSUFICIENTE -->
+                                    <div v-if="showStockWarning && !currentProduct.is_custom" class="col-span-full mt-4 animate-fade-in-down">
+                                        <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
+                                            <div class="flex">
+                                                <div class="flex-shrink-0">
+                                                    <i class="fa-solid fa-triangle-exclamation text-red-500 text-xl mt-0.5"></i>
+                                                </div>
+                                                <div class="ml-3">
+                                                    <h3 class="text-sm font-bold text-red-800 dark:text-red-400">
+                                                        Atención: Insuficiencia de Material
+                                                    </h3>
+                                                    <p class="text-sm text-red-700 dark:text-red-300 mt-1">
+                                                        Reportar falta de materia prima a la autoridad correspondiente.
+                                                    </p>
+                                                    <p class="text-xs text-red-600 dark:text-red-400 mt-1 opacity-90">
+                                                        Solicitado: <strong>{{ Number(currentProduct.quantity)?.toLocaleString() }}</strong> | 
+                                                        Disponible (Stock + Producción): <strong>{{ totalAvailableForOrder?.toLocaleString() }}</strong> | 
+                                                        Faltante: <strong>{{ Number(currentProduct.quantity - totalAvailableForOrder)?.toLocaleString() }}</strong>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- --- SECCIÓN DE COMPONENTES --- -->
+                                    <div v-if="currentProduct.components?.length && !currentProduct.is_custom" class="mt-4 pt-4 border-t border-gray-300 dark:border-slate-800">
+                                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 gap-2">
+                                            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Componentes para Producción</h4>
+                                            
+                                            <!-- INDICADOR DE CAPACIDAD DE PRODUCCIÓN -->
+                                            <div class="text-xs px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-700 shadow-sm flex items-center">
+                                                <i class="fa-solid fa-boxes-stacked mr-2"></i>
+                                                <span>
+                                                    Capacidad Máxima de Producción: 
+                                                    <strong class="text-sm ml-1">{{ formatNumber(maxProducibleQuantity) }}</strong> sets
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <ul class="space-y-2">
+                                            <li v-for="component in currentProduct.components" :key="component.id" class="flex items-center justify-between text-sm p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
+                                                <div class="flex items-center space-x-3">
+                                                    <figure 
+                                                        class="relative flex items-center justify-center size-12 min-w-12 rounded-lg border border-gray-200 dark:border-slate-900 overflow-hidden shadow-sm bg-gray-50 dark:bg-slate-700">
+                                                        <img v-if="component.media?.length"
+                                                            :src="component.media[0]?.original_url" 
+                                                            alt="Imagen del componente" 
+                                                            class="rounded-lg w-full h-full object-cover"
+                                                        >
+                                                        <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
+                                                            <i class="fa-solid fa-image"></i>
+                                                        </div>
+                                                    </figure>
+                                                    <div>
+                                                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ component.name }}</p>
+                                                        <p class="text-xs text-gray-500 dark:text-gray-400">Requerido: {{ component.pivot.quantity }} {{ component.measure_unit }}</p>
+                                                        <!-- INDICADOR DE STOCK MINIMO DE CADA COMPONENTE -->
+                                                        <p class="text-[11px] text-gray-400 mt-0.5">Stock Mínimo: {{ component.min_quantity?.toLocaleString() ?? 0 }} {{ component.measure_unit }}</p>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-3 text-right">
+                                                    <!-- Icono de advertencia para stock bajo -->
+                                                    <div v-if="(component.storages[0]?.quantity ?? 0) < component.min_quantity" class="text-yellow-500" title="El stock está por debajo del mínimo requerido">
+                                                        <i class="fa-solid fa-circle-exclamation text-lg"></i>
+                                                    </div>
+                                                    <!-- Información de stock con colores condicionales -->
+                                                    <span class="font-bold text-base" :class="{
+                                                        'text-red-500': (component.storages[0]?.quantity ?? 0) == 0,
+                                                        'text-yellow-500': (component.storages[0]?.quantity ?? 0) > 0 && (component.storages[0]?.quantity ?? 0) < component.min_quantity,
+                                                        'text-green-500 dark:text-green-400': (component.storages[0]?.quantity ?? 0) >= component.min_quantity
+                                                    }">
+                                                        {{ formatNumber(component.storages[0]?.quantity) ?? 0 }}
+                                                        <span class="font-normal text-xs text-gray-500 dark:text-gray-400">en stock</span>
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div> <!-- END OF PREVIEW CARD -->
+
+                                <div v-if="currentProduct.id || currentProduct.is_custom" class="col-span-full flex space-x-2 items-center mt-2">
                                     <InputLabel value="¿Mostrar imagen en cotización?" />
                                     <el-switch v-model="currentProduct.show_image" inline-prompt size="large"
                                         style="--el-switch-on-color: #0355B5; --el-switch-off-color: #CCCCCC" active-text="Si"
@@ -695,6 +781,7 @@ export default {
                 media: null,
                 storages: [],
                 base_price: null,
+                components: [], // Para guardar y mostrar los componentes
             },
 
             mesureUnits: [
@@ -779,6 +866,27 @@ export default {
                 language: 'es_MX',
                 setup: (editor) => { editor.on('init', () => { this.syncEditorTheme(); }); }
             };
+        },
+        // --- CALCULO DE STOCK PARA FABRICACION (TRAÍDO DE SALE PRODUCT MANAGER) ---
+        maxProducibleQuantity() {
+            if (!this.currentProduct.components?.length) return 0;
+            
+            const limits = this.currentProduct.components.map(component => {
+                const stock = Number(component.storages?.[0]?.quantity || 0);
+                const required = Number(component.pivot?.quantity || 1);
+                if (required === 0) return Infinity;
+                return Math.floor(stock / required);
+            });
+
+            return Math.min(...limits);
+        },
+        totalAvailableForOrder() {
+             const finishedStock = Number(this.currentProduct.storages?.[0]?.quantity || 0);
+             return finishedStock + this.maxProducibleQuantity;
+        },
+        showStockWarning() {
+             if (!this.currentProduct.id || this.currentProduct.quantity <= 0) return false;
+             return this.currentProduct.quantity > this.totalAvailableForOrder;
         }
     },
     methods: {
@@ -929,6 +1037,7 @@ export default {
                 has_customization: false,
                 base_price: null,
                 show_image: true,
+                components: [], // Restaurar arreglo
             };
             this.selectedBaseProductId = null;
             this.selectedVariantId = null;
@@ -978,6 +1087,20 @@ export default {
                     this.currentProduct.storages = productData.storages;
                     this.currentProduct.base_price = productData.base_price;
                     this.currentProduct.unit_price = productData.base_price;
+                    this.currentProduct.min_quantity = productData.min_quantity;
+                    this.currentProduct.max_quantity = productData.max_quantity;
+
+                    // LÓGICA DE HERENCIA DE COMPONENTES DE PADRE A VARIANTE
+                    let components = productData.components || [];
+                    if (components.length === 0 && this.selectedBaseProductId && this.selectedBaseProductId !== this.currentProduct.id) {
+                        try {
+                            const parentResponse = await axios.get(route('products.get-media', this.selectedBaseProductId));
+                            components = parentResponse.data.product.components || [];
+                        } catch(e) {
+                            console.error("No se pudieron cargar los componentes del padre.");
+                        }
+                    }
+                    this.currentProduct.components = components;
 
                     const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
                     if (clientProduct) {

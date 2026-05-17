@@ -66,20 +66,23 @@ class BillingDashboardController extends Controller
             $query->where('billing_status', $request->billing_status);
         }
 
-        // Filtro: Búsqueda (ID, RFC, Nombre de Sucursal)
+        // Filtro: Búsqueda (ID, RFC, Nombre de Sucursal, Razon Social)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 // Buscar por ID de OV
                 $q->where('id', 'like', "%{$search}%")
-                  // O buscar dentro de la sucursal
+                  // O buscar dentro de la sucursal (Nombre, RFC o Razón Social)
                   ->orWhereHas('branch', function ($qBranch) use ($search) {
                       $qBranch->where('name', 'like', "%{$search}%")
-                              ->orWhere('rfc', 'like', "%{$search}%");
+                              ->orWhere('rfc', 'like', "%{$search}%")
+                              ->orWhere('business_name', 'like', "%{$search}%");
                   })
-                  // O buscar dentro de la sucursal padre (razón social)
+                  // O buscar dentro de la sucursal matriz (Nombre, RFC o Razón Social)
                   ->orWhereHas('branch.parent', function ($qParent) use ($search) {
-                      $qParent->where('name', 'like', "%{$search}%");
+                      $qParent->where('name', 'like', "%{$search}%")
+                              ->orWhere('rfc', 'like', "%{$search}%")
+                              ->orWhere('business_name', 'like', "%{$search}%");
                   });
             });
         }
