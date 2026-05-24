@@ -12,7 +12,7 @@
         </div>
 
         <div class="py-7">
-            <div class="max-w-[87rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[92rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="lg:flex justify-between items-center mb-6 space-y-4 lg:space-y-0">
                         <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"
@@ -130,16 +130,42 @@
                                             </el-table-column>
                                             <el-table-column prop="code" label="Código" width="160" />
                                             <el-table-column prop="name" label="Nombre" />
-                                            <el-table-column align="right" width="120">
+                                            
+                                            <el-table-column align="right" width="160">
                                                 <template #default="scope">
                                                     <!-- Botón editar -->
                                                     <el-button
                                                         size="small"
                                                         type="primary"
                                                         circle
+                                                        title="Editar variante"
                                                         @click.stop="handleCommand('edit-' + scope.row.id)"
                                                     >
                                                         <i class="fas fa-edit"></i>
+                                                    </el-button>
+
+                                                    <!-- Botón obsoleto -->
+                                                    <el-button
+                                                        v-if="!scope.row.archived_at"
+                                                        size="small"
+                                                        type="warning"
+                                                        circle
+                                                        title="Marcar como obsoleto"
+                                                        @click.stop="handleCommand('obsolet-' + scope.row.id)"
+                                                    >
+                                                        <i class="fa-solid fa-box-archive"></i>
+                                                    </el-button>
+                                                    
+                                                    <!-- Botón reestablecer (En caso de que se listen los obsoletos) -->
+                                                    <el-button
+                                                        v-else
+                                                        size="small"
+                                                        type="success"
+                                                        circle
+                                                        title="Reestablecer variante"
+                                                        @click.stop="handleCommand('obsolet-' + scope.row.id)"
+                                                    >
+                                                        <i class="fa-solid fa-rotate-left"></i>
                                                     </el-button>
 
                                                     <!-- Botón eliminar -->
@@ -147,6 +173,7 @@
                                                         size="small"
                                                         type="danger"
                                                         circle
+                                                        title="Eliminar variante"
                                                         @click.stop="handleCommand('delete-' + scope.row.id)"
                                                     >
                                                         <i class="fas fa-trash"></i>
@@ -172,7 +199,12 @@
                             
                             <el-table-column prop="code" label="Código" width="150" />
                             <el-table-column prop="name" label="Nombre" min-width="200" show-overflow-tooltip />
-                            <el-table-column prop="brand.name" label="Marca" width="110" show-overflow-tooltip />
+                            <!-- <el-table-column prop="brand.name" label="Marca" width="110" show-overflow-tooltip /> -->
+                            <el-table-column label="Ubicación" width="120" align="center">
+                                <template #default="scope">
+                                    <p>{{ scope.row.storages[0].location }}</p>
+                                </template>
+                            </el-table-column>
                             
                             <!-- Banderas de Propiedades -->
                             <el-table-column label="Venta" width="75" align="center">

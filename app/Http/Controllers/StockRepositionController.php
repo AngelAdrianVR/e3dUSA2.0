@@ -18,7 +18,7 @@ class StockRepositionController extends Controller
         // 1. Obtener productos candidatos (con filtro de búsqueda si existe)
         $candidates = Product::with(['storages', 'media', 'suppliers'])
             ->where(function ($query) {
-                $query->where('product_type', 'Materia prima')
+                $query->where('product_type', 'Producto')
                       ->orWhere(function ($q) {
                           $q->where('product_type', 'Catálogo')
                             ->where('is_purchasable', true);

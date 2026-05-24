@@ -37,7 +37,7 @@
                                     </div>
                                 </template>
                                 <span class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200">
-                                    {{ sale.contact?.name ?? 'N/A' }}
+                                    {{ sale.contact.prefix }} {{ sale.contact?.name ?? 'N/A' }}
                                 </span>
                             </el-tooltip>
                             <span v-else class="text-gray-400 italic">N/A</span>

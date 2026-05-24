@@ -34,18 +34,13 @@ class StockReposition extends Command
         // 1. Obtener productos candidatos:
         // - Que no estén obsoletos (archived_at es null)
         // - Que su stock mínimo sea mayor a 0 (Ignora los que tienen 0)
-        // - Tipo "Materia prima"
-        // - O Tipo "Catálogo" y is_purchasable = true
+        // - Que se puedan comprar (is_purchasable = true)
+        // - Que sean productos padre (parent_id is null)
         $candidates = Product::with('storages')
-            ->whereNull('archived_at')      // <-- Filtro para ignorar productos obsoletos
-            ->where('min_quantity', '>', 0) // <-- Filtro agregado previamente
-            ->where(function ($query) {
-                $query->where('product_type', 'Materia prima')
-                      ->orWhere(function ($q) {
-                          $q->where('product_type', 'Catálogo')
-                            ->where('is_purchasable', true);
-                      });
-            })
+            ->whereNull('archived_at')      
+            ->where('min_quantity', '>', 0) 
+            ->where('is_purchasable', true) // <-- Solo productos comprables
+            ->whereNull('parent_id')        // <-- Solo productos padre
             ->get();
 
         // 2. Filtrar aquellos cuyo stock total sea menor o igual al mínimo
@@ -54,7 +49,6 @@ class StockReposition extends Command
             $currentStock = $product->storages->sum('quantity');
             
             // Comparamos contra el mínimo establecido en el producto.
-            // Se actualizó a "<=" basándonos en la descripción del comentario.
             return $currentStock <= $product->min_quantity;
         });
 
@@ -67,8 +61,17 @@ class StockReposition extends Command
         $count = $lowStockProducts->count();
         Log::info("Se encontraron {$count} productos con bajo stock.");
 
-        // 3. Obtener los usuarios a notificar por ROL
-        // Roles solicitados: Super Administrador, Almacenista, Asistente de director, Samuel, Compras.
+        // =========================================================
+        // 3. Obtener los usuarios a notificar
+        // =========================================================
+
+        // ---> MODO PRUEBAS <---
+        // (Descomenta esto para pruebas y asegúrate de que el bloque de Producción esté comentado)
+        // $usersToNotify = User::where('email', 'angelvazquez470@gmail.com')->get();
+
+        // ---> MODO PRODUCCIÓN <---
+        // (Descomenta este bloque en producción y comenta el de pruebas)
+        
         $targetRoles = [
             'Super Administrador',
             'Almacenista',
@@ -84,6 +87,8 @@ class StockReposition extends Command
                 $query->whereIn('name', $targetRoles);
             })
             ->get();
+      
+        // =========================================================
 
         // 4. Enviar notificaciones
         if ($usersToNotify->isNotEmpty()) {
@@ -93,14 +98,14 @@ class StockReposition extends Command
                 try {
                     $user->notify($notification);
                     // Logueamos a quién se envió para tener trazabilidad
-                    $this->info("Notificación enviada a: {$user->name}");
+                    $this->info("Notificación enviada a: {$user->name} ({$user->email})");
                 } catch (\Exception $e) {
                     Log::error("Error enviando notificación a {$user->name}: " . $e->getMessage());
                 }
             }
         } else {
-            Log::warning('Hay productos con bajo stock, pero no se encontraron usuarios con los roles requeridos para notificar.');
-            $this->warn('No se encontraron usuarios con los roles especificados.');
+            Log::warning('Hay productos con bajo stock, pero no se encontraron usuarios requeridos para notificar (o el correo de prueba no existe como User).');
+            $this->warn('No se encontraron usuarios para notificar.');
         }
 
         Log::info('Comando app:stock-reposition finalizado exitosamente.');

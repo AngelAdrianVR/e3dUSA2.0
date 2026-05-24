@@ -28,13 +28,88 @@ class BranchController extends Controller
         ]);
     }
 
+    // --- MÉTODO PARA EL REPORTE ---
+    public function report()
+    {
+        // Consultamos todas las matrices y sus hijas sin paginación para el reporte completo
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc') // Orden alfabético para el reporte
+            ->get();
+
+        return Inertia::render('Branch/Report', [
+            'matrices' => $matrices,
+        ]);
+    }
+
+    // --- MÉTODO PARA EXPORTAR A EXCEL (CSV) ---
+    public function export()
+    {
+        $fileName = 'Directorio_Clientes_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['ID', 'Nombre', 'RFC', 'Direccion', 'Razon Social', 'Vendedor Asignado', 'Tipo (Matriz/Sucursal)'];
+
+        $callback = function() use($matrices, $columns) {
+            $file = fopen('php://output', 'w');
+            
+            // Agregar BOM para que Excel lea correctamente los caracteres especiales (UTF-8, Acentos, etc.)
+            fputs($file, $bom =(chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            
+            // Escribir cabeceras
+            fputcsv($file, $columns);
+
+            foreach ($matrices as $matriz) {
+                // Escribir fila de la matriz
+                fputcsv($file, [
+                    $matriz->id,
+                    $matriz->name,
+                    $matriz->rfc,
+                    $matriz->address,
+                    $matriz->business_name,
+                    $matriz->accountManager->name ?? 'No asignado',
+                    'Matriz'
+                ]);
+
+                foreach ($matriz->children as $hija) {
+                    // Escribir fila de la hija
+                    fputcsv($file, [
+                        $hija->id,
+                        '   -> ' . $hija->name, // Se indenta el nombre para fácil lectura
+                        $hija->rfc,
+                        $hija->address,
+                        $hija->business_name,
+                        $hija->accountManager->name ?? 'No asignado',
+                        'Sucursal'
+                    ]);
+                }
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function create()
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
     }
 
@@ -42,11 +117,11 @@ class BranchController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches',
-            'rfc' => 'nullable|string|max:20',
+            'rfc' => 'required_without:parent_branch_id|nullable|string|min:10|max:20',
             
             // Nuevas columnas validadas
             'group_name' => 'nullable|string|max:255',
-            'business_name' => 'nullable|string|max:255',
+            'business_name' => 'required_without:parent_branch_id|nullable|string|min:3|max:255',
             'bank_account' => 'nullable|string|max:255',
             'client_number' => 'nullable|string|max:255',
 
@@ -65,6 +140,7 @@ class BranchController extends Controller
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
+            'contacts.*.prefix' => 'nullable|string|max:50',
 
             // Validación para productos asignados
             'products' => 'nullable|array',
@@ -110,6 +186,7 @@ class BranchController extends Controller
                     }
 
                     $contact = $branch->contacts()->create([
+                        'prefix' => $contactData['prefix'] ?? 'Ing.', // Toma el valor o por defecto Ing.
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
@@ -183,6 +260,7 @@ class BranchController extends Controller
 
         // Cargamos los productos desde la sucursal matriz
         $products = $productSourceBranch->products()->with([
+            'parent:id,name', // <--- NUEVO: Cargar producto padre para identificar si es variante
             'storages',
             'media',
             // El historial de precios también se consulta con el ID de la matriz
@@ -204,7 +282,7 @@ class BranchController extends Controller
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'consumptionData' => $consumptionData, 
         ]);
     }
@@ -338,6 +416,7 @@ class BranchController extends Controller
             
             return [
                 'id' => $contact->id,
+                'prefix' => $contact->prefix,
                 'name' => $contact->name,
                 'charge' => $contact->charge,
                 'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
@@ -368,8 +447,8 @@ class BranchController extends Controller
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
-            'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
         ]);
     }
@@ -383,11 +462,11 @@ class BranchController extends Controller
                 'max:255',
                 Rule::unique('branches', 'name')->ignore($branch->id),
             ],
-            'rfc' => 'nullable|string|max:20',
+            'rfc' => 'required_without:parent_branch_id|nullable|string|min:10|max:20',
             
             // Nuevas columnas también agregadas al update por seguridad y consistencia
             'group_name' => 'nullable|string|max:255',
-            'business_name' => 'nullable|string|max:255',
+            'business_name' => 'required_without:parent_branch_id|nullable|string|min:3|max:255',
             'bank_account' => 'nullable|string|max:255',
             'client_number' => 'nullable|string|max:255',
 
@@ -407,6 +486,7 @@ class BranchController extends Controller
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
+            'contacts.*.prefix' => 'nullable|string|max:50',
 
             // Validación para productos asignados
             'products' => 'nullable|array',
@@ -436,6 +516,7 @@ class BranchController extends Controller
                 $contact = $branch->contacts()->updateOrCreate(
                     ['id' => $contactData['id'] ?? null],
                     [
+                        'prefix' => $contactData['prefix'] ?? 'Ing.', // <--- NUEVO
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
@@ -497,6 +578,10 @@ class BranchController extends Controller
             // 4. Sincronizar productos sugeridos (se mantiene individual)
             $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
         });
+
+        if ($request->has('redirect_to')) {
+            return to_route($request->query('redirect_to'));
+        }
 
         return to_route('branches.show', $branch->id);
     }
@@ -733,5 +818,38 @@ class BranchController extends Controller
     {
         // Si la sucursal tiene un padre, esa es la matriz. De lo contrario, es ella misma.
         return $branch->parent_branch_id ? $branch->parent : $branch;
+    }
+
+    // === AGREGAR ESTE NUEVO MÉTODO AL FINAL DE TU CONTROLADOR ===
+    public function checkSaleValidity(Branch $branch)
+    {
+        // Cargamos la matriz (si existe) y los contactos
+        $branch->load(['parent', 'contacts']);
+        
+        // Determinamos quién es el que debe tener los datos fiscales (el padre si es hija, o ella misma si es matriz)
+        $target = $branch->parent_branch_id ? $branch->parent : $branch;
+
+        $missingData = [];
+
+        if (empty($target->rfc)) {
+            $missingData[] = 'RFC';
+        }
+        
+        if (empty($target->business_name)) {
+            $missingData[] = 'Razón Social';
+        }
+
+        if ($branch->contacts->isEmpty()) {
+            $missingData[] = 'Al menos un contacto';
+        }
+
+        if (count($missingData) > 0) {
+            return response()->json([
+                'valid' => false,
+                'message' => implode(', ', $missingData)
+            ]);
+        }
+
+        return response()->json(['valid' => true]);
     }
 }

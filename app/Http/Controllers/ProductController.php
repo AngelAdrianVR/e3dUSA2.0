@@ -29,22 +29,29 @@ class ProductController extends Controller
         $familyId = $request->input('family_id');
         $searchTerm = $request->input('search');
 
-        // Iniciar la consulta base para el index - Solo obtenemos padres, incluyendo sus variantes.
+        // Iniciar la consulta base para el index (sin baseProducts() todavía)
         $query = Product::query()
-            ->baseProducts() // Scope para productos 'padres' (parent_id == null)
             ->with([
-                'variants.media', 
-                'variants.storages', 
-                'variants.brand', 
                 'storages:id,storable_id,storable_type,quantity,location', 
                 'brand:id,name', 
                 'media'
             ]);
 
         if ($productType === 'Obsoleto') {
-            $query->obsolete(); 
+            // NO usamos baseProducts() para incluir variantes que fueron marcadas como obsoletas de forma individual.
+            $query->obsolete()
+                  ->with(['variants' => function ($q) {
+                      $q->with(['media', 'storages', 'brand']);
+                  }]); 
         } else {
-            $query->active()->ofType($productType); 
+            // Usamos baseProducts() para listar solo los padres en la tabla principal,
+            // y en la relación 'variants' aplicamos active() para que NO devuelva las variantes obsoletas.
+            $query->baseProducts()
+                  ->active()
+                  ->ofType($productType)
+                  ->with(['variants' => function ($q) {
+                      $q->active()->with(['media', 'storages', 'brand']);
+                  }]); 
         }
 
         if ($familyId) {
@@ -267,8 +274,17 @@ class ProductController extends Controller
         return to_route('catalog-products.index')->with('success', 'Producto creado con éxito.');
     }
 
-    public function show(Product $catalog_product): Response
+    public function show(Product $catalog_product)
     {
+        // Si el producto es una variante (tiene un parent_id),
+        // redirigir a la vista del padre pasando el id de la variante en la URL.
+        if ($catalog_product->parent_id) {
+            return redirect()->route('catalog-products.show', [
+                'catalog_product' => $catalog_product->parent_id,
+                'variant_id' => $catalog_product->id
+            ]);
+        }
+
         // Se agregaron 'variants.media' y 'components.storages'
         $catalog_product->load([
             'media',
@@ -278,10 +294,10 @@ class ProductController extends Controller
                 $query->latest()->limit(100); 
             },
             'components.media',
-            'components.storages', // <--- Agregado para ver el stock de los componentes
+            'components.storages', 
             'productionCosts',
             'priceHistory.branch',
-            'variants.media', // <--- Agregado para listar las variantes y sus fotos
+            'variants.media', 
         ]);
 
         return Inertia::render('CatalogProduct/Show', [
@@ -644,6 +660,7 @@ class ProductController extends Controller
 
         if ( $type === 'Todos' ) {
             $products = Product::query()
+                ->whereNull('parent_id') // Solo productos "padre"
                 ->whereNull('archived_at') // Corrección: Ocultar obsoletos
                 ->select('id', 'name')
                 ->orderBy('name')

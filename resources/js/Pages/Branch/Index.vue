@@ -8,15 +8,36 @@
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <!-- Botón para crear nuevo cliente -->
-                        <Link v-if="$page.props.auth.user.permissions.includes('Crear clientes')"
-                            :href="route('branches.create')">
-                            <SecondaryButton>
-                                <i class="fa-solid fa-plus mr-2"></i>
-                                Nuevo Cliente
-                            </SecondaryButton>
-                        </Link>
+                        
+                        <!-- BOTONES IZQUIERDA -->
+                        <div class="flex items-center space-x-3">
+                            <!-- Botón para crear nuevo cliente -->
+                            <Link v-if="$page.props.auth.user.permissions.includes('Crear clientes')"
+                                :href="route('branches.create')">
+                                <SecondaryButton>
+                                    <i class="fa-solid fa-plus mr-2"></i>
+                                    Nuevo Cliente
+                                </SecondaryButton>
+                            </Link>
+    
+                            <!-- Botón para Generar Reporte PDF -->
+                            <a :href="route('branches.report')" target="_blank">
+                                <el-button type="primary" plain>
+                                    <i class="fa-solid fa-file-pdf mr-2"></i>
+                                    Reporte PDF
+                                </el-button>
+                            </a>
 
+                            <!-- NUEVO: Botón para Exportar a Excel -->
+                            <a :href="route('branches.export')">
+                                <el-button type="success" plain>
+                                    <i class="fa-solid fa-file-excel mr-2"></i>
+                                    Exportar Excel
+                                </el-button>
+                            </a>
+                        </div>
+
+                        <!-- BOTONES DERECHA -->
                         <div class="flex items-center space-x-2">
                              <!-- Botón para eliminar seleccionados -->
                             <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar clientes')"

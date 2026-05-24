@@ -14,8 +14,27 @@
             <!-- Estado de carga de productos del cliente -->
             <LoadingIsoLogo class="col-span-full" v-if="loading" />
 
-            <!-- Lista de productos -->
             <div v-else class="space-y-4">
+                <!-- AVISO DE VARIANTES HUÉRFANAS -->
+                <div v-if="orphanedVariants.length > 0" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-900/20 dark:border-amber-700">
+                    <div class="flex items-start">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-1 mr-2"></i>
+                        <div>
+                            <p class="text-sm text-amber-700 dark:text-amber-400 font-semibold">Se encontraron variantes sin su producto base asignado.</p>
+                            <p class="text-xs text-amber-600 dark:text-amber-500 mb-2">Para mantener el sistema libre de errores, se recomienda asignarles su producto padre dando clic abajo:</p>
+                            <ul class="text-xs space-y-1">
+                                <li v-for="variant in orphanedVariants" :key="variant.id" class="flex items-center justify-between border-b border-amber-200 dark:border-amber-800/50 pb-1">
+                                    <span>Variante: <strong>{{ variant.name }}</strong></span>
+                                    <button @click="fixOrphanedVariant(variant)" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-semibold transition">
+                                        <i class="fa-solid fa-link mr-1"></i> Asignar padre
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de productos -->
                 <div 
                     v-for="product in clientProducts" 
                     :key="product.id" 
@@ -50,7 +69,8 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                             Código: {{ product.code }}
                             </p>
-                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
+                            <el-tag v-if="product.parent_id" type="info" size="small" class="mt-1">Variante</el-tag>
+                            <el-tag v-if="product.archived_at" type="warning" size="small" class="mt-1 ml-1">Obsoleto</el-tag>
                         </div>
                     </div>
 
@@ -115,7 +135,7 @@
                     <p class="text-sm text-gray-600 dark:text-gray-500 italic mt-3" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
                 </div>
                 
-                <!-- BOTÓN MODIFICADO CON ESTADO DE CARGA -->
+                <!-- BOTÓN PARA AGREGAR PRODUCTOS -->
                 <div @click="openAddProductsModal"
                     class="border-2 border-dashed border-gray-400 dark:border-gray-600 h-40 rounded-2xl flex items-center justify-center 
                             cursor-pointer group transition transform duration-300 ease-in-out"
@@ -127,7 +147,7 @@
                         <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        {{ loadingAddModal ? 'Preparando...' : 'Agregar producto al cliente' }}
+                        {{ loadingAddModal ? 'Preparando...' : 'Agregar producto base al cliente' }}
                     </span>
                 </div>
             </div>
@@ -137,23 +157,23 @@
     <!-- ESTADO DE CARGA PANTALLA COMPLETA CON BLUR (Bloquea clicks) -->
     <div v-if="loadingAddModal" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-500/30 dark:bg-gray-900/50 backdrop-blur-sm">
         <LoadingIsoLogo />
-        <span class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4">Preparando catálogo de productos...</span>
+        <span class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4">Procesando solicitud...</span>
     </div>
 
     <!-- ===== MODAL PARA AGREGAR PRODUCTOS ===== -->
     <DialogModal :show="showAddProductsModal" @close="showAddProductsModal = false">
         <template #title>
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos a {{ branches?.find(b => b.id == branchId)?.name }}
+                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos Base a {{ branches?.find(b => b.id == branchId)?.name }}
             </h2>
         </template>
         <template #content>
             <form @submit.prevent="saveProducts" class="min-h-96">
                 <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                    <!-- MODIFICADO: Sistema de grid a 12 columnas para integrar la moneda -->
+                    <!-- Solo mostramos los productos padres -->
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-x-5 gap-y-4 items-end">
                         <div class="md:col-span-5">
-                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto base*</label>
                             <el-select @change="getProductMedia" :teleported="false" v-model="currentCatalogProduct.product_id" placeholder="Selecciona un producto" class="!w-full mt-1" filterable>
                                 <el-option v-for="item in availableProducts" 
                                     :key="item.id" 
@@ -163,7 +183,6 @@
                                 />
                             </el-select>
                         </div>
-                        <!-- NUEVO: Selector de Moneda -->
                         <div class="md:col-span-3">
                             <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Moneda*</label>
                             <el-select v-model="currentCatalogProduct.currency" :teleported="false" class="!w-full mt-1" placeholder="Moneda">
@@ -181,7 +200,7 @@
                         <p class="text-gray-500">Cargando imagen...</p>
                     </div>
                     <div v-else-if="currentCatalogProduct.media" class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mt-4">
-                        <figure class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg">
+                        <figure class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg bg-white dark:bg-slate-800">
                             <img v-if="currentCatalogProduct.media?.length" :src="currentCatalogProduct.media[0]?.original_url" alt="Imagen del producto" class="rounded-2xl w-full h-auto object-cover">
                             <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-2 text-center">
                                 <i class="fa-solid fa-image text-3xl"></i>
@@ -352,7 +371,7 @@ export default {
         return {
             newBranchProductForm,
             loading: false,
-            loadingAddModal: false, // <-- NUEVO: Estado de carga para evitar doble clic
+            loadingAddModal: false, 
             clientProducts: [],
             drawerSize: "35%", 
             showAddProductsModal: false,
@@ -371,7 +390,6 @@ export default {
                 min_allowed_price: 0,
             },
             
-            // MODIFICADO: Agregada moneda por defecto
             currentCatalogProduct: {
                 product_id: null,
                 price: null,
@@ -385,36 +403,67 @@ export default {
         };
     },
     computed: {
-        // NUEVO: Permiso "Cambiar precio especial"
         canBypassPriceRule() {
             return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
         },
-        // MODIFICADO
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             if (this.canBypassPriceRule) return false;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
         },
-
         availableProducts() {
             const assignedProductIds = this.clientProducts.map(p => p.id);
-            return this.catalog_products?.filter(p => !assignedProductIds.includes(p.id));
+            // RESTRICCIÓN: Mostrar en el seleccionador ÚNICAMENTE productos padre (que no tengan parent_id)
+            return this.catalog_products?.filter(p => !assignedProductIds.includes(p.id) && !p.parent_id);
+        },
+        orphanedVariants() {
+            // Encuentra los productos del cliente que son variantes de un padre, 
+            // pero el cliente NO tiene asignado a dicho padre.
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+            const orphans = [];
+            
+            for (const cp of this.clientProducts) {
+                const baseProduct = this.catalog_products?.find(parent => parent.variants?.some(v => v.id === cp.id));
+                if (baseProduct && !clientProductIds.has(baseProduct.id)) {
+                    orphans.push({
+                        ...cp,
+                        parent_name: baseProduct.name,
+                        parent_id: baseProduct.id
+                    });
+                }
+            }
+            return orphans;
         }
     },
     methods: {
-        // <-- NUEVO: Método para mostrar carga e invocar al modal asíncronamente
         openAddProductsModal() {
-            if (this.loadingAddModal) return; // Evita clics múltiples
+            if (this.loadingAddModal) return; 
             this.loadingAddModal = true;
             
-            // Usamos setTimeout para ceder el hilo al navegador para que pinte el overlay
-            // antes de empezar el costoso proceso de renderizar el el-select de los productos.
             setTimeout(() => {
                 this.showAddProductsModal = true;
                 this.loadingAddModal = false;
             }, 100);
         },
-
+        async fixOrphanedVariant(variant) {
+            try {
+                this.loadingAddModal = true;
+                const payload = {
+                    products: [{ 
+                        product_id: variant.parent_id, 
+                        price: variant.price_history?.[0]?.price || variant.base_price, // Mantener su precio como base
+                        currency: variant.price_history?.[0]?.currency || 'MXN'
+                    }]
+                };
+                await axios.post(route('branches.add-products', this.branchId), payload);
+                ElMessage.success(`Producto base "${variant.parent_name}" asignado correctamente.`);
+                await this.fetchClientProducts();
+            } catch (error) {
+                ElMessage.error('Error al intentar asignar el producto base.');
+            } finally {
+                this.loadingAddModal = false;
+            }
+        },
         async fetchClientProducts() {
             if (!this.branchId) return;
             this.loading = true;
@@ -512,7 +561,7 @@ export default {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
-                    this.fetchClientProducts(this.branchId);
+                    this.fetchClientProducts();
                 }
             } catch (error) {
                 console.error("Error al finalizar el precio:", error);
@@ -538,7 +587,7 @@ export default {
                 if (response.status === 200) {
                     ElMessage.success('Precio actualizado correctamente.');
                     this.showPriceModal = false;
-                    this.fetchClientProducts(this.branchId);
+                    this.fetchClientProducts();
                 }
             } catch (error) {
                 console.error("Error al actualizar el precio:", error);
@@ -553,7 +602,7 @@ export default {
                     ElMessage.success('Productos asignados correctamente.');
                     this.showAddProductsModal = false;
                     this.newBranchProductForm.reset();
-                    this.fetchClientProducts(this.branchId);
+                    this.fetchClientProducts();
                 },
                 onError: () => {
                      ElMessage.error('Ocurrió un error al asignar los productos.');
@@ -575,7 +624,6 @@ export default {
         removeBranchProduct(index) {
             this.newBranchProductForm.products.splice(index, 1);
         },
-        // MODIFICADO
         resetCurrentBranchProduct() {
             this.currentCatalogProduct = {
                 product_id: null,
@@ -610,7 +658,7 @@ export default {
             } catch (error) {
                 console.error("Error al cargar detalles del producto:", error);
                 ElMessage.error('No se pudo cargar la información del producto.');
-                this.resetCurrentBranchProduct(); // Cambiado a su nombre correcto
+                this.resetCurrentBranchProduct(); 
             } finally {
                 this.loadingCatalogProductMedia = false;
             }

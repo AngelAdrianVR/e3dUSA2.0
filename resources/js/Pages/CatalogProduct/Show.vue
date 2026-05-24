@@ -74,10 +74,10 @@
             </header>
 
             <!-- Contenido Principal del Producto -->
-            <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+            <main class="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6" v-if="!product.parent_id">
                 <!-- Columna Izquierda: Galería de Imágenes y Variantes -->
                 <section>
-                    <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-lg">
+                    <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-lg relative">
                         <div class="w-full h-80 bg-gray-100 dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
                             <img v-if="mainDisplayedImage" :src="mainDisplayedImage" :alt="product.name" @error="handleImageError" class="w-full h-full object-contain transition-opacity duration-300">
                             <div class="flex flex-col items-center justify-end" v-else>
@@ -103,6 +103,22 @@
                             <i class="fa-solid fa-layer-group text-gray-400 mr-2"></i> Variantes ({{ product.variants.length }})
                         </h3>
                         <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                            
+                            <!-- PRODUCTO BASE CÓMO BOTÓN DE REGRESO -->
+                            <div @click="selectedVariant = null"
+                                class="cursor-pointer flex flex-col items-center p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
+                                :class="!selectedVariant ? 'border-primary bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-primary' : 'border-gray-200 dark:border-gray-700'">
+                                <div class="relative size-12 md:size-14 bg-white dark:bg-slate-900 rounded-md overflow-hidden border border-gray-100 dark:border-slate-700 mb-2 flex items-center justify-center shadow-sm">
+                                    <img v-if="product.media?.[0]?.original_url" :src="product.media[0].original_url" @error="handleImageError" class="w-full h-full object-cover">
+                                    <i v-else class="fa-regular fa-image text-gray-300 text-lg"></i>
+                                    <div class="absolute bottom-0 inset-x-0 bg-primary/90 text-white text-[9px] text-center font-bold pb-0.5">BASE</div>
+                                </div>
+                                <span class="text-[10px] text-center text-gray-700 dark:text-gray-300 font-medium leading-tight line-clamp-2 w-full" :title="product.name">
+                                    Producto Original
+                                </span>
+                            </div>
+
+                            <!-- Variantes -->
                             <div v-for="variant in product.variants" :key="variant.id"
                                 @click="selectedVariant = variant"
                                 class="cursor-pointer flex flex-col items-center p-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
@@ -123,11 +139,16 @@
                 <section>
                     <!-- Nombre y Código -->
                     <div>
-                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                        <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex flex-wrap items-center gap-3">
                             {{ selectedVariant ? selectedVariant.name : product.name }}
-                            <el-tag v-if="product.archived_at" type="warning" class="ml-2">Obsoleto</el-tag>
+                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
+                            
+                            <!-- Botón superior para regresar a ver el producto Padre -->
+                            <button v-if="selectedVariant" @click="selectedVariant = null" class="text-xs bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full font-medium transition-colors flex items-center">
+                                <i class="fa-solid fa-arrow-left mr-2"></i> Ver producto original
+                            </button>
                         </h1>
-                        <p class="text-amber-500 font-medium">{{ product.product_type }}</p>
+                        <p class="text-amber-500 font-medium mt-1">{{ product.product_type }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
                             Código: <span class="font-bold">{{ selectedVariant ? selectedVariant.code : product.code }}</span>
                         </p>
@@ -157,11 +178,74 @@
                                 <div>{{ formattedDimensions }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Unidad de Medida</div>
                                 <div>{{ product.measure_unit ?? '--' }}</div>
-                                <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias</div>
+                                <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias del p. terminado</div>
                                 <div>{{ product.storages?.[0]?.quantity ?? '0' }} {{ product.measure_unit }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Ubicación</div>
                                 <div>{{ product.storages?.[0]?.location ?? '--' }}</div>
                             </div>
+                        </div>
+
+                        <!-- Tarjeta de Componentes con Stock -->
+                        <div v-if="product.components?.length" class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
+                            <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 border-b dark:border-slate-700 pb-2 gap-2">
+                                <h2 class="font-bold text-lg">
+                                    Componentes
+                                </h2>
+                                <!-- Badge Sets armables -->
+                                <div class="text-sm bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full font-medium border border-indigo-100 dark:border-indigo-800 flex items-center shrink-0 w-max" title="Cantidad máxima de productos que se pueden armar basándose en el inventario actual de sus componentes.">
+                                    <i class="fa-solid fa-boxes-stacked mr-2"></i> Posibles sets a armar: {{ possibleSets?.toLocaleString() ?? '0' }}
+                                </div>
+                            </div>
+
+                            <ul class="space-y-2 text-sm">
+                                <li
+                                v-for="component in product.components"
+                                :key="component.id"
+                                class="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 rounded-lg"
+                                >
+                                    <div class="flex items-center flex-1">
+                                        <!-- Imagen o ícono como enlace -->
+                                        <Link :href="route('catalog-products.show', component.id)" title="Ver detalles del componente" class="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-md overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                                            <img
+                                            v-if="component.media?.[0]?.original_url"
+                                            :src="component.media[0].original_url"
+                                            @error="handleImageError"
+                                            alt="Componente"
+                                            class="w-full h-full object-cover"
+                                            />
+                                            <svg
+                                            v-else
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="w-6 h-6 text-gray-400"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                            >
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l2-3h6l2 3h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13l4-4a2 2 0 012.828 0L15 14l3-3 3 3"/>
+                                            </svg>
+                                        </Link>
+
+                                        <!-- Nombre como enlace -->
+                                        <Link :href="route('catalog-products.show', component.id)" class="text-gray-800 dark:text-gray-200 font-medium ml-3 mr-2 leading-tight hover:text-primary hover:underline transition-colors">
+                                            {{ component.name }}
+                                        </Link>
+                                    </div>
+
+                                    <!-- Requerimiento y Stock -->
+                                    <div class="text-right flex flex-col justify-center min-w-[90px]">
+                                        <span class="font-bold text-primary">
+                                            Requerido: {{ component.pivot.quantity }}
+                                        </span>
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">
+                                            Stock actual: <strong :class="getComponentRawStock(component) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'">{{ getComponentStock(component) }}</strong>
+                                        </span>
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">
+                                            Mínimo: <strong>{{ component.min_quantity?.toLocaleString() || 0 }}</strong>
+                                        </span>
+                                    </div>
+                                </li>
+                            </ul>
                         </div>
 
                         <!-- Tarjeta de Costos y Precios DESGLOSADOS -->
@@ -243,61 +327,6 @@
                             </div>
                         </div>
 
-                        <!-- Tarjeta de Componentes con Stock -->
-                        <div v-if="product.components?.length" class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
-                            <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">
-                                Componentes (Materia Prima)
-                            </h2>
-
-                            <ul class="space-y-2 text-sm">
-                                <li
-                                v-for="component in product.components"
-                                :key="component.id"
-                                class="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-900/50 border border-gray-100 dark:border-slate-700 rounded-lg"
-                                >
-                                    <div class="flex items-center flex-1">
-                                        <!-- Imagen o ícono -->
-                                        <div class="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-md overflow-hidden">
-                                            <img
-                                            v-if="component.media?.[0]?.original_url"
-                                            :src="component.media[0].original_url"
-                                            @error="handleImageError"
-                                            alt="Componente"
-                                            class="w-full h-full object-cover"
-                                            />
-                                            <svg
-                                            v-else
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            class="w-6 h-6 text-gray-400"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            stroke="currentColor"
-                                            >
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l2-3h6l2 3h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 13l4-4a2 2 0 012.828 0L15 14l3-3 3 3"/>
-                                            </svg>
-                                        </div>
-
-                                        <!-- Nombre -->
-                                        <span class="text-gray-800 dark:text-gray-200 font-medium ml-3 mr-2 leading-tight">
-                                            {{ component.name }}
-                                        </span>
-                                    </div>
-
-                                    <!-- Requerimiento y Stock -->
-                                    <div class="text-right flex flex-col justify-center min-w-[80px]">
-                                        <span class="font-bold text-primary">
-                                            Requerido: {{ component.pivot.quantity }}
-                                        </span>
-                                        <span class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">
-                                            Stock: <strong :class="getComponentStock(component) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'">{{ getComponentStock(component) }}</strong>
-                                        </span>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-
-
                         <!-- Tarjeta de Procesos de Producción -->
                         <div v-if="product.production_costs?.length" class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Procesos de Producción</h2>
@@ -356,6 +385,12 @@
                     </article>
                 </section>
             </main>
+            
+            <!-- Loading de redirección visual en caso de entrar a la liga del hijo -->
+            <div v-else class="h-[60vh] flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                <LoadingIsoLogo />
+                <p class="mt-4 font-medium animate-pulse">Redirigiendo al producto original (padre)...</p>
+            </div>
         </div>
 
         <!-- Modal de Confirmación para Eliminar -->
@@ -541,6 +576,22 @@ export default {
             return null;
         },
 
+        // SETS MÁXIMOS ARMABLES
+        possibleSets() {
+            if (!this.product.components || this.product.components.length === 0) return 0;
+            
+            let sets = [];
+            this.product.components.forEach(comp => {
+                const required = parseFloat(comp.pivot.quantity) || 0;
+                const stock = this.getComponentRawStock(comp);
+                if (required > 0) {
+                    sets.push(Math.floor(stock / required));
+                }
+            });
+            
+            return sets.length ? Math.min(...sets) : 0;
+        },
+
         // COSTOS DESGLOSADOS
         totalComponentsCost() {
             if (!this.product.components) return 0;
@@ -591,13 +642,15 @@ export default {
             this.currentImage = index;
         },
 
-        getComponentStock(component) {
-            // Revisa si existe la relación de inventario
+        getComponentRawStock(component) {
             if (component.storages && component.storages.length > 0) {
-                // Parse a float por si viene como cadena y quitar decimales si es necesario o mostrarlo tal cual
-                return parseFloat(component.storages[0].quantity).toLocaleString('es-MX');
+                return parseFloat(component.storages[0].quantity) || 0;
             }
-            return '0';
+            return 0;
+        },
+
+        getComponentStock(component) {
+            return this.getComponentRawStock(component).toLocaleString('es-MX');
         },
 
         handleImageError(event) {
@@ -755,7 +808,29 @@ export default {
         },
     },
     mounted() {
-     this.fetchProductsList();
+        // 1. En caso de que el backend no redirigiera, enviamos al padre pasando el ID de la variante en la URL.
+        if (this.product.parent_id) {
+            this.$inertia.get(
+                route('catalog-products.show', this.product.parent_id),
+                { variant_id: this.product.id },
+                { replace: true }
+            );
+            return; // Detenemos la ejecución aquí
+        }
+
+        // 2. Si es el padre, validamos si en la URL venía el parámetro variant_id
+        const urlParams = new URLSearchParams(window.location.search);
+        const variantId = urlParams.get('variant_id');
+
+        if (variantId && this.product.variants?.length) {
+            // Buscamos la variante y la asignamos para que se vea automáticamente seleccionada
+            const variant = this.product.variants.find(v => v.id == variantId);
+            if (variant) {
+                this.selectedVariant = variant;
+            }
+        }
+
+        this.fetchProductsList();
     },
     watch: {
         'product.id'(newId) {

@@ -158,6 +158,8 @@ Route::resource('brands', BrandController::class)->except(['create', 'edit', 'sh
 
 // ------- CRM(branches sucursales Routes)  ---------
 Route::resource('branches', BranchController::class)->middleware('auth');
+Route::get('branches-report', [BranchController::class, 'report'])->middleware('auth')->name('branches.report');
+Route::get('branches-export', [BranchController::class, 'export'])->middleware('auth')->name('branches.export');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
@@ -166,6 +168,7 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
 Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
 Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
+Route::get('/branches/{branch}/check-validity', [BranchController::class, 'checkSaleValidity'])->name('branches.check-validity');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------

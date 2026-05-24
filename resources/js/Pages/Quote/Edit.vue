@@ -55,7 +55,24 @@
                             </div>
 
                             <!-- Campos que se llenan con el contacto -->
-                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Selecciona un contacto" />
+                            <div>
+                                <InputLabel value="Persona que recibe*" />
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <el-select v-model="receiver_prefix" class="!w-2/3 md:!w-2/4">
+                                        <el-option label="Ing." value="Ing. " />
+                                        <el-option label="Lic." value="Lic. " />
+                                        <el-option label="Dr." value="Dr. " />
+                                        <el-option label="Arq." value="Arq. " />
+                                        <el-option label="Mtro." value="Mtro. " />
+                                        <el-option label="Sr." value="Sr. " />
+                                        <el-option label="Sra." value="Sra. " />
+                                        <el-option label="Srita." value="Srita. " />
+                                        <el-option label="Ninguno" value="" />
+                                    </el-select>
+                                    <input type="text" v-model="receiver_name" class="border-gray-300 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm w-full" placeholder="Ej. Juan Pérez" required />
+                                </div>
+                                <InputError :message="form.errors.receiver" />
+                            </div>
                             <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Selecciona un contacto" />
                             
                             <div>
@@ -183,26 +200,92 @@
                                 
                                 <!-- Toggle Nuevo/Catalogo -->
                                 <div class="col-span-full mb-1">
-                                    <label class="flex items-center">
+                                    <label class="flex items-center cursor-pointer w-max">
                                         <Checkbox v-model:checked="currentProduct.is_custom" class="bg-transparent border-blue-500 text-blue-600 focus:ring-blue-500" />
                                         <span class="ml-2 text-blue-700 font-bold dark:text-blue-400">Es producto nuevo (Fuera de catálogo)</span>
                                     </label>
                                 </div>
 
-                                <!-- PRODUCTO DE CATÁLOGO -->
-                                <div v-if="!currentProduct.is_custom" class="lg:col-span-2">
-                                    <InputLabel value="Producto de catálogo*" />
-                                    <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full">
-                                        <el-option class="!w-96" v-for="product in localCatalogProducts" 
-                                            :key="product.id" 
-                                            :label="`${product.name} (${product.code})`" 
-                                            :value="product.id"
-                                             />
-                                    </el-select>
+                                <!-- PRODUCTO DE CATÁLOGO (CON PADRES Y VARIANTES) -->
+                                <div v-if="!currentProduct.is_custom" class="lg:col-span-full bg-white dark:bg-slate-900/50 p-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm mb-3">
+                                    <div class="mb-4">
+                                        <p class="text-sm text-gray-700 dark:text-gray-300 mb-2 font-semibold">
+                                            <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">1</span>
+                                            Selecciona el producto base (sin personalización). <span class="font-normal text-gray-500 text-xs ml-1">Ej. Llavero chevrolet (negro) con medallón</span>
+                                        </p>
+                                        <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
+                                            <el-option class="!w-96" v-for="product in localCatalogProducts" 
+                                                :key="product.id" 
+                                                :label="`${product.name} (${product.code})`" 
+                                                :value="product.id"
+                                                 />
+                                        </el-select>
+                                    </div>
+
+                                    <!-- Variants Section -->
+                                    <div v-if="selectedBaseProductId && availableVariants.length" class="animate-fade-in-down">
+                                        <el-divider border-style="dashed" />
+                                        
+                                        <!-- Buscador de Variantes -->
+                                        <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
+                                            <p class="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                                                <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">2</span>
+                                                (Opcional) Selecciona una variante o personalización:
+                                            </p>
+                                            <el-input
+                                                v-model="variantSearchQuery"
+                                                placeholder="Buscar variante por nombre o código..."
+                                                clearable
+                                                class="w-full md:w-72"
+                                            >
+                                                <template #prefix>
+                                                    <i class="fa-solid fa-search"></i>
+                                                </template>
+                                            </el-input>
+                                        </div>
+
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-auto">
+                                            <!-- Base Product Card (Option to not use variant) -->
+                                            <div v-show="!variantSearchQuery" @click="selectVariant(null)"
+                                                 :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === null ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-gray-50 dark:bg-slate-800/50']">
+                                                <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
+                                                    <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
+                                                </div>
+                                                <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Sin personalización</p>
+                                                <p class="text-[10px] text-gray-500 text-center mt-1">(Usar producto base)</p>
+                                            </div>
+
+                                            <!-- Mensaje si no hay resultados en la búsqueda -->
+                                            <div v-if="filteredVariants.length === 0" class="col-span-full py-4 text-center text-gray-500 text-sm">
+                                                No se encontraron variantes que coincidan con "{{ variantSearchQuery }}".
+                                            </div>
+
+                                            <!-- Variants Cards -->
+                                            <div v-for="variant in filteredVariants" :key="variant.id"
+                                                 @click="selectVariant(variant)"
+                                                 :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === variant.id ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-white dark:bg-slate-800']">
+                                                <div class="w-full aspect-square mb-2 rounded-lg overflow-hidden relative group bg-gray-100 dark:bg-slate-700">
+                                                    <el-image
+                                                        v-if="variant.media?.length"
+                                                        :src="variant.media[0].original_url"
+                                                        :preview-src-list="[variant.media[0].original_url]"
+                                                        :preview-teleported="true"
+                                                        fit="cover"
+                                                        class="w-full h-full cursor-zoom-in"
+                                                        @click.stop
+                                                    />
+                                                    <div v-else class="w-full h-full flex items-center justify-center">
+                                                        <i class="fa-solid fa-image text-gray-400 text-3xl"></i>
+                                                    </div>
+                                                </div>
+                                                <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight w-full line-clamp-2" :title="variant.name">{{ variant.name }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                
+
                                 <!-- PRODUCTO NUEVO (CUSTOM) -->
-                                <div v-else class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
+                                <div v-else class="lg:col-span-full grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
                                     <div class="col-span-full">
                                         <InputLabel value="Nombre del producto*" />
                                         <TextInput v-model="currentProduct.custom_name" placeholder="Ej. Troquel especial" />
@@ -223,9 +306,11 @@
                                 </div>
 
                                 <!-- Siempre visibles: Cantidad y Precio -->
-                                <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
+                                <div class="lg:col-span-2">
+                                    <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
+                                </div>
                                 
-                                <div class="w-full">
+                                <div class="lg:col-span-2">
                                     <TextInput label="Precio Unitario (Venta)*" v-model="currentProduct.unit_price" type="number" :formatAsNumber="true">
                                         <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                     </TextInput>
@@ -283,6 +368,9 @@
                                             <span v-if="currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
                                                 Producto de cliente
                                             </span>
+                                            <p class="text-gray-500 dark:text-gray-300">
+                                                Producto Seleccionado: <strong class="text-primary">{{ getProductName(currentProduct.id) }}</strong>
+                                            </p>
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Stock: <strong>{{ currentProduct.storages?.[0]?.quantity ?? 0 }}</strong> unidades
                                             </p>
@@ -415,7 +503,7 @@
                                         <span class="text-sm text-gray-800 dark:text-gray-200">
                                             <p class="font-bold text-primary flex items-center space-x-2">
                                                 <span>{{ product.is_custom ? product.custom_name : getProductName(product.id) }}</span>
-                                                <el-tag v-if="product.is_custom" type="primary" size="small" effect="dark">Nuevo / Personalizado</el-tag>
+                                                <el-tag v-if="product.is_custom" type="primary" size="small" effect="dark">Nuevo</el-tag>
                                                 <el-tag v-if="!product.is_custom && product.is_restock" type="success" size="small" effect="dark">Resurtido</el-tag>
                                             </p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -556,7 +644,7 @@ import Back from "@/Components/MyComponents/Back.vue";
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import axios from 'axios';
 import Editor from '@tinymce/tinymce-vue';
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
@@ -575,7 +663,7 @@ export default {
                 is_freight_cost_stroked: false,
                 freight_option: 'Por cuenta del cliente',
                 first_production_days: null,
-                validity: this.quote.validity || 'Cotización válida por 21 días',
+                validity: this.quote?.validity || 'Cotización válida por 21 días',
                 notes: '',
                 is_spanish_template: true,
                 show_breakdown: true,
@@ -586,6 +674,9 @@ export default {
                 products: [], 
             }),
 
+            receiver_prefix: 'Ing. ',
+            receiver_name: '',
+
             localBranches: [],
             availableContacts: [],
             selected_contact_id: null,
@@ -595,6 +686,12 @@ export default {
             quickContactForm: { name: '', charge: '', processing: false, errors: {} },
 
             branchNotes: [],
+
+            // Variables para manejar los padres, variantes y la búsqueda
+            selectedBaseProductId: null,
+            selectedVariantId: null,
+            availableVariants: [],
+            variantSearchQuery: '', // <- Búsqueda de variantes
 
             currentProduct: {
                 quote_product_id: null,
@@ -649,6 +746,18 @@ export default {
         quote: Object, // Trae todo el modelo cargado con $quote->load('quoteProducts.media', 'quoteProducts.product.media')
     },
     computed: {
+        // Filtrar las variantes mostradas según la búsqueda
+        filteredVariants() {
+            if (!this.variantSearchQuery) {
+                return this.availableVariants;
+            }
+            const query = this.variantSearchQuery.toLowerCase().trim();
+            return this.availableVariants.filter(variant => {
+                return (variant.name && variant.name.toLowerCase().includes(query)) ||
+                       (variant.code && variant.code.toLowerCase().includes(query));
+            });
+        },
+        
         isPriceLow() {
             if (!this.currentProduct.unit_price || this.currentProduct.is_custom) return false;
             
@@ -739,8 +848,30 @@ export default {
                 }
             }
         },
+        
+        // --- MANEJO DE SELECCIÓN DE PRODUCTOS PADRE E HIJOS ---
+        handleBaseProductChange(productId) {
+            const baseProduct = this.localCatalogProducts.find(p => p.id === productId);
+            this.availableVariants = baseProduct ? (baseProduct.variants || []) : [];
+            this.selectedVariantId = null; // Reiniciar selección de variante
+            this.variantSearchQuery = ''; // Reiniciar la búsqueda al cambiar de padre
+            this.currentProduct.id = productId; // Por default se cotiza el padre
+            this.getProductData();
+        },
+        
+        selectVariant(variant) {
+            if (!variant) {
+                this.selectedVariantId = null;
+                this.currentProduct.id = this.selectedBaseProductId; // Volver al padre
+            } else {
+                this.selectedVariantId = variant.id;
+                this.currentProduct.id = variant.id; // Cotizar la variante
+            }
+            this.getProductData();
+        },
 
         update() {
+            this.form.receiver = this.receiver_prefix + this.receiver_name.trim();
             if (this.isToolingCostRequired) {
                 const cost = parseFloat(this.form.tooling_cost);
                 if (!this.form.tooling_cost || isNaN(cost) || cost <= 0) {
@@ -788,6 +919,29 @@ export default {
                 this.currentProduct.image_preview = this.form.products[index].image_preview;
             }
 
+            // Restaurar visualmente si se trataba de un producto base o variante
+            if (!this.currentProduct.is_custom && this.currentProduct.id) {
+                let foundBase = this.localCatalogProducts.find(p => p.id === this.currentProduct.id);
+                if (foundBase) {
+                    // Era un producto padre
+                    this.selectedBaseProductId = foundBase.id;
+                    this.availableVariants = foundBase.variants || [];
+                    this.selectedVariantId = null;
+                } else {
+                    // Era una variante, hay que buscar cuál era su padre
+                    for (const base of this.localCatalogProducts) {
+                        const foundVariant = base.variants?.find(v => v.id === this.currentProduct.id);
+                        if (foundVariant) {
+                            this.selectedBaseProductId = base.id;
+                            this.availableVariants = base.variants || [];
+                            this.selectedVariantId = foundVariant.id;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            this.variantSearchQuery = ''; // Reiniciar la búsqueda al editar
             this.editIndex = index;
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
         },
@@ -821,6 +975,10 @@ export default {
                 base_price: null,
                 show_image: true,
             };
+            this.selectedBaseProductId = null;
+            this.selectedVariantId = null;
+            this.availableVariants = [];
+            this.variantSearchQuery = ''; // Reiniciar búsqueda al cancelar o agregar
             this.editIndex = null;
         },
         addCustomizationDetail() {
@@ -836,8 +994,13 @@ export default {
             ElMessage.info('Detalle de personalización eliminado.');
         },
         getProductName(productId) {
-            const product = this.localCatalogProducts.find(p => p.id === productId);
-            return product ? product.name : 'Producto no encontrado';
+            // Buscar nombre tanto en bases como en sus variantes
+            for (const base of this.localCatalogProducts) {
+                if (base.id === productId) return base.name;
+                const variant = base.variants?.find(v => v.id === productId);
+                if (variant) return variant.name;
+            }
+            return 'Producto no encontrado';
         },
         formatDate(dateString) {
             if (!dateString) return '';
@@ -880,13 +1043,15 @@ export default {
             }
         },
         async fetchCatalogProducts() {
-            try {
-                const response = await axios.post(route('products.fetch-products'), { params: { product_type: 'Catálogo' }});
-                this.localCatalogProducts = response.data;
-                ElMessage.success('Lista actualizada');
-            } catch (error) {
-                ElMessage.error('Error al actualizar');
-            }
+            // Usar router.reload para recargar de la base de datos y traer
+            // padres + variantes de forma correcta, como se hace en Create
+            router.reload({
+                only: ['catalogProducts'],
+                onSuccess: () => {
+                    this.localCatalogProducts = [...this.catalogProducts];
+                    ElMessage.success('Lista de productos actualizada');
+                }
+            });
         },
         async fetchClientProducts(branchId) {
             if (!branchId) return;

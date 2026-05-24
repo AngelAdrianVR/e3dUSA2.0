@@ -10,12 +10,20 @@
             <!-- Información Requerida para Facturación -->
             <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg text-sm border border-gray-200 dark:border-gray-700 mb-6 space-y-3">
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
+                    <!-- Nuevos campos integrando la función de herencia Razón social/RFC -->
+                    <div class="col-span-2 sm:col-span-1">
                         <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Razón Social</span>
                         <span class="text-gray-800 dark:text-gray-100 font-medium uppercase">
-                            {{ sale.branch?.parent?.name || sale.branch?.name || 'N/A' }}
+                            {{ getBusinessName(sale) }}
                         </span>
                     </div>
+                    <div class="col-span-2 sm:col-span-1">
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">RFC</span>
+                        <span class="text-gray-800 dark:text-gray-100 font-medium uppercase font-mono">
+                            {{ getRfc(sale) }}
+                        </span>
+                    </div>
+                    
                     <div>
                         <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Costo de logística</span>
                         <span class="text-gray-800 dark:text-gray-100">${{ formatCurrency(sale.freight_cost) }}</span>
@@ -33,7 +41,7 @@
                         <span class="text-gray-800 dark:text-gray-100">{{ sale.user.name }}</span>
                     </div>
                     <div>
-                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Sucursal/Alias</span>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Sucursal/Alias Orig.</span>
                         <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.name }}</span>
                     </div>
                 </div>
@@ -191,6 +199,21 @@ export default {
         }
     },
     methods: {
+        // --- MÉTODOS DE HERENCIA RAZÓN SOCIAL/RFC ---
+        getBusinessName(sale) {
+            if (!sale || !sale.branch) return 'N/A';
+            if (sale.branch.business_name) return sale.branch.business_name;
+            if (sale.branch.parent && sale.branch.parent.business_name) return sale.branch.parent.business_name;
+            return sale.branch.parent?.name || sale.branch.name || 'N/A';
+        },
+        getRfc(sale) {
+            if (!sale || !sale.branch) return 'Sin RFC';
+            if (sale.branch.rfc) return sale.branch.rfc;
+            if (sale.branch.parent && sale.branch.parent.rfc) return sale.branch.parent.rfc;
+            return 'Sin RFC';
+        },
+        // ---------------------------------------------
+        
         formatCurrency(value) {
             return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },

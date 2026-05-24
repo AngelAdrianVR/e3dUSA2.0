@@ -63,8 +63,13 @@ class SalesAnalysisController extends Controller
     {
         $query = SaleProduct::query()
             ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
-            ->select('product_id', DB::raw('SUM(quantity) as total_quantity'))
-            ->groupBy('product_id')
+            ->join('products', 'sale_products.product_id', '=', 'products.id')
+            ->select(
+                // Si el producto tiene un parent_id, lo agrupa bajo el padre. Si no, usa su propio id.
+                DB::raw('COALESCE(products.parent_id, products.id) as base_product_id'),
+                DB::raw('SUM(sale_products.quantity) as total_quantity')
+            )
+            ->groupBy('base_product_id')
             ->orderBy('total_quantity', 'desc')
             ->limit(20);
 
@@ -77,14 +82,14 @@ class SalesAnalysisController extends Controller
             return response()->json([]);
         }
 
-        $productIds = $topProductsData->pluck('product_id')->toArray();
+        $productIds = $topProductsData->pluck('base_product_id')->toArray();
         
         $products = Product::with('media')->whereIn('id', $productIds)
                     ->orderByRaw("FIELD(id, " . implode(',', $productIds) . ")")
                     ->get();
 
         $results = $topProductsData->map(function ($item) use ($products) {
-            $product = $products->firstWhere('id', $item->product_id);
+            $product = $products->firstWhere('id', $item->base_product_id);
             if (!$product) return null;
             return [
                 'id' => $product->id,
@@ -106,10 +111,15 @@ class SalesAnalysisController extends Controller
      */
     public function getProductSales(Request $request, Product $product)
     {
+        // Obtener el ID del producto base y recolectar todos los IDs de sus variantes si tiene
+        $productIds = Product::where('id', $product->id)
+                            ->orWhere('parent_id', $product->id)
+                            ->pluck('id');
+
         $query = Sale::query()
             ->join('sale_products', 'sales.id', '=', 'sale_products.sale_id')
             ->join('branches', 'sales.branch_id', '=', 'branches.id')
-            ->where('sale_products.product_id', $product->id)
+            ->whereIn('sale_products.product_id', $productIds)
             ->select(
                 'sales.id as sale_id',
                 'sales.created_at',

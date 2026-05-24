@@ -77,13 +77,13 @@
                     <!-- Stock Actual -->
                     <td class="px-4 py-3 text-center">
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                            {{ product.current_stock }}
+                            {{ product.current_stock?.toLocaleString() ?? '0' }}
                         </span>
                     </td>
 
                     <!-- Mínimo -->
                     <td class="px-4 py-3 text-center font-medium text-gray-600 dark:text-gray-400">
-                        {{ product.min_quantity }}
+                        {{ product.min_quantity?.toLocaleString() ?? '0' }}
                     </td>
 
                     <!-- Faltante (Sugerencia) -->

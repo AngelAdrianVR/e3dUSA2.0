@@ -54,18 +54,14 @@ class SaleController extends Controller
 
     public function create(Request $request)
     {
-        // Valida que el quote_id, si existe, sea un número
         $request->validate([
             'quote_id' => 'nullable|integer|exists:quotes,id'
         ]);
 
-        // Obtiene el quote_id de la solicitud
         $quoteToConvertId = intval($request->input('quote_id'));
 
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -76,11 +72,19 @@ class SaleController extends Controller
                     ->take(100)
                     ->get();
         
+        // MODIFICACIÓN: Cargar productos padre (parent_id es null) junto con sus variantes y multimedia
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
+
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
-            // Pasa el ID de la cotización a convertir como un prop
+            'catalog_products' => $catalog_products,
             'quoteToConvertId' => $quoteToConvertId,
         ]);
     }
@@ -223,7 +227,8 @@ class SaleController extends Controller
             }
             // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
             foreach ($validated['products'] as $productData) {
-                $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                // CORRECCIÓN: Cargar parent.components.storages para que las variantes encuentren el stock de sus componentes heredados
+                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                 $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
 
                 $quantityToProduce = 0;
@@ -259,17 +264,18 @@ class SaleController extends Controller
                 }
 
                 // 6.3 Descontar stock de los componentes (se ejecuta siempre que haya algo que producir)
-                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                    foreach ($product->components as $component) {
+                // CORRECCIÓN: Usar actual_components en lugar de components para soportar productos variables
+                if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                    foreach ($product->actual_components as $component) {
                         $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                         $componentStorage = $component->storages->first();
 
-                        if ($componentStorage) {
+                        if ($componentStorage && $componentStorage->quantity > 0) {
                             $currentStock = $componentStorage->quantity;
                             $discountQuantity = min($requiredQuantity, $currentStock);
 
-                            // Se descuenta la cantidad requerida, asegurando que el stock no sea negativo.
-                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+                            // CORRECCIÓN: Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
+                            $componentStorage->decrement('quantity', $discountQuantity);
 
                             if ($discountQuantity > 0) {
                                 // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
@@ -321,46 +327,43 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
-            $sale->load([
+        $sale->load([
             'branch:id,name,rfc,address,post_code,status',
             'media',
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
             
-            // AQUÍ ESTÁ EL CAMBIO: Agregamos ->with('user')
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->with('user')->orderBy('created_at', 'desc'); 
             },
             
+            // --- AQUÍ ESTÁN LOS CAMBIOS PARA EL STOCK COMPUESTO ---
+            'saleProducts.product.storages', // Almacenes del producto simple
+            'saleProducts.product.components.storages', // Almacenes de los componentes (si es padre compuesto)
+            'saleProducts.product.parent.components.storages', // Almacenes de los componentes (si es hijo/variante)
+            // -----------------------------------------------------
+
             'shipments',
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details',
-            // Cargar historial de cambios con sus relaciones necesarias
             'productExchanges.returnedProduct',
             'productExchanges.newProduct',
             'productExchanges.user',
             'productExchanges.media',
         ]);
 
-        // Listas necesarias para el formulario de cambio
-        $storages = Storage::select('id', 'location')->get();
+        $storages = \App\Models\Storage::select('id', 'location')->get();
         
-        // 2. CORRECCIÓN: Cargar SOLO los productos relacionados con el Cliente (Sucursal)
-        // Usamos join con la tabla pivote 'branch_product' que se menciona en el modelo Branch.
-        // Esto asegura que en el select del modal solo aparezcan productos que el cliente puede comprar/cambiar.
         $products = [];
         
         if ($sale->branch_id) {
-            // Obtenemos la sucursal completa para verificar si tiene matriz (padre)
             $branch = \App\Models\Branch::find($sale->branch_id);
             
-            // Si tiene padre, usamos la matriz como fuente de productos. Si no, usamos la sucursal misma.
             $productSourceBranch = $branch->parent_branch_id 
                 ? \App\Models\Branch::find($branch->parent_branch_id) 
                 : $branch;
 
-            // Obtenemos los productos desde la sucursal fuente correcta
             $products = $productSourceBranch->products()
                 ->where('is_sellable', true)
                 ->select('products.id', 'products.name', 'products.code')
@@ -376,10 +379,8 @@ class SaleController extends Controller
 
     public function edit(Sale $sale)
     {
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -389,11 +390,20 @@ class SaleController extends Controller
                     ->with('branch:id,name')
                     ->take(100)
                     ->get();
+        
+        // MODIFICACIÓN: Igualmente en edición, cargar productos con estructura parent-variant
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
 
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => $catalog_products,
             'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
         ]);
     }
@@ -457,9 +467,9 @@ class SaleController extends Controller
         try {
 
             // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
-            // if ($isSaleType) {
+            if ($isSaleType && method_exists($this, 'revertStockForSale')) {
                 $this->revertStockForSale($sale);
-            // }
+            }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
             $updateData = [
@@ -563,7 +573,8 @@ class SaleController extends Controller
             // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
             if ($isSaleType) {
                 foreach ($validated['products'] as $productData) {
-                    $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                    // CORRECCIÓN: Cargar parent.components.storages igual que en store
+                    $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                     $saleProduct = $sale->saleProducts()->where('product_id', $product->id)->first();
                     $quantityInSale = $productData['quantity'];
                     
@@ -587,13 +598,18 @@ class SaleController extends Controller
                     }
 
                     // Lógica para descontar componentes (si aplica)
-                    if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                        foreach ($product->components as $component) {
+                    // CORRECCIÓN: Usar actual_components en lugar de components
+                    if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                        foreach ($product->actual_components as $component) {
                             $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                             $componentStorage = $component->storages->first();
+                            
                             if ($componentStorage && $componentStorage->quantity > 0) {
                                 $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
+                                
+                                // Ya tenías decrement() aquí, se mantiene
                                 $componentStorage->decrement('quantity', $discountQuantity);
+                                
                                 StockMovement::create([
                                     'product_id' => $component->id,
                                     'storage_id' => $componentStorage->id,
@@ -620,7 +636,7 @@ class SaleController extends Controller
             // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
             // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
             // --------------------------------------------------------------------------
-            CheckLowStockAndNotifyJob::dispatch($sale);
+             CheckLowStockAndNotifyJob::dispatch($sale);
             // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());

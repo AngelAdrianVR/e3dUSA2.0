@@ -153,7 +153,7 @@
                                 </el-tooltip>
                             </div>
 
-                            <p class="font-semibold">{{ contact.name }}</p>
+                            <p class="font-semibold">{{ contact.prefix }} {{ contact.name }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
                                 <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
