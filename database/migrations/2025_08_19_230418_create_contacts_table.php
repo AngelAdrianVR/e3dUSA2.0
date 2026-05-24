@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->morphs('contactable');
             $table->string('name');
+            $table->string('prefix', 10)->nullable();
             $table->string('charge')->nullable()->comment('Cargo o puesto del contacto');
             $table->date('birthdate')->nullable();
             $table->boolean('is_primary')->default(false)->comment('Indica si es el contacto principal del modelo asociado');

@@ -345,7 +345,7 @@ class SaleController extends Controller
             // -----------------------------------------------------
 
             'shipments',
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details',
             'productExchanges.returnedProduct',
             'productExchanges.newProduct',

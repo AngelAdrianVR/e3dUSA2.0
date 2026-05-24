@@ -61,8 +61,17 @@ class StockReposition extends Command
         $count = $lowStockProducts->count();
         Log::info("Se encontraron {$count} productos con bajo stock.");
 
-        // 3. Obtener los usuarios a notificar por ROL
-        // Roles solicitados: Super Administrador, Almacenista, Asistente de director, Samuel, Compras.
+        // =========================================================
+        // 3. Obtener los usuarios a notificar
+        // =========================================================
+
+        // ---> MODO PRUEBAS <---
+        // (Descomenta esto para pruebas y asegúrate de que el bloque de Producción esté comentado)
+        // $usersToNotify = User::where('email', 'angelvazquez470@gmail.com')->get();
+
+        // ---> MODO PRODUCCIÓN <---
+        // (Descomenta este bloque en producción y comenta el de pruebas)
+        
         $targetRoles = [
             'Super Administrador',
             'Almacenista',
@@ -78,6 +87,8 @@ class StockReposition extends Command
                 $query->whereIn('name', $targetRoles);
             })
             ->get();
+      
+        // =========================================================
 
         // 4. Enviar notificaciones
         if ($usersToNotify->isNotEmpty()) {
@@ -87,14 +98,14 @@ class StockReposition extends Command
                 try {
                     $user->notify($notification);
                     // Logueamos a quién se envió para tener trazabilidad
-                    $this->info("Notificación enviada a: {$user->name}");
+                    $this->info("Notificación enviada a: {$user->name} ({$user->email})");
                 } catch (\Exception $e) {
                     Log::error("Error enviando notificación a {$user->name}: " . $e->getMessage());
                 }
             }
         } else {
-            Log::warning('Hay productos con bajo stock, pero no se encontraron usuarios con los roles requeridos para notificar.');
-            $this->warn('No se encontraron usuarios con los roles especificados.');
+            Log::warning('Hay productos con bajo stock, pero no se encontraron usuarios requeridos para notificar (o el correo de prueba no existe como User).');
+            $this->warn('No se encontraron usuarios para notificar.');
         }
 
         Log::info('Comando app:stock-reposition finalizado exitosamente.');

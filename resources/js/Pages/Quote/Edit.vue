@@ -55,7 +55,24 @@
                             </div>
 
                             <!-- Campos que se llenan con el contacto -->
-                            <TextInput label="Persona que recibe*" v-model="form.receiver" :error="form.errors.receiver" placeholder="Selecciona un contacto" />
+                            <div>
+                                <InputLabel value="Persona que recibe*" />
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <el-select v-model="receiver_prefix" class="!w-2/3 md:!w-2/4">
+                                        <el-option label="Ing." value="Ing. " />
+                                        <el-option label="Lic." value="Lic. " />
+                                        <el-option label="Dr." value="Dr. " />
+                                        <el-option label="Arq." value="Arq. " />
+                                        <el-option label="Mtro." value="Mtro. " />
+                                        <el-option label="Sr." value="Sr. " />
+                                        <el-option label="Sra." value="Sra. " />
+                                        <el-option label="Srita." value="Srita. " />
+                                        <el-option label="Ninguno" value="" />
+                                    </el-select>
+                                    <input type="text" v-model="receiver_name" class="border-gray-300 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm w-full" placeholder="Ej. Juan Pérez" required />
+                                </div>
+                                <InputError :message="form.errors.receiver" />
+                            </div>
                             <TextInput :label="form.is_spanish_template ? 'Departamento / Puesto*' : 'Departamento / Puesto* (En inglés)'" v-model="form.department" :error="form.errors.department" placeholder="Selecciona un contacto" />
                             
                             <div>
@@ -657,6 +674,9 @@ export default {
                 products: [], 
             }),
 
+            receiver_prefix: 'Ing. ',
+            receiver_name: '',
+
             localBranches: [],
             availableContacts: [],
             selected_contact_id: null,
@@ -851,6 +871,7 @@ export default {
         },
 
         update() {
+            this.form.receiver = this.receiver_prefix + this.receiver_name.trim();
             if (this.isToolingCostRequired) {
                 const cost = parseFloat(this.form.tooling_cost);
                 if (!this.form.tooling_cost || isNaN(cost) || cost <= 0) {

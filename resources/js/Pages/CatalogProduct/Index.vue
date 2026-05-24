@@ -12,7 +12,7 @@
         </div>
 
         <div class="py-7">
-            <div class="max-w-[88rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[92rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="lg:flex justify-between items-center mb-6 space-y-4 lg:space-y-0">
                         <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"
@@ -199,7 +199,12 @@
                             
                             <el-table-column prop="code" label="Código" width="150" />
                             <el-table-column prop="name" label="Nombre" min-width="200" show-overflow-tooltip />
-                            <el-table-column prop="brand.name" label="Marca" width="110" show-overflow-tooltip />
+                            <!-- <el-table-column prop="brand.name" label="Marca" width="110" show-overflow-tooltip /> -->
+                            <el-table-column label="Ubicación" width="120" align="center">
+                                <template #default="scope">
+                                    <p>{{ scope.row.storages[0].location }}</p>
+                                </template>
+                            </el-table-column>
                             
                             <!-- Banderas de Propiedades -->
                             <el-table-column label="Venta" width="75" align="center">

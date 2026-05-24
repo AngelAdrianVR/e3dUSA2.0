@@ -224,7 +224,7 @@ class ProductionController extends Controller
         $sale->load([
             // Datos del cliente y la venta
             'branch:id,name,address,rfc,post_code,status',
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details',
             'user:id,name,profile_photo_path', // Usuario que creó la venta
 

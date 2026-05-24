@@ -161,7 +161,7 @@ class ShipmentController extends Controller
     {
         $sale->load([
             'branch:id,name,rfc,address,post_code,status', 
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details', 
             'user:id,name', 
             'shipments' => function ($query) {

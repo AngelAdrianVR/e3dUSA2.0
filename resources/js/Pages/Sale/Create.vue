@@ -17,6 +17,15 @@
         <div ref="formContainer" class="py-7">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
+                    <!-- Overlay de bloqueo mientras redirige -->
+                    <div v-if="isRedirecting" class="absolute inset-0 z-50 flex items-center justify-center bg-white/70 dark:bg-slate-900/80 backdrop-blur-sm rounded-lg">
+                        <div class="text-center">
+                            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+                            <p class="text-lg font-bold text-gray-800 dark:text-white">Falta información del cliente.</p>
+                            <p class="text-gray-600 dark:text-gray-300">Redirigiendo a edición...</p>
+                        </div>
+                    </div>
+
                     <form @submit.prevent="store">
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                         <div class="flex justify-between items-center">
@@ -67,7 +76,8 @@
                                     <InputLabel value="Contacto*" />
                                     <div class="flex items-center space-x-2">
                                         <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero" :disabled="!form.branch_id">
-                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
+                                            <!-- Se muestra el prefijo en el selector -->
+                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.prefix ? contact.prefix + ' ' : ''}${contact.name} (${contact.charge})`" :value="contact.id" />
                                         </el-select>
                                         <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
                                             <i class="fa-solid fa-plus"></i>
@@ -293,6 +303,12 @@
         <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
             <form @submit.prevent="storeQuickContact">
                 <div class="space-y-4">
+                    <div>
+                        <InputLabel value="Prefijo" />
+                        <el-select v-model="quickContactForm.prefix" class="!w-full">
+                            <el-option v-for="p in prefixes" :key="p" :label="p" :value="p === 'Sin prefijo' ? '' : p" />
+                        </el-select>
+                    </div>
                     <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
                     <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
                 </div>
@@ -362,7 +378,7 @@ import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 import { ElMessage } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3"; // IMPORTANTE: Agregar router
 import axios from 'axios';
 
 export default {
@@ -388,6 +404,8 @@ export default {
     },
     data() {
         return {
+            isRedirecting: false, // Controla la pantalla de bloqueo
+            prefixes: ['Ing.', 'Lic.', 'Arq.', 'Dr.', 'C.P.', 'Sin prefijo'], // Arreglo de prefijos
             form: useForm({
                 branch_id: null,
                 quote_id: null,
@@ -412,7 +430,7 @@ export default {
             branchModalVisible: false,
             contactModalVisible: false,
             quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
-            quickContactForm: { name: '', charge: '', processing: false, errors: {} },
+            quickContactForm: { prefix: 'Ing.', name: '', charge: '', processing: false, errors: {} },
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
@@ -607,6 +625,39 @@ export default {
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
             
+            // ==========================================
+            // LÓGICA NUEVA: Validación de Datos de Facturación
+            // ==========================================
+            if (branchId) {
+                try {
+                    const validityRes = await axios.get(route('branches.check-validity', branchId));
+                    if (!validityRes.data.valid) {
+                        
+                        this.isRedirecting = true; // Mostramos pantalla de bloqueo
+
+                        ElMessage({
+                            message: `Cliente incompleto. Faltan datos: ${validityRes.data.message}. Serás redirigido en breve...`,
+                            type: 'warning',
+                            duration: 3500 // El mensaje durará 3.5 segundos
+                        });
+
+                        this.form.branch_id = null; // Deseleccionamos para no avanzar
+
+                        // Esperamos 3.5 segundos y mandamos al EDIT
+                        setTimeout(() => {
+                            router.visit(route('branches.edit', { branch: branchId, redirect_to: 'sales.create' }));
+                        }, 3500);
+
+                        return; // Rompemos el ciclo aquí para no continuar con la orden
+                    }
+                } catch (error) {
+                    console.error("Error al validar cliente:", error);
+                    ElMessage.error('Hubo un error al validar los datos del cliente.');
+                    return;
+                }
+            }
+            // ==========================================
+
             const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
@@ -764,7 +815,7 @@ export default {
                     const newBranch = response.data;
                     this.localBranches.push(newBranch);
                     this.form.branch_id = newBranch.id;
-                    await this.handleBranchChange(newBranch.id);
+                    await this.handleBranchChange(newBranch.id); // Aquí interceptará y mandará a editar si faltan datos
                     this.branchModalVisible = false;
                     this.quickBranchForm.name = '';
                     this.quickBranchForm.rfc = '';
@@ -803,6 +854,7 @@ export default {
                     this.contactModalVisible = false;
                     this.quickContactForm.name = '';
                     this.quickContactForm.charge = '';
+                    this.quickContactForm.prefix = 'Ing.'; // Reseteamos al por defecto
                     ElMessage.success('Contacto creado exitosamente');
                 }
             } catch (error)

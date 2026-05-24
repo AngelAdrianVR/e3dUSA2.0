@@ -168,6 +168,7 @@ Route::delete('/branches/{branch}/products/{product}', [BranchController::class,
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
 Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
 Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
+Route::get('/branches/{branch}/check-validity', [BranchController::class, 'checkSaleValidity'])->name('branches.check-validity');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
