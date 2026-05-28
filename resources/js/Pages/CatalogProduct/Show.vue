@@ -79,7 +79,7 @@
                 <section>
                     <div class="bg-white dark:bg-slate-800/50 p-4 rounded-xl shadow-lg relative">
                         <div class="w-full h-80 bg-gray-100 dark:bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden">
-                            <img v-if="mainDisplayedImage" :src="mainDisplayedImage" :alt="product.name" @error="handleImageError" class="w-full h-full object-contain transition-opacity duration-300">
+                            <img v-if="mainDisplayedImage" :src="mainDisplayedImage" :alt="activeProduct.name" @error="handleImageError" class="w-full h-full object-contain transition-opacity duration-300">
                             <div class="flex flex-col items-center justify-end" v-else>
                                 <i class="fa-regular fa-image text-gray-400 text-6xl"></i>
                                 <p class="text-center italic text-gray-700 dark:text-gray-400 mt-2">Producto sin imagen</p>
@@ -140,17 +140,17 @@
                     <!-- Nombre y Código -->
                     <div>
                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex flex-wrap items-center gap-3">
-                            {{ selectedVariant ? selectedVariant.name : product.name }}
-                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
+                            {{ activeProduct.name }}
+                            <el-tag v-if="activeProduct.archived_at" type="warning">Obsoleto</el-tag>
                             
                             <!-- Botón superior para regresar a ver el producto Padre -->
                             <button v-if="selectedVariant" @click="selectedVariant = null" class="text-xs bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full font-medium transition-colors flex items-center">
                                 <i class="fa-solid fa-arrow-left mr-2"></i> Ver producto original
                             </button>
                         </h1>
-                        <p class="text-amber-500 font-medium mt-1">{{ product.product_type }}</p>
+                        <p class="text-amber-500 font-medium mt-1">{{ activeProduct.product_type }}</p>
                         <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
-                            Código: <span class="font-bold">{{ selectedVariant ? selectedVariant.code : product.code }}</span>
+                            Código: <span class="font-bold">{{ activeProduct.code }}</span>
                         </p>
                     </div>
 
@@ -160,13 +160,13 @@
                             <h2 class="font-bold text-lg mb-4 border-b dark:border-slate-700 pb-2">Información General</h2>
                             <div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Marca</div>
-                                <div>{{ product.brand?.name ?? '--' }}</div>
+                                <div>{{ activeProduct.brand?.name ?? '--' }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Familia</div>
-                                <div>{{ product.product_family?.name ?? '--' }}</div>
+                                <div>{{ activeProduct.product_family?.name ?? '--' }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Material</div>
-                                <div>{{ product.material ?? '--' }}</div>
+                                <div>{{ activeProduct.material ?? '--' }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400 col-span-2 pt-2">Características</div>
-                                <div class="col-span-2 text-gray-600 dark:text-gray-300">{{ product.caracteristics || 'Sin características adicionales.' }}</div>
+                                <div class="col-span-2 text-gray-600 dark:text-gray-300">{{ activeProduct.caracteristics || 'Sin características adicionales.' }}</div>
                             </div>
                         </div>
 
@@ -177,11 +177,11 @@
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Dimensiones</div>
                                 <div>{{ formattedDimensions }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Unidad de Medida</div>
-                                <div>{{ product.measure_unit ?? '--' }}</div>
+                                <div>{{ activeProduct.measure_unit ?? '--' }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias del p. terminado</div>
-                                <div>{{ product.storages?.[0]?.quantity ?? '0' }} {{ product.measure_unit }}</div>
+                                <div>{{ activeStorage?.quantity ?? '0' }} {{ activeProduct.measure_unit }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Ubicación</div>
-                                <div>{{ product.storages?.[0]?.location ?? '--' }}</div>
+                                <div>{{ activeStorage?.location ?? '--' }}</div>
                             </div>
                         </div>
 
@@ -289,7 +289,7 @@
                             </div>
 
                             <!-- Precios por Cliente -->
-                            <div v-if="product.price_history?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
+                            <div v-if="activeProduct.price_history?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
                                 <h3 class="font-semibold text-sm mb-2">Precios Especiales por Cliente</h3>
                                 <el-collapse accordion>
                                     <el-collapse-item 
@@ -339,14 +339,14 @@
                         </div>
                         
                         <!-- Tarjeta de movimientos de stock -->
-                        <div v-if="product.storages[0]?.stock_movements?.length" class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
+                        <div class="bg-white dark:bg-slate-800/50 p-5 rounded-xl shadow-lg">
                             <h2 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200 border-b dark:border-slate-700 pb-2">
                                 Historial de Movimientos
                             </h2>
-                            <div class="space-y-1 max-h-56 overflow-y-auto pr-2">
+                            <div v-if="activeStorage?.stock_movements?.length" class="space-y-1 max-h-56 overflow-y-auto pr-2">
                                 <ul class="divide-y divide-gray-200 dark:divide-slate-700">
 
-                                    <li v-for="movement in product.storages[0].stock_movements" :key="movement.id" class="py-3 flex items-center justify-between space-x-3">
+                                    <li v-for="movement in activeStorage.stock_movements" :key="movement.id" class="py-3 flex items-center justify-between space-x-3">
                                         
                                         <div class="flex items-center min-w-0">
                                             <div class="flex-shrink-0">
@@ -369,7 +369,7 @@
                                         <div class="text-right flex-shrink-0">
                                             <p class="text-sm font-bold"
                                             :class="movement.type === 'Entrada' ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'">
-                                                {{ movement.type === 'Entrada' ? '+' : '-' }} {{ movement.quantity_change }} {{ product.measure_unit }}
+                                                {{ movement.type === 'Entrada' ? '+' : '-' }} {{ movement.quantity_change }} {{ activeProduct.measure_unit }}
                                             </p>
                                             <p v-if="movement.notes" class="text-xs text-gray-500 dark:text-gray-400 italic truncate max-w-xs pr-1" :title="movement.notes">
                                                 {{ movement.notes }}
@@ -378,7 +378,7 @@
                                     </li>
                                 </ul>
                             </div>
-                            <div v-if="!product.storages[0]?.stock_movements?.length" class="text-center py-8">
+                            <div v-else class="text-center py-8">
                                 <p class="text-gray-500 dark:text-gray-400">No hay movimientos registrados.</p>
                             </div>
                         </div>
@@ -416,7 +416,7 @@
                     {{ stockMovementForm.type === 'Entrada' ? 'Registrar Entrada de Stock' : 'Registrar Salida de Stock' }}
                 </h2>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Ingresa la cantidad y notas para el movimiento de "{{ product.name }}".
+                    Ingresa la cantidad y notas para el movimiento de "{{ activeProduct.name }}".
                 </p>
 
                 <div class="mt-6 space-y-4">
@@ -566,6 +566,16 @@ export default {
         };
     },
     computed: {
+        // PRODUCTO ACTIVO (Padre o Variante seleccionada)
+        activeProduct() {
+            return this.selectedVariant || this.product;
+        },
+
+        // ALMACEN ACTIVO
+        activeStorage() {
+            return this.activeProduct.storages?.[0] || null;
+        },
+
         // IMAGEN PRINCIPAL (Sabe si mostrar la imagen base o la variante)
         mainDisplayedImage() {
             if (this.selectedVariant && this.selectedVariant.media?.length) {
@@ -609,10 +619,10 @@ export default {
         },
 
         groupedPrices() {
-            if (!this.product.price_history) return {};
+            if (!this.activeProduct.price_history) return {};
 
             // ordenar del más nuevo al más viejo
-            const sorted = [...this.product.price_history].sort((a, b) => {
+            const sorted = [...this.activeProduct.price_history].sort((a, b) => {
                 return new Date(b.created_at) - new Date(a.created_at);
             });
 
@@ -629,11 +639,11 @@ export default {
         formattedDimensions() {
             const safe = (val) => val ?? "-";
 
-            if (this.product.diameter) {
-                return `Ø ${safe(this.product.diameter)} mm (Diámetro) x ${safe(this.product.width)} mm (Grosor)`;
+            if (this.activeProduct.diameter) {
+                return `Ø ${safe(this.activeProduct.diameter)} mm (Diámetro) x ${safe(this.activeProduct.width)} mm (Grosor)`;
             }
 
-            return `${safe(this.product.large)} mm (L) x ${safe(this.product.height)} mm (A) x ${safe(this.product.width)} mm (G)`;
+            return `${safe(this.activeProduct.large)} mm (L) x ${safe(this.activeProduct.height)} mm (A) x ${safe(this.activeProduct.width)} mm (G)`;
         }
     },
     methods: {
@@ -740,7 +750,7 @@ export default {
             this.showStockModal = true;
         },
         submitStockMovement() {
-            this.stockMovementForm.post(this.route('products.stock-movement', this.product.id), {
+            this.stockMovementForm.post(this.route('products.stock-movement', this.activeProduct.id), {
                 preserveScroll: true,
                 replace: true,
                 onSuccess: () => {
@@ -778,7 +788,7 @@ export default {
 
         async ObsoletProduct() {
             try {
-                const response = await axios.get(route('catalog-products.obsolet', this.product.id));
+                const response = await axios.get(route('catalog-products.obsolet', this.activeProduct.id));
                 if (response.status === 200) {
 
                     router.reload({ 
@@ -794,7 +804,7 @@ export default {
         },
         async deleteItem() {
             try {
-                const response = await axios.delete(route('catalog-products.destroy', this.product.id));
+                const response = await axios.delete(route('catalog-products.destroy', this.activeProduct.id));
                 if (response.status === 200) {
                     ElMessage.success(response.data.message || 'Producto eliminado con éxito.');
                     this.$inertia.visit(route('catalog-products.index'));

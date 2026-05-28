@@ -397,6 +397,12 @@ class BranchController extends Controller
     {
         // Cargar las relaciones que no dependen de la matriz
         $branch->load(['contacts.details', 'suggestedProducts', 'parent']);
+
+        if ($branch->parent_branch_id) {
+            $branch->business_name = $branch->business_name ?? $branch->parent?->business_name;
+            $branch->rfc = $branch->rfc ?? $branch->parent?->rfc;
+        }
+
         $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
         // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
@@ -586,6 +592,7 @@ class BranchController extends Controller
         return to_route('branches.show', $branch->id);
     }
 
+    
     public function destroy(Branch $branch)
     {
         try {
@@ -823,20 +830,30 @@ class BranchController extends Controller
     // === AGREGAR ESTE NUEVO MÉTODO AL FINAL DE TU CONTROLADOR ===
     public function checkSaleValidity(Branch $branch)
     {
-        // Cargamos la matriz (si existe) y los contactos
         $branch->load(['parent', 'contacts']);
         
-        // Determinamos quién es el que debe tener los datos fiscales (el padre si es hija, o ella misma si es matriz)
-        $target = $branch->parent_branch_id ? $branch->parent : $branch;
-
         $missingData = [];
 
-        if (empty($target->rfc)) {
-            $missingData[] = 'RFC';
-        }
-        
-        if (empty($target->business_name)) {
-            $missingData[] = 'Razón Social';
+        // 1. Revisar si la propia sucursal tiene la información
+        $hasOwnRfc = !empty($branch->rfc);
+        $hasOwnBusinessName = !empty($branch->business_name);
+
+        // 2. Si es hija y le falta algo, revisar el padre
+        if ($branch->parent_branch_id) {
+            if (!$hasOwnRfc && empty($branch->parent->rfc)) {
+                $missingData[] = 'RFC';
+            }
+            if (!$hasOwnBusinessName && empty($branch->parent->business_name)) {
+                $missingData[] = 'Razón Social';
+            }
+        } else {
+            // Es matriz, revisar sus propios datos
+            if (!$hasOwnRfc) {
+                $missingData[] = 'RFC';
+            }
+            if (!$hasOwnBusinessName) {
+                $missingData[] = 'Razón Social';
+            }
         }
 
         if ($branch->contacts->isEmpty()) {

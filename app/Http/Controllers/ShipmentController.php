@@ -241,7 +241,8 @@ class ShipmentController extends Controller
                         $storage = $product->storages()->first();
 
                         if ($storage) {
-                            $storage->decrement('quantity', $quantityToDecrement);
+                            $newQuantity = max(0, $storage->quantity - $quantityToDecrement);
+                            $storage->update(['quantity' => $newQuantity]);
 
                             StockMovement::create([
                                 'product_id' => $product->id,
