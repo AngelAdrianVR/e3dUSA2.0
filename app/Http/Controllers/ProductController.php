@@ -285,7 +285,7 @@ class ProductController extends Controller
             ]);
         }
 
-        // Se agregaron 'variants.media' y 'components.storages'
+        // Se agregaron 'variants.media', 'components.storages' y storages/movimientos de las variantes
         $catalog_product->load([
             'media',
             'brand',
@@ -298,6 +298,9 @@ class ProductController extends Controller
             'productionCosts',
             'priceHistory.branch',
             'variants.media', 
+            'variants.storages.stockMovements' => function ($query) {
+                $query->latest()->limit(100); 
+            },
         ]);
 
         return Inertia::render('CatalogProduct/Show', [
