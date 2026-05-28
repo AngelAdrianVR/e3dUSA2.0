@@ -25,6 +25,7 @@ class ProductionController extends Controller
         if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel') || $user->hasRole('Asistente de director')) {
             $selectedStatus = $request->input('status');
             $selectedOperatorId = $request->input('operator_id'); // Nuevo filtro
+            $searchQuery = $request->input('search');
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
             $query = Sale::query()
@@ -68,6 +69,11 @@ class ProductionController extends Controller
                 });
             }
 
+            // --- Aplicar filtro por búsqueda de folio (ID de venta) ---
+            if ($searchQuery) {
+                $query->where('id', 'like', "%{$searchQuery}%");
+            }
+
             // --- Paginación ---
             $sales = $query->latest()->paginate(20)->withQueryString();
 
@@ -81,7 +87,7 @@ class ProductionController extends Controller
                 'viewType' => 'manager',
                 'sales' => $sales,
                 'operators' => $operators, // Enviamos los operadores a la vista
-                'filters' => $request->only(['status', 'operator_id']), // Agregamos el nuevo filtro
+                'filters' => $request->only(['status', 'operator_id', 'search']), // Agregamos el nuevo filtro
             ]);
         }
 
