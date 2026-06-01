@@ -91,9 +91,8 @@ class DashboardController extends Controller
         // Se reestructura el array para enviar un objeto a la vista.
         $warehouseStats = [
             'counts' => [
-                DB::table('products')->where('product_type', 'Materia prima')->count(),
+                DB::table('products')->where('product_type', 'Producto')->count(),
                 DB::table('products')->where('product_type', 'Insumo')->count(),
-                DB::table('products')->where('product_type', 'Catálogo')->count(),
             ],
             'lowStockCount' => $lowStockCount,
         ];

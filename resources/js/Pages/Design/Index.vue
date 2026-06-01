@@ -54,6 +54,15 @@
                                     </span>
                                 </button>
                             </div>
+
+                            <!-- Filtro por Estatus -->
+                            <el-select v-model="statusFilter" placeholder="Filtrar por estatus" clearable class="!w-44" @change="handleStatusFilter">
+                                <el-option label="Pendiente" value="Pendiente" />
+                                <el-option label="Autorizada" value="Autorizada" />
+                                <el-option label="En proceso" value="En proceso" />
+                                <el-option label="Terminada" value="Terminada" />
+                                <el-option label="Cancelada" value="Cancelada" />
+                            </el-select>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -299,7 +308,8 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.designOrders.data,
-            activeView: this.filters.view || 'mine', 
+            activeView: this.filters.view || 'mine',
+            statusFilter: this.filters.status || '',
             SearchProps: ['Folio', 'Título', 'Solicitante', 'Diseñador', 'Estatus'],
             showAssignModal: false,
             showReportModal: false,
@@ -449,6 +459,9 @@ export default {
             if (this.activeView !== 'mine') {
                 params.view = this.activeView;
             }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
+            }
             router.get(route('design-orders.index', params), {
                 preserveState: true,
                 replace: true,
@@ -459,6 +472,24 @@ export default {
             const params = {};
             if (this.activeView !== 'mine') {
                 params.view = this.activeView;
+            }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
+            }
+            router.get(route('design-orders.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
+        handleStatusFilter() {
+            const params = {};
+            if (this.activeView !== 'mine') {
+                params.view = this.activeView;
+            }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
             }
             router.get(route('design-orders.index', params), {
                 preserveState: true,

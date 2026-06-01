@@ -23,6 +23,20 @@
             <!-- Controles para el manager -->
             <div v-if="viewType === 'manager'" class="flex items-center justify-between space-x-3 w-full mt-3">
                 <div class="flex items-center space-x-3">
+                    <!-- Buscador por Folio -->
+                    <el-input
+                        v-model="searchQuery"
+                        @keyup.enter="applyFilters"
+                        @clear="applyFilters"
+                        placeholder="Buscar folio..."
+                        clearable
+                        class="!w-48"
+                    >
+                        <template #prefix>
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </template>
+                    </el-input>
+
                     <!-- Filtro por Estatus -->
                     <el-select
                         v-model="selectedStatus"
@@ -153,6 +167,7 @@ export default {
             managerView: {
             activeView: 'kanban'
             },
+            searchQuery: this.filters?.search || '',
             selectedStatus: this.filters?.status || '',
             selectedOperator: this.filters?.operator_id || null, // v-model para filtro de operador
             productionStatuses: [
@@ -180,6 +195,9 @@ export default {
         // Método para recargar la página con el filtro de estatus
         applyFilters() {
             const queryParams = {};
+            if (this.searchQuery) {
+            queryParams.search = this.searchQuery;
+            }
             if (this.selectedStatus) {
             queryParams.status = this.selectedStatus;
             }

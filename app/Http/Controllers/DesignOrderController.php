@@ -44,6 +44,11 @@ class DesignOrderController extends Controller
             $query->where('requester_id', $user->id);
         }
 
+        // Filtro por status
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
         $designOrders = $query->latest()->paginate(15)->withQueryString();
 
         // Mapear el atributo "is_paused" y dar formato al tiempo invertido
@@ -71,7 +76,7 @@ class DesignOrderController extends Controller
 
         return Inertia::render('Design/Index', [
             'designOrders' => $designOrders,
-            'filters' => $request->only(['view']),
+            'filters' => $request->only(['view', 'status']),
             'unassignedOrdersCount' => $unassignedOrdersCount,
         ]);
     }
