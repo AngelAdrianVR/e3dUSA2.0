@@ -49,7 +49,7 @@ export default {
         chartOptions() {
              return {
                 chart: { type: 'donut' },
-                labels: ['Materia prima', 'Insumo', 'Producto terminado'],
+                labels: ['Producto', 'Insumo'],
                 colors: ['#3B82F6', '#FBBF24', '#10B981'],
                 dataLabels: { enabled: false, },
                 legend: {
