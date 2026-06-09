@@ -96,7 +96,7 @@ class SaleController extends Controller
 
         $rules = [
             'type' => ['required', Rule::in(['venta', 'stock'])],
-            'oce_name' => 'nullable|string|max:255',
+            'oce_name' => 'nullable|string|max:255|unique:sales,oce_name',
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
@@ -414,7 +414,7 @@ class SaleController extends Controller
         $isSaleType = $sale->type === 'venta';
 
         $rules = [
-            'oce_name' => 'nullable|string|max:255',
+            'oce_name' => 'nullable|string|max:255|unique:sales,oce_name,' . $sale->id,
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',

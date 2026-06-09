@@ -254,5 +254,6 @@ return [
         'week_salary' => 'salario semanal',
         'birthdate' => 'fecha de cumpleaños',
         'join_date' => 'fecha de ingreso',
+        'oce_name' => 'orden de compra externa',
     ],
 ];
