@@ -71,9 +71,13 @@ class CheckLowStockAndNotifyJob implements ShouldQueue
                 $users = User::role(['Super Administrador', 'Almacenista', 'Vendedor', 'Compras'])->where('is_active', true)->get();
                 $emails = $users->pluck('email')->toArray();
                 
-                // Agregamos el correo de prueba específico
-                $emails[] = 'angelvazquez470@gmail.com';
-                
+                // Agregamos correos de prueba específico
+                // $emails[] = 'angelvazquez470@gmail.com';
+                $emails[] = 'asistente.director@emblemas3d.com';
+                $emails[] = 'Key.accounts@emblems3d.com';
+                $emails[] = 'procesos.calidad@emblemas3d.com';
+                $emails[] = 'gerencia.admon@emblemas3d.com';
+
                 // Eliminamos duplicados por si un usuario tiene más de un rol o es el correo de prueba
                 $emails = array_unique($emails);
 
