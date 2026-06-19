@@ -99,9 +99,13 @@
             
             <div class="lg:col-span-2">
                 <!-- En orden de stock el precio es opcional, en venta es obligatorio -->
-                <TextInput :label="saleType === 'venta' ? 'Precio Unitario (Venta)*' : 'Precio Unitario (Opcional)'" v-model="currentProduct.price" type="number" :formatAsNumber="true">
+                <!-- Si la orden viene de cotización, el precio se bloquea -->
+                <TextInput :label="saleType === 'venta' ? 'Precio Unitario (Venta)*' : 'Precio Unitario (Opcional)'" v-model="currentProduct.price" type="number" :formatAsNumber="true" :disabled="isPriceLocked">
                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                 </TextInput>
+                <!-- <p v-if="isPriceLocked && saleType === 'venta'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <i class="fa-solid fa-lock mr-1"></i> Precio bloqueado por provenir de cotización.
+                </p> -->
             </div>
 
             <!-- ALERTA DE PRECIO BAJO (SOLO VENTAS) -->
@@ -365,8 +369,8 @@
                             <i class="fa-solid fa-pencil"></i>
                         </button>
                     </el-tooltip>
-                    <el-tooltip content="Eliminar" placement="top">
-                        <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
+                    <el-tooltip :content="product.from_quote ? 'No se puede eliminar: producto de cotización' : 'Eliminar'" placement="top">
+                        <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors" :class="{ 'opacity-30 cursor-not-allowed': product.from_quote }" :disabled="product.from_quote">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </el-tooltip>
@@ -412,6 +416,10 @@ export default {
             default: () => [],
         },
         productsError: String,
+        isPriceLocked: { // Cuando la orden viene de una cotización, los precios no se pueden modificar
+            type: Boolean,
+            default: false,
+        },
     },
     emits: ['update:modelValue'],
     data() {
