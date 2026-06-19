@@ -75,7 +75,7 @@
                     </button>
                 </Link>
                 
-                <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
+                <Dropdown align="right" width="48">
                     <template #trigger>
                         <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                             Más Acciones <i class="fa-solid fa-chevron-down text-[11px] ml-2"></i>
@@ -85,7 +85,7 @@
                         <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
                            <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
-                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM'))" as="button">
+                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM') || item.product?.code.includes('ET'))" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
                                 <p>Ver certificado de calidad</p>
                             </a>

@@ -88,6 +88,7 @@
                             :available-products="availableBaseProducts"
                             :client-products="clientProducts"
                             :products-error="form.errors.products"
+                            :is-price-locked="!!form.quote_id"
                         />
 
                         <!-- ALERTA GLOBAL DE PRECIO BAJO -->
@@ -806,6 +807,7 @@ export default {
                 is_new_design: false,
                 has_low_price: false,
                 low_price_reason: '',
+                from_quote: true, // Producto proveniente de cotización, no se puede eliminar
             });
         },
         async storeQuickBranch() {
