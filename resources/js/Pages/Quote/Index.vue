@@ -43,6 +43,20 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
                             </div>
 
+                            <!-- Botón filtro: Pendientes -->
+                            <button
+                                @click="togglePendingFilter"
+                                class="flex items-center px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
+                                :class="isPendingFilter ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
+                            >
+                                <i class="fa-solid fa-bell mr-1.5 text-xs" :class="{ 'animate-swing': isPendingFilter }"></i>
+                                Pendientes
+                                <span v-if="pendingCount > 0 && !isPendingFilter"
+                                    class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                                    {{ pendingCount }}
+                                </span>
+                            </button>
+
                             <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch"
                                 :searchProps="SearchProps" />
                         </div>
@@ -83,6 +97,14 @@
                                         
                                         <!-- Folio (usa root_quote_id para consistencia) -->
                                         <span class="text-xs">{{ 'COT-' + String(scope.row.root_quote_id).padStart(4, '0') }}</span>
+                                        
+                                        <!-- ALARMA: Cotización autorizada sin respuesta del cliente -->
+                                        <el-tooltip v-if="scope.row.authorized_at && !scope.row.customer_responded_at"
+                                            content="¡Autorizada! El cliente aún no ha respondido." placement="top">
+                                            <span class="relative flex items-center justify-center ml-1 cursor-help">
+                                                <i class="fa-solid fa-bell text-red-500 text-xs animate-swing"></i>
+                                            </span>
+                                        </el-tooltip>
                                         
                                         <!-- Badge de Versiones -->
                                         <el-tooltip v-if="scope.row.all_versions_count > 1"
@@ -380,6 +402,7 @@ export default {
             rejectionReason: '',
             selectedQuoteIdForRejection: null,
             showAllSales: this.filters.view === 'all', 
+            isPendingFilter: this.filters.filter === 'pending',
             statusMap: {
                 'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500"></i>', text: 'Aceptada por el cliente' },
                 'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500"></i>', text: 'Rechazada por el cliente' },
@@ -397,6 +420,11 @@ export default {
     props: {
         quotes: Object,
         filters: Object,
+    },
+    computed: {
+        pendingCount() {
+            return this.$page.props.pending_quote_notifications ?? 0;
+        },
     },
     methods: {
         // --- MÉTODO MODIFICADO PARA IR AL FORMULARIO DE CREACIÓN ---
@@ -424,6 +452,25 @@ export default {
             const params = {};
             if (this.showAllSales) {
                 params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
+            }
+            router.get(route('quotes.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
+        togglePendingFilter() {
+            this.isPendingFilter = !this.isPendingFilter;
+            const params = {};
+            if (this.showAllSales) {
+                params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
             }
             router.get(route('quotes.index', params), {
                 preserveState: true,
@@ -561,6 +608,9 @@ export default {
             if (this.showAllSales) {
                 params.view = 'all';
             }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
+            }
             router.get(route('quotes.index', params), {
                 preserveState: true,
                 replace: true,
@@ -633,5 +683,22 @@ export default {
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
+}
+
+/* Animación de campana para notificaciones */
+@keyframes swing {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-10deg); }
+    50% { transform: rotate(5deg); }
+    60% { transform: rotate(-5deg); }
+    70% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+}
+.animate-swing {
+    animation: swing 2s ease-in-out infinite;
+    transform-origin: top center;
 }
 </style>

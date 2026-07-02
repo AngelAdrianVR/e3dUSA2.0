@@ -24,11 +24,17 @@ class SaleController extends Controller
     {
         // Determina si se deben mostrar todas las ventas o solo las del usuario.
         $showAll = $request->query('view') === 'all';
+        $filterPending = $request->query('filter') === 'pending';
 
         $query = Sale::query();
 
         if (!$showAll) {
             $query->where('user_id', Auth::id());
+        }
+
+        // Filtro: solo ventas con estatus "Autorizada"
+        if ($filterPending) {
+            $query->where('status', 'Autorizada');
         }
 
         // AGREGADO: 'productExchanges.returnedProduct:id,name' y 'productExchanges.newProduct:id,name'
@@ -48,7 +54,7 @@ class SaleController extends Controller
         
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
-            'filters' => $request->only(['view']),
+            'filters' => $request->only(['view', 'filter']),
         ]);
     }
 

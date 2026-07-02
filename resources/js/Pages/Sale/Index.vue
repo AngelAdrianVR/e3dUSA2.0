@@ -42,6 +42,20 @@
                                 />
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
                             </div>
+
+                            <!-- Botón filtro: Pendientes -->
+                            <button
+                                @click="togglePendingFilter"
+                                class="flex items-center px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
+                                :class="isPendingFilter ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
+                            >
+                                <i class="fa-solid fa-bell mr-1.5 text-xs" :class="{ 'animate-swing': isPendingFilter }"></i>
+                                Pendientes
+                                <span v-if="pendingCount > 0 && !isPendingFilter"
+                                    class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                                    {{ pendingCount }}
+                                </span>
+                            </button>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -172,9 +186,18 @@
                             </el-table-column>
                             <el-table-column prop="status" label="Estatus" width="145">
                                 <template #default="scope">
-                                    <el-tag :type="getStatusTagType(scope.row.status)">
-                                        {{ scope.row.status }}
-                                    </el-tag>
+                                    <div class="flex items-center space-x-1">
+                                        <el-tag :type="getStatusTagType(scope.row.status)">
+                                            {{ scope.row.status }}
+                                        </el-tag>
+                                        <!-- ALARMA: Orden de venta autorizada -->
+                                        <el-tooltip v-if="scope.row.status === 'Autorizada'"
+                                            content="¡Esta orden ha sido autorizada! Revisa los detalles." placement="top">
+                                            <span class="relative flex items-center justify-center cursor-help">
+                                                <i class="fa-solid fa-bell text-red-500 text-xs animate-swing"></i>
+                                            </span>
+                                        </el-tooltip>
+                                    </div>
                                 </template>
                             </el-table-column>
                             <el-table-column label="Autorizado" width="100" align="center">
@@ -302,6 +325,7 @@ export default {
             selectedItems: [],
             tableData: this.sales.data,
             showAllSales: this.filters.view === 'all',
+            isPendingFilter: this.filters.filter === 'pending',
             SearchProps: ['ID', 'Cliente', 'Creador', 'Estatus'],
         };
     },
@@ -315,6 +339,11 @@ export default {
     props: {
         sales: Object,
         filters: Object,
+    },
+    computed: {
+        pendingCount() {
+            return this.$page.props.pending_sale_notifications ?? 0;
+        },
     },
     methods: {
         async handleSearch() {
@@ -423,6 +452,9 @@ export default {
             if (this.showAllSales) {
                 params.view = 'all';
             }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
+            }
             router.get(route('sales.index', params), {
                 preserveState: true,
                 replace: true,
@@ -432,6 +464,25 @@ export default {
             const params = {};
             if (this.showAllSales) {
                 params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
+            }
+            router.get(route('sales.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
+        togglePendingFilter() {
+            this.isPendingFilter = !this.isPendingFilter;
+            const params = {};
+            if (this.showAllSales) {
+                params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
             }
             router.get(route('sales.index', params), {
                 preserveState: true,
@@ -499,5 +550,22 @@ export default {
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
+}
+
+/* Animación de campana para notificaciones */
+@keyframes swing {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-10deg); }
+    50% { transform: rotate(5deg); }
+    60% { transform: rotate(-5deg); }
+    70% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+}
+.animate-swing {
+    animation: swing 2s ease-in-out infinite;
+    transform-origin: top center;
 }
 </style>
