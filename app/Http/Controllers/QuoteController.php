@@ -23,12 +23,19 @@ class QuoteController extends Controller
     public function index(Request $request)
     {
         $showAll = $request->query('view') === 'all';
+        $filterPending = $request->query('filter') === 'pending';
         $query = Quote::query();
 
         $query->where('is_active', true);
 
         if (!$showAll) {
             $query->where('user_id', Auth::id());
+        }
+
+        // Filtro: solo cotizaciones pendientes (autorizadas sin respuesta del cliente)
+        if ($filterPending) {
+            $query->whereNotNull('authorized_at')
+                  ->whereNull('customer_responded_at');
         }
 
         $query->withCount('allVersions');
@@ -43,7 +50,7 @@ class QuoteController extends Controller
 
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
-            'filters' => $request->only(['view']),
+            'filters' => $request->only(['view', 'filter']),
         ]);
     }
 

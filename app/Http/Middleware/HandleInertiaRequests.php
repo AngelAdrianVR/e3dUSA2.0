@@ -5,7 +5,9 @@ namespace App\Http\Middleware;
 use App\Models\Attendance;
 use App\Models\AuthorizedDevice;
 use App\Models\Payroll;
+use App\Models\Quote;
 use App\Models\Release; // Importante: Importar el modelo Release
+use App\Models\Sale;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -98,6 +100,22 @@ class HandleInertiaRequests extends Middleware
             }
         }
 
+        // --- NOTIFICACIONES CRM: Cotizaciones autorizadas sin respuesta del cliente ---
+        $pendingQuoteNotifications = 0;
+        $pendingSaleNotifications = 0;
+        if ($user) {
+            $pendingQuoteNotifications = Quote::where('user_id', $user->id)
+                ->where('is_active', true)
+                ->whereNotNull('authorized_at')
+                ->whereNull('customer_responded_at')
+                ->count();
+
+            $pendingSaleNotifications = Sale::where('user_id', $user->id)
+                ->where('status', 'Autorizada')
+                ->count();
+        }
+        // -------------------------------------------------------------------------
+
         $isAuthorizedDevice = false;
         $deviceToken = $request->cookie('attendance_device_token');
         if ($deviceToken) {
@@ -126,6 +144,8 @@ class HandleInertiaRequests extends Middleware
             'payroll_periods' => $payrollPeriods,
             'is_authorized_device' => $isAuthorizedDevice,
             'popupRelease' => $popupRelease, // <--- AQUÍ PASAMOS LA VARIABLE AL FRONTEND
+            'pending_quote_notifications' => $pendingQuoteNotifications,
+            'pending_sale_notifications' => $pendingSaleNotifications,
             'flash' => function () use ($request) {
                 return [
                     'success' => $request->session()->get('success'),

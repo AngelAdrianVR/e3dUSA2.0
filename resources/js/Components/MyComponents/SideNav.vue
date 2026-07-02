@@ -33,7 +33,15 @@
                                     ">
                                 </div>
                                 <span v-html="menu.icon"></span>
-                                <div v-if="menu.notifications" class="absolute top-2 right-2">
+                                <!-- Badge de notificación numérico para CRM -->
+                                <div v-if="menu.label === 'CRM' && crmNotificationCount > 0"
+                                    class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold
+                                           rounded-full min-w-[18px] h-[18px] flex items-center justify-center
+                                           px-1 shadow-lg animate-pulse">
+                                    {{ crmNotificationCount > 99 ? '99+' : crmNotificationCount }}
+                                </div>
+                                <!-- Badge de notificación genérico (punto pulsante) -->
+                                <div v-else-if="menu.notifications" class="absolute top-2 right-2">
                                     <span class="relative flex h-2.5 w-2.5">
                                         <span
                                             class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -740,15 +748,42 @@ export default {
         DialogModal,
     },
     computed: {
+        // Conteo combinado de notificaciones CRM (cotizaciones + órdenes de venta)
+        crmNotificationCount() {
+            const quoteCount = this.$page.props.pending_quote_notifications ?? 0;
+            const saleCount = this.$page.props.pending_sale_notifications ?? 0;
+            return quoteCount + saleCount;
+        },
         // Separa los menús que irán en la parte inferior
         bottomMenus() {
             const bottomLabels = ['Configuración'];
-            return this.menus.filter(menu => bottomLabels.includes(menu.label));
+            return this.menus.map(menu => {
+                if (menu.label === 'CRM' && this.crmNotificationCount > 0) {
+                    return { ...menu, notifications: true };
+                }
+                return menu;
+            }).filter(menu => bottomLabels.includes(menu.label));
         },
         // Filtra los menús que no están en la parte inferior
         topMenus() {
             const bottomLabels = ['Configuración'];
-            return this.menus.filter(menu => !bottomLabels.includes(menu.label));
+            return this.menus.map(menu => {
+                if (menu.label === 'CRM' && this.crmNotificationCount > 0) {
+                    // Clonamos el menú CRM e inyectamos notificaciones dinámicas en sus opciones
+                    const updatedOptions = menu.options.map(option => {
+                        let notifications = option.notifications || false;
+                        if (option.label === 'Cotizaciones' && this.$page.props.pending_quote_notifications > 0) {
+                            notifications = true;
+                        }
+                        if (option.label === 'Órdenes de venta / stock' && this.$page.props.pending_sale_notifications > 0) {
+                            notifications = true;
+                        }
+                        return { ...option, notifications };
+                    });
+                    return { ...menu, notifications: true, options: updatedOptions };
+                }
+                return menu;
+            }).filter(menu => !bottomLabels.includes(menu.label));
         },
         carpetPricePerCm2() {
             if (this.basePriceConfig.width > 0 && this.basePriceConfig.length > 0) {
