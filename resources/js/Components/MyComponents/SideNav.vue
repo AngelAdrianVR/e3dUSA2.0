@@ -33,7 +33,15 @@
                                     ">
                                 </div>
                                 <span v-html="menu.icon"></span>
-                                <div v-if="menu.notifications" class="absolute top-2 right-2">
+                                <!-- Badge de notificación numérico para CRM -->
+                                <div v-if="menu.label === 'CRM' && crmNotificationCount > 0"
+                                    class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold
+                                           rounded-full min-w-[18px] h-[18px] flex items-center justify-center
+                                           px-1 shadow-lg animate-pulse">
+                                    {{ crmNotificationCount > 99 ? '99+' : crmNotificationCount }}
+                                </div>
+                                <!-- Badge de notificación genérico (punto pulsante) -->
+                                <div v-else-if="menu.notifications" class="absolute top-2 right-2">
                                     <span class="relative flex h-2.5 w-2.5">
                                         <span
                                             class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -224,7 +232,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                         stroke="currentColor" class="size-6 text-orange-600 dark:text-orange-300">
                         <path stroke-linecap="round" stroke-linejoin="round"
-                            d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.78.93l-.15.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.149-.894c-.07-.424-.384-.764-.78-.93-.398-.164-.855-.142-1.205.108l-.737.527a1.125 1.125 0 0 1-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894Z" />
+                            d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 0 1 1.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.108 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.108 1.204l.527.738c.32.447.27.96-.12 1.45l-.773.773a1.125 1.125 0 0 1-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71-.505-.78.93l-.15.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.149-.894c-.07-.424-.384-.764-.78-.93-.398-.164-.855-.142-1.205.108l-.737.527a1.125 1.125 0 0 1-1.45-.12l-.773-.774a1.125 1.125 0 0 1-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.108-1.204l-.527-.738a1.125 1.125 0 0 1 .12-1.45l.773-.773a1.125 1.125 0 0 1 1.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894Z" />
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                     </svg>
                 </span>
@@ -427,6 +435,7 @@ export default {
                         || route().current('branches.*')
                         || route().current('sales.*')
                         || route().current('invoices.*')
+                        || route().current('billing.*') // <-- RUTA NUEVA AÑADIDA
                         || route().current('sales-analysis.*'),
                     options: [
                         {
@@ -453,12 +462,20 @@ export default {
                             active: route().current('sales.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de venta'),
                         },
+                        // {
+                        //     label: 'Facturación',
+                        //     route: 'invoices.index',
+                        //     active: route().current('invoices.*'),
+                        //     show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
+                        // },
+                        // --- INICIO NUEVO MÓDULO ---
                         {
-                            label: 'Facturación',
-                            route: 'invoices.index',
-                            active: route().current('invoices.*'),
+                            label: 'Cobranza',
+                            route: 'billing.dashboard',
+                            active: route().current('billing.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver facturas'),
                         },
+                        // --- FIN NUEVO MÓDULO ---
                     ],
                     dropdown: true,
                     show:
@@ -473,7 +490,9 @@ export default {
                     icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-[19px]"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg>',
                     active:
                         route().current('suppliers.*')
-                        || route().current('purchases.*'),
+                        || route().current('purchases.*')
+                        || route().current('stock-projection.*')
+                        || route().current('stock-reposition.*'),
                     options: [
                         {
                             label: 'Proveedores',
@@ -488,11 +507,25 @@ export default {
                             active: route().current('purchases.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver ordenes de compra'),
                         },
+                        {
+                            label: 'Proyección de compras',
+                            route: 'stock-projection.index',
+                            active: route().current('stock-projection.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver proyección de compras'),
+                        },
+                        {
+                            label: 'Productos con bajo stock',
+                            route: 'stock-reposition.index',
+                            active: route().current('stock-reposition.*'),
+                            show: this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock'),
+                        },
 
                     ],
                     dropdown: true,
                     show: this.$page.props.auth.user.permissions.includes('Ver proveedores')
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
+                        || this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock')
+                        || this.$page.props.auth.user.permissions.includes('Ver proyección de compras')
                 },
                 {
                     label: 'Logistica',
@@ -584,6 +617,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver bonos')
                         || this.$page.props.auth.user.permissions.includes('Ver dias festivos')
                         || this.$page.props.auth.user.permissions.includes('Gestionar quioscos')
+                        || this.$page.props.auth.user.permissions?.includes('Ver solicitudes de tiempo adicional')
                 },
                 {
                     label: 'Diseño',
@@ -613,6 +647,13 @@ export default {
                     route: route('productions.index'),
                     active: route().current('productions.*'),
                     show: this.$page.props.auth.user.permissions.includes('Ver ordenes de produccion')
+                },
+                {
+                    label: 'Tareas',
+                    icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" /></svg>',
+                    route: route('pms.index'),
+                    active: route().current('pms.*'),
+                    show: this.$page.props.auth.user.permissions.includes('Ver pms')
                 },
                 {
                     label: 'Más',
@@ -707,15 +748,42 @@ export default {
         DialogModal,
     },
     computed: {
+        // Conteo combinado de notificaciones CRM (cotizaciones + órdenes de venta)
+        crmNotificationCount() {
+            const quoteCount = this.$page.props.pending_quote_notifications ?? 0;
+            const saleCount = this.$page.props.pending_sale_notifications ?? 0;
+            return quoteCount + saleCount;
+        },
         // Separa los menús que irán en la parte inferior
         bottomMenus() {
             const bottomLabels = ['Configuración'];
-            return this.menus.filter(menu => bottomLabels.includes(menu.label));
+            return this.menus.map(menu => {
+                if (menu.label === 'CRM' && this.crmNotificationCount > 0) {
+                    return { ...menu, notifications: true };
+                }
+                return menu;
+            }).filter(menu => bottomLabels.includes(menu.label));
         },
         // Filtra los menús que no están en la parte inferior
         topMenus() {
             const bottomLabels = ['Configuración'];
-            return this.menus.filter(menu => !bottomLabels.includes(menu.label));
+            return this.menus.map(menu => {
+                if (menu.label === 'CRM' && this.crmNotificationCount > 0) {
+                    // Clonamos el menú CRM e inyectamos notificaciones dinámicas en sus opciones
+                    const updatedOptions = menu.options.map(option => {
+                        let notifications = option.notifications || false;
+                        if (option.label === 'Cotizaciones' && this.$page.props.pending_quote_notifications > 0) {
+                            notifications = true;
+                        }
+                        if (option.label === 'Órdenes de venta / stock' && this.$page.props.pending_sale_notifications > 0) {
+                            notifications = true;
+                        }
+                        return { ...option, notifications };
+                    });
+                    return { ...menu, notifications: true, options: updatedOptions };
+                }
+                return menu;
+            }).filter(menu => !bottomLabels.includes(menu.label));
         },
         carpetPricePerCm2() {
             if (this.basePriceConfig.width > 0 && this.basePriceConfig.length > 0) {

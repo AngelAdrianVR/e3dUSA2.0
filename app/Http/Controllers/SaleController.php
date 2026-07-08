@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y notificar si está por debajo del minimo permitido
 
 class SaleController extends Controller
 {
@@ -23,11 +24,17 @@ class SaleController extends Controller
     {
         // Determina si se deben mostrar todas las ventas o solo las del usuario.
         $showAll = $request->query('view') === 'all';
+        $filterPending = $request->query('filter') === 'pending';
 
         $query = Sale::query();
 
         if (!$showAll) {
             $query->where('user_id', Auth::id());
+        }
+
+        // Filtro: solo ventas con estatus "Autorizada"
+        if ($filterPending) {
+            $query->where('status', 'Autorizada');
         }
 
         // AGREGADO: 'productExchanges.returnedProduct:id,name' y 'productExchanges.newProduct:id,name'
@@ -47,24 +54,20 @@ class SaleController extends Controller
         
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
-            'filters' => $request->only(['view']),
+            'filters' => $request->only(['view', 'filter']),
         ]);
     }
 
     public function create(Request $request)
     {
-        // Valida que el quote_id, si existe, sea un número
         $request->validate([
             'quote_id' => 'nullable|integer|exists:quotes,id'
         ]);
 
-        // Obtiene el quote_id de la solicitud
         $quoteToConvertId = intval($request->input('quote_id'));
 
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -75,11 +78,19 @@ class SaleController extends Controller
                     ->take(100)
                     ->get();
         
+        // MODIFICACIÓN: Cargar productos padre (parent_id es null) junto con sus variantes y multimedia
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
+
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
-            // Pasa el ID de la cotización a convertir como un prop
+            'catalog_products' => $catalog_products,
             'quoteToConvertId' => $quoteToConvertId,
         ]);
     }
@@ -91,15 +102,19 @@ class SaleController extends Controller
 
         $rules = [
             'type' => ['required', Rule::in(['venta', 'stock'])],
-            'oce_name' => 'nullable|string|max:255',
+            'oce_name' => 'nullable|string|max:255|unique:sales,oce_name',
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean', // NUEVO CAMPO
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -141,7 +156,9 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'type' => $validated['type'],
                 'user_id' => auth()->id(),
-                'status' => 'Pendiente',
+                'status' => 'Pendiente', // El status es pendiente por defecto (Esperando Autorización)
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
@@ -178,6 +195,8 @@ class SaleController extends Controller
                     'price' => $productData['price'] ?? 0,
                     'notes' => $productData['notes'] ?? null,
                     'customization_details' => $productData['customization_details'] ?? null,
+                    'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                    'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
                     'quantity_to_produce' => $productData['quantity'],
@@ -214,7 +233,8 @@ class SaleController extends Controller
             }
             // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
             foreach ($validated['products'] as $productData) {
-                $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                // CORRECCIÓN: Cargar parent.components.storages para que las variantes encuentren el stock de sus componentes heredados
+                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                 $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
 
                 $quantityToProduce = 0;
@@ -250,17 +270,18 @@ class SaleController extends Controller
                 }
 
                 // 6.3 Descontar stock de los componentes (se ejecuta siempre que haya algo que producir)
-                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                    foreach ($product->components as $component) {
+                // CORRECCIÓN: Usar actual_components en lugar de components para soportar productos variables
+                if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                    foreach ($product->actual_components as $component) {
                         $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                         $componentStorage = $component->storages->first();
 
-                        if ($componentStorage) {
+                        if ($componentStorage && $componentStorage->quantity > 0) {
                             $currentStock = $componentStorage->quantity;
                             $discountQuantity = min($requiredQuantity, $currentStock);
 
-                            // Se descuenta la cantidad requerida, asegurando que el stock no sea negativo.
-                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
+                            // CORRECCIÓN: Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
+                            $componentStorage->decrement('quantity', $discountQuantity);
 
                             if ($discountQuantity > 0) {
                                 // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
@@ -290,6 +311,14 @@ class SaleController extends Controller
 
             DB::commit();
 
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se ejecuta después del commit para asegurar que los descuentos 
+            // de inventario ya están aplicados en la base de datos.
+            // --------------------------------------------------------------------------
+            CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
+
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
 
             return redirect()->route('sales.show', $sale->id);
@@ -310,37 +339,37 @@ class SaleController extends Controller
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
+            
             'saleProducts.product.priceHistory' => function ($q) {
-                $q->orderBy('created_at', 'desc');
+                $q->with('user')->orderBy('created_at', 'desc'); 
             },
+            
+            // --- AQUÍ ESTÁN LOS CAMBIOS PARA EL STOCK COMPUESTO ---
+            'saleProducts.product.storages', // Almacenes del producto simple
+            'saleProducts.product.components.storages', // Almacenes de los componentes (si es padre compuesto)
+            'saleProducts.product.parent.components.storages', // Almacenes de los componentes (si es hijo/variante)
+            // -----------------------------------------------------
+
             'shipments',
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details',
-            // Cargar historial de cambios con sus relaciones necesarias
             'productExchanges.returnedProduct',
             'productExchanges.newProduct',
             'productExchanges.user',
             'productExchanges.media',
         ]);
 
-        // Listas necesarias para el formulario de cambio
-        $storages = Storage::select('id', 'location')->get();
+        $storages = \App\Models\Storage::select('id', 'location')->get();
         
-        // 2. CORRECCIÓN: Cargar SOLO los productos relacionados con el Cliente (Sucursal)
-        // Usamos join con la tabla pivote 'branch_product' que se menciona en el modelo Branch.
-        // Esto asegura que en el select del modal solo aparezcan productos que el cliente puede comprar/cambiar.
         $products = [];
         
         if ($sale->branch_id) {
-            // Obtenemos la sucursal completa para verificar si tiene matriz (padre)
             $branch = \App\Models\Branch::find($sale->branch_id);
             
-            // Si tiene padre, usamos la matriz como fuente de productos. Si no, usamos la sucursal misma.
             $productSourceBranch = $branch->parent_branch_id 
                 ? \App\Models\Branch::find($branch->parent_branch_id) 
                 : $branch;
 
-            // Obtenemos los productos desde la sucursal fuente correcta
             $products = $productSourceBranch->products()
                 ->where('is_sellable', true)
                 ->select('products.id', 'products.name', 'products.code')
@@ -356,10 +385,8 @@ class SaleController extends Controller
 
     public function edit(Sale $sale)
     {
-        // Obtenemos todas las sucursales (clientes) activas.
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
-        // Obtenemos solo las cotizaciones que han sido autorizadas y no están en una OV.
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
@@ -369,11 +396,20 @@ class SaleController extends Controller
                     ->with('branch:id,name')
                     ->take(100)
                     ->get();
+        
+        // MODIFICACIÓN: Igualmente en edición, cargar productos con estructura parent-variant
+        $catalog_products = Product::whereNull('parent_id')
+                    ->whereNull('archived_at')
+                    ->with(['variants' => function($q) {
+                        $q->whereNull('archived_at')->select('id', 'parent_id', 'name', 'code');
+                    }, 'variants.media', 'media'])
+                    ->select('id', 'name', 'code')
+                    ->get();
 
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => $catalog_products,
             'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
         ]);
     }
@@ -384,15 +420,19 @@ class SaleController extends Controller
         $isSaleType = $sale->type === 'venta';
 
         $rules = [
-            'oce_name' => 'nullable|string|max:255',
+            'oce_name' => 'nullable|string|max:255|unique:sales,oce_name,' . $sale->id,
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
             'is_high_priority' => 'required|boolean',
+            'has_low_price' => 'boolean',
+            'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
             'products.*.notes' => 'nullable|string',
             'products.*.customization_details' => 'nullable|array',
+            'products.*.has_low_price' => 'boolean', // AGREGADO
+            'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
             'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
         ];
@@ -433,16 +473,18 @@ class SaleController extends Controller
         try {
 
             // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
-            // if ($isSaleType) {
+            if ($isSaleType && method_exists($this, 'revertStockForSale')) {
                 $this->revertStockForSale($sale);
-            // }
+            }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
-            $sale->update([
+            $updateData = [
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'has_low_price' => $validated['has_low_price'] ?? false,
+                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
@@ -454,7 +496,16 @@ class SaleController extends Controller
                 'total_amount' => $isSaleType ? array_reduce($validated['products'], function ($carry, $product) {
                     return $carry + ($product['quantity'] * ($product['price'] ?? 0));
                 }, 0) : 0,
-            ]);
+            ];
+
+            // Validar si debemos resetear el estatus a "Pendiente"
+            if (in_array($sale->status, ['Pendiente', 'Autorizada'])) {
+                $updateData['status'] = 'Pendiente';
+                $updateData['authorized_at'] = null;
+                $updateData['authorized_user_name'] = null;
+            }
+
+            $sale->update($updateData);
 
             // --- 5. SINCRONIZAR PRODUCTOS DE LA ORDEN ---
             $productIdsFromRequest = collect($validated['products'])->pluck('id');
@@ -468,6 +519,8 @@ class SaleController extends Controller
                         'price' => $productData['price'] ?? 0,
                         'notes' => $productData['notes'] ?? null,
                         'customization_details' => $productData['customization_details'] ?? null,
+                        'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
+                        'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
                     ]
                 );
             }
@@ -526,7 +579,8 @@ class SaleController extends Controller
             // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
             if ($isSaleType) {
                 foreach ($validated['products'] as $productData) {
-                    $product = Product::with(['storages', 'components.storages'])->find($productData['id']);
+                    // CORRECCIÓN: Cargar parent.components.storages igual que en store
+                    $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                     $saleProduct = $sale->saleProducts()->where('product_id', $product->id)->first();
                     $quantityInSale = $productData['quantity'];
                     
@@ -550,13 +604,18 @@ class SaleController extends Controller
                     }
 
                     // Lógica para descontar componentes (si aplica)
-                    if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                        foreach ($product->components as $component) {
+                    // CORRECCIÓN: Usar actual_components en lugar de components
+                    if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                        foreach ($product->actual_components as $component) {
                             $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
                             $componentStorage = $component->storages->first();
+                            
                             if ($componentStorage && $componentStorage->quantity > 0) {
                                 $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
+                                
+                                // Ya tenías decrement() aquí, se mantiene
                                 $componentStorage->decrement('quantity', $discountQuantity);
+                                
                                 StockMovement::create([
                                     'product_id' => $component->id,
                                     'storage_id' => $componentStorage->id,
@@ -578,6 +637,13 @@ class SaleController extends Controller
             }
             
             DB::commit();
+
+            // --------------------------------------------------------------------------
+            // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
+            // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
+            // --------------------------------------------------------------------------
+             CheckLowStockAndNotifyJob::dispatch($sale);
+            // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
             return redirect()->route('sales.show', $sale->id);

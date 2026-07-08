@@ -5,63 +5,153 @@
     </el-divider>
     <InputError :message="productsError" class="mt-2" />
 
-    <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
-        <p v-if="saleType === 'venta' && !branchId" class="text-center text-gray-500">
+    <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700">
+        <p v-if="saleType === 'venta' && !branchId" class="text-center text-gray-500 py-4">
             <i class="fa-solid fa-arrow-up mr-2"></i>
             Selecciona un cliente para agregar productos.
         </p>
+        
         <div v-else class="grid grid-cols-1 lg:grid-cols-4 gap-3 items-start">
-            <!-- Formulario para agregar/editar producto -->
-            <div class="lg:col-span-2">
-                <InputLabel value="Producto*" />
-                <el-select @change="getProductData" v-model="currentProduct.id" filterable placeholder="Buscar producto" class="w-full" 
-                           :no-data-text="saleType === 'venta' ? 'No hay productos para este cliente' : 'No hay productos en el catálogo'">
-                    <el-option v-for="product in availableProducts" 
-                        :key="product.id" 
-                        :label="product.name" 
-                        :value="product.id"
-                        :disabled="products.some(p => p.id === product.id) && product.id !== this.products[editIndex]?.id" />
-                </el-select>
-            </div>
-            <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
             
-            <!-- El precio solo es para 'venta' -->
-            <TextInput v-if="saleType === 'venta'" label="Precio Unitario*" v-model="currentProduct.price" type="number" :formatAsNumber="true">
-                <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-            </TextInput>
+            <!-- PRODUCTO DE CATÁLOGO (CON PADRES Y VARIANTES) -->
+            <div class="lg:col-span-full bg-white dark:bg-slate-900/50 p-4 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm mb-3">
+                <div class="mb-4">
+                    <p class="text-sm text-gray-700 dark:text-gray-300 mb-2 font-semibold">
+                        <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">1</span>
+                        Selecciona el producto base
+                    </p>
+                    <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
+                        <el-option class="!w-96" v-for="product in availableProducts" 
+                            :key="product.id" 
+                            :label="`${product.name} (${product.code || 'S/C'})`" 
+                            :value="product.id"
+                             />
+                    </el-select>
+                </div>
+
+                <!-- Variants Section -->
+                <div v-if="selectedBaseProductId && availableVariants.length" class="animate-fade-in-down">
+                    <el-divider border-style="dashed" />
+                    
+                    <!-- Buscador de Variantes -->
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-3">
+                        <p class="text-sm text-gray-700 dark:text-gray-300 font-semibold">
+                            <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">2</span>
+                            Selecciona una variante o personalización:
+                        </p>
+                        <el-input
+                            v-model="variantSearchQuery"
+                            placeholder="Buscar variante..."
+                            clearable
+                            class="w-full md:w-72"
+                        >
+                            <template #prefix>
+                                <i class="fa-solid fa-search"></i>
+                            </template>
+                        </el-input>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-y-auto pb-2">
+                        <!-- Base Product Card (Opción para no usar variante) -->
+                        <div v-show="!variantSearchQuery && isBaseProductAllowed" @click="selectVariant(null)"
+                             :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm flex flex-col items-center justify-between', selectedVariantId === null ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-gray-50 dark:bg-slate-800/50']">
+                            <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
+                                <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
+                            </div>
+                            <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Sin personalización</p>
+                            <p class="text-[10px] text-gray-500 text-center mt-1">(Usar producto base)</p>
+                        </div>
+
+                        <!-- No asignado al cliente (Producto base no permitido) -->
+                        <div v-show="!variantSearchQuery && !isBaseProductAllowed" class="cursor-not-allowed opacity-50 border rounded-xl p-2 transition-all shadow-sm flex flex-col items-center justify-between border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                            <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
+                                <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
+                            </div>
+                            <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Sin personalización</p>
+                            <p class="text-[10px] text-red-500 text-center mt-1">(No asignado al cliente)</p>
+                        </div>
+
+                        <!-- Mensaje si no hay resultados en la búsqueda -->
+                        <div v-if="filteredVariants.length === 0" class="col-span-full py-4 text-center text-gray-500 text-sm">
+                            No se encontraron variantes que coincidan.
+                        </div>
+
+                        <!-- Tarjetas de Variantes -->
+                        <div v-for="variant in filteredVariants" :key="variant.id"
+                             @click="selectVariant(variant)"
+                             :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === variant.id ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-white dark:bg-slate-800']">
+                            <div class="w-full aspect-square mb-2 rounded-lg overflow-hidden relative group bg-gray-100 dark:bg-slate-700">
+                                <img v-if="variant.media?.length" :src="variant.media[0].original_url" class="w-full h-full object-cover" />
+                                <div v-else class="w-full h-full flex items-center justify-center">
+                                    <i class="fa-solid fa-image text-gray-400 text-3xl"></i>
+                                </div>
+                            </div>
+                            <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight w-full line-clamp-2" :title="variant.name">{{ variant.name }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Siempre visibles: Cantidad y Precio -->
+            <div class="lg:col-span-2">
+                <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
+            </div>
+            
+            <div class="lg:col-span-2">
+                <!-- En orden de stock el precio es opcional, en venta es obligatorio -->
+                <!-- Si la orden viene de cotización, el precio se bloquea -->
+                <TextInput :label="saleType === 'venta' ? 'Precio Unitario (Venta)*' : 'Precio Unitario (Opcional)'" v-model="currentProduct.price" type="number" :formatAsNumber="true" :disabled="isPriceLocked">
+                    <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                </TextInput>
+                <!-- <p v-if="isPriceLocked && saleType === 'venta'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <i class="fa-solid fa-lock mr-1"></i> Precio bloqueado por provenir de cotización.
+                </p> -->
+            </div>
+
+            <!-- ALERTA DE PRECIO BAJO (SOLO VENTAS) -->
+            <div v-if="isPriceLow" class="col-span-full mt-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800 animate-fade-in-down">
+                <p class="text-amber-600 dark:text-amber-400 text-xs font-bold mb-2">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Precio por debajo del mínimo permitido. Por favor, justifica esta decisión para su validación.
+                </p>
+                <TextInput 
+                    label="Razón del precio*" 
+                    v-model="currentProduct.low_price_reason" 
+                    :isTextarea="true" 
+                    placeholder="Justifica este precio..." 
+                />
+            </div>
 
             <!-- Estado de carga -->
             <LoadingIsoLogo class="col-span-full" v-if="loadingProductData" />
 
-            <!-- Tarjeta de producto seleccionado -->
+            <!-- Tarjeta de Producto Seleccionado (Previsualización de información y stock) -->
             <div v-else-if="currentProduct.id" class="p-4 bg-gray-100 dark:bg-slate-900/50 rounded-lg col-span-full mb-2 border border-gray-200 dark:border-slate-800" >
-                
-                <!-- Sección de Información Principal del Producto -->
                 <div class="flex items-start space-x-4">
                     <figure 
-                        v-if="currentProduct.media" 
-                        class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                        class="relative flex items-center justify-center w-32 h-32 min-w-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl bg-white dark:bg-slate-800">
                         <img v-if="currentProduct.media?.length"
                             :src="currentProduct.media[0]?.original_url" 
                             alt="Imagen del producto" 
-                            class="rounded-2xl w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                            class="rounded-2xl w-full h-full object-cover transition duration-300 ease-in-out hover:opacity-95"
                         >
                         <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                            </svg>
-                            <p>Sin imagen</p>
+                            <i class="fa-solid fa-image text-3xl mb-2"></i>
+                            <p class="text-xs">Sin imagen</p>
                         </div>
                     </figure>
 
                     <!-- Información de almacén y precios -->
-                    <div class="flex-1">
+                    <div class="flex-1 text-sm">
                         <span v-if="saleType === 'venta' && currentProduct.isClientProduct" class="px-2 py-1 text-xs font-semibold text-green-800 bg-green-200 rounded-full mb-2 inline-block">
                             Producto de cliente
                         </span>
                         
-                        <!-- STOCK DE PRODUCTO TERMINADO (Modificado) -->
-                        <div class="text-gray-500 dark:text-gray-300 flex items-center flex-wrap">
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Producto Seleccionado: <strong class="text-primary">{{ currentProduct.name }}</strong>
+                        </p>
+
+                        <!-- STOCK DE PRODUCTO TERMINADO -->
+                        <div class="text-gray-500 dark:text-gray-300 flex items-center flex-wrap mt-1">
                             Stock (P. Terminado):&nbsp;
                             <strong :class="{'text-red-600 flex items-center ml-1': (currentProduct.storages[0]?.quantity ?? 0) == 0}">
                                 <i v-if="(currentProduct.storages[0]?.quantity ?? 0) == 0" class="fa-solid fa-circle-exclamation mr-1 text-red-500 animate-pulse"></i>
@@ -73,11 +163,15 @@
                         <p class="text-gray-500 dark:text-gray-300">
                             Ubicación: <strong>{{ currentProduct.storages[0]?.location ?? 'No asignado' }}</strong>
                         </p>
-                        <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300">
-                            Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                        <p class="text-gray-500 dark:text-gray-300">
+                            Stock mínimo: <strong>{{ currentProduct.min_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
                         </p>
-                        <p v-if="saleType === 'venta' && currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
-                            Precio actual (especial): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
+                        
+                        <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300 mt-1">
+                            Precio base del catálogo: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
+                        </p>
+                        <p v-if="saleType === 'venta' && currentProduct.isClientProduct && currentProduct.current_price" class="text-green-600 dark:text-green-400 font-semibold mt-1">
+                            Precio actual (para este cliente): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                         </p>
                     </div>
                 </div>
@@ -94,7 +188,7 @@
                                     Atención: Insuficiencia de Material
                                 </h3>
                                 <p class="text-sm text-red-700 dark:text-red-300 mt-1">
-                                    Reportar falta de materia prima a autoridad correspondiente.
+                                    Reportar falta de materia prima a la autoridad correspondiente.
                                 </p>
                                 <p class="text-xs text-red-600 dark:text-red-400 mt-1 opacity-90">
                                     Solicitado: <strong>{{ Number(currentProduct.quantity)?.toLocaleString() }}</strong> | 
@@ -125,31 +219,27 @@
                         <li v-for="component in currentProduct.components" :key="component.id" class="flex items-center justify-between text-sm p-2 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
                             <div class="flex items-center space-x-3">
                                 <figure 
-                                    v-if="component.media" 
-                                    class="relative flex items-center justify-center size-12 min-w-12 rounded-lg border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg transition transform hover:shadow-xl">
+                                    class="relative flex items-center justify-center size-12 min-w-12 rounded-lg border border-gray-200 dark:border-slate-900 overflow-hidden shadow-sm bg-gray-50 dark:bg-slate-700">
                                     <img v-if="component.media?.length"
                                         :src="component.media[0]?.original_url" 
-                                        alt="Imagen del producto" 
-                                        class="rounded-lg w-full h-auto object-cover transition duration-300 ease-in-out hover:opacity-95"
+                                        alt="Imagen del componente" 
+                                        class="rounded-lg w-full h-full object-cover"
                                     >
                                     <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                        </svg>
-                                        <p>Sin imagen</p>
+                                        <i class="fa-solid fa-image"></i>
                                     </div>
                                 </figure>
                                 <div>
                                     <p class="font-medium text-gray-900 dark:text-gray-100">{{ component.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Requerido: {{ component.pivot.quantity }} {{ component.measure_unit }}</p>
+                                    <!-- INDICADOR DE STOCK MINIMO DE CADA COMPONENTE -->
+                                    <p class="text-[11px] text-gray-400 mt-0.5">Stock Mínimo: {{ component.min_quantity?.toLocaleString() ?? 0 }} {{ component.measure_unit }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center space-x-3 text-right">
                                 <!-- Icono de advertencia para stock bajo -->
                                 <div v-if="(component.storages[0]?.quantity ?? 0) < component.min_quantity" class="text-yellow-500" title="El stock está por debajo del mínimo requerido">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                    </svg>
+                                    <i class="fa-solid fa-circle-exclamation text-lg"></i>
                                 </div>
                                 <!-- Información de stock con colores condicionales -->
                                 <span class="font-bold text-base" :class="{
@@ -166,7 +256,6 @@
                 </div>
             </div>
 
-            
             <div class="lg:col-span-full">
                  <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" />
             </div>
@@ -218,15 +307,16 @@
             </div>
             <!-- FIN: SECCIÓN DE PERSONALIZACIÓN -->
 
-            <label class="flex items-center mt-2">
+            <label class="flex items-center mt-2 col-span-full">
                 <Checkbox v-model:checked="currentProduct.is_new_design" class="bg-transparent border-gray-500" />
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Diseño nuevo</span>
             </label>
+            
             <div class="pt-2 col-span-full">
-                <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.id || !currentProduct.quantity || (saleType === 'venta' && !currentProduct.price)">
-                    {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto' }}
+                <SecondaryButton @click="addProduct" type="button" :disabled="isAddProductDisabled">
+                    {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto a la orden' }}
                 </SecondaryButton>
-                <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3">
+                <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3 transition-colors">
                     Cancelar edición
                 </button>
             </div>
@@ -234,21 +324,29 @@
     </div>
 
     <!-- Lista de productos agregados -->
-    <div v-if="products.length" class="mt-5">
-        <h3 class="font-bold mb-2 text-gray-800 dark:text-gray-200">Lista de productos agregados</h3>
-        <ul class="rounded-lg bg-gray-100 dark:bg-slate-800 p-3 space-y-2">
-            <li v-for="(product, index) in products" :key="index" class="flex justify-between items-center p-3 rounded-md transition-colors"
-                :class="{ 'bg-blue-100 dark:bg-blue-900/50': editIndex === index }">
+    <div v-if="products.length" class="mt-5 mb-8">
+        <h3 class="font-bold mb-2 text-gray-800 dark:text-gray-200">Lista de productos en la orden</h3>
+        <ul class="rounded-lg bg-gray-100 dark:bg-slate-800 p-3 space-y-2 border border-gray-200 dark:border-slate-700">
+            <li v-for="(product, index) in products" :key="index" class="flex justify-between items-center p-3 rounded-md transition-colors bg-white dark:bg-slate-900"
+                :class="{ '!bg-blue-50 dark:!bg-blue-900/50': editIndex === index }">
                 <div class="flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-md overflow-hidden bg-gray-200 dark:bg-slate-700 shrink-0 border dark:border-slate-600">
+                        <img v-if="product.media?.length" :src="product.media[0]?.original_url" class="w-full h-full object-cover" />
+                        <div v-else class="w-full h-full flex items-center justify-center text-gray-400"><i class="fa-solid fa-image"></i></div>
+                    </div>
+                    
                     <span class="text-sm text-gray-800 dark:text-gray-200">
-                        <p class="font-bold text-primary">{{ getProductName(product.id) }}</p>
+                        <p class="font-bold text-primary">{{ product.name || getProductName(product.id) }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             Cantidad: {{ product.quantity }} 
                             <template v-if="saleType === 'venta'">
                                 | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
                             </template>
                         </p>
-                        <small v-if="product.notes" class="text-xs text-gray-500 dark:text-gray-400">{{ product.notes }}</small>
+                        <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Razón precio bajo: <span class="font-normal italic">{{ product.low_price_reason }}</span>
+                        </p>
+                        <p v-if="product.notes" class="text-xs italic text-gray-500 mt-1">Nota: {{ product.notes }}</p>
                         
                         <div v-if="product.customization_details && product.customization_details.length" class="mt-2">
                             <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">Personalización:</p>
@@ -260,14 +358,19 @@
                         </div>
                     </span>
                 </div>
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-3 shrink-0">
+                    <el-tooltip content="Cancelar edición" placement="top">
+                        <button @click="resetCurrentProduct" v-if="editIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </el-tooltip>
                     <el-tooltip content="Editar" placement="top">
                         <button @click="editProduct(index)" type="button" class="text-gray-500 hover:text-blue-500 transition-colors">
                             <i class="fa-solid fa-pencil"></i>
                         </button>
                     </el-tooltip>
-                    <el-tooltip content="Eliminar" placement="top">
-                        <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
+                    <el-tooltip :content="product.from_quote ? 'No se puede eliminar: producto de cotización' : 'Eliminar'" placement="top">
+                        <button @click="deleteProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors" :class="{ 'opacity-30 cursor-not-allowed': product.from_quote }" :disabled="product.from_quote">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </el-tooltip>
@@ -285,6 +388,7 @@ import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import { ElMessage } from 'element-plus';
+import axios from 'axios';
 
 export default {
     name: 'SaleProductManager',
@@ -303,24 +407,49 @@ export default {
             type: String,
             required: true,
         },
-        availableProducts: {
+        availableProducts: { // Estos son los PADRES del catálogo
             type: Array,
             required: true,
         },
+        clientProducts: { // Estos son los productos específicos asignados al cliente (con sus precios)
+            type: Array,
+            default: () => [],
+        },
         productsError: String,
+        isPriceLocked: { // Cuando la orden viene de una cotización, los precios no se pueden modificar
+            type: Boolean,
+            default: false,
+        },
     },
     emits: ['update:modelValue'],
     data() {
         return {
+            selectedBaseProductId: null,
+            selectedVariantId: null,
+            availableVariants: [],
+            variantSearchQuery: '',
+            editIndex: null,
+            loadingProductData: false,
+
             currentProduct: {
                 id: null,
+                name: '',
+                media: null,
                 quantity: 1,
                 price: null,
+                base_price: null,
+                current_price: null,
+                isClientProduct: false,
+                has_low_price: false,
+                low_price_reason: '',
                 notes: '',
                 is_new_design: false,
                 storages: [], 
                 has_customization: false,
                 customization_details: [],
+                components: [],
+                min_quantity: null,
+                max_quantity: null,
             },
             newCustomization: {
                 type: null,
@@ -334,8 +463,6 @@ export default {
                 'Impresión digital',
                 'Otro'
             ],
-            editIndex: null,
-            loadingProductData: false,
         };
     },
     computed: {
@@ -347,43 +474,88 @@ export default {
                 this.$emit('update:modelValue', value);
             }
         },
-        // Calcula cuántos productos completos se pueden hacer según el stock de componentes
+        filteredVariants() {
+            let variants = this.availableVariants;
+            if (this.saleType === 'venta') {
+                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+                variants = variants.filter(v => clientProductIds.has(v.id));
+            }
+            if (this.variantSearchQuery) {
+                const query = this.variantSearchQuery.toLowerCase().trim();
+                variants = variants.filter(v => (v.name && v.name.toLowerCase().includes(query)) || (v.code && v.code.toLowerCase().includes(query)));
+            }
+            return variants;
+        },
+        isBaseProductAllowed() {
+            if (this.saleType === 'stock') return true;
+            return this.clientProducts.some(p => p.id === this.selectedBaseProductId);
+        },
+        isAddProductDisabled() {
+            if (!this.currentProduct.id || !this.currentProduct.quantity) return true;
+            // Para ventas, se requiere el precio obligatoriamente
+            if (this.saleType === 'venta' && (this.currentProduct.price === null || this.currentProduct.price === '')) return true;
+            if (this.isPriceLow && !this.currentProduct.low_price_reason) return true;
+            return false;
+        },
+        isPriceLow() {
+            if (this.saleType !== 'venta' || !this.currentProduct.id || !this.currentProduct.price) return false;
+            
+            let minPrice = this.currentProduct.base_price || 0;
+            if (this.currentProduct.isClientProduct && this.currentProduct.current_price !== null && this.currentProduct.current_price !== undefined) {
+                minPrice = this.currentProduct.current_price;
+            }
+            
+            const isLow = parseFloat(this.currentProduct.price) < (parseFloat(minPrice) - 0.01);
+            this.currentProduct.has_low_price = isLow;
+            return isLow;
+        },
         maxProducibleQuantity() {
             if (!this.currentProduct.components?.length) return 0;
             
-            // Mapeamos cada componente para ver para cuántos productos alcanza su stock
             const limits = this.currentProduct.components.map(component => {
                 const stock = Number(component.storages?.[0]?.quantity || 0);
                 const required = Number(component.pivot?.quantity || 1);
-                
-                if (required === 0) return Infinity; // Evitar división por cero
-                
+                if (required === 0) return Infinity;
                 return Math.floor(stock / required);
             });
 
-            // Retornamos el mínimo. Si algún componente limita la producción a 5, esa es la respuesta.
             return Math.min(...limits);
         },
-        // Suma del stock terminado existente + lo que se puede producir
         totalAvailableForOrder() {
              const finishedStock = Number(this.currentProduct.storages?.[0]?.quantity || 0);
              return finishedStock + this.maxProducibleQuantity;
         },
-        // Determina si se debe mostrar la advertencia
         showStockWarning() {
-             // Solo mostrar si hay producto seleccionado y la cantidad es mayor a 0
              if (!this.currentProduct.id || this.currentProduct.quantity <= 0) return false;
-             
-             // Si lo solicitado es mayor a lo que hay en stock + lo que se puede fabricar
              return this.currentProduct.quantity > this.totalAvailableForOrder;
         }
     },
     methods: {
+        handleBaseProductChange(productId) {
+            const baseProduct = this.availableProducts.find(p => p.id === productId);
+            this.availableVariants = baseProduct ? (baseProduct.variants || []) : [];
+            this.selectedVariantId = null;
+            this.variantSearchQuery = ''; 
+            this.currentProduct.id = productId;
+            this.getProductData();
+        },
+        selectVariant(variant) {
+            if (!variant) {
+                this.selectedVariantId = null;
+                this.currentProduct.id = this.selectedBaseProductId;
+            } else {
+                this.selectedVariantId = variant.id;
+                this.currentProduct.id = variant.id;
+            }
+            this.getProductData();
+        },
         addProduct() {
-            // para orden de stock, el precio siempre es 0
             if (this.saleType === 'stock') {
                 this.currentProduct.price = 0;
             }
+
+            // Aseguramos llevar el nombre y la media para que se pinte bonito en la lista
+            this.currentProduct.name = this.getProductName(this.currentProduct.id);
 
             const productToAdd = { ...this.currentProduct };
             let updatedProducts = [...this.products];
@@ -404,6 +576,25 @@ export default {
             }
             this.currentProduct.has_customization = this.currentProduct.customization_details.length > 0;
 
+            // Reconstituir la interfaz buscando de quién es hijo este producto
+            let foundBase = this.availableProducts.find(p => p.id === this.currentProduct.id);
+            if (foundBase) {
+                this.selectedBaseProductId = foundBase.id;
+                this.availableVariants = foundBase.variants || [];
+                this.selectedVariantId = null;
+            } else {
+                for (const base of this.availableProducts) {
+                    const foundVariant = base.variants?.find(v => v.id === this.currentProduct.id);
+                    if (foundVariant) {
+                        this.selectedBaseProductId = base.id;
+                        this.availableVariants = base.variants || [];
+                        this.selectedVariantId = foundVariant.id;
+                        break;
+                    }
+                }
+            }
+
+            this.variantSearchQuery = '';
             this.editIndex = index;
             this.$refs.formProducts.scrollIntoView({ behavior: 'smooth' });
             
@@ -417,15 +608,14 @@ export default {
         },
         resetCurrentProduct() {
             this.currentProduct = { 
-                id: null, 
-                quantity: 1, 
-                price: null, 
-                notes: '', 
-                is_new_design: false,
-                storages: [],
-                has_customization: false,
-                customization_details: [],
+                id: null, name: '', media: null, quantity: 1, price: null, base_price: null, current_price: null, 
+                has_low_price: false, low_price_reason: '', notes: '', is_new_design: false, storages: [], 
+                has_customization: false, customization_details: [], components: [], min_quantity: null, max_quantity: null
             };
+            this.selectedBaseProductId = null;
+            this.selectedVariantId = null;
+            this.availableVariants = [];
+            this.variantSearchQuery = '';
             this.editIndex = null;
             this.newCustomization = { type: null, key: '', value: '' };
         },
@@ -442,8 +632,12 @@ export default {
             ElMessage.info('Detalle de personalización eliminado.');
         },
         getProductName(productId) {
-            const product = this.availableProducts.find(p => p.id === productId);
-            return product ? product.name : 'Producto no encontrado';
+            for (const parent of this.availableProducts) {
+                if (parent.id === productId) return parent.name;
+                const v = parent.variants?.find(v => v.id === productId);
+                if (v) return v.name;
+            }
+            return 'Producto no encontrado';
         },
         formatNumber(value) {
             if (value === null || value === undefined) return '0.00';
@@ -457,22 +651,37 @@ export default {
             try {
                 const response = await axios.get(route('products.get-media', this.currentProduct.id));
 
-                if ( response.status === 200 ) {
+                if (response.status === 200) {
                     const productData = response.data.product;
+                    this.currentProduct.name = this.getProductName(this.currentProduct.id);
                     this.currentProduct.media = productData.media;
                     this.currentProduct.storages = productData.storages;
-                    this.currentProduct.components = productData.components;
+                    this.currentProduct.min_quantity = productData.min_quantity;
+                    this.currentProduct.max_quantity = productData.max_quantity;
+
+                    // LÓGICA DE HERENCIA DE COMPONENTES DE PADRE A VARIANTE
+                    let components = productData.components || [];
+                    if (components.length === 0 && this.selectedBaseProductId && this.selectedBaseProductId !== this.currentProduct.id) {
+                        try {
+                            const parentResponse = await axios.get(route('products.get-media', this.selectedBaseProductId));
+                            components = parentResponse.data.product.components || [];
+                        } catch(e) {
+                            console.error("No se pudieron cargar los componentes del padre.");
+                        }
+                    }
+                    this.currentProduct.components = components;
                     
-                    // La lógica de precios solo aplica para 'venta'
+                    // Lógica de precios
                     if (this.saleType === 'venta') {
                         this.currentProduct.base_price = productData.base_price;
                         
-                        if (this.editIndex === null) {
+                        if (this.editIndex === null && !this.currentProduct.price) {
                             this.currentProduct.price = productData.base_price;
                         }
 
-                        const clientProduct = this.availableProducts.find(p => p.id === this.currentProduct.id);
-                        if (clientProduct && clientProduct.price_history) { // Se asume que si tiene historial es producto de cliente
+                        // Validamos el precio que tiene el cliente (si es que lo tiene)
+                        const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+                        if (clientProduct) { 
                             this.currentProduct.isClientProduct = true;
                             this.currentProduct.current_price = 
                             (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 

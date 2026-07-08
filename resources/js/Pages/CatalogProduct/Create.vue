@@ -24,7 +24,62 @@
                                 <InputError :message="form.errors.product_type_key" class="mt-1" />
                             </div>
 
-                            <div v-if="form.product_type_key !== 'I'">
+                            <!-- Selector de Producto Padre (Variantes) -->
+                            <div v-if="form.product_type_key === 'P'" class="col-span-1 sm:col-span-2">
+                                <InputLabel value="¿Es variante de otro producto? (Opcional)" />
+                                <el-select 
+                                    v-model="form.parent_id" 
+                                    filterable clearable 
+                                    placeholder="Selecciona el producto padre" 
+                                    class="w-full"
+                                    @change="handleParentChange"
+                                >
+                                    <el-option v-for="item in parents" :key="item.id" :label="item.name" :value="item.id" class="!w-[35rem] truncate">
+                                        <span style="float: left">{{ item.name }}</span>
+                                        <span style="float: right; color: #cccccc; font-size: 13px;">{{ item.code }}</span>
+                                    </el-option>
+                                </el-select>
+                                <InputError :message="form.errors.parent_id" class="mt-1" />
+                            </div>
+                        </div>
+
+                        <!-- Miniatura del Producto Padre (Si se seleccionó) -->
+                        <div v-if="selectedParentImage && form.parent_id" class="animate-fade-in flex flex-col items-start bg-gray-50 dark:bg-slate-700 p-3 rounded-lg border border-gray-200 dark:border-slate-600">
+                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                                Imagen del Producto Padre seleccionado:
+                            </span>
+                            <el-image 
+                                style="width: 80px; height: 80px; border-radius: 8px;"
+                                :src="selectedParentImage" 
+                                :preview-src-list="[selectedParentImage]"
+                                fit="cover"
+                            />
+                            <span class="text-[10px] text-gray-400 mt-1">Clic en la imagen para ampliar</span>
+                        </div>
+
+                        <!-- Banderas Booleanas Universales (Preguntas Clave) -->
+                        <div v-if="form.product_type_key === 'P'" class="col-span-full bg-indigo-50 dark:bg-slate-700/50 p-4 rounded-lg border border-indigo-100 dark:border-slate-600 mb-4 animate-fade-in">
+                            <h4 class="text-sm font-semibold text-indigo-800 dark:text-indigo-300 mb-3">
+                                Propiedades operativas del Producto
+                            </h4>
+                            <div class="flex flex-col sm:flex-row gap-6">
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_sellable" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se vende?</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_purchasable" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se compra a proveedor?</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.is_used_as_component" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se usa como componente?</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Familia de producto *</span>
@@ -44,8 +99,8 @@
                                 <InputError :message="form.errors.product_family_id" class="mt-1" />
                             </div>
 
-                            <!-- Brand select for Catalog and Raw Material -->
-                            <div v-if="form.product_type_key !== 'I'">
+                            <!-- Brand select for Producto -->
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel>
                                     <div class="flex items-center justify-between">
                                         <span>Marca del producto/Agencia*</span>
@@ -75,7 +130,7 @@
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div v-if="form.product_type_key !== 'I'">
+                            <div v-if="form.product_type_key === 'P'">
                                 <InputLabel value="Material*" />
                                 <el-select v-model="form.material" filterable placeholder="Selecciona" class="w-full">
                                     <el-option v-for="item in materialOptions" :key="item.key" :label="item.label" :value="item.key" />
@@ -93,7 +148,7 @@
                             </div>
                         </div>
 
-                        <p v-if="form.material == 'T' && form.product_type_key !== 'I'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
+                        <p v-if="form.material == 'T' && form.product_type_key === 'P'" class="text-xs text-amber-600 bg-amber-100 px-3 py-1 rounded-md">
                         Si el producto se vende por medidas personalizadas, indicar stock y costo tomando como unidad el metro lineal.  
                         (Ejemplo: un rollo de tela de 1.52m x 30m equivale a 30 en stock y la unidad es Metro(s)).
                         </p>
@@ -113,8 +168,10 @@
                                     <i class="fa-solid fa-dollar-sign"></i>
                                 </template>
                              </TextInput>
+
+                             <!-- Precios sólo visibles si se Vende -->
                              <TextInput 
-                                v-if="form.product_type_key === 'C'"
+                                v-if="form.is_sellable"
                                 v-model="form.base_price" 
                                 :error="form.errors.base_price"
                                 :helpContent="'Si no hay precio especial para el cliente se toma el precio base'"
@@ -124,7 +181,7 @@
                                     <i class="fa-solid fa-dollar-sign"></i>
                                 </template>
                             </TextInput>
-                            <div v-if="form.product_type_key === 'C'">
+                            <div v-if="form.is_sellable">
                                 <InputLabel value="Moneda*" />
                                 <el-select v-model="form.currency" clearable placeholder="Selecciona la moneda"
                                     no-data-text="No hay información"
@@ -133,17 +190,9 @@
                                 </el-select>
                                 <InputError :message="form.errors.currency" class="mt-1" />
                             </div>
-
-                            <div v-if="form.product_type_key === 'C'" class="mt-5">
-                                <label class="flex items-center">
-                                    <Checkbox v-model:checked="form.is_used_as_component" name="is_used_as_component" class="bg-transparent text-indigo-500 border-gray-500" />
-                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">¿Se usa como componente?</span>
-                                </label>
-                                <InputError :message="form.errors.is_used_as_component" class="mt-1" />
-                            </div>
                         </div>
 
-                        <div v-if="form.product_type_key !== 'I'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
+                        <div v-if="form.product_type_key === 'P'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
                             <label class="flex items-center">
                                 <Checkbox v-model:checked="form.is_circular" @change="resetDimentions" name="is_circular" class="bg-transparent text-indigo-500 border-gray-500" />
                                 <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Es circular</span>
@@ -159,18 +208,16 @@
                             </div>
                         </div>
 
-                        <!-- ================================================================== -->
-                        <!-- ================== SECCIÓN DE COMPONENTES ============= -->
-                        <!-- ================================================================== -->
-                        <div v-if="form.product_type_key === 'C'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
+                        <!-- SECCIÓN DE COMPONENTES -->
+                        <div v-if="form.product_type_key === 'P'" :class="form.errors.components ? 'border-red-600' : 'border-gray-200 dark:border-slate-700'"
                             class="space-y-4 p-4 border rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="form.hasComponents" name="is_circular" />
-                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes</span>
+                                    <Checkbox v-model:checked="form.hasComponents" name="hasComponents" />
+                                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Tiene componentes para ensamblarse</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
-                                    Componentes (Materia Prima)
+                                    Componentes
                                 </h3>
                             </div>
 
@@ -216,10 +263,10 @@
                                         <!-- informacion de almacén -->
                                         <div>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Stock: <strong>{{ currentComponent.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ currentComponent.measure_unit }}</strong>
+                                                Stock: <strong>{{ currentComponent.storages?.[0]?.quantity?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") ?? 0 }} {{ currentComponent.measure_unit }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
-                                                Ubicación: <strong>{{ currentComponent.storages[0]?.location ?? 'No asignado' }}</strong>
+                                                Ubicación: <strong>{{ currentComponent.storages?.[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Costo: <strong>${{ currentComponent.cost ?? '0.00' }} {{ currentComponent.currency }}</strong>
@@ -266,11 +313,11 @@
 
                         </div>
 
-                        <!-- ================== NUEVA SECCIÓN DE PROCESOS ===================== -->
-                        <div v-if="form.product_type_key === 'C'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
+                        <!-- SECCIÓN DE PROCESOS -->
+                        <div v-if="form.product_type_key === 'P'" class="space-y-4 p-4 border border-gray-200 dark:border-slate-700 rounded-lg mt-4 animate-fade-in">
                             <div class="flex items-center justify-between border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                                 <label class="flex items-center">
-                                    <Checkbox v-model:checked="hasProductionProcesses" name="is_circular" />
+                                    <Checkbox v-model:checked="hasProductionProcesses" name="hasProductionProcesses" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Lleva procesos de producción</span>
                                 </label>
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right">
@@ -309,13 +356,11 @@
                                             type="button"
                                             class="size-10 flex items-center justify-center rounded-full bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 transition-all shadow-sm hover:shadow-md"
                                         >
-                                            <!-- Ícono de refrescar (Heroicons) -->
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
                                             </svg>
                                         </button>
                                     </el-tooltip>
-
                                 </div>
 
                                 <!-- Lista de Procesos Agregados -->
@@ -351,6 +396,21 @@
 
                         <div>
                             <InputLabel value="Imágenes del producto (máx. 3)" />
+                            
+                            <!-- NUEVO: Vista previa de la imagen de la cotización -->
+                            <div v-if="quoteImageUrl && form.copy_quote_image" class="mt-2 mb-4 p-3 border border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-800 rounded-lg flex items-start justify-between">
+                                <div class="flex items-center space-x-4">
+                                    <img :src="quoteImageUrl" class="w-16 h-16 object-cover rounded-md shadow-sm border border-gray-200" alt="Preview" />
+                                    <div>
+                                        <p class="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Imagen de la cotización detectada</p>
+                                        <p class="text-xs text-indigo-600 dark:text-indigo-400">Esta imagen se guardará automáticamente en el producto.</p>
+                                    </div>
+                                </div>
+                                <button type="button" @click="form.copy_quote_image = false" class="text-gray-400 hover:text-red-500 transition-colors" title="No usar esta imagen">
+                                    <i class="fa-solid fa-xmark text-lg"></i>
+                                </button>
+                            </div>
+
                             <FileUploader @files-selected="form.media = $event" acceptedFormat="image/*" :multiple="true" :maxFiles="3" class="mt-1" />
                             <InputError :message="form.errors['media.0']" class="mt-2" />
                             <InputError :message="form.errors['media.1']" class="mt-2" />
@@ -456,8 +516,9 @@ export default {
         brands: Array,
         product_families: Array,
         consecutive: Number,
-        production_processes: Array, // Prop para recibir los procesos de producción
-        components: Array, // Prop para recibir los componentes (materias primas) de producción
+        production_processes: Array,
+        components: Array,
+        parents: Array, // Productos Padre (No variantes)
     },
     data() {
         return {
@@ -467,10 +528,16 @@ export default {
                 cost: null,
                 caracteristics: null,
                 brand_id: null,
-                brand_name: null, // Campo para la marca como texto en Insumos
+                brand_name: null, 
                 product_family_id: null,
+                parent_id: null, // Nuevo
+                
+                // Banderas Universales
+                is_sellable: true,
+                is_purchasable: false,
                 is_used_as_component: false,
-                product_type_key: 'C', // 'C' para Catálogo por defecto
+
+                product_type_key: 'P', // P = Producto, I = Insumo
                 material: null,
                 measure_unit: 'Pieza(s)',
                 currency: 'MXN',
@@ -485,38 +552,38 @@ export default {
                 current_stock: null,
                 location: null,
                 media: [],
-                components: [], // Array para guardar los componentes del producto
-                production_processes: [], // Array para guardar los procesos del producto
+                components: [], 
+                production_processes: [], 
                 hasComponents: false,
+                // NUEVO: Variables para atrapar datos de la cotización
+                quote_product_id: null,
+                copy_quote_image: true,
             }),
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
 
-            // --- Estado para la gestión de componentes ---
+            quoteImageUrl: null,
+            selectedParentImage: null, // URL de imagen del padre
+
             currentComponent: { product_id: null, quantity: 1 },
             loadingComponentMedia: false,
             editComponentIndex: null,
 
-            // --- Estado para la gestión de procesos ---
             hasProductionProcesses: false,
             currentProcess: { process_id: null, time: null, cost: null },
             editProcessIndex: null,
 
-            // --- Estado para la verificación de duplicados ---
             searchingSimilarProducts: false,
             showSimilarProductsModal: false,
             similarProducts: [],
             isCheckingForDuplicates: false,
 
-            // --- Modales ---
             showCreateFamilyModal: false,
             showCreateBrandModal: false,
 
-            // --- opciones de selects ---
             currencies: ['MXN', 'USD'],
             productTypeOptions: [
-                { label: 'Catálogo', key: 'C' },
-                { label: 'Materia Prima', key: 'MP' },
+                { label: 'Producto', key: 'P' },
                 { label: 'Insumo', key: 'I' },
             ],
             materialOptions: [
@@ -524,7 +591,8 @@ export default {
                 { label: 'ORIGINAL', key: 'O' }, { label: 'LUJO', key: 'L' }, { label: 'PIEL', key: 'P' }, { label: 'ZAMAK', key: 'ZK' },
                 { label: 'SOLIDCHROME', key: 'SCH' }, { label: 'MICROMETAL', key: 'MM' }, { label: 'FLEXCHROME', key: 'FCH' }, { label: 'ALUMINIO', key: 'AL' },
                 { label: 'ESTIRENO', key: 'ES' }, { label: 'ABS', key: 'ABS' }, { label: 'PVC', key: 'PVC' }, { label: 'TELA', key: 'T' }, { label: 'CAUCHO', key: 'CAU' },
-                { label: 'VINILPIEL', key: 'VPL', label: 'FIBRA DE CARBONO', key: 'FC', label: 'OVERLAY', key: 'OV' }
+                { label: 'VINILPIEL', key: 'VPL' }, { label: 'FIBRA DE CARBONO', key: 'FC' }, { label: 'OVERLAY', key: 'OV' }, { label: 'ACERO', key: 'AC' }, { label: 'FIBRA DSE CARBONO', key: 'FDC' },
+                { label: 'RESINA', key: 'RS' }, { label: 'ENCAPSULADO', key: 'ENC' }, { label: 'CORTE DIAMANTE', key: 'CDT' } 
             ],
             mesureUnits: [
                 'Pieza(s)', 'Litro(s)', 'Par(es)', 'kilogramo(s)', 'Metro(s)', 'Centímetros(cm)', 'Rollo(s)', 'Galon(es)', 'Cubeta(s)', 'Bote(s)',
@@ -534,9 +602,6 @@ export default {
     watch: {
         'form.product_type_key'(newVal) {
             this.generatePartNumber();
-            this.form.is_used_as_component = newVal === 'MP';
-
-            // Resetear campos al cambiar a 'Insumo'
             if (newVal === 'I') {
                 this.form.product_family_id = null;
                 this.form.brand_id = null;
@@ -550,8 +615,13 @@ export default {
                 this.form.hasComponents = false;
                 this.form.production_processes = [];
                 this.hasProductionProcesses = false;
+                this.form.parent_id = null;
+                
+                // Insumos por defecto
+                this.form.is_sellable = false;
+                this.form.is_purchasable = true;
+                this.form.is_used_as_component = false;
             } else {
-                // Resetear brand_name al cambiar a otro tipo
                 this.form.brand_name = null;
             }
         },
@@ -568,10 +638,6 @@ export default {
         'form.brand_name': 'generatePartNumber',
     },
     computed: {
-        /**
-         * Calcula el costo total de todos los componentes en la lista.
-         * Se actualiza automáticamente si se agrega, elimina o modifica un componente.
-         */
         totalComponentsCost() {
             return this.form.components.reduce((total, component) => {
                 const quantity = parseFloat(component.quantity) || 0;
@@ -582,6 +648,31 @@ export default {
     },
 
     methods: {
+        handleParentChange(parentId) {
+            const parent = this.parents.find(p => p.id === parentId);
+            if (parent) {
+                // Autocompletar datos del padre para la variante
+                this.form.product_family_id = parent.product_family_id;
+                this.form.brand_id = parent.brand_id;
+                this.form.material = parent.material;
+                this.form.measure_unit = parent.measure_unit;
+                this.form.currency = parent.currency;
+                this.form.base_price = parent.base_price;
+                this.form.cost = parent.cost;
+                this.form.is_sellable = parent.is_sellable;
+                this.form.is_purchasable = parent.is_purchasable;
+                this.form.is_used_as_component = parent.is_used_as_component;
+
+                // Extraer imagen del padre para visualizarla
+                if (parent.media && parent.media.length > 0) {
+                    this.selectedParentImage = parent.media[0].original_url;
+                } else {
+                    this.selectedParentImage = null;
+                }
+            } else {
+                this.selectedParentImage = null;
+            }
+        },
         resetDimentions() {
             this.form.width = null;
             this.form.large = null;
@@ -599,12 +690,9 @@ export default {
             });
         },
         async confirmAndStore() {
-            
-            // Extrae el código base sin el consecutivo
             const baseCode = this.form.code.substring(0, this.form.code.lastIndexOf('-'));
             
             if (!baseCode) {
-                // Si no hay código base, procede a guardar directamente para que la validación del backend actúe
                 this.proceedToStore();
                 return;
             }
@@ -612,16 +700,13 @@ export default {
             this.isCheckingForDuplicates = true;
 
             try {
-                this. searchingSimilarProducts = true;
-                // Llama al nuevo endpoint del backend para buscar productos similares
+                this.searchingSimilarProducts = true;
                 const response = await axios.get(route('catalog-products.find-similar', { base_code: baseCode }));
 
                 if (response.data.length > 0) {
-                    // Si se encuentran productos, guarda los resultados y muestra el modal
                     this.similarProducts = response.data;
                     this.showSimilarProductsModal = true;
                 } else {
-                    // Si no se encuentran, procede a guardar el producto directamente
                     this.proceedToStore();
                 }
             } catch (error) {
@@ -629,7 +714,7 @@ export default {
                 ElMessage.error('Hubo un problema al verificar duplicados. Por favor, intenta de nuevo.');
             } finally {
                 this.isCheckingForDuplicates = false;
-                this. searchingSimilarProducts = false;
+                this.searchingSimilarProducts = false;
             }
         },
         isComponentSelected(productId) {
@@ -704,20 +789,14 @@ export default {
                 const brandObj = this.brands.find(b => b.id == this.form.brand_id);
                 const brand = brandObj ? brandObj.name.substring(0, 3).toUpperCase() : '';
 
-                if (type && family && material) {
-                    if ( type === 'MP' ) {
-                        this.form.code = `${type}-${material}-${family}-${brand}-${id}`;
-                    } else {
-                        this.form.code = `${family}-${material}-${brand}-${id}`;
-                    }
+                if (family && material) {
+                    this.form.code = `${family}-${material}-${brand}-${id}`;
                 } else {
                     this.form.code = '';
                 }
             }
         },
-        // --- Métodos para Componentes ---
         async getComponentMedia() {
-            // 1. Inicia el estado de carga
             this.loadingComponentMedia = true;
             try {
                 const response = await axios.get(route('products.get-media', this.currentComponent.product_id));
@@ -763,7 +842,6 @@ export default {
             const product = this.components.find(p => p.id === productId);
             return product ? product.name : `ID: ${productId}`;
         },
-        // --- Métodos para Procesos de Producción ---
         getSelectedProcessData() {
             const selectedProcess = this.production_processes.find(
                 item => item.id == this.currentProcess.process_id
@@ -813,6 +891,30 @@ export default {
     },
     mounted() {
         this.generatePartNumber();
+
+        // =======================================================
+        // LÓGICA DE AUTOLLENADO MEDIANTE PARÁMETROS EN LA URL
+        // =======================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.has('name')) {
+            this.form.name = urlParams.get('name');
+        }
+        
+        if (urlParams.has('price')) {
+            this.form.base_price = urlParams.get('price');
+            this.form.cost = urlParams.get('price');
+        }
+
+        // --- NUEVO: Capturar el ID y la imagen de la cotización ---
+        if (urlParams.has('quote_product_id')) {
+            this.form.quote_product_id = urlParams.get('quote_product_id');
+        }
+
+        if (urlParams.has('image_url')) {
+            this.quoteImageUrl = urlParams.get('image_url');
+        }
+        // =======================================================
     }
 };
 </script>

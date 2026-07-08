@@ -50,15 +50,37 @@ class PurchaseController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         // Se envían solo los proveedores activos.
         $suppliers = Supplier::select('id', 'name')->get();
+
+        // Recibir datos para pre-llenado desde StockReposition
+        $prefill = [
+            'supplier_id' => $request->query('prefill_supplier_id'),
+            'product_id' => $request->query('prefill_product_id'),
+            'quantity' => $request->query('prefill_quantity'),
+        ];
         
-        // Se podrían enviar también los productos, pero es mejor cargarlos dinámicamente
-        // al seleccionar un proveedor para mejorar el rendimiento.
+        // Si hay un producto preseleccionado, cargamos sus datos básicos para mostrarlos en el frontend
+        // Esto ayuda a que el componente de Vue pueda inicializar el item correctamente
+        $preselectedProduct = null;
+        if ($prefill['product_id']) {
+            $product = \App\Models\Product::find($prefill['product_id']);
+            if ($product) {
+                $preselectedProduct = [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    // Agrega otros campos si tu componente de Item los requiere
+                ];
+            }
+        }
+
         return Inertia::render('Purchase/Create', [
             'suppliers' => $suppliers,
+            'prefill' => $prefill, // Enviamos los datos para llenar el formulario
+            'preselectedProduct' => $preselectedProduct,
         ]);
     }
 
@@ -114,6 +136,7 @@ class PurchaseController extends Controller
                     'product_id' => $itemData['product_id'],
                     'description' => $itemData['product_name'], // Se toma del form
                     'quantity' => $itemData['quantity'],
+                    'quantity_received' => 0, // Inicializamos en 0
                     'unit_price' => $itemData['unit_price'],
                     'total_price' => $itemData['quantity'] * $itemData['unit_price'],
                     'additional_stock' => $itemData['additional_stock'] ?? 0,
@@ -171,6 +194,7 @@ class PurchaseController extends Controller
             'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
+        // return $purchase;
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
         ]);
@@ -243,6 +267,7 @@ class PurchaseController extends Controller
                     'product_id' => $itemData['product_id'],
                     'description' => $itemData['product_name'],
                     'quantity' => $itemData['quantity'],
+                    'quantity_received' => 0, // Reiniciamos recibido
                     'unit_price' => $itemData['unit_price'],
                     'total_price' => $itemData['quantity'] * $itemData['unit_price'],
                     'additional_stock' => $itemData['additional_stock'] ?? 0,
@@ -338,6 +363,51 @@ class PurchaseController extends Controller
         // return response()->json(['message' => 'Orden autorizada', 'item' => $purchase]);
     }
 
+    // --- NUEVO MÉTODO PARA RECEPCIÓN PARCIAL ---
+    public function receiveProducts(Request $request, Purchase $purchase)
+    {
+        $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|exists:purchase_items,id',
+            'items.*.quantity_received' => 'required|numeric|min:0.01',
+        ]);
+
+        try {
+            DB::transaction(function () use ($request, $purchase) {
+                foreach ($request->items as $itemData) {
+                    $item = PurchaseItem::find($itemData['id']);
+                    
+                    // Verificar que pertenezca a la compra
+                    if ($item->purchase_id !== $purchase->id) continue;
+
+                    $quantityToReceive = $itemData['quantity_received'];
+
+                    // Actualizar el contador de recibido en el item
+                    $item->increment('quantity_received', $quantityToReceive);
+
+                    // --- MOVIMIENTO DE STOCK ---
+                    if ($item->product) {
+                        $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
+                        $storage->increment('quantity', $quantityToReceive);
+                        
+                        StockMovement::create([
+                            'product_id' => $item->product->id,
+                            'storage_id' => $storage->id,
+                            'quantity_change' => $quantityToReceive,
+                            'type' => 'Entrada',
+                            'notes' => 'Entrada parcial por compra OC-' . $purchase->id . '. ' . $item->description
+                        ]);
+                    }
+                }
+            });
+
+            return back()->with('success', 'Productos recibidos e inventario actualizado correctamente.');
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al recibir productos: ' . $e->getMessage());
+        }
+    }
+
     public function updateStatus(Request $request, Purchase $purchase)
     {
         $request->validate([
@@ -415,28 +485,31 @@ class PurchaseController extends Controller
 
                         $purchase->load('items.product');
 
-                        // --- INICIO DE LA MODIFICACIÓN ---
+                        // --- MODIFICACIÓN IMPORTANTE: Solo sumar lo que FALTA por recibir ---
                         foreach ($purchase->items as $item) {
                             if ($item->product) {
-                                // Se calcula la cantidad a agregar sumando lo que llega por avión y barco.
-                                $quantityToAdd = ($item->plane_stock ?? 0) + ($item->ship_stock ?? 0);
+                                // Calculamos si queda algo pendiente por recibir
+                                $remainingQuantity = $item->quantity - $item->quantity_received;
 
-                                // Solo se ejecuta la actualización si la cantidad es mayor a cero.
-                                if ($quantityToAdd > 0) {
+                                // Si queda stock pendiente (por ejemplo, el usuario no hizo recepción parcial
+                                // o le faltó recibir una parte), lo sumamos todo al cerrar la orden.
+                                if ($remainingQuantity > 0) {
+                                    // Actualizamos recibido al total para que cuadre
+                                    $item->update(['quantity_received' => $item->quantity]);
+
                                     $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-                                    $storage->increment('quantity', $quantityToAdd);
+                                    $storage->increment('quantity', $remainingQuantity);
                                     
                                     StockMovement::create([
                                         'product_id' => $item->product->id,
                                         'storage_id' => $storage->id,
-                                        'quantity_change' => $quantityToAdd, // Se usa la nueva cantidad calculada.
+                                        'quantity_change' => $remainingQuantity, 
                                         'type' => 'Entrada',
-                                        'notes' => 'Entrada por orden de compra recibida OC-' . $purchase->id
+                                        'notes' => 'Entrada final por cierre de compra OC-' . $purchase->id
                                     ]);
                                 }
                             }
                         }
-                        // --- FIN DE LA MODIFICACIÓN ---
                         break;
 
                     case 'Cancelada':

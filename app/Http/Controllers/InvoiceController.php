@@ -8,44 +8,69 @@ use App\Models\Sale;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use App\Services\HistoricalImportService; // Importar el servicio
+use Maatwebsite\Excel\Facades\Excel; // Importar librería Excel
 
 class InvoiceController extends Controller
 {
    public function index(Request $request)
-    {
-        // Pestaña 1: Todas las facturas registradas.
-        $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
-            ->orderBy('sale_id', 'desc')
-            ->orderBy('installment_number', 'asc')
-            ->paginate(10, ['*'], 'invoices_page');
+{
+    // Capturamos el filtro de cliente desde la URL
+    $clientId = $request->get('client_id');
 
-        // Pestaña 2: Órdenes de venta que requieren facturación.
-        // Se cambió `havingRaw` por `whereRaw` con una subconsulta para evitar
-        // errores de SQL con el modo ONLY_FULL_GROUP_BY en MySQL. La lógica sigue siendo la misma:
-        // mostrar OVs cuyo total es mayor que la suma de sus facturas no canceladas.
-        $salesWithoutInvoice = Sale::with(['branch:id,name'])
-            ->withSum(['invoices as total_invoiced' => function($query) {
-                $query->where('status', '!=', 'Cancelada');
-            }], 'amount')
-            ->withCount('invoices as invoices_count')
-            ->where('status', '!=', 'Cancelada')
-            ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
-            ->latest('id')
-            ->paginate(10, ['*'], 'sales_page');
+    // Obtenemos la lista de clientes (sucursales) para el selector filtrable
+    // Ajusta el nombre del modelo según tu proyecto (asumo Branch por el contexto previo)
+    $branches = \App\Models\Branch::select('id', 'name')
+        ->orderBy('name')
+        ->get();
 
-        // Pestaña 3: Facturas por cobrar.
-        $pendingInvoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name', 'payments'])
-            ->whereIn('status', ['Pendiente', 'Vencida'])
-            ->orderBy('due_date', 'asc')
-            ->paginate(10, ['*'], 'pending_page');
-            
-        return Inertia::render('Invoice/Index', [
-            'invoices' => $invoices,
-            'salesWithoutInvoice' => $salesWithoutInvoice,
-            'pendingInvoices' => $pendingInvoices,
-            'active_tab_prop' => $request->get('tab', 'all_invoices'),
-        ]);
-    }
+    // Pestaña 1: Todas las facturas registradas.
+    $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
+        // Filtramos por cliente si el ID está presente
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->orderBy('sale_id', 'desc')
+        ->orderBy('installment_number', 'asc')
+        ->paginate(10, ['*'], 'invoices_page')
+        ->withQueryString(); // Mantiene tab y client_id en los links de paginación
+
+    // Pestaña 2: Órdenes de venta que requieren facturación.
+    $salesWithoutInvoice = Sale::with(['branch:id,name'])
+        ->withSum(['invoices as total_invoiced' => function($query) {
+            $query->where('status', '!=', 'Cancelada');
+        }], 'amount')
+        ->withCount('invoices as invoices_count')
+        ->where('status', '!=', 'Cancelada')
+        // Aplicamos el filtro de cliente aquí también
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+        ->latest('id')
+        ->paginate(10, ['*'], 'sales_page')
+        ->withQueryString();
+
+    // Pestaña 3: Facturas por cobrar.
+    $pendingInvoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name', 'payments'])
+        ->whereIn('status', ['Pendiente', 'Vencida', 'Parcialmente pagada'])
+        // Aplicamos el filtro de cliente
+        ->when($clientId, function ($query) use ($clientId) {
+            $query->where('branch_id', $clientId);
+        })
+        ->orderBy('due_date', 'asc')
+        ->paginate(10, ['*'], 'pending_page')
+        ->withQueryString();
+        
+    return Inertia::render('Invoice/Index', [
+        'invoices' => $invoices,
+        'salesWithoutInvoice' => $salesWithoutInvoice,
+        'pendingInvoices' => $pendingInvoices,
+        'branches' => $branches, // Pasamos la lista para el el-select
+        'active_tab_prop' => $request->get('tab', 'all_invoices'), // Persistencia de pestaña
+        'client_id_prop' => $clientId, // Persistencia del filtro seleccionado
+    ]);
+}
     
     public function create(Request $request)
     {
@@ -313,5 +338,59 @@ class InvoiceController extends Controller
             'sales' => $sales,
             'report_dates' => ['start' => $startDate, 'end' => $endDate],
         ]);
+    }
+
+    /**
+     * Nuevo método para importar historial.
+     */
+    public function importHistorical(Request $request)
+    {
+        $request->validate([
+            'ovs_file' => 'required|file|mimes:xlsx,xls,csv',
+            'invoices_file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        try {
+            // Leer archivos
+            // toArray devuelve un array de hojas. Usamos [0] para la primera hoja.
+            $ovsData = Excel::toArray(new \stdClass, $request->file('ovs_file'))[0];
+            $invoicesData = Excel::toArray(new \stdClass, $request->file('invoices_file'))[0];
+
+            // Instanciar servicio y procesar
+            $importer = new HistoricalImportService();
+            // Asumiendo que las cabeceras son la fila 1, pasamos los datos limpiamente
+            // Nota: Maatwebsite puede configurarse con WithHeadingRow para claves asociativas
+            // Aquí asumimos que $ovsData tiene claves asociativas (heading row por defecto en imports)
+            // Si no, necesitarás crear una clase Import específica. 
+            // Para simplificar, configuralo en config/excel.php o crea una clase Import rápida.
+            
+            // Opción rápida: Asumir que el usuario sube archivos con encabezados
+            // Si usas Excel::toArray directamente sin una clase Import configurada con WithHeadingRow,
+            // devolverá indices numéricos [0 => 'Nombre', 1 => 'Valor'].
+            
+            // MEJORA: Para asegurar claves asociativas (nombre_columna => valor),
+            // lo ideal sería usar una clase anónima o mapear headers manualmente.
+            // Para este ejemplo, usaremos una clase anónima simple para obtener claves.
+            
+            $ovsData = Excel::toArray(new class implements \Maatwebsite\Excel\Concerns\ToCollection, \Maatwebsite\Excel\Concerns\WithHeadingRow {
+                public function collection(\Illuminate\Support\Collection $rows) { return $rows; }
+            }, $request->file('ovs_file'))[0];
+
+            $invoicesData = Excel::toArray(new class implements \Maatwebsite\Excel\Concerns\ToCollection, \Maatwebsite\Excel\Concerns\WithHeadingRow {
+                public function collection(\Illuminate\Support\Collection $rows) { return $rows; }
+            }, $request->file('invoices_file'))[0];
+
+            $result = $importer->import($ovsData, $invoicesData, Auth::id());
+
+            if (!empty($result['errors'])) {
+                // Si hubo errores parciales pero se importaron algunos, mostramos advertencia
+                return back()->with('warning', "Importados: {$result['count']}. Errores: " . count($result['errors']) . ". Revisa los logs para detalle.");
+            }
+
+            return back()->with('success', "Se importaron {$result['count']} registros exitosamente.");
+
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'Error en importación: ' . $e->getMessage()]);
+        }
     }
 }

@@ -15,7 +15,7 @@ class BranchPriceHistory extends Model implements Auditable
     protected $table = 'branch_price_history';
 
     protected $fillable = [
-        'branch_id', 'product_id', 'price', 'valid_from', 'valid_to', 'currency' // Moneda MXN, USD
+        'branch_id', 'product_id', 'user_id', 'price', 'valid_from', 'valid_to', 'currency' // Moneda MXN, USD
     ];
 
     /**
@@ -32,5 +32,13 @@ class BranchPriceHistory extends Model implements Auditable
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Obtiene el usuario que registró este cambio de precio.
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

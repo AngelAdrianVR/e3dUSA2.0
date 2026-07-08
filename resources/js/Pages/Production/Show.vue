@@ -13,12 +13,23 @@
             </div>
 
             <div class="flex items-center space-x-2 dark:text-white">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Ver envios')" content="Ver detalles de envío" placement="top">
+                    <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
+                        <i class="fa-solid fa-truck-fast"></i>
+                    </button>
+                </el-tooltip>
                 <el-tooltip content="Imprimir Órden" placement="top">
                     <button @click="printOrder" class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
                         </svg>
                     </button>
+                </el-tooltip>
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de produccion')" content="Editar Órden" placement="top">
+                    <Link :href="route('productions.edit', sale.id)"
+                        class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                    </Link>
                 </el-tooltip>
                 <Link :href="route('sales.show', sale.id)"
                     class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
@@ -48,47 +59,7 @@
                         <template v-if="sale.type === 'venta'">
                             <li class="flex justify-between items-center">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-
-                                <!-- Tooltip de cliente -->
-                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
-                                    <template #content>
-                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                        <!-- Header -->
-                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                            {{ sale.branch?.name }}
-                                            </h4>
-                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                            {{ sale.branch?.status ?? 'N/A' }}
-                                            </span>
-                                        </div>
-
-                                        <!-- Datos principales -->
-                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                        </div>
-
-                                        <!-- Footer -->
-                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                            <Link :href="route('branches.show', sale.branch?.id)">
-                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                <i class="fa-solid fa-eye"></i> Ver Cliente
-                                            </SecondaryButton>
-                                            </Link>
-                                            <span class="text-[10px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                        </div>
-                                        </div>
-                                    </template>
-
-                                    <!-- Nombre clickable -->
-                                    <span class="text-blue-500 hover:underline cursor-pointer">
-                                        {{ sale.branch?.name ?? 'N/A' }}
-                                    </span>
-                                </el-tooltip>
+                                <BranchInfoTooltip v-if="sale.branch" :branch="sale.branch" />
                                 <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
                             </li>
                             <li class="flex justify-between">
@@ -114,7 +85,7 @@
                                     <span
                                     class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200"
                                     >
-                                    {{ sale.contact?.name ?? 'N/A' }}
+                                    {{ sale.contact?.prefix ?? '' }} {{ sale.contact?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
 
@@ -162,7 +133,7 @@
                             }">
                              <div class="flex items-center">
                                 <div class="flex-shrink-0 size-14 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
-                                    <img v-if="item?.product.media?.length" :src="item.product.media[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
+                                    <img v-if="item?.product.media?.length" :src="item.product.media[0].original_url" @error="handleImageError" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
                                     <div v-else class="text-gray-300 dark:text-gray-600 text-center">
                                         <i class="fa-regular fa-image text-5xl"></i>
                                     </div>
@@ -275,16 +246,36 @@
                                 <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-3">Cantidades</h3>
                                 <div class="space-y-3">
                                     <div class="bg-sky-50 dark:bg-sky-900/40 rounded-lg p-4 text-center">
-                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">Cantidad a Producir</p>
-                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ selectedSaleProduct.quantity_to_produce.toLocaleString() }}</p>
+                                        <p class="text-sm font-medium text-sky-600 dark:text-sky-300">A Producir (Original)</p>
+                                        <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
+                                        <!-- <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedProduction?.quantity_to_produce ?? selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p> -->
+                                    </div>
+                                    <div class="bg-indigo-50 dark:bg-indigo-900/40 rounded-lg p-4 text-center">
+                                        <p class="text-sm font-medium text-indigo-600 dark:text-indigo-300">Producido / Avances</p>
+                                        <p class="text-3xl font-bold text-indigo-800 dark:text-indigo-100 mt-1">{{ selectedProduction?.good_units?.toLocaleString() || 0 }}</p>
                                     </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
                                         <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ (selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                     </div>
-                                    <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4 text-center">
-                                        <p class="text-sm font-medium text-red-600 dark:text-red-300">Merma</p>
-                                        <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction.scrap.toLocaleString() }}</p>
+                                    
+                                    <!-- Nueva vista para Merma -->
+                                    <div class="bg-red-50 dark:bg-red-900/40 rounded-lg p-4">
+                                        <p class="text-sm font-medium text-red-600 dark:text-red-300 text-center mb-2">Merma Reportada</p>
+                                        
+                                        <!-- Si hay detalles desglosados (requiere que el backend los mande) -->
+                                        <ul v-if="selectedProduction?.scrap_details?.length" class="space-y-2 mt-3">
+                                            <li v-for="(item, index) in selectedProduction.scrap_details" :key="index" class="flex justify-between items-center bg-white dark:bg-slate-800 p-2 rounded border border-red-100 dark:border-red-800">
+                                                <div class="flex items-center gap-2 overflow-hidden">
+                                                    <span class="truncate text-xs font-semibold text-gray-700 dark:text-gray-300" :title="item.product.name">{{ item.product.name }}</span>
+                                                </div>
+                                                <span class="font-bold text-red-600 dark:text-red-400 shrink-0">{{ item.quantity }} pz</span>
+                                            </li>
+                                        </ul>
+                                        <!-- Fallback por si solo hay un número total o no se ha implementado el desglose -->
+                                        <div v-else class="text-center">
+                                            <p class="text-3xl font-bold text-red-800 dark:text-red-100 mt-1">{{ selectedProduction?.scrap?.toLocaleString() || 0 }}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -380,6 +371,63 @@
                 <Empty v-if="!fullProductionLogs.length" text="No hay eventos registrados para esta producción." />
             </div>
         </el-dialog>
+
+        <!-- Modal para finalizar tarea -->
+        <el-dialog v-model="finishTaskModalVisible" title="Finalizar Producción" width="600px" class="dark:bg-slate-800">
+            <div class="space-y-5">
+                <!-- Unidades Buenas -->
+                <div v-if="remainingToProduceForModal > 0" class="bg-blue-50 dark:bg-sky-900/30 p-4 rounded-lg">
+                    <label class="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                        Unidades BUENAS terminadas (Restantes: {{ remainingToProduceForModal }})
+                    </label>
+                    <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Esta cantidad se sumará al stock de producto terminado.</p>
+                    <el-input-number v-model="finishTaskForm.good_units" :min="0" :max="remainingToProduceForModal" class="w-full sm:w-auto" />
+                </div>
+
+                <!-- Merma -->
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">Reportar Merma (Unidades con defecto)</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Indica la cantidad dañada de cada producto/componente. Se descontará de su respectivo inventario. Haz clic en la imagen para verla en grande.
+                    </p>
+                    
+                    <div class="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
+                        <div v-for="(item, index) in finishTaskForm.scrap_items" :key="index" class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg">
+                            <!-- Image with Preview -->
+                            <el-image 
+                                :src="item.media?.[0]?.original_url || 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=Sin+Imagen'" 
+                                :preview-src-list="[item.media?.[0]?.original_url || 'https://placehold.co/800x800/EBF4FF/7F9CF5?text=Sin+Imagen']"
+                                fit="cover"
+                                :preview-teleported="true"
+                                class="w-14 h-14 rounded-md border dark:border-gray-600 shadow-sm shrink-0 cursor-pointer hover:ring-2 ring-primary transition"
+                            />
+                            
+                            <!-- Info & Input -->
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate" :title="item.name">{{ item.name }}</p>
+                                <div class="flex items-center justify-between gap-2 mt-2">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Cant. dañada:</span>
+                                    <el-input-number v-model="item.quantity" :min="0" size="small" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Razón -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Razón de la merma (Opcional)</label>
+                    <el-input type="textarea" v-model="finishTaskForm.scrap_reason" placeholder="Ej. Material dañado, error de corte, etc." :rows="2" />
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-end gap-2">
+                    <el-button @click="finishTaskModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="isSubmittingTask" @click="submitFinishTask">Confirmar y Finalizar</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -387,6 +435,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
+import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; 
 import { Link, router } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
 import { ElMessageBox, ElMessage } from 'element-plus';
@@ -396,6 +445,7 @@ export default {
     components: {
         AppLayout,
         SecondaryButton,
+        BranchInfoTooltip,
         Empty,
         Link
     },
@@ -407,6 +457,16 @@ export default {
             selectedSaleProduct: null,
             historyModalVisible: false,
             fullProductionLogs: [],
+            // Nuevas variables para el modal de finalizar tarea
+            finishTaskModalVisible: false,
+            currentTaskToFinish: null,
+            remainingToProduceForModal: 0,
+            isSubmittingTask: false,
+            finishTaskForm: {
+                good_units: 0,
+                scrap_items: [],
+                scrap_reason: '',
+            },
         };
     },
     computed: {
@@ -466,7 +526,6 @@ export default {
                     lastDate = logDate;
                 });
                 
-                // Add the final segment from the last log to the end of the task
                 if (lastDate < taskEnd) {
                     const duration = differenceInMilliseconds(taskEnd, lastDate);
                      segments.push({
@@ -486,6 +545,21 @@ export default {
         }
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
         printOrder() {
             window.open(route('productions.print', this.sale.id), '_blank');
         },
@@ -511,7 +585,7 @@ export default {
                     ...log,
                     operator: operatorMap[log.user_id] || { name: 'Operador Desconocido', profile_photo_url: 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=?' }
                 }))
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); // Sort recent first
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             this.historyModalVisible = true;
         },
@@ -652,6 +726,7 @@ export default {
             });
         },
         updateTaskStatus(taskId, newStatus, additionalData = {}) {
+            this.isSubmittingTask = true;
             this.$inertia.put(route('production-tasks.updateStatus', taskId), {
                 status: newStatus,
                 ...additionalData
@@ -659,34 +734,94 @@ export default {
                 preserveScroll: true,
                 onSuccess: () => {
                     ElMessage.success(`Tarea actualizada a "${newStatus}"`);
+                    this.finishTaskModalVisible = false;
                 },
                 onError: (errors) => {
+                    // Muestra el primer error recibido del servidor
                     const errorMessage = Object.values(errors)[0] || 'No se pudo actualizar la tarea.';
                     ElMessage.error(errorMessage);
                 },
+                onFinish: () => {
+                    this.isSubmittingTask = false;
+                }
             });
         },
         startTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
         resumeTask(task) { this.updateTaskStatus(task.id, 'En Proceso'); },
+        
         pauseTask(task) {
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
             ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
-                confirmButtonText: 'Confirmar Pausa',
+                confirmButtonText: 'Siguiente',
                 cancelButtonText: 'Cancelar',
                 inputType: 'textarea',
                 inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
                 inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
             }).then(({ value: pause_reason }) => {
-                this.updateTaskStatus(task.id, 'Pausada', { pause_reason });
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se agregará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar Pausa',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                }
+
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
+        
         reportIssue(task) {
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
                 { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
-            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
-            ).catch(() => ElMessage.info('Acción cancelada'));
+            ).then(() => {
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales Terminadas', {
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                }
+
+            }).catch(() => ElMessage.info('Acción cancelada'));
         },
+
         async finishTask(task) {
+            // Validación de tiempos de producción mínimos
             if ((task.status === 'En Proceso' || task.status === 'Pausada') && task.started_at) {
                 const startTime = new Date(task.started_at);
                 const now = new Date();
@@ -700,45 +835,88 @@ export default {
                 }
             }
 
-            const quantityToProduce = this.selectedSaleProduct.quantity_to_produce;
+            // Identificar si es la última tarea
+            const pendingTasks = this.selectedProduction.tasks.filter(t => t.status !== 'Terminada' && t.id !== task.id);
+            const isLastTask = pendingTasks.length === 0;
 
-            try {
-                const { value: good_units } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
-                    confirmButtonText: 'Siguiente',
-                    cancelButtonText: 'Cancelar',
-                    inputType: 'number',
-                    inputValue: quantityToProduce,
-                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
-                });
+            const quantityToProduce = this.selectedProduction?.quantity_to_produce ?? this.selectedSaleProduct.quantity_to_produce;
+            const producedSoFar = this.selectedProduction?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
 
-                const { value: scrap } = await ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
-                    confirmButtonText: 'Siguiente',
-                    cancelButtonText: 'Cancelar',
-                    inputType: 'number',
-                    inputValue: 0,
-                    inputValidator: (v) => (v !== null && v !== '') || 'La cantidad es requerida.',
-                });
-
-                let scrap_reason = '';
-                if (scrap > 0) {
-                    const { value: reason } = await ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
-                        confirmButtonText: 'Finalizar Tarea',
-                        cancelButtonText: 'Cancelar',
-                        inputType: 'textarea',
-                        inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
-                    });
-                    scrap_reason = reason;
-                }
-
-                this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
-
-            } catch (error) {
-                if (error !== 'cancel') {
-                    console.error('Error al finalizar la tarea:', error);
-                }
-                ElMessage.info('Acción cancelada');
+            // Si no es la última tarea, solo actualizar estatus sin preguntar piezas ni mermas
+            if (!isLastTask) {
+                this.updateTaskStatus(task.id, 'Terminada');
+                return;
             }
+
+            // --- CONFIGURACIÓN DEL NUEVO MODAL ---
+            this.currentTaskToFinish = task;
+            this.remainingToProduceForModal = remainingToProduce;
+            
+            const product = this.selectedSaleProduct.product;
+            
+            // Reiniciamos el formulario
+            this.finishTaskForm = {
+                good_units: remainingToProduce, 
+                scrap_items: [],
+                scrap_reason: '',
+            };
+
+            // Lógica para obtener los componentes (directos o heredados del padre)
+            let actualComponents = [];
+            if (product.components && product.components.length > 0) {
+                actualComponents = product.components;
+            } else if (product.parent && product.parent.components && product.parent.components.length > 0) {
+                actualComponents = product.parent.components;
+            }
+
+            // Detectamos si tiene componentes o usamos el producto simple
+            if (actualComponents.length > 0) {
+                this.finishTaskForm.scrap_items = actualComponents.map(comp => ({
+                    product_id: comp.id,
+                    name: comp.name,
+                    media: comp.media,
+                    quantity: 0
+                }));
+            } else {
+                this.finishTaskForm.scrap_items = [{
+                    product_id: product.id,
+                    name: product.name,
+                    media: product.media,
+                    quantity: 0
+                }];
+            }
+
+            // Abrimos nuestro modal
+            this.finishTaskModalVisible = true;
         },
+
+        submitFinishTask() {
+            if (this.finishTaskForm.good_units < 0 || this.finishTaskForm.good_units > this.remainingToProduceForModal) {
+                ElMessage.error(`Las unidades buenas terminadas no pueden ser menores a 0 ni mayores al restante (${this.remainingToProduceForModal}).`);
+                return;
+            }
+
+            // Filtramos solo los items que tengan merma real asignada
+            const scrapItemsToReport = this.finishTaskForm.scrap_items
+                .filter(item => item.quantity > 0)
+                .map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity
+                }));
+
+            // Suma general por si el backend viejo aún requiere la variable "scrap"
+            const totalScrap = scrapItemsToReport.reduce((acc, item) => acc + item.quantity, 0);
+
+            const payload = {
+                good_units: Number(this.finishTaskForm.good_units),
+                scrap: totalScrap, // Retrocompatibilidad para tu tabla original
+                scrap_reason: this.finishTaskForm.scrap_reason,
+                scrap_items: scrapItemsToReport // ¡Nuevo arreglo detallado para descontar inventario!
+            };
+
+            this.updateTaskStatus(this.currentTaskToFinish.id, 'Terminada', payload);
+        }
     }
 };
 </script>

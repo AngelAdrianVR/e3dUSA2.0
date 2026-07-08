@@ -150,14 +150,14 @@
                         <div class="grid grid-cols-2 gap-4 mb-4 text-center">
                             <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
                                 <p class="text-2xl font-bold text-green-700 dark:text-green-200">{{
-                                    vacation_summary.available
+                                    vacation_summary.available?.toFixed(2) ?? '0.00'
                                 }}</p>
                                 <p class="text-sm text-green-600 dark:text-green-300">Días Disponibles</p>
                             </div>
                             <div class="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-lg">
                                 <p class="text-2xl font-bold text-amber-700 dark:text-amber-200">{{
-                                    vacation_summary.taken }}
-                                </p>
+                                    vacation_summary.taken?.toFixed(2) ?? '0.00'
+                                }}</p>
                                 <p class="text-sm text-amber-600 dark:text-amber-300">Días Tomados</p>
                             </div>
                         </div>

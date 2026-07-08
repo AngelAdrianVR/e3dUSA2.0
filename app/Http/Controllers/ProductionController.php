@@ -25,6 +25,7 @@ class ProductionController extends Controller
         if ($user->hasRole('Jefe de producción') || $user->hasRole('Super Administrador') || $user->hasRole('Samuel') || $user->hasRole('Asistente de director')) {
             $selectedStatus = $request->input('status');
             $selectedOperatorId = $request->input('operator_id'); // Nuevo filtro
+            $searchQuery = $request->input('search');
 
             // --- Consulta base: Obtenemos las Órdenes de Venta que tienen producción ---
             $query = Sale::query()
@@ -68,6 +69,11 @@ class ProductionController extends Controller
                 });
             }
 
+            // --- Aplicar filtro por búsqueda de folio (ID de venta) ---
+            if ($searchQuery) {
+                $query->where('id', 'like', "%{$searchQuery}%");
+            }
+
             // --- Paginación ---
             $sales = $query->latest()->paginate(20)->withQueryString();
 
@@ -81,7 +87,7 @@ class ProductionController extends Controller
                 'viewType' => 'manager',
                 'sales' => $sales,
                 'operators' => $operators, // Enviamos los operadores a la vista
-                'filters' => $request->only(['status', 'operator_id']), // Agregamos el nuevo filtro
+                'filters' => $request->only(['status', 'operator_id', 'search']), // Agregamos el nuevo filtro
             ]);
         }
 
@@ -92,9 +98,14 @@ class ProductionController extends Controller
             $myTasks = ProductionTask::where('operator_id', $user->id)
                 ->with([
                     'production:id,sale_product_id,status,quantity_to_produce',
+                    'production.tasks:id,production_id,status', // REQUERIDO para saber si es la última tarea
                     'production.saleProduct:id,sale_id,product_id,quantity_to_produce,quantity',
-                    'production.saleProduct.product:id,name',
+                    'production.saleProduct.product:id,name,parent_id', // REQUERIDO parent_id para herencia de componentes
                     'production.saleProduct.product.media',
+                    'production.saleProduct.product.components:id,name', // REQUERIDO
+                    'production.saleProduct.product.components.media', // REQUERIDO
+                    'production.saleProduct.product.parent.components:id,name', // REQUERIDO
+                    'production.saleProduct.product.parent.components.media', // REQUERIDO
                     'production.saleProduct.sale:id,branch_id,type,is_high_priority,promise_date',
                     'production.saleProduct.sale.branch:id,name',
                     'production.saleProduct.sale.saleProducts.product:id,name,measure_unit',
@@ -106,7 +117,6 @@ class ProductionController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->paginate(15); 
                 
-                // return $myTasks;
             return Inertia::render('Production/Index', [
                 'viewType' => 'operator',
                 'tasks' => $myTasks,
@@ -220,13 +230,19 @@ class ProductionController extends Controller
         $sale->load([
             // Datos del cliente y la venta
             'branch:id,name,address,rfc,post_code,status',
-            'contact:id,name',
+            'contact:id,name,prefix',
             'contact.details',
             'user:id,name,profile_photo_path', // Usuario que creó la venta
 
             // Productos de la venta
-            'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
-            'saleProducts.product.media', 
+            'saleProducts.product:id,name,code,measure_unit,parent_id', // Asegúrate de traer 'parent_id'
+            'saleProducts.product.media',
+            'saleProducts.product.components.media', 
+            'saleProducts.product.parent.components.media', // <--- ESTO ES VITAL
+
+            // Productos de la venta
+            // 'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 
+            // 'saleProducts.product.media', 
 
             // Producciones relacionadas a través de los productos de la venta
             'productions' => function ($query) {
@@ -249,14 +265,127 @@ class ProductionController extends Controller
         ]);
     }
 
-    public function edit(Production $production)
+    public function edit(Sale $production)
     {
-        //
+        // $production en realidad es el modelo Sale (por el ID de la ruta)
+        $production->load([
+            'branch:id,name',
+            'saleProducts' => function ($query) {
+                $query->with([
+                    'product:id,name,code,archived_at,measure_unit',
+                    'product.storages',
+                    'product.media',
+                    'product.components.media',
+                    'product.components:id,name,measure_unit',
+                    'product.components.storages',
+                    'production.tasks' // Cargamos las órdenes de producción y sus tareas actuales
+                ]);
+            }
+        ]);
+
+        $operators = User::where('is_active', true)->role(['Auxiliar de producción', 'Jefe de producción', 'Samuel'])->orderBy('name')->get();
+        $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();
+
+        return inertia('Production/Edit', [
+            'sale' => $production,
+            'operators' => $operators,
+            'productionCosts' => $productionCosts,
+        ]);
     }
 
-    public function update(Request $request, Production $production)
+    public function update(Request $request, Sale $production)
     {
-        //
+        // Validación del formulario
+        $request->validate([
+            'products_with_tasks' => 'required|array',
+            'products_with_tasks.*.sale_product_id' => 'required|exists:sale_products,id',
+            'products_with_tasks.*.tasks' => 'nullable|array',
+            'products_with_tasks.*.tasks.*.id' => 'nullable|exists:production_tasks,id',
+            'products_with_tasks.*.tasks.*.operator_id' => 'required|exists:users,id',
+            'products_with_tasks.*.tasks.*.name' => 'required|string|max:255',
+            'products_with_tasks.*.tasks.*.estimated_time_minutes' => 'required|numeric|min:1',
+        ]);
+
+        DB::transaction(function () use ($request, $production) {
+            foreach ($request->products_with_tasks as $productData) {
+                $saleProduct = SaleProduct::find($productData['sale_product_id']);
+
+                // Si mandan un array vacío de tareas, y existía una orden, la eliminamos
+                if (empty($productData['tasks'])) {
+                    if ($saleProduct->production) {
+                        $saleProduct->production->tasks()->delete();
+                        $saleProduct->production->delete();
+                    }
+                    continue;
+                }
+
+                // Buscar la producción o crearla si es un producto nuevo agregado a la venta
+                $productionModel = Production::firstOrCreate(
+                    ['sale_product_id' => $saleProduct->id],
+                    [
+                        'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                        'status' => 'Pendiente',
+                        'created_by_user_id' => auth()->id(),
+                    ]
+                );
+
+                // Actualizar cantidad a producir por si cambió recientemente en la orden de venta
+                $productionModel->update([
+                    'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                ]);
+
+                // Recopilamos los IDs de las tareas que nos mandó el Frontend
+                $submittedTaskIds = collect($productData['tasks'])->pluck('id')->filter()->toArray();
+
+                // Eliminamos las tareas que NO vienen en el request (Solo las pendientes para evitar problemas de historia)
+                $productionModel->tasks()
+                    ->whereNotIn('id', $submittedTaskIds)
+                    ->where('status', 'Pendiente')
+                    ->delete();
+
+                foreach ($productData['tasks'] as $taskData) {
+                    if (isset($taskData['id'])) {
+                        // Actualizar tarea existente
+                        $task = ProductionTask::find($taskData['id']);
+                        if ($task) {
+                            $task->update([
+                                'operator_id' => $taskData['operator_id'],
+                                'name' => $taskData['name'],
+                                'estimated_time_minutes' => $taskData['estimated_time_minutes'],
+                            ]);
+                        }
+                    } else {
+                        // Crear nueva tarea
+                        $newTask = ProductionTask::create([
+                            'production_id' => $productionModel->id,
+                            'operator_id' => $taskData['operator_id'],
+                            'name' => $taskData['name'],
+                            'estimated_time_minutes' => $taskData['estimated_time_minutes'],
+                        ]);
+                        
+                        $operator = User::find($taskData['operator_id']);
+                        if ($operator) {
+                            $production_folio = 'PROD-' . str_pad($productionModel->id, 4, "0", STR_PAD_LEFT);
+                            $operator->notify(new TaskAssignedNotification(
+                                'Nueva Tarea Asignada',
+                                $production_folio,
+                                'production_task',
+                                route('productions.index'),
+                                $newTask->name
+                            ));
+                        }
+                    }
+                }
+                
+                // Reevaluar estado de la producción
+                $productionModel->updateStatusFromTasks();
+            }
+            
+            // Actualizar estado general de la venta
+            $production->updateStatus();
+        });
+
+        return redirect()->route('productions.index');
     }
 
     /*
@@ -301,16 +430,18 @@ class ProductionController extends Controller
      */
     public function print(Sale $sale)
     {
-        // Reutilizamos la misma lógica de carga de datos que en el método `show`
-        // para asegurar que el componente de impresión tenga toda la información necesaria.
         $sale->load([
             'user:id,name',
-            'branch:id,name',
+            'branch:id,name,parent_branch_id',
+            'branch.parent:id,name',
             'productions.saleProduct.product.media',
             'productions.tasks.operator:id,name',
+            // --- Relaciones agregadas para cargar la info de las Parcialidades ---
+            'saleProducts.product:id,name,code,measure_unit',
+            'saleProducts.product.media',
+            'shipments.shipmentProducts'
         ]);
 
-        // Retornamos una vista de Inertia diferente, diseñada específicamente para la impresión.
         return Inertia::render('Production/Print', [
             'sale' => $sale
         ]);

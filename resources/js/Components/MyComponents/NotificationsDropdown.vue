@@ -1,6 +1,6 @@
 <template>
   <div class="relative">
-    <el-tooltip content="Notificaciones" placement="bottom">
+    <el-tooltip content="Notificaciones Generales" placement="bottom">
       <button @click.stop="toggleDropdown"
         class="relative flex justify-center items-center size-14 p-3 rounded-lg transition-colors duration-300 hover:bg-gray-100 dark:hover:bg-slate-700">
         <img src="/images/notification3d.png" alt="" class="w-[80%]">
@@ -27,7 +27,7 @@
           <ul v-if="notifications.length > 0">
             <li v-for="notification in notifications" :key="notification.id"
               :class="['group relative flex items-start gap-3 p-4 border-b dark:border-slate-700 transition-colors duration-200 hover:bg-gray-50 dark:hover:bg-slate-700/50', 
-                       { 'bg-blue-50/50 dark:bg-slate-900/50': !notification.read_at }]">
+                       { 'bg-blue-50/50 dark:bg-slate-900/50': !notification.read_at && initiallyUnread.includes(notification.id) }]">
               
               <!-- Checkbox de selección -->
               <div class="flex-shrink-0 pt-1">
@@ -44,7 +44,9 @@
                   <p class="text-sm text-gray-800 dark:text-gray-200 leading-tight" v-html="notification.data.message"></p>
                   <span class="text-xs text-gray-400 dark:text-gray-500">{{ formatTimeAgo(notification.created_at) }}</span>
                 </div>
-                <div v-if="!notification.read_at" class="flex-shrink-0 w-2.5 h-2.5 bg-blue-500 rounded-full mt-1.5"></div>
+                
+                <!-- Punto indicador (se oculta tras la primera vez que se abre el menú) -->
+                <div v-if="!notification.read_at && initiallyUnread.includes(notification.id)" class="flex-shrink-0 w-2.5 h-2.5 bg-blue-500 rounded-full mt-1.5"></div>
               </div>
 
               <!-- Botón de eliminar individual -->
@@ -67,19 +69,11 @@
         </div>
 
         <!-- Footer para acciones masivas -->
-        <div v-if="notifications.length > 0" class="p-2 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex items-center"
-            :class="selectedNotifications.length > 0 ? 'justify-center' : 'justify-end'">
-
-            <!-- Botón de eliminar seleccionados (toma prioridad) -->
-            <button v-if="selectedNotifications.length > 0" @click="deleteSelected"
+        <div v-if="notifications.length > 0 && selectedNotifications.length > 0" class="p-2 border-t dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 flex items-center justify-center">
+            <!-- Botón de eliminar seleccionados -->
+            <button @click="deleteSelected"
                     class="w-full text-center px-4 py-2 text-sm font-medium text-white rounded-md bg-red-600 hover:bg-red-700 transition-colors duration-200">
                 Eliminar seleccionadas ({{ selectedNotifications.length }})
-            </button>
-
-            <!-- Botón de marcar todas como leídas (se muestra si no hay nada seleccionado) -->
-            <button v-else-if="unreadNotificationsCount > 0" @click="markAllAsRead"
-                    class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline pr-2">
-                Marcar todas como leídas
             </button>
         </div>
       </div>
@@ -115,6 +109,7 @@ export default {
     return { 
       isOpen: false,
       selectedNotifications: [], // Array para guardar los IDs de las notificaciones seleccionadas
+      initiallyUnread: [], // Mantiene el estado visual localmente mientras se procesa la lectura
     };
   },
   computed: {
@@ -123,34 +118,46 @@ export default {
     },
   },
   methods: {
-    toggleDropdown() { this.isOpen = !this.isOpen; },
-    closeDropdown() { this.isOpen = false; },
-    handleNotificationClick(notification) {
-      const url = notification.data.url || '#';
-      if (notification.read_at) {
-        if (url !== '#') router.visit(url);
-        this.closeDropdown();
-        return;
+    toggleDropdown() { 
+      this.isOpen = !this.isOpen; 
+
+      // ESTILO FACEBOOK: Si se abre el dropdown y hay notificaciones no leídas, las marcamos.
+      if (this.isOpen && this.unreadNotificationsCount > 0) {
+        this.markGeneralAsRead();
       }
-      router.patch(route('notifications.read', notification.id), {}, {
+    },
+    closeDropdown() { 
+      this.isOpen = false; 
+    },
+    markGeneralAsRead() {
+      // Obtenemos los IDs de las notificaciones que no están leídas
+      const unreadIds = this.notifications.filter(n => !n.read_at).map(n => n.id);
+      
+      if (unreadIds.length === 0) return;
+
+      // Guardamos visualmente cuáles eran no leídas para no quitar el estilo azul de forma brusca
+      this.initiallyUnread = [...unreadIds];
+
+      // Llamada a la nueva ruta que marca solo los IDs seleccionados
+      router.post(route('notifications.read-selected'), { ids: unreadIds }, {
         preserveScroll: true,
-        onSuccess: () => {
-          if (url !== '#') router.visit(url);
-          this.closeDropdown();
-        }
+        preserveState: true,
       });
     },
-    markAllAsRead() {
-      router.post(route('notifications.read-all'), {}, {
-        preserveScroll: true,
-      });
+    handleNotificationClick(notification) {
+      const url = notification.data.url || '#';
+      
+      // Como ya se marcaron como leídas al abrir el dropdown, simplemente redirigimos.
+      if (url !== '#') {
+        router.visit(url);
+      }
+      this.closeDropdown();
     },
     deleteNotification(notificationId) {
       router.delete(route('notifications.destroy', notificationId), {
         preserveScroll: true,
       });
     },
-    // --- NUEVO MÉTODO PARA ELIMINAR SELECCIONADAS ---
     deleteSelected() {
       if (this.selectedNotifications.length === 0) return;
 
@@ -169,4 +176,3 @@ export default {
   },
 };
 </script>
-

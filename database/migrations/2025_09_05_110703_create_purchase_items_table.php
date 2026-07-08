@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('type', 20)->default('Venta'); // si es para Muestra o Venta
             $table->string('description'); // Descripción del producto al momento de la compra (puede variar del nombre actual del producto)
             $table->decimal('quantity', 10, 2);
+            $table->decimal('quantity_received', 10, 2)->default(0);
             $table->decimal('additional_stock', 10, 2)->nullable(); // cantidad a favor
             $table->decimal('plane_stock', 10, 2)->nullable(); // cantidad en avion
             $table->decimal('ship_stock', 10, 2)->nullable(); // cantidad en barco

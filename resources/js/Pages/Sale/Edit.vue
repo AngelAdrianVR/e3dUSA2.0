@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.idtoString().padStart(4, '0')}` }}
+                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.id.toString().padStart(4, '0')}` }}
                 </h2>
             </div>
         </div>
@@ -51,30 +51,53 @@
 
                                 <div>
                                     <InputLabel value="Cliente*" />
-                                    <el-select v-model="form.branch_id" :disabled="form.quote_id ? true : false" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
-                                        <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                                    </el-select>
+                                    <div class="flex items-center space-x-2">
+                                        <el-select v-model="form.branch_id" :disabled="form.quote_id ? true : false" filterable placeholder="Selecciona un cliente" class="!w-full" @change="handleBranchChange">
+                                            <el-option v-for="branch in localBranches" :key="branch.id" :label="branch.name" :value="branch.id" />
+                                        </el-select>
+                                        <el-button @click="branchModalVisible = true" type="primary" circle plain :disabled="form.quote_id ? true : false">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </el-button>
+                                    </div>
                                     <InputError :message="form.errors.branch_id" />
                                 </div>
 
                                  <div>
                                     <InputLabel value="Contacto*" />
-                                    <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero">
-                                        <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
-                                    </el-select>
+                                    <div class="flex items-center space-x-2">
+                                        <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero" :disabled="!form.branch_id">
+                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
+                                        </el-select>
+                                        <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
+                                            <i class="fa-solid fa-plus"></i>
+                                        </el-button>
+                                    </div>
                                     <InputError :message="form.errors.contact_id" />
                                 </div>
                             </template>
                         </div>
 
+                        <!-- Estado de carga -->
+                        <LoadingIsoLogo class="my-5" v-if="loadingClientProducts" />
+
                         <!-- COMPONENTE HIJO PARA PRODUCTOS -->
-                        <SaleProductManager 
+                        <SaleProductManager v-else
                             v-model="form.products"
                             :branch-id="form.branch_id"
                             :sale-type="form.type"
-                            :available-products="productsForManager"
+                            :available-products="availableBaseProducts"
+                            :client-products="clientProducts"
                             :products-error="form.errors.products"
+                            :is-price-locked="!!form.quote_id"
                         />
+
+                        <!-- ALERTA GLOBAL DE PRECIO BAJO -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del precio establecido. Especifica la razón en cada producto. La orden requerirá autorización.</p>
+                            </div>
+                        </div>
                         
                         <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
                         <template v-if="form.type === 'venta'">
@@ -84,11 +107,12 @@
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-3">
                                 <div>
                                     <InputLabel value="Opciones de envío*" />
-                                    <el-select v-model="form.shipping_option"
+                                    <el-select :disabled="!form.products.length" v-model="form.shipping_option"
                                         placeholder="Selecciona">
                                         <el-option v-for="item in shippingOptions" :key="item" :label="item"
                                             :value="item" />
                                     </el-select>
+                                    <small v-if="!form.products.length" class="text-amber-500 text-xs">Agrega un producto a la lista</small>
                                     <InputError :message="form.errors.shipping_option" />
                                 </div>
                                 
@@ -225,7 +249,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" />
+                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante." />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">
@@ -254,6 +278,80 @@
             :branches="branches"
             :catalog_products="catalog_products"
         />
+
+        <!-- MODALES DE CREACIÓN RÁPIDA -->
+        <el-dialog v-model="branchModalVisible" title="Crear Cliente/Prospecto Rápido" width="30%">
+            <form @submit.prevent="storeQuickBranch">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickBranchForm.name" type="text" :error="quickBranchForm.errors.name" />
+                    <TextInput label="RFC" v-model="quickBranchForm.rfc" type="text" :error="quickBranchForm.errors.rfc" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="branchModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickBranch" :loading="quickBranchForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
+            <form @submit.prevent="storeQuickContact">
+                <div class="space-y-4">
+                    <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
+                    <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
+                </div>
+            </form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="contactModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" @click="storeQuickContact" :loading="quickContactForm.processing">
+                        Guardar
+                    </el-button>
+                </span>
+            </template>
+        </el-dialog>
+
+        <!-- MODAL NUEVO: ASIGNAR PRODUCTO DESDE COTIZACIÓN -->
+        <el-dialog v-model="assignProductModalVisible" title="Asignar producto al cliente" width="30%" :before-close="cancelAssignProduct">
+            <div v-if="productToAssign" class="flex flex-col items-center text-center">
+                <img :src="productToAssign.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A'" class="w-48 h-48 rounded-lg object-cover border mb-4" />
+                
+                <p v-if="!productToAssign.isVariant" class="mb-4">
+                    El producto <strong>"{{ productToAssign.name }}"</strong> no está asignado a este cliente. ¿Deseas asignarlo para continuar?
+                </p>
+                <p v-else class="mb-4">
+                    La variante <strong>"{{ productToAssign.name }}"</strong> no está asignada a este cliente. 
+                    <span v-if="productToAssign.missingParent">
+                        Además, el producto base <strong>"{{ productToAssign.parent.name }}"</strong> tampoco está asignado.
+                        Para trabajar correctamente con esta variante, se asignarán ambos al cliente.
+                    </span>
+                    ¿Deseas proceder para continuar?
+                </p>
+                
+                <div class="w-full text-left bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
+                    <p class="text-xs text-gray-500 mb-2">Establece el precio que tendrá este producto para el cliente:</p>
+                    <div class="grid grid-cols-2 gap-3 items-end">
+                        <TextInput label="Precio Especial (Opcional)" v-model="assignProductForm.price" type="number" step="0.01" />
+                        <div>
+                            <InputLabel value="Moneda" />
+                            <el-select v-model="assignProductForm.currency" class="!w-full">
+                                <el-option label="MXN" value="MXN" />
+                                <el-option label="USD" value="USD" />
+                            </el-select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="cancelAssignProduct">Omitir producto</el-button>
+                    <el-button type="primary" @click="confirmAssignProduct">Asignar y continuar</el-button>
+                </span>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -269,11 +367,13 @@ import TextInput from "@/Components/TextInput.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import { h } from 'vue';
+import axios from 'axios';
 
 export default {
     components: {
@@ -287,6 +387,7 @@ export default {
         BranchNotes,
         FileUploader,
         PrimaryButton,
+        LoadingIsoLogo,
         SecondaryButton,
         SaleProductManager,
         ClientProductsDrawer,
@@ -311,14 +412,18 @@ export default {
                 freight_cost: this.sale.freight_cost,
                 notes: this.sale.notes,
                 currency: this.sale.currency,
-                // promise_date: this.sale.promise_date,
                 is_high_priority: this.sale.is_high_priority,
+                has_low_price: this.sale.has_low_price, // NUEVO
                 products: this.sale.sale_products.map(p => ({
                     id: p.product_id,
+                    name: p.product?.name || '',     // Inyectado para SaleProductManager
+                    media: p.product?.media || null, // Inyectado para SaleProductManager
                     quantity: p.quantity,
                     price: p.price,
                     notes: p.notes,
                     customization_details: p.customization_details || [],
+                    has_low_price: p.has_low_price, // NUEVO
+                    low_price_reason: p.low_price_reason, // NUEVO
                     is_new_design: false,
                 })),
                 shipping_option: this.sale.shipping_option, // Deberás cargar esto si lo guardas en la BD
@@ -337,35 +442,87 @@ export default {
                     }))
                 })) || [],
             }),
+            localBranches: [],
+            branchModalVisible: false,
+            contactModalVisible: false,
+            quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
+            quickContactForm: { name: '', charge: '', processing: false, errors: {} },
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
+            loadingClientProducts: false,
+
+            // Variables para el modal de asignar desde cotización
+            assignProductModalVisible: false,
+            productToAssign: null,
+            resolveAssignProduct: null,
+            rejectAssignProduct: null,
+            assignProductForm: {
+                price: null,
+                currency: 'MXN'
+            },
+
             orderVias: ['Correo electrónico', 'WhatsApp', 'Llamada telefónica', 'Resurtido programado', 'Otro'],
             shippingOptions: ['Entrega única', '2 parcialidades', '3 parcialidades', '4 parcialidades'],
             shippingCompanies: [
-                'DHL',
-                'UPS',
-                'FedEx',
-                'Estafeta',
-                'Paquetexpress',
-                'Envío propio',
-                'Otro',
+                'DHL', 'UPS', 'LOCAL', 'FEDEX', 'ESTAFETA', 'PAQUETEXPRESS', 'THINY PACK', 'ELLOS RECOLECTAN', 'JR', 'POTOSINOS', 'ENVÍO PROPIO', 'OTRO',
             ],
         };
     },
     computed: {
-        productsForManager() {
-            // Devuelve los productos de cliente para 'venta' o todo el catálogo para 'stock'
-            return this.form.type === 'venta' ? this.clientProducts : this.catalog_products;
+        availableBaseProducts() {
+            if (this.form.type === 'stock') {
+                return this.catalog_products;
+            } else {
+                if (!this.clientProducts.length) return [];
+                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+                return this.catalog_products.filter(parent => {
+                    const isParentAssigned = clientProductIds.has(parent.id);
+                    const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
+                    return isParentAssigned || hasAssignedVariant;
+                });
+            }
+        },
+        hasLowPrices() {
+            if (this.form.type !== 'venta' || !this.form.products.length) return false;
+            
+            return this.form.products.some(p => {
+                // Si el producto ya tiene la bandera (desde BD o por el ProductManager)
+                if (p.has_low_price) return true;
+
+                const original = this.getProductInfo(p.id);
+                if (!original) return false;
+                
+                let minPrice = original.base_price || 0;
+                
+                // Tratar de obtener el precio vigente del cliente
+                if (original.price_history && original.price_history.length > 0) {
+                    const validPrice = original.price_history.find(h => !h.valid_to);
+                    if (validPrice) {
+                        minPrice = validPrice.price;
+                    }
+                } else if (original.current_price !== undefined && original.current_price !== null) {
+                    minPrice = original.current_price;
+                }
+                
+                // Permitir margen de centavos para redondeo
+                return parseFloat(p.price) < (parseFloat(minPrice) - 0.01);
+            });
         }
     },
     watch: {
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        },
+        branches(newVal) {
+            this.localBranches = [...newVal];
+        },
         'form.type'(newType) {
             // Limpia el formulario al cambiar de tipo para evitar enviar datos incorrectos
             if (newType === 'stock') {
                 this.form.reset(
                     'branch_id', 'quote_id', 'contact_id', 'order_via', 
-                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments'
+                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
@@ -397,6 +554,24 @@ export default {
     methods: {
         update() {
             // Lógica de validación de parcialidades (si aplica)
+            if (this.form.type === 'venta' && this.form.shipping_option && this.form.products.length > 0) {
+                for (const product of this.form.products) {
+                    const remaining = this.getRemainingQuantity(product.id);
+                    if (remaining !== 0) {
+                        ElMessage.error(`Debe asignar la cantidad total para el producto "${product.name}". Faltan ${remaining} por asignar.`);
+                        return;
+                    }
+                }
+            }
+            
+            if (this.form.type === 'venta') {
+                this.form.shipments.forEach(shipment => {
+                    if (shipment.acknowledgement_file && typeof shipment.acknowledgement_file === 'object' && shipment.acknowledgement_file.file) {
+                        shipment.acknowledgement_file = shipment.acknowledgement_file.file;
+                    }
+                });
+            }
+
             this.form.post(route("sales.update", this.sale.id), {
                 onSuccess: () => {
                     ElMessage.success('Órden actualizada correctamente');
@@ -435,7 +610,6 @@ export default {
                     acknowledgement_file: existingShipment.acknowledgement_file || null,
                     products: this.form.products.map(p => {
                         const existingProduct = existingShipment.products?.find(sp => sp.product_id === p.id);
-                        const productInfo = this.getProductInfo(p.id);
                         
                         let quantity = 0;
                         if (count === 1) {
@@ -447,8 +621,8 @@ export default {
                         return {
                             product_id: p.id,
                             quantity: quantity,
-                            name: productInfo?.name,
-                            part_number: productInfo?.part_number,
+                            name: p.name,
+                            part_number: p.part_number, // Solo si lo conservas, sino name basta
                         };
                     })
                 });
@@ -494,7 +668,7 @@ export default {
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
             
-            const selectedBranch = this.branches.find(b => b.id === branchId);
+            const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
             await this.fetchClientProducts();
@@ -502,12 +676,15 @@ export default {
         async fetchClientProducts() {
             if (!this.form.branch_id) return;
             this.clientProducts = [];
+            this.loadingClientProducts = true;
             try {
                 const response = await axios.get(route('branches.fetch-products', this.form.branch_id));
                 this.clientProducts = response.data;
             } catch (error) {
                 console.error("Error fetching client products:", error);
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
+            } finally {
+                this.loadingClientProducts = false;
             }
         },
         async fetchQuoteDetails(quoteId) {
@@ -518,10 +695,12 @@ export default {
                 this.form.branch_id = quoteData.branch_id;
                 this.form.freight_option = quoteData.freight_option;
                 this.form.freight_cost = quoteData.freight_cost;
+                this.form.currency = quoteData.currency;
                 this.form.notes = quoteData.notes;
 
                 await this.handleBranchChange(quoteData.branch_id);
                 this.form.contact_id = quoteData.contact_id;
+                
                 this.processQuoteProducts(quoteData.products);
 
             } catch (error) {
@@ -534,58 +713,168 @@ export default {
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
 
             for (const product of quoteProducts) {
-                if (clientProductIds.has(product.id)) {
+                let hasProduct = clientProductIds.has(product.id);
+
+                if (hasProduct) {
                     this.addProductToSaleForm(product);
                 } else {
+                    this.productToAssign = product;
+                    
+                    const baseProduct = this.catalog_products.find(p => p.variants?.some(v => v.id === product.id));
+                    if (baseProduct) {
+                        this.productToAssign.isVariant = true;
+                        this.productToAssign.parent = baseProduct;
+                        this.productToAssign.missingParent = !clientProductIds.has(baseProduct.id);
+                    } else {
+                        this.productToAssign.isVariant = false;
+                        this.productToAssign.missingParent = false;
+                    }
+
+                    this.assignProductForm.price = product.unit_price; 
+                    this.assignProductForm.currency = this.form.currency || 'MXN';
+                    
+                    this.assignProductModalVisible = true;
+
                     try {
-                        await ElMessageBox.confirm(
-                           '',
-                           {
-                                title: 'Producto no asignado',
-                                message: h('div', { class: 'flex flex-col items-center text-center' }, [
-                                    h('img', {
-                                        src: product.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A',
-                                        class: 'w-48 h-48 rounded-lg object-cover border mb-4',
-                                        alt: product.name
-                                    }),
-                                    h('p', null, `El producto "${product.name}" (P/N: ${product.part_number}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
-                                ]),
-                                confirmButtonText: 'Sí, asignar y agregar',
-                                cancelButtonText: 'No, omitir',
-                                type: 'warning',
-                           }
-                        );
-                        await this.associateAndAddProduct(product);
-                    } catch (action) {
+                        await new Promise((resolve, reject) => {
+                            this.resolveAssignProduct = resolve;
+                            this.rejectAssignProduct = reject;
+                        });
+                        await this.associateAndAddProduct(this.productToAssign);
+                    } catch (e) {
                         ElMessage.info(`Se omitió el producto: "${product.name}"`);
                     }
                 }
             }
         },
+        confirmAssignProduct() {
+            if (this.resolveAssignProduct) {
+                this.resolveAssignProduct();
+                this.assignProductModalVisible = false;
+            }
+        },
+        cancelAssignProduct() {
+            if (this.rejectAssignProduct) {
+                this.rejectAssignProduct();
+                this.assignProductModalVisible = false;
+            }
+        },
         async associateAndAddProduct(product) {
             try {
+                const productsToAssociate = [];
+                
+                if (product.isVariant && product.missingParent) {
+                    productsToAssociate.push({ 
+                        product_id: product.parent.id, 
+                        price: null, 
+                        currency: this.assignProductForm.currency
+                    });
+                }
+                
+                productsToAssociate.push({ 
+                    product_id: product.id, 
+                    price: this.assignProductForm.price,
+                    currency: this.assignProductForm.currency
+                });
+                
                 const payload = {
-                    products: [{ product_id: product.id, price: null }]
+                    products: productsToAssociate
                 };
+                
                 await axios.post(route('branches.add-products', this.form.branch_id), payload);
-                ElMessage.success(`Producto "${product.name}" asociado al cliente.`);
+                ElMessage.success(`Producto(s) asociado(s) al cliente exitosamente.`);
+                
                 await this.fetchClientProducts();
+                
                 this.addProductToSaleForm(product);
             } catch (error) {
                 console.error("Error associating product:", error);
-                ElMessage.error(`No se pudo asociar el producto "${product.name}".`);
+                ElMessage.error(`No se pudo asociar el producto.`);
             }
         },
         addProductToSaleForm(product) {
+            const parent = this.catalog_products.find(p => p.id === product.id) ||
+                           this.catalog_products.find(p => p.variants?.some(v => v.id === product.id))?.variants?.find(v => v.id === product.id);
+
             this.form.products.push({
                 id: product.id,
+                name: product.name || parent?.name || '',
+                media: parent?.media || null,
                 quantity: product.quantity,
                 price: product.unit_price,
                 notes: product.notes,
                 customization_details: product.customization_details || [],
                 is_new_design: false,
+                has_low_price: false,
+                low_price_reason: '',
+                from_quote: true, // Producto proveniente de cotización, no se puede eliminar
             });
-        }
+        },
+        async storeQuickBranch() {
+            this.quickBranchForm.processing = true;
+            this.quickBranchForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store'), this.quickBranchForm);
+                if (response.status === 200) {
+                    const newBranch = response.data;
+                    this.localBranches.push(newBranch);
+                    this.form.branch_id = newBranch.id;
+                    await this.handleBranchChange(newBranch.id);
+                    this.branchModalVisible = false;
+                    this.quickBranchForm.name = '';
+                    this.quickBranchForm.rfc = '';
+                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                }
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    this.quickBranchForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el cliente.');
+                }
+            } finally {
+                this.quickBranchForm.processing = false;
+            }
+        },
+        async storeQuickContact() {
+            if (!this.form.branch_id) {
+                 ElMessage.warning('Primero debes seleccionar un cliente.');
+                 return;
+            }
+            this.quickContactForm.processing = true;
+            this.quickContactForm.errors = {};
+            try {
+                const response = await axios.post(route('branches.quick-store.contact', { branch: this.form.branch_id }), this.quickContactForm);
+                if (response.status === 200) {
+                    const newContact = response.data;
+                    this.availableContacts.push(newContact);
+                    
+                    const parentBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+                    if (parentBranch) {
+                        parentBranch.contacts.push(newContact);
+                    }
+
+                    this.form.contact_id = newContact.id;
+                    this.contactModalVisible = false;
+                    this.quickContactForm.name = '';
+                    this.quickContactForm.charge = '';
+                    ElMessage.success('Contacto creado exitosamente');
+                }
+            } catch (error)
+            {
+                if (error.response && error.response.status === 422) {
+                    this.quickContactForm.errors = error.response.data.errors;
+                } else {
+                    console.error(error);
+                    ElMessage.error('Ocurrió un error al crear el contacto.');
+                }
+            } finally {
+                this.quickContactForm.processing = false;
+            }
+        },
+    },
+    created() {
+        this.localBranches = [...this.branches];
     },
     async mounted() {
         if (this.form.type === 'venta' && this.form.branch_id) {

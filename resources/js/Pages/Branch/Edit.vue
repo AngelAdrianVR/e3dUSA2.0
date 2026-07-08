@@ -5,7 +5,8 @@
 
         <div class="px-4 sm:px-0">
             <div class="flex items-center space-x-2">
-                <Back :href="route('branches.index')" />
+                <!-- Botón dinámico que regresa a ventas o al index dependiendo de cómo llegó aquí -->
+                <Back :href="backRoute" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
                     Editar cliente: {{ form.name }}
                 </h2>
@@ -17,10 +18,23 @@
                 <div class="bg-white dark:bg-slate-800 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     
                     <form @submit.prevent="update">
+                        <div class="mb-5 p-4 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-md text-sm">
+                            <i class="fa-solid fa-circle-info mr-2"></i>
+                            <strong>Nota:</strong> Para que el registro esté completo, los campos <strong>Nombre Comercial (Alias)</strong>, <strong>Razón Social</strong>, <strong>RFC y al menos un contacto</strong> son obligatorios. Esto <em>solo aplica para sucursales matriz</em>; si se asigna una "Sucursal Matriz" (cliente hijo), no son obligatorios.
+                        </div>
+
                         <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 border-b dark:border-gray-600 pb-2">Datos Generales</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                            <TextInput label="Nombre*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
-                            <TextInput label="RFC" v-model="form.rfc" type="text" :error="form.errors.rfc" placeholder="Registro Federal de Contribuyentes" />
+                            <!-- Nuevos campos incorporados -->
+                            <TextInput label="Número de Cliente" v-model="form.client_number" type="text" :error="form.errors.client_number" placeholder="Ej. 001" />
+                            <TextInput label="Nombre Comercial (Alias)*" v-model="form.name" type="text" :error="form.errors.name" placeholder="Nombre de empresa/sucursal" />
+                            
+                            <TextInput :label="form.parent_branch_id ? 'Razón Social' : 'Razón Social*'" v-model="form.business_name" type="text" :error="form.errors.business_name" :placeholder="parentBranchData?.business_name || 'Razón social fiscal'" />
+                            <TextInput :label="form.parent_branch_id ? 'RFC' : 'RFC*'" v-model="form.rfc" type="text" :error="form.errors.rfc" :placeholder="parentBranchData?.rfc || 'Registro Federal de Contribuyentes'" />
+                            
+                            <TextInput label="Grupo" v-model="form.group_name" type="text" :error="form.errors.group_name" placeholder="Nombre del grupo (Opcional)" />
+                            <TextInput label="Cuenta Bancaria" v-model="form.bank_account" type="text" :error="form.errors.bank_account" placeholder="Ej. 1234 o Cuenta Completa" />
+
                             <div class="md:col-span-2">
                                 <TextInput label="Dirección" v-model="form.address" type="text" :error="form.errors.address" placeholder="Calle, número, colonia" />
                             </div>
@@ -53,7 +67,6 @@
                                     <el-option v-for="item in meetWays" :key="item" :value="item" :label="item" />
                                 </el-select>
                             </div>
-                             <!-- <TextInput label="¿Cómo nos conoció?" v-model="form.meet_way" placeholder="Recomendación, internet, redes sociales" type="text" :error="form.errors.meet_way" /> -->
                         </div>
                         
                         <div class="flex justify-between items-center mt-8 mb-4 border-b dark:border-gray-600 pb-2">
@@ -63,13 +76,22 @@
                             </el-button>
                         </div>
 
-                        <div v-for="(contact, index) in form.contacts" :key="index" class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4 border dark:border-gray-600 rounded-lg p-4 mb-4 relative">
-                            <TextInput label="Nombre del contacto*" v-model="contact.name" type="text" :error="form.errors[`contacts.${index}.name`]" />
+                        <div v-for="(contact, index) in form.contacts" :key="index" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 border dark:border-gray-600 rounded-lg p-4 mb-4 relative">
+                            <!-- Selector de Prefijo -->
+                            <div>
+                                <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Prefijo</label>
+                                <el-select v-model="contact.prefix" placeholder="Prefijo" class="!w-full">
+                                    <el-option v-for="p in prefixes" :key="p" :label="p" :value="p === 'Sin prefijo' ? '' : p" />
+                                </el-select>
+                                <InputError :message="form.errors[`contacts.${index}.prefix`]" />
+                            </div>
+                            
+                            <TextInput class="lg:col-span-2" label="Nombre del contacto*" v-model="contact.name" type="text" :error="form.errors[`contacts.${index}.name`]" />
                             <TextInput label="Cargo" v-model="contact.charge" type="text" :error="form.errors[`contacts.${index}.charge`]" />
                             <TextInput label="Teléfono*" v-model="contact.phone" type="text" :error="form.errors[`contacts.${index}.phone`]" />
                             <TextInput label="Email*" v-model="contact.email" type="email" :error="form.errors[`contacts.${index}.email`]" />
 
-                            <div class="md:col-span-2 grid grid-cols-2 gap-x-5">
+                            <div class="md:col-span-2 lg:col-span-3 grid grid-cols-2 gap-x-5">
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Mes de Cumpleaños</label>
                                     <el-select v-model="contact.birth_month" placeholder="Mes" class="!w-full" clearable>
@@ -238,9 +260,16 @@ import axios from 'axios';
 export default {
     data() {
         return {
+            prefixes: ['Ing.', 'Lic.', 'Arq.', 'Dr.', 'C.P.', 'Sin prefijo'], // Arreglo de prefijos
             form: useForm({
                 name: this.branch.name,
-                rfc: this.branch.rfc,
+                rfc: this.branch.rfc || this.branches.find(b => b.id === this.branch.parent_branch_id)?.rfc || null,
+                // --- NUEVAS PROPIEDADES PRE-CARGADAS ---
+                group_name: this.branch.group_name,
+                business_name: this.branch.business_name || this.branches.find(b => b.id === this.branch.parent_branch_id)?.business_name || null,
+                bank_account: this.branch.bank_account,
+                client_number: this.branch.client_number,
+
                 address: this.branch.address,
                 post_code: this.branch.post_code,
                 status: this.branch.status,
@@ -249,7 +278,6 @@ export default {
                 meet_way: this.branch.meet_way,
                 contacts: this.formattedContacts,
                 products: this.formattedProducts,
-                // --- NUEVA PROPIEDAD PARA EL FORMULARIO ---
                 suggested_products: this.suggestedProductIds ?? [],
             }),
             currentProduct: {
@@ -300,18 +328,41 @@ export default {
         users: Array,
         branches: Array,
         catalog_products: Array,
-        // --- NUEVA PROP PARA RECIBIR LOS IDs ---
         suggestedProductIds: Array,
     },
     computed: {
         availableProducts() {
             const assignedProductIds = this.formattedProducts.map(p => p.product_id);
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
+        },
+        // NUEVO: Computado para saber a dónde debe llevar el botón "Atrás"
+        backRoute() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('redirect_to') === 'sales.create') {
+                return route('sales.create');
+            }
+            return route('branches.index');
+        },
+        parentBranchData() {
+            if (!this.form.parent_branch_id) return null;
+            return this.branches.find(b => b.id === this.form.parent_branch_id);
         }
     },
     methods: {
         update() {
-            this.form.put(route("branches.update", this.branch), {
+            // Buscamos si existe el parámetro redirect_to en la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectTo = urlParams.get('redirect_to');
+
+            // Preparamos los parámetros para el router de Laravel
+            const routeParams = { branch: this.branch.id };
+            
+            // Si existe la variable en la url, la adjuntamos a la petición
+            if (redirectTo) {
+                routeParams.redirect_to = redirectTo; 
+            }
+
+            this.form.put(route("branches.update", routeParams), {
                 onSuccess: () => {
                     ElMessage.success('Cliente actualizado correctamente');
                 },
@@ -323,6 +374,7 @@ export default {
         },
         addContact() {
             this.form.contacts.push({
+                prefix: 'Ing.', // Valor por defecto
                 name: null,
                 charge: null,
                 phone: null,

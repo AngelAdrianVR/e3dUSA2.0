@@ -17,6 +17,15 @@
         <div ref="formContainer" class="py-7">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
+                    <!-- Overlay de bloqueo mientras redirige -->
+                    <div v-if="isRedirecting" class="absolute inset-0 z-50 flex items-center justify-center bg-white/70 dark:bg-slate-900/80 backdrop-blur-sm rounded-lg">
+                        <div class="text-center">
+                            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+                            <p class="text-lg font-bold text-gray-800 dark:text-white">Falta información del cliente.</p>
+                            <p class="text-gray-600 dark:text-gray-300">Redirigiendo a edición...</p>
+                        </div>
+                    </div>
+
                     <form @submit.prevent="store">
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                         <div class="flex justify-between items-center">
@@ -67,7 +76,8 @@
                                     <InputLabel value="Contacto*" />
                                     <div class="flex items-center space-x-2">
                                         <el-select v-model="form.contact_id" filterable placeholder="Selecciona un contacto" class="!w-full" no-data-text="Selecciona un cliente primero" :disabled="!form.branch_id">
-                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.name} (${contact.charge})`" :value="contact.id" />
+                                            <!-- Se muestra el prefijo en el selector -->
+                                            <el-option v-for="contact in availableContacts" :key="contact.id" :label="`${contact.prefix ? contact.prefix + ' ' : ''}${contact.name} (${contact.charge})`" :value="contact.id" />
                                         </el-select>
                                         <el-button @click="contactModalVisible = true" type="primary" circle plain :disabled="!form.branch_id">
                                             <i class="fa-solid fa-plus"></i>
@@ -81,14 +91,24 @@
                         <!-- Estado de carga -->
                         <LoadingIsoLogo class="my-5" v-if="loadingClientProducts" />
 
-                        <!-- COMPONENTE HIJO PARA PRODUCTOS -->
+                        <!-- COMPONENTE HIJO PARA PRODUCTOS (Modularizado con la lógica de Padres y Variantes) -->
                         <SaleProductManager v-else
                             v-model="form.products"
                             :branch-id="form.branch_id"
                             :sale-type="form.type"
-                            :available-products="productsForManager"
+                            :available-products="availableBaseProducts"
+                            :client-products="clientProducts"
                             :products-error="form.errors.products"
+                            :is-price-locked="!!form.quote_id"
                         />
+
+                        <!-- ALERTA GLOBAL DE PRECIO BAJO -->
+                        <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
+                                <i class="fa-solid fa-triangle-exclamation text-xl mr-3"></i>
+                                <p class="font-bold">Hay productos por debajo del precio establecido. Especifica la razón en cada producto. La orden requerirá autorización después de ser creada.</p>
+                            </div>
+                        </div>
                         
                         <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
                         <template v-if="form.type === 'venta'">
@@ -233,7 +253,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" />
+                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante para su facturación." />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">
@@ -284,6 +304,12 @@
         <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
             <form @submit.prevent="storeQuickContact">
                 <div class="space-y-4">
+                    <div>
+                        <InputLabel value="Prefijo" />
+                        <el-select v-model="quickContactForm.prefix" class="!w-full">
+                            <el-option v-for="p in prefixes" :key="p" :label="p" :value="p === 'Sin prefijo' ? '' : p" />
+                        </el-select>
+                    </div>
                     <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
                     <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
                 </div>
@@ -297,6 +323,45 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- MODAL NUEVO: ASIGNAR PRODUCTO DESDE COTIZACIÓN -->
+        <el-dialog v-model="assignProductModalVisible" title="Asignar producto al cliente" width="30%" :before-close="cancelAssignProduct">
+            <div v-if="productToAssign" class="flex flex-col items-center text-center">
+                <img :src="productToAssign.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A'" class="w-48 h-48 rounded-lg object-cover border mb-4" />
+                
+                <p v-if="!productToAssign.isVariant" class="mb-4">
+                    El producto <strong>"{{ productToAssign.name }}"</strong> no está asignado a este cliente. ¿Deseas asignarlo para continuar con la venta?
+                </p>
+                <p v-else class="mb-4">
+                    La variante <strong>"{{ productToAssign.name }}"</strong> no está asignada a este cliente. 
+                    <span v-if="productToAssign.missingParent">
+                        Además, el producto base <strong>"{{ productToAssign.parent.name }}"</strong> tampoco está asignado.
+                        Para trabajar correctamente con esta variante, se asignarán ambos al cliente.
+                    </span>
+                    ¿Deseas proceder para continuar con la venta?
+                </p>
+                
+                <div class="w-full text-left bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
+                    <p class="text-xs text-gray-500 mb-2">Establece el precio que tendrá este producto para el cliente:</p>
+                    <div class="grid grid-cols-2 gap-3 items-end">
+                        <TextInput label="Precio Especial (Opcional)" v-model="assignProductForm.price" type="number" step="0.01" />
+                        <div>
+                            <InputLabel value="Moneda" />
+                            <el-select v-model="assignProductForm.currency" class="!w-full">
+                                <el-option label="MXN" value="MXN" />
+                                <el-option label="USD" value="USD" />
+                            </el-select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="cancelAssignProduct">Omitir producto</el-button>
+                    <el-button type="primary" @click="confirmAssignProduct">Asignar y continuar</el-button>
+                </span>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -305,7 +370,6 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
-import PrimaryButton from "@/Components/PrimaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import InputLabel from "@/Components/InputLabel.vue";
 import TextInput from "@/Components/TextInput.vue";
@@ -314,9 +378,8 @@ import Back from "@/Components/MyComponents/Back.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { useForm } from "@inertiajs/vue3";
-import { h } from 'vue';
+import { ElMessage } from 'element-plus';
+import { useForm, router } from "@inertiajs/vue3"; // IMPORTANTE: Agregar router
 import axios from 'axios';
 
 export default {
@@ -329,7 +392,6 @@ export default {
         InputLabel,
         BranchNotes,
         FileUploader,
-        PrimaryButton,
         LoadingIsoLogo,
         SecondaryButton,
         SaleProductManager,
@@ -343,6 +405,8 @@ export default {
     },
     data() {
         return {
+            isRedirecting: false, // Controla la pantalla de bloqueo
+            prefixes: ['Ing.', 'Lic.', 'Arq.', 'Dr.', 'C.P.', 'Sin prefijo'], // Arreglo de prefijos
             form: useForm({
                 branch_id: null,
                 quote_id: null,
@@ -355,72 +419,77 @@ export default {
                 notes: '',
                 currency: 'MXN',
                 is_high_priority: false,
+                has_low_price: false, 
                 products: [],
                 oce_media: null,
                 anotherFiles: null,
                 shipping_option: null,
                 shipments: [], 
             }),
-            // --- PROPIEDADES PARA CREACIÓN RÁPIDA ---
+
             localBranches: [],
             branchModalVisible: false,
             contactModalVisible: false,
-            quickBranchForm: {
-                name: '',
-                rfc: '',
-                processing: false,
-                errors: {},
-            },
-            quickContactForm: {
-                name: '',
-                charge: '',
-                processing: false,
-                errors: {},
-            },
+            quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
+            quickContactForm: { prefix: 'Ing.', name: '', charge: '', processing: false, errors: {} },
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
             loadingClientProducts: false,
+
+            // Variables para el modal de asignar desde cotización
+            assignProductModalVisible: false,
+            productToAssign: null,
+            resolveAssignProduct: null,
+            rejectAssignProduct: null,
+            assignProductForm: {
+                price: null,
+                currency: 'MXN'
+            },
+
             orderVias: [
-                'Correo electrónico',
-                'WhatsApp',
-                'Llamada telefónica',
-                'Resurtido programado',
-                'Otro',
+                'Correo electrónico', 'WhatsApp', 'Llamada telefónica', 'Resurtido programado', 'Otro',
             ],
             shippingOptions: [
-                'Entrega única',
-                '2 parcialidades',
-                '3 parcialidades',
-                '4 parcialidades',
+                'Entrega única', '2 parcialidades', '3 parcialidades', '4 parcialidades',
             ],
             shippingCompanies: [
-                'DHL',
-                'UPS',
-                'FedEx',
-                'Estafeta',
-                'Paquetexpress',
-                'Envío propio',
-                'Otro',
+                'DHL', 'UPS', 'LOCAL', 'FEDEX', 'ESTAFETA', 'PAQUETEXPRESS', 'THINY PACK', 'ELLOS RECOLECTAN', 'JR', 'POTOSINOS', 'ENVÍO PROPIO', 'OTRO',
             ],
         };
     },
     computed: {
-        productsForManager() {
-            // Devuelve los productos de cliente para 'venta' o todo el catálogo para 'stock'
-            return this.form.type === 'venta' ? this.clientProducts : this.catalog_products;
+        // En base a los productos del cliente, determinamos qué PADRES habilitar en el catálogo general
+        availableBaseProducts() {
+            if (this.form.type === 'stock') {
+                return this.catalog_products;
+            } else {
+                if (!this.clientProducts.length) return [];
+                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+                return this.catalog_products.filter(parent => {
+                    const isParentAssigned = clientProductIds.has(parent.id);
+                    const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
+                    return isParentAssigned || hasAssignedVariant;
+                });
+            }
+        },
+        hasLowPrices() {
+            if (this.form.type !== 'venta' || !this.form.products.length) return false;
+            return this.form.products.some(p => p.has_low_price);
         }
     },
     watch: {
+        hasLowPrices(newVal) {
+            this.form.has_low_price = newVal;
+        },
         branches(newVal) {
             this.localBranches = [...newVal];
         },
         'form.type'(newType) {
-            // Limpia el formulario al cambiar de tipo para evitar enviar datos incorrectos
             if (newType === 'stock') {
                 this.form.reset(
                     'branch_id', 'quote_id', 'contact_id', 'order_via', 
-                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments'
+                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
@@ -451,13 +520,11 @@ export default {
     },
     methods: {
         store() {
-            // Valida las parcialidades solo si es una venta
             if (this.form.type === 'venta' && this.form.shipping_option && this.form.products.length > 0) {
                 for (const product of this.form.products) {
                     const remaining = this.getRemainingQuantity(product.id);
                     if (remaining !== 0) {
-                        const productName = this.getProductInfo(product.id)?.name || `ID ${product.id}`;
-                        ElMessage.error(`Debe asignar la cantidad total para el producto "${productName}". Faltan ${remaining} por asignar.`);
+                        ElMessage.error(`Debe asignar la cantidad total para el producto "${product.name}". Faltan ${remaining} por asignar.`);
                         return;
                     }
                 }
@@ -506,8 +573,6 @@ export default {
                     acknowledgement_file: existingShipment.acknowledgement_file || null,
                     products: this.form.products.map(p => {
                         const existingProduct = existingShipment.products?.find(sp => sp.product_id === p.id);
-                        const productInfo = this.getProductInfo(p.id);
-                        
                         let quantity = 0;
                         if (count === 1) {
                             quantity = p.quantity;
@@ -518,17 +583,13 @@ export default {
                         return {
                             product_id: p.id,
                             quantity: quantity,
-                            name: productInfo?.name,
-                            part_number: productInfo?.part_number,
+                            name: p.name,
+                            part_number: p.part_number,
                         };
                     })
                 });
             }
             this.form.shipments = newShipments;
-        },
-        getProductInfo(productId) {
-            const source = this.form.type === 'venta' ? this.clientProducts : this.catalog_products;
-            return source.find(p => p.id === productId);
         },
         getProductTotalQuantity(productId) {
             const productInSale = this.form.products.find(p => p.id === productId);
@@ -565,6 +626,39 @@ export default {
         async handleBranchChange(branchId) {
             this.form.contact_id = null;
             
+            // ==========================================
+            // LÓGICA NUEVA: Validación de Datos de Facturación
+            // ==========================================
+            if (branchId) {
+                try {
+                    const validityRes = await axios.get(route('branches.check-validity', branchId));
+                    if (!validityRes.data.valid) {
+                        
+                        this.isRedirecting = true; // Mostramos pantalla de bloqueo
+
+                        ElMessage({
+                            message: `Cliente incompleto. Faltan datos: ${validityRes.data.message}. Serás redirigido en breve...`,
+                            type: 'warning',
+                            duration: 3500 // El mensaje durará 3.5 segundos
+                        });
+
+                        this.form.branch_id = null; // Deseleccionamos para no avanzar
+
+                        // Esperamos 3.5 segundos y mandamos al EDIT
+                        setTimeout(() => {
+                            router.visit(route('branches.edit', { branch: branchId, redirect_to: 'sales.create' }));
+                        }, 3500);
+
+                        return; // Rompemos el ciclo aquí para no continuar con la orden
+                    }
+                } catch (error) {
+                    console.error("Error al validar cliente:", error);
+                    ElMessage.error('Hubo un error al validar los datos del cliente.');
+                    return;
+                }
+            }
+            // ==========================================
+
             const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
@@ -597,6 +691,8 @@ export default {
 
                 await this.handleBranchChange(quoteData.branch_id);
                 this.form.contact_id = quoteData.contact_id;
+                
+                // Empezar a procesar de forma controlada los productos de la cotización
                 this.processQuoteProducts(quoteData.products);
 
             } catch (error) {
@@ -609,59 +705,109 @@ export default {
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
 
             for (const product of quoteProducts) {
-                if (clientProductIds.has(product.id)) {
+                let hasProduct = clientProductIds.has(product.id);
+
+                if (hasProduct) {
                     this.addProductToSaleForm(product);
                 } else {
+                    // PREPARAR FLUJO DE MODAL CUSTOM
+                    this.productToAssign = product;
+                    
+                    const baseProduct = this.catalog_products.find(p => p.variants?.some(v => v.id === product.id));
+                    if (baseProduct) {
+                        this.productToAssign.isVariant = true;
+                        this.productToAssign.parent = baseProduct;
+                        // Comprobar si también le falta el padre
+                        this.productToAssign.missingParent = !clientProductIds.has(baseProduct.id);
+                    } else {
+                        this.productToAssign.isVariant = false;
+                        this.productToAssign.missingParent = false;
+                    }
+
+                    this.assignProductForm.price = product.unit_price; 
+                    this.assignProductForm.currency = this.form.currency || 'MXN';
+                    
+                    this.assignProductModalVisible = true;
+
                     try {
-                        await ElMessageBox.confirm(
-                           '',
-                           {
-                                title: 'Producto no asignado',
-                                message: h('div', { class: 'flex flex-col items-center text-center' }, [
-                                    h('img', {
-                                        src: product.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A',
-                                        class: 'w-48 h-48 rounded-lg object-cover border mb-4',
-                                        alt: product.name
-                                    }),
-                                    h('p', null, `El producto "${product.name}" (codigo: ${product.code}) no está asignado a este cliente. ¿Deseas asignarlo y agregarlo a la orden de venta?`)
-                                ]),
-                                confirmButtonText: 'Sí, asignar y agregar',
-                                cancelButtonText: 'No, omitir',
-                                type: 'warning',
-                           }
-                        );
-                        await this.associateAndAddProduct(product);
-                    } catch (action) {
+                        await new Promise((resolve, reject) => {
+                            this.resolveAssignProduct = resolve;
+                            this.rejectAssignProduct = reject;
+                        });
+                        await this.associateAndAddProduct(this.productToAssign);
+                    } catch (e) {
                         ElMessage.info(`Se omitió el producto: "${product.name}"`);
                     }
                 }
             }
         },
+        confirmAssignProduct() {
+            if (this.resolveAssignProduct) {
+                this.resolveAssignProduct();
+                this.assignProductModalVisible = false;
+            }
+        },
+        cancelAssignProduct() {
+            if (this.rejectAssignProduct) {
+                this.rejectAssignProduct();
+                this.assignProductModalVisible = false;
+            }
+        },
         async associateAndAddProduct(product) {
             try {
+                const productsToAssociate = [];
+                
+                // Si es variante y le falta el padre, lo mandamos primero sin precio especial
+                if (product.isVariant && product.missingParent) {
+                    productsToAssociate.push({ 
+                        product_id: product.parent.id, 
+                        price: null, 
+                        currency: this.assignProductForm.currency
+                    });
+                }
+                
+                // Siempre enviamos el producto que se está asignando (ya sea el padre principal o la variante)
+                productsToAssociate.push({ 
+                    product_id: product.id, 
+                    price: this.assignProductForm.price,
+                    currency: this.assignProductForm.currency
+                });
+                
                 const payload = {
-                    products: [{ product_id: product.id, price: null }]
+                    products: productsToAssociate
                 };
+                
                 await axios.post(route('branches.add-products', this.form.branch_id), payload);
-                ElMessage.success(`Producto "${product.name}" asociado al cliente.`);
+                ElMessage.success(`Producto(s) asociado(s) al cliente exitosamente.`);
+                
+                // Refrescamos lista del cliente
                 await this.fetchClientProducts();
+                
+                // Agregamos a la tabla de productos de la Venta actual el original de la cotizacion
                 this.addProductToSaleForm(product);
             } catch (error) {
                 console.error("Error associating product:", error);
-                ElMessage.error(`No se pudo asociar el producto "${product.name}".`);
+                ElMessage.error(`No se pudo asociar el producto.`);
             }
         },
         addProductToSaleForm(product) {
+            const parent = this.catalog_products.find(p => p.id === product.id) ||
+                           this.catalog_products.find(p => p.variants?.some(v => v.id === product.id))?.variants?.find(v => v.id === product.id);
+
             this.form.products.push({
                 id: product.id,
+                name: product.name || parent?.name || '',
+                media: parent?.media || null,
                 quantity: product.quantity,
                 price: product.unit_price,
                 notes: product.notes,
                 customization_details: product.customization_details || [],
                 is_new_design: false,
+                has_low_price: false,
+                low_price_reason: '',
+                from_quote: true, // Producto proveniente de cotización, no se puede eliminar
             });
         },
-        // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
         async storeQuickBranch() {
             this.quickBranchForm.processing = true;
             this.quickBranchForm.errors = {};
@@ -671,7 +817,7 @@ export default {
                     const newBranch = response.data;
                     this.localBranches.push(newBranch);
                     this.form.branch_id = newBranch.id;
-                    await this.handleBranchChange(newBranch.id); // Llama para actualizar contactos y productos
+                    await this.handleBranchChange(newBranch.id); // Aquí interceptará y mandará a editar si faltan datos
                     this.branchModalVisible = false;
                     this.quickBranchForm.name = '';
                     this.quickBranchForm.rfc = '';
@@ -710,6 +856,7 @@ export default {
                     this.contactModalVisible = false;
                     this.quickContactForm.name = '';
                     this.quickContactForm.charge = '';
+                    this.quickContactForm.prefix = 'Ing.'; // Reseteamos al por defecto
                     ElMessage.success('Contacto creado exitosamente');
                 }
             } catch (error)

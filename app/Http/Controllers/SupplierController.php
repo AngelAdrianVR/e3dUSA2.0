@@ -171,6 +171,7 @@ class SupplierController extends Controller
 
         // Obtener productos que se pueden comprar para otros fines
         $purchasableProducts = Product::where('is_purchasable', true)
+            ->where('archived_at', null) // Asegurarnos de no traer productos obsoletos
             ->select('id', 'name', 'code', 'measure_unit')
             ->get();
 
@@ -333,12 +334,20 @@ class SupplierController extends Controller
 
     public function getDetails(Supplier $supplier)
     {
-        // Cargar las relaciones necesarias
-        $supplier->load(['contacts', 'products', 'bankAccounts']);
+        // Cargar las relaciones necesarias, aplicando el filtro a los productos
+        $supplier->load([
+            'contacts', 
+            'products' => function ($query) {
+                // Utilizamos el scopeActive de tu modelo para traer solo los que NO tienen archived_at
+                $query->active(); 
+            }, 
+            'bankAccounts'
+        ]);
 
         return response()->json([
             'contacts' => $supplier->contacts,
-            'products' => $supplier->products->where('is_purchasable', true)->values(), // Enviar solo productos comprables
+            // La colección de productos ya viene filtrada sin obsoletos, solo verificamos que sean comprables
+            'products' => $supplier->products->where('is_purchasable', true)->values(), 
             'bankAccounts' => $supplier->bankAccounts,
         ]);
     }

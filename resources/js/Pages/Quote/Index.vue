@@ -43,6 +43,20 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
                             </div>
 
+                            <!-- Botón filtro: Pendientes -->
+                            <button
+                                @click="togglePendingFilter"
+                                class="flex items-center px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
+                                :class="isPendingFilter ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
+                            >
+                                <i class="fa-solid fa-bell mr-1.5 text-xs" :class="{ 'animate-swing': isPendingFilter }"></i>
+                                Pendientes
+                                <span v-if="pendingCount > 0 && !isPendingFilter"
+                                    class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                                    {{ pendingCount }}
+                                </span>
+                            </button>
+
                             <SearchInput @keyup.enter="handleSearch" v-model="search" @cleanSearch="handleSearch"
                                 :searchProps="SearchProps" />
                         </div>
@@ -54,8 +68,6 @@
                         <p class="flex items-center"><i class="fa-solid fa-circle text-blue-500 mr-2"></i>Prospecto</p>
                         <p class="flex items-center"><i class="fa-solid fa-square text-orange-400 mr-2"></i>Creada por
                             cliente (sin revisar)</p>
-                        <!-- <p class="flex items-center"><i class="fa-solid fa-square text-green-400 mr-2"></i>Creada por
-                            cliente (revisada)</p> -->
                     </div>
 
                     <!-- Tabla de Cotizaciones -->
@@ -71,7 +83,7 @@
 
                             <el-table-column type="selection" width="35" />
                             
-                            <!-- --- COLUMNA DE FOLIO MODIFICADA --- -->
+                            <!-- COLUMNA DE FOLIO MODIFICADA -->
                             <el-table-column prop="id" label="Folio" width="140">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-1">
@@ -86,6 +98,14 @@
                                         <!-- Folio (usa root_quote_id para consistencia) -->
                                         <span class="text-xs">{{ 'COT-' + String(scope.row.root_quote_id).padStart(4, '0') }}</span>
                                         
+                                        <!-- ALARMA: Cotización autorizada sin respuesta del cliente -->
+                                        <el-tooltip v-if="scope.row.authorized_at && !scope.row.customer_responded_at"
+                                            content="¡Autorizada! El cliente aún no ha respondido." placement="top">
+                                            <span class="relative flex items-center justify-center ml-1 cursor-help">
+                                                <i class="fa-solid fa-bell text-red-500 text-xs animate-swing"></i>
+                                            </span>
+                                        </el-tooltip>
+                                        
                                         <!-- Badge de Versiones -->
                                         <el-tooltip v-if="scope.row.all_versions_count > 1"
                                                     :content="`Viendo la versión ${scope.row.version} de ${scope.row.all_versions_count} totales`" 
@@ -97,7 +117,6 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <!-- --- FIN DE COLUMNA MODIFICADA --- -->
 
                             <el-table-column prop="branch.name" label="Cliente" width="140">
                                 <template #default="scope">
@@ -116,23 +135,46 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="branch.products" label="Productos" width="140">
+
+                            <!-- ========================================================= -->
+                            <!-- COLUMNA DE PRODUCTOS - ACTUALIZADA PARA AÑADIR A CATÁLOGO -->
+                            <!-- ========================================================= -->
+                            <el-table-column label="Productos" width="160">
                                 <template #default="scope">
-                                    <el-tooltip v-if="scope.row.products?.length" placement="top">
-                                        <template #content>
-                                            <ul class="list-disc list-inside text-xs">
-                                                <li v-for="product in scope.row.products" :key="product.id">
-                                                    ({{ product.pivot.quantity }}) {{ product.name }}
+                                    <el-popover v-if="scope.row.quote_products?.length" placement="top" :width="280" trigger="hover">
+                                        <template #reference>
+                                            <span class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
+                                                {{ scope.row.quote_products.length }} producto(s)
+                                            </span>
+                                        </template>
+                                        
+                                        <!-- Contenido del Popover -->
+                                        <div class="max-h-60 overflow-y-auto pr-1">
+                                            <ul class="list-disc list-inside text-xs space-y-2">
+                                                <li v-for="item in scope.row.quote_products" :key="item.id" class="flex flex-col border-b border-gray-100 dark:border-slate-700 pb-1.5 last:border-0 last:pb-0">
+                                                    <div>
+                                                        <span>({{ item.quantity }}) {{ item.product ? item.product.name : item.custom_name }}</span>
+                                                        <span class="text-green-500 font-semibold ml-1">
+                                                            [${{ formatNumber(item.unit_price) }} {{ scope.row.currency }}]
+                                                        </span>
+                                                        <span v-if="!item.product" class="text-blue-500 italic font-semibold ml-1">(Nuevo)</span>
+                                                    </div>
+                                                    
+                                                    <!-- BOTÓN PARA AÑADIR A CATÁLOGO -->
+                                                    <div v-if="!item.product && $page.props.auth.user.permissions.includes('Crear catalogo de productos')" class="mt-1.5 flex justify-end">
+                                                        <button @click.stop="goToCreateProduct(item)" class="text-[10px] bg-indigo-500 hover:bg-indigo-600 text-white px-2 py-1 rounded shadow-sm transition-colors flex items-center w-max">
+                                                            <i class="fa-solid fa-plus mr-1"></i> Registrar en catálogo
+                                                        </button>
+                                                    </div>
                                                 </li>
                                             </ul>
-                                        </template>
-                                        <span class="cursor-pointer bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded dark:bg-blue-900 dark:text-blue-300">
-                                            {{ scope.row.products.length }} producto(s)
-                                        </span>
-                                    </el-tooltip>
+                                        </div>
+                                    </el-popover>
                                     <span v-else class="text-xs text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
+                            <!-- ========================================================= -->
+
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Utilidad cotizaciones')" label="Utilidad" width="90">
                                 <template #default="scope">
                                     <el-tooltip placement="right">
@@ -349,18 +391,18 @@ import { es } from 'date-fns/locale';
 import axios from 'axios';
 
 export default {
-    // Usando Options API
     data() {
         return {
             loading: false,
             search: '',
             selectedItems: [],
             tableData: this.quotes.data,
-            SearchProps: ['ID', 'Cliente', 'Creador'], // indica por cuales propiedades del registro puedes buscar
+            SearchProps: ['ID', 'Cliente', 'Creador'], 
             rejectionModalVisible: false,
             rejectionReason: '',
             selectedQuoteIdForRejection: null,
-            showAllSales: this.filters.view === 'all', // filtro para ver todas o solo mías
+            showAllSales: this.filters.view === 'all', 
+            isPendingFilter: this.filters.filter === 'pending',
             statusMap: {
                 'Aceptada': { icon: '<i class="fa-solid fa-circle-check text-green-500"></i>', text: 'Aceptada por el cliente' },
                 'Rechazada': { icon: '<i class="fa-solid fa-circle-xmark text-red-500"></i>', text: 'Rechazada por el cliente' },
@@ -379,11 +421,56 @@ export default {
         quotes: Object,
         filters: Object,
     },
+    computed: {
+        pendingCount() {
+            return this.$page.props.pending_quote_notifications ?? 0;
+        },
+    },
     methods: {
+        // --- MÉTODO MODIFICADO PARA IR AL FORMULARIO DE CREACIÓN ---
+        goToCreateProduct(item) {
+            // Mandamos los datos que ya conocemos como query params en la URL
+            const params = {
+                name: item.custom_name,
+                price: item.unit_price,
+                quote_product_id: item.id // Pasamos el ID para enlazarlo en el backend
+            };
+
+            // Si el producto tiene una imagen cargada temporalmente, la pasamos por URL
+            // (CORRECCIÓN: Obtenemos el 'media' directamente dependiendo si es de catálogo o nuevo)
+            const media = item.product ? item.product.media : item.media;
+            
+            if (media && media.length > 0) {
+                params.image_url = media[0].original_url;
+            }
+
+            this.$inertia.get(route('catalog-products.create'), params);
+        },
+        // ------------------------------------------------------
+
         toggleView() {
             const params = {};
             if (this.showAllSales) {
                 params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
+            }
+            router.get(route('quotes.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
+        togglePendingFilter() {
+            this.isPendingFilter = !this.isPendingFilter;
+            const params = {};
+            if (this.showAllSales) {
+                params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
             }
             router.get(route('quotes.index', params), {
                 preserveState: true,
@@ -405,7 +492,7 @@ export default {
         formatNumber(value) {
             if (value === null || value === undefined) return '0.00';
             const num = Number(value);
-            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+            return new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
         },
         formatDate(dateString) {
             if (!dateString) return 'N/A';
@@ -494,23 +581,19 @@ export default {
             actions[action]?.();
         },
         async clone(quote_id) {
-            this.loading = true; // Muestra el indicador de carga
+            this.loading = true; 
             try {
                 const response = await axios.get(route('quotes.clone', quote_id));
 
                 if (response.status === 200) {
-                    // Agrega la nueva cotización al inicio de la tabla
                     this.tableData.unshift(response.data.newItem);
-                    
-                    // Muestra un mensaje de éxito
                     ElMessage.success(response.data.message);
                 }
             } catch (err) {
-                // Muestra un mensaje de error si algo sale mal
                 ElMessage.error('Ocurrió un error al clonar la cotización.');
                 console.error(err);
             } finally {
-                this.loading = false; // Oculta el indicador de carga
+                this.loading = false;
             }
         },
         deleteSelections() {
@@ -524,6 +607,9 @@ export default {
             const params = { page };
             if (this.showAllSales) {
                 params.view = 'all';
+            }
+            if (this.isPendingFilter) {
+                params.filter = 'pending';
             }
             router.get(route('quotes.index', params), {
                 preserveState: true,
@@ -549,14 +635,10 @@ export default {
                 });
 
                 if (response.status === 200) {
-                    // Mensaje de éxito
                     ElMessage.success(response.data.message);
-
-                    // ¡Aquí está la magia!
-                    // Refresca los props de la página actual desde el servidor.
                     router.reload({ 
-                        preserveScroll: true, // Mantiene la posición del scroll
-                        preserveState: true   // Mantiene el estado local del componente (opcional pero recomendado)
+                        preserveScroll: true,
+                        preserveState: true
                     });
                 }
             } catch (err) {
@@ -585,22 +667,11 @@ export default {
 /* Estilos para filas creadas por clientes */
 .el-table .created-by-customer-pending td {
     background-color: #fff3e0 !important;
-    /* Naranja claro */
 }
 
 .dark .el-table .created-by-customer-pending td {
     background-color: #6c3802 !important;
 }
-
-/* .el-table .created-by-customer-revised td {
-    background-color: #e8f5e9 !important;
-    
-}
-
-
-.dark .el-table .created-by-customer-revised td {
-    background-color: #1c4b27 !important;
-} */
 
 /* Estilos para paginación en modo oscuro */
 .dark .el-pagination button,
@@ -612,5 +683,22 @@ export default {
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
+}
+
+/* Animación de campana para notificaciones */
+@keyframes swing {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-15deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-10deg); }
+    50% { transform: rotate(5deg); }
+    60% { transform: rotate(-5deg); }
+    70% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+}
+.animate-swing {
+    animation: swing 2s ease-in-out infinite;
+    transform-origin: top center;
 }
 </style>

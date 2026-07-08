@@ -14,7 +14,7 @@
 
         <!-- === Modification Notice === -->
         <div v-if="originalDesign" class="p-4 my-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400 max-w-4xl mx-auto sm:px-6 lg:px-8" role="alert">
-            Estás solicitando una modificación para el diseño: <span class="font-medium">{{ originalDesign.name }}</span>. Los detalles se han precargado.
+            Estás solicitando una modificación para el diseño: <span class="font-medium">{{ originalDesign.name }}</span>. Los detalles (cliente, contacto, diseñador) se han precargado.
         </div>
         <!-- === END === -->
 
@@ -273,10 +273,11 @@ export default {
             specifications: this.originalDesign ? `Basado en el diseño: ${this.originalDesign.name}.\n---NUEVOS CAMBIOS---\n` : null,
             design_category_id: this.originalDesign ? this.originalDesign.design_category_id : null,
             is_hight_priority: false,
-            branch_id: null,
-            contact_id: null,
+            // Precargamos la info del padre
+            branch_id: this.parentOrder ? this.parentOrder.branch_id : null,
+            contact_id: this.parentOrder ? this.parentOrder.contact_id : null,
             due_date: null,
-            designer_id: null,
+            designer_id: this.parentOrder ? this.parentOrder.designer_id : null,
             media: null,
             modifies_design_id: this.originalDesign ? this.originalDesign.id : null,
         });
@@ -329,6 +330,7 @@ export default {
         designers: Array,
         branches: Array,
         originalDesign: Object,
+        parentOrder: Object, // <-- Nuevo prop recibido desde el controlador
     },
     methods: {
         // Método que envía el formulario al backend
@@ -488,6 +490,12 @@ export default {
     },
     created() {
         this.localBranches = [...this.branches];
+        
+        // Si hay un cliente preseleccionado por ser un retrabajo, precargar sus contactos
+        if (this.form.branch_id) {
+            const selectedBranch = this.localBranches.find(b => b.id === this.form.branch_id);
+            this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
+        }
     },
     watch: {
         showCategoryModal(value) {

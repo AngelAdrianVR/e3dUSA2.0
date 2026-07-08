@@ -7,7 +7,7 @@
             max-height="600"
             @row-click="handleRowClick"
             :row-class-name="tableRowClassName"
-            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300"
+            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300 !h-[500px]"
             stripe>
             
             <!-- Folio -->

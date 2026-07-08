@@ -32,6 +32,27 @@ class NotificationController extends Controller
     }
 
     /**
+     * Marca notificaciones específicas (por ID) como leídas.
+     * Ideal para marcar como leídas solo las de un dropdown específico al abrirlo.
+     */
+    public function readSelected(Request $request)
+    {
+        $request->validate([
+            'ids' => 'required|array',
+        ]);
+
+        $ids = $request->input('ids');
+
+        // Buscamos y marcamos como leídas solo las notificaciones seleccionadas del usuario.
+        Auth::user()
+            ->unreadNotifications()
+            ->whereIn('id', $ids)
+            ->update(['read_at' => now()]);
+
+        return back();
+    }
+
+    /**
      * Elimina una notificación específica.
      *
      * @param  string  $notificationId

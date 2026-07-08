@@ -15,6 +15,7 @@ class Contact extends Model
     protected $fillable = [
         'id',
         'name',
+        'prefix', // ing. Lic. Admin.
         'charge',
         'birthdate',
         'is_primary',

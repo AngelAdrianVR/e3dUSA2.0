@@ -45,20 +45,81 @@
                             <InputError :message="form.errors.cover_media_id" />
                         </div>
 
+                        <!-- NUEVO CAMPO: Versión -->
                         <div>
-                            <TextInput label="Nombre del producto*" v-model="form.product_name" type="text" :error="form.errors.product_name" placeholder="Ej. Portaplacas Nissan" />
+                            <TextInput label="Versión del Formato*" v-model="form.version" type="text" :error="form.errors.version" placeholder="Ej. 1.0" />
+                        </div>
+
+                        <div>
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Tipo de producto*</label>
+                            <el-select v-model="form.product_type" placeholder="Selecciona un tipo" class="w-full mt-1" filterable>
+                                <el-option v-for="item in productTypeOptions" :key="item" :label="item" :value="item" />
+                            </el-select>
+                            <InputError :message="form.errors.product_type" />
+                        </div>
+
+                        <div>
+                            <TextInput label="Nombre del producto*" v-model="form.product_name" type="text" :error="form.errors.product_name" placeholder="Ej. Llavero MG con grabado" />
                         </div>
                         
                         <div>
-                            <TextInput label="Material" v-model="form.material" type="text" :error="form.errors.material" placeholder="Ej. Plástico ABS" />
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Material</label>
+                            <el-select v-model="form.material" placeholder="Selecciona el material" class="w-full mt-1" filterable allow-create>
+                                <el-option v-for="item in materialOptions" :key="item" :label="item" :value="item" />
+                            </el-select>
+                            <InputError :message="form.errors.material" />
+                        </div>
+
+                        <!-- Lista de Pantones Dinámica -->
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Pantones</label>
+                            <div class="flex gap-2 items-end mt-1">
+                                <div class="flex-1">
+                                    <!-- Usamos TextInput sin label interno para alinear mejor -->
+                                    <input 
+                                        type="text" 
+                                        v-model="currentPantoneName" 
+                                        @keyup.enter.prevent="addPantone"
+                                        class="border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-indigo-500 dark:focus:border-indigo-600 focus:ring-indigo-500 dark:focus:ring-indigo-600 rounded-md shadow-sm w-full h-10" 
+                                        placeholder="Ej. 186 C (Presiona Enter para agregar)" 
+                                    />
+                                </div>
+                                <div class="w-16 flex flex-col justify-end">
+                                    <input type="color" v-model="currentPantoneColor" class="h-10 w-full rounded cursor-pointer border border-gray-300 bg-white p-0 shadow-sm" title="Elige un color representativo" />
+                                </div>
+                                <button type="button" @click="addPantone" class="bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-800 px-4 py-2 rounded-md hover:bg-gray-700 dark:hover:bg-gray-300 transition h-10 font-semibold text-sm">
+                                    Agregar
+                                </button>
+                            </div>
+                            <InputError :message="form.errors.pantone" />
+
+                            <!-- Chips de Pantones Agregados -->
+                            <div v-if="form.pantone.length > 0" class="mt-3 flex flex-wrap gap-2">
+                                <div v-for="(item, index) in form.pantone" :key="index" class="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 py-1.5 px-3 rounded-full border border-gray-200 dark:border-gray-700">
+                                    <div class="w-5 h-5 rounded-full shadow-sm border border-gray-300" :style="{ backgroundColor: item.color }"></div>
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ item.name }}</span>
+                                    <button type="button" @click="removePantone(index)" class="text-red-500 hover:text-red-700 ml-1 rounded-full p-0.5 hover:bg-red-100 dark:hover:bg-red-900 transition">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- NUEVO CAMPO: Captura de Pantones -->
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mb-2 font-medium">Si no conoces los pantones puedes subir una captura de ellos.</p>
+                                <FileUploader @files-selected="form.pantone_media = $event" :multiple="false" format="Imagen" :max-files="1" />
+                                <InputError :message="form.errors.pantone_media" class="mt-2" />
+                            </div>
                         </div>
 
                         <div>
-                           <TextInput label="Color" v-model="form.color" type="text" :error="form.errors.color" placeholder="Ej. Negro con letras blancas" />
+                            <TextInput label="Medidas" v-model="form.dimensions" type="text" :error="form.errors.dimensions" placeholder="Ej. 80mm x 35mm" />
                         </div>
 
                          <div class="md:col-span-2">
-                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Métodos de Producción</label>
+                            <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Técnica / Proceso de Impresión</label>
                             <el-select
                                 v-model="form.production_methods"
                                 multiple
@@ -67,7 +128,7 @@
                                 default-first-option
                                 :reserve-keyword="false"
                                 placeholder="Ej. Serigrafía, Grabado Láser"
-                                class="w-full"
+                                class="w-full mt-1"
                             >
                                 <el-option v-for="item in productionMethodsOptions" :key="item" :label="item" :value="item" />
                             </el-select>
@@ -79,9 +140,33 @@
                             <InputError :message="form.errors.specifications" />
                         </div>
 
-                        <div class="md:col-span-2">
+                        <div class="md:col-span-2 mt-4 border-t pt-6 dark:border-gray-700">
+                            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Datos Comerciales y Logísticos</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div>
+                                    <TextInput label="Tiempo de entrega" v-model="form.delivery_time" type="text" :error="form.errors.delivery_time" placeholder="Ej. 5-6 días" />
+                                </div>
+                                <div>
+                                    <TextInput label="Volumen mínimo" v-model="form.minimum_volume" type="number" :error="form.errors.minimum_volume" placeholder="Ej. 100" />
+                                </div>
+                                <div>
+                                    <TextInput label="Precio por unidad ($)" v-model="form.unit_price" type="number" step="0.01" :error="form.errors.unit_price" placeholder="Ej. 69.55" />
+                                </div>
+                                <div>
+                                    <TextInput label="Herramental de impresión ($)" v-model="form.printing_tooling_cost" type="number" step="0.01" :error="form.errors.printing_tooling_cost" placeholder="Ej. 600.00" />
+                                </div>
+                                <div>
+                                    <TextInput label="Herramental de inyección ($)" v-model="form.injection_tooling_cost" type="number" step="0.01" :error="form.errors.injection_tooling_cost" placeholder="Ej. 24000.00" />
+                                </div>
+                                <div>
+                                    <TextInput label="Costo de flete ($)" v-model="form.freight_cost" type="number" step="0.01" :error="form.errors.freight_cost" placeholder="Ej. 750.00" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 mt-4">
                             <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Cliente (Sucursal y Contacto)*</label>
-                             <div class="flex items-center space-x-2">
+                             <div class="flex items-center space-x-2 mt-1">
                                 <el-select v-model="form.branch_id" placeholder="Sucursal" class="w-1/2" filterable @change="handleBranchChange">
                                     <el-option v-for="item in branches" :key="item.id" :label="item.name" :value="item.id" />
                                 </el-select>
@@ -95,7 +180,7 @@
 
                          <div>
                             <label class="text-sm ml-3 text-gray-700 dark:text-gray-100">Vendedor*</label>
-                            <el-select v-model="form.seller_id" placeholder="Selecciona un vendedor" class="w-full" filterable>
+                            <el-select v-model="form.seller_id" placeholder="Selecciona un vendedor" class="w-full mt-1" filterable>
                                 <el-option v-for="item in sellers" :key="item.id" :label="item.name" :value="item.id" />
                             </el-select>
                             <InputError :message="form.errors.seller_id" />
@@ -134,11 +219,22 @@ export default {
     data() {
         const form = useForm({
             design_order_id: null,
+            version: '1', 
+            product_type: null,
             product_name: null,
             material: null,
             color: null,
+            pantone: [], // Modificado: Guardará objetos [{name: '186 C', color: '#E3000F'}]
+            pantone_media: null, // NUEVO CAMPO PARA CAPTURA DE PANTONES
+            dimensions: null,
             production_methods: [],
             specifications: null,
+            delivery_time: null,
+            minimum_volume: null,
+            printing_tooling_cost: null,
+            injection_tooling_cost: null,
+            unit_price: null,
+            freight_cost: null,
             branch_id: null,
             contact_id: null,
             seller_id: null,
@@ -148,10 +244,27 @@ export default {
 
         return {
             form,
-            productionMethodsOptions: ['Serigrafía', 'Grabado Láser', 'Emblema Pegado', 'Inyección', 'Remadchado de emblema', 'Cubierta de vinil'],
+            currentPantoneName: '',      // Estado local para el input de texto del pantone
+            currentPantoneColor: '#E3000F', // Estado local para el color picker
+            productTypeOptions: [
+                'Portaplaca', 'Emblema', 'Llavero', 'Parasol', 'Tapete', 'Manta', 
+                'Carpeta', 'Separador', 'Portadocumentos', 'Termo', 'Placa de estireno', 
+                'Etiqueta', 'Overlay', 'Pin', 'Prenda', 'Botella', 'Hielera', 
+                'Funda para auto', 'Perfumero', 'Funda para llavero', 'Bocina', 
+                'Carcasa', 'Banderín', 'Maletin'
+            ],
+            materialOptions: [
+                'METAL', 'PLASTICO', 'PIEL DE LUJO', 'ORIGINAL', 'PIEL', 'ZAMAK', 
+                'SOLIDCHROME', 'MICROMETAL', 'FLEXCHROME', 'ALUMINIO', 'ESTIRENO', 
+                'ABS', 'PVC', 'TELA', 'CAUCHO', 'VINILPIEL', 'FIBRA DE CARBONO', 'OVERLAY'
+            ],
+            productionMethodsOptions: [
+                'Serigrafía', 'Grabado Láser', 'Emblema Pegado', 'Inyección', 
+                'Remachado de emblema', 'Cubierta de vinil', 'Sublimación', 'Tampografía'
+            ],
             availableContacts: [],
             availableCoverImages: [],
-            loadingImages: false, // Indicador de carga para la UI
+            loadingImages: false,
         };
     },
     components: {
@@ -169,6 +282,24 @@ export default {
         design_order: Object,
     },
     methods: {
+        // --- Nuevos métodos para gestionar Pantones ---
+        addPantone() {
+            if (this.currentPantoneName.trim() === '') return;
+            
+            this.form.pantone.push({
+                name: this.currentPantoneName.trim(),
+                color: this.currentPantoneColor
+            });
+
+            // Limpiamos los inputs para agregar otro
+            this.currentPantoneName = '';
+            this.currentPantoneColor = '#E3000F';
+        },
+        removePantone(index) {
+            this.form.pantone.splice(index, 1);
+        },
+        // ----------------------------------------------
+
         store() {
             this.form.post(route("design-authorizations.store"), {
                 onSuccess: () => {
@@ -196,7 +327,6 @@ export default {
             this.loadingImages = true;
             try {
                 const response = await axios.get(route('design-authorizations.get-files', orderId));
-                // Filtramos para mostrar solo imágenes, en caso de que haya otros tipos de archivo
                 this.availableCoverImages = response.data.filter(file => file.mime_type.startsWith('image/'));
             } catch (error) {
                 console.error('Error al cargar los archivos de la orden:', error);
@@ -218,4 +348,3 @@ export default {
     }
 };
 </script>
-

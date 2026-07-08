@@ -39,7 +39,7 @@
                     </button>
                 </el-tooltip>
 
-                <el-tooltip v-if="sale.status === 'Preparando Envío'" content="Ver detalles de envío" placement="top">
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Ver envios')" content="Ver detalles de envío" placement="top">
                     <button @click="$inertia.visit(route('shipments.show', sale.id))" class="size-9 flex items-center justify-center rounded-lg bg-blue-300 hover:bg-blue-400 dark:bg-blue-800 dark:hover:bg-blue-700 transition-colors">
                         <i class="fa-solid fa-truck-fast"></i>
                     </button>
@@ -68,16 +68,14 @@
                     </button>
                 </el-tooltip>
 
-                <!-- <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar ordenes de venta')" :content="sale.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Órden'" placement="top"> -->
-                    <Link :href="route('sales.edit', sale.id)">
-                        <button 
-                            class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-                            <i class="fa-solid fa-pencil text-sm"></i>
-                        </button>
-                    </Link>
-                <!-- </el-tooltip> -->
+                <Link :href="route('sales.edit', sale.id)">
+                    <button 
+                        class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
+                        <i class="fa-solid fa-pencil text-sm"></i>
+                    </button>
+                </Link>
                 
-                <Dropdown v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta') || $page.props.auth.user.permissions.includes('Eliminar ordenes de venta')" align="right" width="48">
+                <Dropdown align="right" width="48">
                     <template #trigger>
                         <button class="h-9 px-3 rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 flex items-center justify-center text-sm transition-colors">
                             Más Acciones <i class="fa-solid fa-chevron-down text-[11px] ml-2"></i>
@@ -87,7 +85,7 @@
                         <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
                            <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
                         </DropdownLink>
-                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM'))" as="button">
+                        <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM') || item.product?.code.includes('ET'))" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
                                 <p>Ver certificado de calidad</p>
                             </a>
@@ -106,6 +104,16 @@
             </div>
         </header>
 
+        <!-- === ALERTA DE PRECIO BAJO A NIVEL ORDEN === -->
+        <div v-if="sale.has_low_price && sale.status === 'Pendiente'" class="mb-4 animate-fade-in-down">
+            <div class="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 p-4 rounded-r-lg shadow-sm flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-2xl mr-4"></i>
+                <div>
+                    <h3 class="text-amber-800 dark:text-amber-400 font-bold">Órden pendiente de revisión de márgenes</h3>
+                    <p class="text-amber-700 dark:text-amber-300 text-sm">Esta orden contiene productos con precio por debajo del margen establecido. Por favor, revisa la justificación en los productos antes de autorizar.</p>
+                </div>
+            </div>
+        </div>
 
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
@@ -113,58 +121,13 @@
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
                 <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
+
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
                     <ul class="space-y-3 text-sm">
                         <!-- Campos para Venta -->
                         <template v-if="sale.type === 'venta'">
-                            <li class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
-
-                                <!-- Tooltip de cliente -->
-                                <el-tooltip v-if="sale.branch" placement="top-start" effect="light" raw-content>
-                                    <template #content>
-                                        <div class="w-72 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md rounded-xl shadow-xl p-4 text-sm">
-                                        <!-- Header -->
-                                        <div class="flex justify-between items-center border-b pb-2 mb-3">
-                                            <h4 class="font-bold text-lg text-primary dark:text-sky-400">
-                                            {{ sale.branch?.name }}
-                                            </h4>
-                                            <span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600 dark:bg-sky-900 dark:text-sky-300">
-                                            {{ sale.branch?.status ?? 'N/A' }}
-                                            </span>
-                                        </div>
-
-                                        <!-- Datos principales -->
-                                        <div class="space-y-1 text-gray-700 dark:text-gray-300">
-                                            <p><strong class="font-semibold">RFC:</strong> {{ sale.branch?.rfc ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Dirección:</strong> {{ sale.branch?.address ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">C.P.:</strong> {{ sale.branch?.post_code ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Medio de contacto:</strong> {{ sale.branch?.meet_way ?? 'N/A' }}</p>
-                                            <p><strong class="font-semibold">Última compra:</strong> {{ formatRelative(sale.branch?.last_purchase_date) }}</p>
-                                        </div>
-
-                                        <!-- Footer -->
-                                        <div class="mt-4 pt-2 border-t flex justify-between items-center">
-                                            <Link :href="route('branches.show', sale.branch?.id)">
-                                            <SecondaryButton class="!py-1.5 !px-3 !text-xs flex items-center gap-1">
-                                                <i class="fa-solid fa-eye"></i> Ver Cliente
-                                            </SecondaryButton>
-                                            </Link>
-                                            <span class="text-[11px] italic text-gray-400">Creado: {{ sale.branch?.created_at?.split('T')[0] }}</span>
-                                        </div>
-                                        </div>
-                                    </template>
-
-                                    <!-- Nombre clickable -->
-                                    <span class="text-blue-500 hover:underline cursor-default">
-                                        {{ sale.branch?.name ?? 'N/A' }}
-                                    </span>
-                                </el-tooltip>
-                                <span v-else class="font-semibold text-gray-600 dark:text-gray-400">N/A</span>
-                            </li>
-
                             <!-- Contacto -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
@@ -180,9 +143,17 @@
                                         <i class="fa-solid fa-envelope text-blue-400"></i>
                                         <span>{{ getPrimaryDetail(sale.contact, 'Correo') }}</span>
                                         </p>
-                                        <p v-if="getPrimaryDetail(sale.contact, 'Teléfono')" class="flex items-center gap-2">
-                                        <i class="fa-solid fa-phone text-green-400"></i>
-                                        <span>{{ getPrimaryDetail(sale.contact, 'Teléfono') }}</span>
+
+                                        <template v-if="getContactDetails(sale.contact, 'Teléfono').length">
+                                            <p v-for="phone in getContactDetails(sale.contact, 'Teléfono')" :key="phone.id" class="flex items-center gap-2">
+                                                <i class="fa-solid fa-phone text-green-400"></i>
+                                                <span>{{ formatPhone(phone.value) }}</span>
+                                                <el-tag v-if="phone.is_primary" type="success" size="small" class="!h-5 !px-1.5 text-[10px]">Principal</el-tag>
+                                            </p>
+                                        </template>
+                                        <p v-else class="flex items-center gap-2">
+                                            <i class="fa-solid fa-phone text-gray-400"></i>
+                                            <span class="italic text-gray-400">Sin teléfono</span>
                                         </p>
                                     </div>
                                     </template>
@@ -190,11 +161,17 @@
                                     <span
                                     class="text-blue-500 font-medium hover:underline cursor-default transition-colors duration-200"
                                     >
-                                    {{ sale.contact?.name ?? 'N/A' }}
+                                    {{ sale.contact.prefix }} {{ sale.contact?.name ?? 'N/A' }}
                                     </span>
                                 </el-tooltip>
 
                                 <span v-else class="text-gray-400 italic">N/A</span>
+                            </li>
+
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
+                                <!-- AQUÍ UTILIZAMOS NUESTRO NUEVO COMPONENTE REUTILIZABLE -->
+                                <BranchInfoTooltip :branch="sale.branch" />
                             </li>
 
                             <!-- Cotización -->
@@ -224,6 +201,18 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Creación:</span>
                             <span>{{ formattedDate }}</span>
                         </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-red-600 dark:text-red-400">
+                                Fecha promesa de embarque:
+                            </span>
+                            <span>
+                                {{ sale.promise_date ? new Date(sale.promise_date).toLocaleDateString('es-MX', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                }) : '-' }}
+                            </span>
+                        </li>
                          <li class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Prioridad:</span>
                             <el-tag v-if="sale.is_high_priority" type="danger" size="small">Alta</el-tag>
@@ -231,7 +220,7 @@
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Notas generales:</span>
-                            <span>{{ sale.notes ?? '-' }}</span>
+                            <div class="prose prose-sm dark:text-white" v-html="sale.notes"></div>
                         </li>
                          <li v-if="sale.type === 'venta'" class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
@@ -320,6 +309,56 @@
 
                     <Empty v-else />
                 </div>
+
+                <!-- Card de Información de Envío (NUEVA SECCIÓN) -->
+                <div v-if="sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4 flex items-center">
+                        <i class="fa-solid fa-truck-fast mr-2"></i> Información de Envío
+                    </h3>
+                    <div v-for="(shipment, index) in sale.shipments" :key="shipment.id" class="mb-4 last:mb-0 border-b dark:border-gray-700 last:border-0 pb-3 last:pb-0">
+                        <p class="text-xs font-bold text-gray-500 uppercase mb-2">Envío #{{ index + 1 }} - {{ shipment.status }}</p>
+                        <ul class="space-y-3 text-sm">
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Paquetería:</span>
+                                <span>{{ shipment.shipping_company ?? '-' }}</span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">No. Guía:</span>
+                                <div class="flex items-center space-x-2">
+                                    <span :class="shipment.tracking_guide ? 'font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded' : ''">
+                                        {{ shipment.tracking_guide ?? '-' }}
+                                    </span>
+                                    <button @click="openGuideModal(shipment)" class="text-blue-500 hover:text-blue-700 text-xs p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900" title="Editar Guía">
+                                        <i class="fa-solid fa-pencil"></i>
+                                    </button>
+                                </div>
+                            </li>
+                            <li class="flex justify-between">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">
+                                    Fecha promesa de embarque:
+                                </span>
+                                <span> 
+                                    {{ sale.promise_date ?new Date(sale.promise_date).toLocaleDateString('es-MX', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric'
+                                    }) : '-' }}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                     <!-- Botón de Seguimiento (Visible solo si hay al menos un envío) -->
+                    <div class="mt-4 pt-2 border-t dark:border-gray-600">
+                        <PrimaryButton 
+                            @click="$inertia.visit(route('shipments.show', sale.id))"
+                            :disabled="!['Preparando Envío', 'Enviada'].includes(sale.status)"
+                            class="w-full justify-center !text-xs"
+                        >
+                            Seguimiento de envío <i class="fa-solid fa-arrow-right ml-2"></i>
+                        </PrimaryButton>
+                    </div>
+                </div>
+
             </div>
 
             <!-- COLUMNA DERECHA: PRODUCTOS Y CAMBIOS -->
@@ -357,6 +396,7 @@
                                 :is-high-priority="sale.is_high_priority"
                                 :branch-id="sale.branch_id"
                                 :saleCurrency="sale.currency"
+                                :is-sale-authorized="sale.authorized_at !== null"
                             />
                         </div>
                         <div v-else class="text-center text-gray-500 dark:text-gray-400 py-10">
@@ -468,13 +508,6 @@
                             <div class="col-span-2">
                                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Producto Original</label>
                                 <el-select v-model="exchangeForm.returned_product_id" :teleported="false" placeholder="Selecciona..." class="w-full" filterable>
-                                    <!-- Solo muestra los productos de la venta pero no funciona si se hace mas de una devolucion porque no aparece el nuevo producto cambado -->
-                                    <!-- <el-option 
-                                        v-for="item in sale.sale_products" 
-                                        :key="item.product_id" 
-                                        :label="item.product?.name" 
-                                        :value="item.product_id" 
-                                    /> -->
                                     <el-option 
                                         v-for="product in products" 
                                         :key="product.id" 
@@ -543,7 +576,7 @@
                         <!-- Previsualización de imágenes -->
                         <div v-if="evidencePreviews.length" class="mt-3 grid grid-cols-4 gap-2">
                             <div v-for="(preview, index) in evidencePreviews" :key="index" class="relative group">
-                                <img :src="preview" class="w-full h-auto object-cover rounded-md border border-gray-200" />
+                                <img :src="preview" @error="handleImageError" class="w-full h-auto object-cover rounded-md border border-gray-200" />
                             </div>
                         </div>
                     </div>
@@ -555,6 +588,35 @@
                     <CancelButton @click="showExchangeModal = false">Cancelar</CancelButton>
                     <PrimaryButton @click="submitExchange" :disabled="exchangeForm.processing">
                         {{ exchangeForm.processing ? 'Registrando...' : 'Registrar Cambio' }}
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
+        
+        <!-- === MODAL PARA REGISTRAR/EDITAR GUIA DE ENVÍO === -->
+        <DialogModal :show="showGuideModal" @close="showGuideModal = false">
+            <template #title>
+                Información de Rastreo
+            </template>
+            <template #content>
+                <form @submit.prevent="submitGuide" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                        <input v-model="guideForm.shipping_company" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
+                        <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.shipping_company }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                        <input v-model="guideForm.tracking_guide" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ingresa el número de rastreo..." />
+                        <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.tracking_guide }}</p>
+                    </div>
+                </form>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showGuideModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="submitGuide" :disabled="guideForm.processing">
+                        Guardar Información
                     </PrimaryButton>
                 </div>
             </template>
@@ -591,8 +653,9 @@ import ProductSaleCard from "@/Components/MyComponents/ProductSaleCard.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
-import DialogModal from "@/Components/DialogModal.vue"; // Asegúrate de tener este componente o usa uno equivalente
-import { useForm } from "@inertiajs/vue3"; // Importante para manejar archivos
+import DialogModal from "@/Components/DialogModal.vue";
+import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; // <-- NUEVO COMPONENTE
+import { useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
@@ -616,6 +679,7 @@ export default {
         SecondaryButton,
         ProductSaleCard,
         ConfirmationModal,
+        BranchInfoTooltip, // <-- REGISTRADO
     },
     props: {
         sale: Object,
@@ -633,7 +697,7 @@ export default {
 
             activeTab: 'products',
             showExchangeModal: false,
-            evidencePreviews: [], // Array para las URLs de preview
+            evidencePreviews: [], 
             exchangeForm: useForm({
                 sale_id: this.sale.id,
                 returned_product_id: null,
@@ -643,6 +707,13 @@ export default {
                 reason: '',
                 price_difference: null,
                 evidence_images: [],
+            }),
+            
+            showGuideModal: false,
+            guideForm: useForm({
+                shipment_id: null,
+                shipping_company: '',
+                tracking_guide: '',
             }),
         };
     },
@@ -654,6 +725,30 @@ export default {
         }
     },
     methods: {
+        handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
+        formatPhone(number) {
+            if (!number) return '';
+            const digits = number.toString().replace(/\D/g, '');
+            return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
+        getContactDetails(contact, type) {
+            if (!contact?.details) return [];
+            return contact.details.filter(d => d.type === type);
+        },
         printProductionOrder() {
             window.open(route('productions.print', this.sale.id), '_blank');
         },
@@ -678,41 +773,15 @@ export default {
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);
         },
-        formatRelative(dateString) {
-            if (!dateString) return "Sin registro";
-
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date; // Diferencia en milisegundos
-
-            if (diffMs < 0) {
-                return "En el futuro"; // por si la fecha viene futura
-            }
-
-            const seconds = Math.floor(diffMs / 1000);
-            const minutes = Math.floor(seconds / 60);
-            const hours = Math.floor(minutes / 60);
-            const days = Math.floor(hours / 24);
-            const months = Math.floor(days / 30);
-            const years = Math.floor(months / 12);
-
-            if (seconds < 60) return `Hace ${seconds} segundos`;
-            if (minutes < 60) return `Hace ${minutes} minutos`;
-            if (hours < 24) return `Hace ${hours} horas`;
-            if (days < 30) return `Hace ${days} días`;
-            if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
-            return `Hace ${years} año${years > 1 ? "s" : ""}`;
-        },
         openExchangeModal() {
             this.exchangeForm.reset();
-            this.evidencePreviews = []; // Limpiar previews
+            this.evidencePreviews = []; 
             this.showExchangeModal = true;
         },
         handleFileChange(e) {
             const files = Array.from(e.target.files);
             this.exchangeForm.evidence_images = files;
 
-            // Generar previsualizaciones
             this.evidencePreviews = [];
             files.forEach(file => {
                 const reader = new FileReader();
@@ -775,6 +844,23 @@ export default {
             } finally {
                 this.loadingSales = false;
             }
+        },
+        openGuideModal(shipment) {
+            this.guideForm.shipment_id = shipment.id;
+            this.guideForm.shipping_company = shipment.shipping_company;
+            this.guideForm.tracking_guide = shipment.tracking_guide;
+            this.showGuideModal = true;
+        },
+        submitGuide() {
+            this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
+                onSuccess: () => {
+                    this.showGuideModal = false;
+                    ElMessage.success('Guía actualizada correctamente');
+                },
+                onError: () => {
+                    ElMessage.error('Error al actualizar la guía.');
+                }
+            });
         }
     },
     mounted() {

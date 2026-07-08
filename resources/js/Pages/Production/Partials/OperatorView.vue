@@ -127,6 +127,10 @@
                                                 <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ getQuantityToProduce(task).toLocaleString() }}</span>
                                             </div>
                                             <div>
+                                                <span class="text-gray-400">Producido:</span>
+                                                <span class="font-bold text-indigo-500 dark:text-indigo-400 ml-1">{{ (task.production.good_units || 0).toLocaleString() }}</span>
+                                            </div>
+                                            <div>
                                                 <span class="text-gray-400">De Stock:</span>
                                                 <span class="font-bold text-gray-600 dark:text-gray-300 ml-1">{{ stockUsed(task) }}</span>
                                             </div>
@@ -166,7 +170,7 @@
                                     </el-tooltip>
 
                                     <el-tooltip content="Pausar Tarea" placement="top">
-                                        <button @click="pauseTask(task.id)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
+                                        <button @click="pauseTask(task)" v-if="task.status === 'En Proceso'" class="h-8 w-8 rounded-full text-gray-500 hover:bg-orange-100 hover:text-orange-600 dark:hover:bg-orange-900/50 transition">
                                         <i class="fa-solid fa-pause"></i>
                                     </button>
                                     </el-tooltip>
@@ -253,6 +257,63 @@
                 <p class="text-gray-500 dark:text-gray-400 mt-2">No tienes tareas pendientes por ahora. ¡Buen trabajo!</p>
             </div>
         </div>
+
+        <!-- Modal para finalizar tarea -->
+        <el-dialog v-model="finishTaskModalVisible" title="Finalizar Producción" width="600px" class="dark:bg-slate-800">
+            <div class="space-y-5">
+                <!-- Unidades Buenas -->
+                <div v-if="remainingToProduceForModal > 0" class="bg-blue-50 dark:bg-sky-900/30 p-4 rounded-lg">
+                    <label class="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                        Unidades BUENAS terminadas (Restantes: {{ remainingToProduceForModal }})
+                    </label>
+                    <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Esta cantidad se sumará al stock de producto terminado.</p>
+                    <el-input-number v-model="finishTaskForm.good_units" :min="0" :max="remainingToProduceForModal" class="w-full sm:w-auto" />
+                </div>
+
+                <!-- Merma -->
+                <div>
+                    <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">Reportar Merma (Unidades con defecto)</h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Indica la cantidad dañada de cada producto/componente. Se descontará de su respectivo inventario. Haz clic en la imagen para verla en grande.
+                    </p>
+                    
+                    <div class="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
+                        <div v-for="(item, index) in finishTaskForm.scrap_items" :key="index" class="flex items-center gap-3 p-3 bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700 rounded-lg">
+                            <!-- Image with Preview -->
+                            <el-image 
+                                :src="item.media?.[0]?.original_url || 'https://placehold.co/100x100/EBF4FF/7F9CF5?text=Sin+Imagen'" 
+                                :preview-src-list="[item.media?.[0]?.original_url || 'https://placehold.co/800x800/EBF4FF/7F9CF5?text=Sin+Imagen']"
+                                fit="cover"
+                                :preview-teleported="true"
+                                class="w-14 h-14 rounded-md border dark:border-gray-600 shadow-sm shrink-0 cursor-pointer hover:ring-2 ring-primary transition"
+                            />
+                            
+                            <!-- Info & Input -->
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate" :title="item.name">{{ item.name }}</p>
+                                <div class="flex items-center justify-between gap-2 mt-2">
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">Cant. dañada:</span>
+                                    <el-input-number v-model="item.quantity" :min="0" size="small" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Razón -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Razón de la merma (Opcional)</label>
+                    <el-input type="textarea" v-model="finishTaskForm.scrap_reason" placeholder="Ej. Material dañado, error de corte, etc." :rows="2" />
+                </div>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-end gap-2">
+                    <el-button @click="finishTaskModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="isSubmittingTask" @click="submitFinishTask">Confirmar y Finalizar</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -285,6 +346,16 @@ export default {
                 'Sin material': 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
                 'Terminada': 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
                 'default': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+            },
+            // Nuevas variables para el modal de finalizar tarea
+            finishTaskModalVisible: false,
+            currentTaskToFinish: null,
+            remainingToProduceForModal: 0,
+            isSubmittingTask: false,
+            finishTaskForm: {
+                good_units: 0,
+                scrap_items: [],
+                scrap_reason: '',
             },
         };
     },
@@ -358,21 +429,33 @@ export default {
                 : 'https://placehold.co/100x100/E2E8F0/475569?text=Sin+Img';
         },
         updateTaskStatus(taskId, newStatus, additionalData = {}) {
+            this.isSubmittingTask = true;
             this.$inertia.put(route('production-tasks.updateStatus', taskId), {
                 status: newStatus,
                 ...additionalData
             }, {
                 preserveScroll: true,
-                onSuccess: () => ElMessage.success(`Tarea actualizada a "${newStatus}"`),
+                onSuccess: () => {
+                    ElMessage.success(`Tarea actualizada a "${newStatus}"`);
+                    this.finishTaskModalVisible = false;
+                },
                 onError: (errors) => {
                     const errorMessage = Object.values(errors)[0] || 'No se pudo actualizar la tarea.';
                     ElMessage.error(errorMessage);
                 },
+                onFinish: () => {
+                    this.isSubmittingTask = false;
+                }
             });
         },
         startTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
         resumeTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
-        pauseTask(taskId) {
+        
+        pauseTask(task) {
+            const quantityToProduce = this.getQuantityToProduce(task);
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
             ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
                 confirmButtonText: 'Confirmar Pausa',
                 cancelButtonText: 'Cancelar',
@@ -380,17 +463,66 @@ export default {
                 inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
                 inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
             }).then(({ value: pause_reason }) => {
-                this.updateTaskStatus(taskId, 'Pausada', { pause_reason });
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar Pausa',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
+                }
+
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
+
         reportIssue(task) {
+            const quantityToProduce = this.getQuantityToProduce(task);
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
              ElMessageBox.confirm(
                 `¿Estás seguro de reportar falta de material para la tarea "${task.name}"?`, 'Confirmar Reporte',
                 { confirmButtonText: 'Sí, reportar', cancelButtonText: 'Cancelar', type: 'warning' }
-            ).then(() => this.updateTaskStatus(task.id, 'Sin material')
-            ).catch(() => ElMessage.info('Acción cancelada'));
+            ).then(() => {
+                
+                if (remainingToProduce > 0) {
+                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales', {
+                        confirmButtonText: 'Confirmar',
+                        cancelButtonText: 'Omitir',
+                        inputType: 'number',
+                        inputValue: 0,
+                        inputValidator: (v) => {
+                            if (v === null || v === '') return true;
+                            if (v < 0) return 'No puede ser negativo.';
+                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
+                            return true;
+                        },
+                    }).then(({ value: partial_units }) => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: Number(partial_units) });
+                    }).catch(() => {
+                        this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                    });
+                } else {
+                    this.updateTaskStatus(task.id, 'Sin material', { partial_units: 0 });
+                }
+
+            }).catch(() => ElMessage.info('Acción cancelada'));
         },
-        finishTask(task) {
+
+        async finishTask(task) {
             if ((task.status === 'En Proceso' || task.status === 'Pausada')  && task.started_at) {
                 const startTime = new Date(task.started_at);
                 const now = new Date();
@@ -404,36 +536,89 @@ export default {
                 }
             }
 
+            // Identificar si es la última tarea de la producción
+            const pendingTasks = task.production?.tasks?.filter(t => t.status !== 'Terminada' && t.id !== task.id) || [];
+            const isLastTask = pendingTasks.length === 0;
+
             const quantityToProduce = this.getQuantityToProduce(task);
-            ElMessageBox.prompt('Ingresa la cantidad de UNIDADES BUENAS terminadas.', 'Finalizar Tarea', {
-                confirmButtonText: 'Siguiente',
-                cancelButtonText: 'Cancelar',
-                inputType: 'number',
-                inputValue: quantityToProduce,
-                inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
-            }).then(({ value: good_units }) => {
-                 ElMessageBox.prompt('Ingresa la cantidad de UNIDADES CON DEFECTO (merma).', 'Merma', {
-                    confirmButtonText: 'Siguiente',
-                    cancelButtonText: 'Cancelar',
-                    inputType: 'number',
-                    inputValue: 0,
-                    inputValidator: (v) => (v !== null && v !== '' && v >= 0) || 'La cantidad es requerida.',
-                }).then(({ value: scrap }) => {
-                    if (scrap > 0) {
-                        ElMessageBox.prompt('Describe brevemente la razón de la merma (opcional).', 'Razón de Merma', {
-                            confirmButtonText: 'Finalizar Tarea',
-                            cancelButtonText: 'Cancelar',
-                            inputType: 'textarea',
-                            inputPlaceholder: 'Ej: Material dañado, error de corte, etc.',
-                        }).then(({ value: scrap_reason }) => {
-                            this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason });
-                        }).catch(() => ElMessage.info('Finalización cancelada en el último paso.'));
-                    } else {
-                        this.updateTaskStatus(task.id, 'Terminada', { good_units, scrap, scrap_reason: '' });
-                    }
-                }).catch(() => ElMessage.info('Finalización cancelada en paso de merma.'));
-            }).catch(() => ElMessage.info('Acción cancelada'));
+            const producedSoFar = task.production?.good_units || 0;
+            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
+
+            // Si no es la última tarea, solo actualizar estatus sin preguntar piezas ni mermas
+            if (!isLastTask) {
+                this.updateTaskStatus(task.id, 'Terminada');
+                return;
+            }
+
+            // --- CONFIGURACIÓN DEL MODAL (Igual a Show.vue) ---
+            this.currentTaskToFinish = task;
+            this.remainingToProduceForModal = remainingToProduce;
+            
+            const product = task.production?.sale_product?.product;
+            
+            // Reiniciamos el formulario
+            this.finishTaskForm = {
+                good_units: remainingToProduce, 
+                scrap_items: [],
+                scrap_reason: '',
+            };
+
+            // Lógica para obtener los componentes (directos o heredados del padre)
+            let actualComponents = [];
+            if (product?.components && product.components.length > 0) {
+                actualComponents = product.components;
+            } else if (product?.parent?.components && product.parent.components.length > 0) {
+                actualComponents = product.parent.components;
+            }
+
+            // Detectamos si tiene componentes o usamos el producto simple
+            if (actualComponents.length > 0) {
+                this.finishTaskForm.scrap_items = actualComponents.map(comp => ({
+                    product_id: comp.id,
+                    name: comp.name,
+                    media: comp.media,
+                    quantity: 0
+                }));
+            } else if (product) {
+                this.finishTaskForm.scrap_items = [{
+                    product_id: product.id,
+                    name: product.name,
+                    media: product.media,
+                    quantity: 0
+                }];
+            }
+
+            // Abrimos nuestro modal
+            this.finishTaskModalVisible = true;
         },
+
+        submitFinishTask() {
+            if (this.finishTaskForm.good_units < 0 || this.finishTaskForm.good_units > this.remainingToProduceForModal) {
+                ElMessage.error(`Las unidades buenas terminadas no pueden ser menores a 0 ni mayores al restante (${this.remainingToProduceForModal}).`);
+                return;
+            }
+
+            // Filtramos solo los items que tengan merma real asignada
+            const scrapItemsToReport = this.finishTaskForm.scrap_items
+                .filter(item => item.quantity > 0)
+                .map(item => ({
+                    product_id: item.product_id,
+                    quantity: item.quantity
+                }));
+
+            // Suma general por si el backend viejo aún requiere la variable "scrap"
+            const totalScrap = scrapItemsToReport.reduce((acc, item) => acc + item.quantity, 0);
+
+            const payload = {
+                good_units: Number(this.finishTaskForm.good_units),
+                scrap: totalScrap, // Retrocompatibilidad
+                scrap_reason: this.finishTaskForm.scrap_reason,
+                scrap_items: scrapItemsToReport // Arreglo detallado para descontar inventario
+            };
+
+            this.updateTaskStatus(this.currentTaskToFinish.id, 'Terminada', payload);
+        },
+        
         getQuantityToProduce(task) {
             const saleProduct = task.production?.sale_product;
             const productionsOnSale = saleProduct?.sale?.productions;

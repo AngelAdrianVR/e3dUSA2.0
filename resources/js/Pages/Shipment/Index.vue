@@ -7,10 +7,39 @@
         <div class="py-7">
             <div class="max-w-[85rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <div class="flex justify-between items-center mb-2">
-                        <span></span>
-                        <!-- Input de búsqueda (a futuro) -->
-                        <SearchInput v-model="search" @keyup.enter="handleSearch" :searchProps="SearchProps" placeholder="Buscar envío..." />
+                    
+                    <!-- Barra superior: Filtros y Búsqueda -->
+                    <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                        
+                        <!-- Filtros de Select con etiquetas claras y ancho forzado -->
+                        <div class="flex space-x-6 items-center w-full md:w-auto">
+                            
+                            <!-- Filtro Estatus -->
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Estatus:</span>
+                                <el-select v-model="statusFilter" @change="applyFilters" placeholder="Estatus" style="width: 140px;">
+                                    <el-option label="Todos" value="Todos" />
+                                    <el-option label="Pendiente" value="Pendiente" />
+                                    <el-option label="Enviado" value="Enviado" />
+                                </el-select>
+                            </div>
+
+                            <!-- Filtro Parcialidades -->
+                            <div class="flex items-center space-x-2">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Parcialidades:</span>
+                                <el-select v-model="partialsFilter" @change="applyFilters" placeholder="Parcialidades" style="width: 180px;">
+                                    <el-option label="Todas" value="Todas" />
+                                    <el-option label="Una parcialidad" value="Una parcialidad" />
+                                    <el-option label="Varias parcialidades" value="Varias parcialidades" />
+                                </el-select>
+                            </div>
+
+                        </div>
+
+                        <!-- Input de búsqueda -->
+                        <div class="w-full md:w-auto">
+                            <SearchInput v-model="search" @keyup.enter="handleSearch" :searchProps="SearchProps" placeholder="Buscar envío..." />
+                        </div>
                     </div>
 
                     <!-- Overlay de carga -->
@@ -150,14 +179,6 @@ import { es } from 'date-fns/locale';
 import { router } from "@inertiajs/vue3";
 
 export default {
-    data() {
-        return {
-            loading: false,
-            search: '',
-            SearchProps: ['ID', 'Cliente', 'Estatus'],
-            tableData: this.sales.data
-        };
-    },
     components: {
         AppLayout,
         SearchInput,
@@ -166,20 +187,59 @@ export default {
     },
     props: {
         sales: Object,
+        filters: { // Recibir los filtros para mantener el estado
+            type: Object,
+            default: () => ({ status: 'Todos', partials: 'Todas' })
+        }
+    },
+    data() {
+        return {
+            loading: false,
+            search: '',
+            SearchProps: ['ID', 'Cliente', 'Estatus'],
+            tableData: this.sales.data,
+            // Inicializar modelos locales con las propiedades
+            statusFilter: this.filters.status || 'Todos',
+            partialsFilter: this.filters.partials || 'Todas',
+        };
+    },
+    watch: {
+        // Observador importante: Si los datos de la vista cambian (ej. al cambiar de página en paginación o filtrar)
+        // se asegura de actualizar 'tableData' en la interfaz
+        'sales.data': {
+            deep: true,
+            handler(newData) {
+                this.tableData = newData;
+            }
+        }
     },
     methods: {
+        applyFilters() {
+            // Método que se llama cuando cambia un select
+            this.$inertia.get(route('shipments.index'), {
+                status: this.statusFilter,
+                partials: this.partialsFilter,
+            }, {
+                preserveState: true,
+                replace: true,
+            });
+        },
         async handleSearch() {
             this.loading = true;
             try {
                 if (!this.search) {
-                    this.tableData = this.sales.data;
-                    this.$inertia.get(this.route('shipments.index'), {}, {
-                        preserveState: true,
-                        replace: true,
-                    });
+                    // Si el input de búsqueda está vacío, simplemente recargamos aplicando filtros
+                    this.applyFilters();
                     return;
                 }
-                const response = await axios.post(route('shipments.get-matches', { query: this.search }));
+                
+                // Enviar la búsqueda y los filtros actuales al backend
+                const response = await axios.post(route('shipments.get-matches'), { 
+                    query: this.search,
+                    status: this.statusFilter,
+                    partials: this.partialsFilter
+                });
+                
                 this.tableData = response.data.items;
             } catch (error) {
                 console.error(error);
@@ -192,7 +252,11 @@ export default {
             router.get(route('shipments.show', row.id));
         },
         handlePageChange(page) {
-            router.get(route('shipments.index', { page }), {
+            router.get(route('shipments.index'), { 
+                page: page,
+                status: this.statusFilter,
+                partials: this.partialsFilter
+            }, {
                 preserveState: true,
                 replace: true,
             });

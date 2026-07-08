@@ -10,6 +10,7 @@ import NavLink from '@/Components/NavLink.vue';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
 import ThemeToggleSwitch from "@/Components/MyComponents/ThemeToggleSwitch.vue";
 import NotificationsDropdown from "@/Components/MyComponents/NotificationsDropdown.vue";
+import TaskNotificationsDropdown from "@/Components/MyComponents/TaskNotificationsDropdown.vue"; // Componente nuevo
 import DraggableAlert from "@/Components/MyComponents/DraggableAlert.vue";
 import AttendanceTracker from "@/Components/MyComponents/AttendanceTracker.vue";
 import axios from 'axios';
@@ -92,8 +93,22 @@ const closeSearch = () => {
 
 // --- FIN LÓGICA BUSCADOR ---
 
-// <-- COMPUTED PARA LAS NOTIFICACIONES -->
-const userNotifications = computed(() => page.props.auth.user.notifications || []);
+// <-- COMPUTED PARA LAS NOTIFICACIONES (SEPARADAS) -->
+const allNotifications = computed(() => page.props.auth.user.notifications || []);
+
+// Aquí define las clases de notificaciones que pertenecen al dropdown de Tareas
+const taskClasses = [
+    'App\\Notifications\\TaskAssignedNotification',
+    'App\\Notifications\\PmsTaskAssignedNotification',
+];
+
+const taskNotifications = computed(() =>
+    allNotifications.value.filter(n => taskClasses.includes(n.type))
+);
+
+const generalNotifications = computed(() =>
+    allNotifications.value.filter(n => !taskClasses.includes(n.type))
+);
 
 // 2. COMPUTED PARA LAS ALERTAS ACTIVAS (¡ESTA ES LA FORMA CORRECTA!)
 const activeAlerts = computed(() => page.props.auth.user?.active_alerts || {});
@@ -110,6 +125,12 @@ const nextStep = () => {
         currentStep.value++;
     } else {
         finishUpdate();
+    }
+};
+
+const prevStep = () => {
+    if (currentStep.value > 0) {
+        currentStep.value--;
     }
 };
 
@@ -220,7 +241,7 @@ onMounted(() => {
                         leave-from-class="opacity-100 translate-y-0 sm:scale-100"
                         leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                     >
-                        <div v-if="popupRelease" class="relative bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl overflow-hidden transform transition-all w-full max-w-lg flex flex-col max-h-[90vh]">
+                        <div v-if="popupRelease" class="relative bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl overflow-hidden transform transition-all w-full max-w-3xl flex flex-col max-h-[90vh]">
                             
                             <!-- Header con Versión y Botón Cerrar -->
                             <div class="flex items-center justify-between p-6 pb-2">
@@ -233,9 +254,6 @@ onMounted(() => {
                                     </h2>
                                     <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Versión {{ popupRelease.version }}</p>
                                 </div>
-                                <button @click="closeUpdateModal" class="p-2 rounded-full text-gray-400 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                                </button>
                             </div>
 
                             <!-- Content Wizard -->
@@ -247,7 +265,7 @@ onMounted(() => {
                                         <!-- Asumiendo que usas Spatie Media Library y el JSON trae 'media' -->
                                         <img v-if="item.media && item.media[0]" 
                                              :src="item.media[0].original_url" 
-                                             class="w-full h-full object-cover" 
+                                             class="w-full h-full object-contain" 
                                              alt="Update preview">
                                         <div v-else class="text-gray-400 dark:text-zinc-600 flex flex-col items-center">
                                             <svg class="w-12 h-12 mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -278,16 +296,26 @@ onMounted(() => {
                                     </span>
                                 </div>
 
-                                <!-- Action Button -->
-                                <button @click="nextStep" :disabled="isUpdating" 
-                                    class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-bold rounded-xl shadow-sm text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
-                                    <span v-if="currentStep < popupRelease.items.length - 1">Siguiente</span>
-                                    <span v-else>
-                                        {{ isUpdating ? 'Guardando...' : '¡Entendido!' }}
-                                    </span>
-                                    <svg v-if="currentStep < popupRelease.items.length - 1" class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                                    <svg v-else class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                                </button>
+                                <!-- Action Buttons -->
+                                <div class="flex items-center gap-3">
+                                    <button 
+                                        v-if="currentStep > 0" 
+                                        @click="prevStep" 
+                                        class="inline-flex items-center px-4 py-3 border border-transparent text-sm font-bold rounded-xl text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-zinc-700 focus:outline-none transition-colors"
+                                    >
+                                        Anterior
+                                    </button>
+
+                                    <button @click="nextStep" :disabled="isUpdating" 
+                                        class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-bold rounded-xl shadow-sm text-white bg-gray-900 hover:bg-gray-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed">
+                                        <span v-if="currentStep < popupRelease.items.length - 1">Siguiente</span>
+                                        <span v-else>
+                                            {{ isUpdating ? 'Guardando...' : '¡Entendido!' }}
+                                        </span>
+                                        <svg v-if="currentStep < popupRelease.items.length - 1" class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                                        <svg v-else class="ml-2 -mr-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </transition>
@@ -348,8 +376,13 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <!-- Notificaciones -->
-                                <NotificationsDropdown :notifications="userNotifications" />
+                                <!-- ============================= -->
+                                <!-- NUEVO: Notificaciones TAREAS  -->
+                                <!-- ============================= -->
+                                <TaskNotificationsDropdown :notifications="taskNotifications" />
+
+                                <!-- Notificaciones GENERALES -->
+                                <NotificationsDropdown :notifications="generalNotifications" />
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
@@ -413,7 +446,7 @@ onMounted(() => {
                                 </div>
                             </div>
 
-                            <!-- Hamburger -->
+                            <!-- Hamburger (MOBILE MENU) -->
                             <div class="-me-2 flex items-center sm:hidden">
                                 <div class="rounded-lg transition duration-300 mr-3">
                                     <ThemeToggleSwitch v-model="darkModeSwitch" @update:modelValue="toggleDarkMode" />
@@ -451,8 +484,13 @@ onMounted(() => {
                                     </div>
                                 </div>
 
-                                <!-- Notificaciones -->
-                                <NotificationsDropdown :notifications="userNotifications" />
+                                <!-- ============================= -->
+                                <!-- NUEVO: Notificaciones TAREAS  -->
+                                <!-- ============================= -->
+                                <TaskNotificationsDropdown :notifications="taskNotifications" />
+
+                                <!-- Notificaciones GENERALES -->
+                                <NotificationsDropdown :notifications="generalNotifications" />
 
                                 <button
                                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-200 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out z-50"

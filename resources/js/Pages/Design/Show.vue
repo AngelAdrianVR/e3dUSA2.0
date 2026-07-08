@@ -24,9 +24,24 @@
                             Iniciar Trabajo
                         </PrimaryButton>
                     </el-tooltip>
-                    <PrimaryButton v-if="canFinishWork" @click="promptFinishWork" class="!bg-green-600 hover!bg-green-700"> <i class="fa-solid fa-check-double mr-2"></i>
-                        Terminar Diseño
-                    </PrimaryButton>
+                    
+                    <!-- Botones de Trabajo en Curso (Pausar, Reanudar, Finalizar) -->
+                    <template v-else-if="!designOrder.finished_at">
+                        <PrimaryButton v-if="designOrder.is_paused" @click="resumeWork" class="mr-2 !bg-blue-600 hover:!bg-blue-700">
+                            <i class="fa-solid fa-play mr-2"></i>
+                            Reanudar
+                        </PrimaryButton>
+
+                        <SecondaryButton v-else @click="pauseWork" class="mr-2 !border-amber-500 !text-amber-500 hover:!bg-amber-50 dark:hover:!bg-amber-900/20">
+                            <i class="fa-solid fa-pause mr-2"></i>
+                            Pausar
+                        </SecondaryButton>
+
+                        <PrimaryButton v-if="canFinishWork" @click="promptFinishWork" class="!bg-green-600 hover:!bg-green-700"> 
+                            <i class="fa-solid fa-check-double mr-2"></i>
+                            Terminar Diseño
+                        </PrimaryButton>
+                    </template>
                 </div>
 
                 <!-- Botones de acciones -->
@@ -93,6 +108,15 @@
             </div>
         </header>
 
+        <!-- === ALERTA DE RETRABAJO === -->
+        <div v-if="designOrder.modifies_design_id" class="mt-4 p-4 text-sm text-amber-800 rounded-lg bg-amber-50 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800 flex items-start" role="alert">
+            <i class="fa-solid fa-triangle-exclamation text-lg mr-3 mt-0.5"></i>
+            <div>
+                <span class="font-bold block mb-1">Aviso de Retrabajo</span>
+                Estás iniciando un retrabajo, por lo tanto el tiempo invertido debería de ser menor al 50% del originalmente trabajado.
+            </div>
+        </div>
+
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-7 mt-5 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
@@ -103,9 +127,16 @@
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Información Clave</h3>
                     <ul class="space-y-3 text-sm">
-                        <li class="flex justify-between">
+                        <li class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
-                            <el-tag :type="getStatusTagType(designOrder.status)" size="small">{{ designOrder.status }}</el-tag>
+                            <!-- Se agregó indicador de pausa visual aquí -->
+                            <div class="flex items-center space-x-2">
+                                <span v-if="designOrder.is_paused" class="flex h-3 w-3 relative" title="Orden Pausada">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                                </span>
+                                <el-tag :type="getStatusTagType(designOrder.status)" size="small">{{ designOrder.status }}</el-tag>
+                            </div>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Prioridad:</span>
@@ -236,6 +267,18 @@
                                 </div>
                             </div>
                         </el-tab-pane>
+
+                        <!-- ==== NUEVA PESTAÑA: REGISTRO DE TIEMPO ==== -->
+                        <el-tab-pane label="Registro de Tiempo" name="time_log">
+                            <DesignTimeLog 
+                                :startedAt="designOrder.started_at" 
+                                :finishedAt="designOrder.finished_at" 
+                                :pauses="designOrder.pauses"
+                                :isPaused="designOrder.is_paused"
+                                :parentOrderDurationSeconds="parentOrderDurationSeconds"
+                            />
+                        </el-tab-pane>
+
                         <el-tab-pane label="Terminados" name="finished">
                             <!-- === NEW: Display all design versions === -->
                             <div class="h-[60vh] overflow-y-auto" v-if="designVersions.length > 0">
@@ -263,7 +306,8 @@
                             <p v-else class="text-gray-500 text-center italic mt-5">La orden aún no está terminada. No hay archivos finales.</p>
                              <!-- === END NEW === -->
                         </el-tab-pane>
-                        <el-tab-pane label="Asignaciones" name="assigments">
+
+                        <el-tab-pane label="Asignaciones" name="assignments">
                             <div v-if="designOrder.assignment_logs?.length" class="mt-5 space-y-4">
                                 <div 
                                 v-for="log in designOrder.assignment_logs" 
@@ -301,8 +345,7 @@
                             <p v-else class="text-gray-500 text-center italic mt-5 dark:text-gray-400">
                                 Historial de asignaciones vacío
                             </p>
-                            </el-tab-pane>
-
+                        </el-tab-pane>
                     </el-tabs>
                 </div>
             </div>
@@ -406,7 +449,8 @@ import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
-import DialogModal from '@/Components/DialogModal.vue'; // <-- Importar DialogModal
+import DialogModal from '@/Components/DialogModal.vue'; 
+import DesignTimeLog from "@/Components/MyComponents/DesignTimeLog.vue"; 
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { format } from 'date-fns';
@@ -425,7 +469,6 @@ export default {
                 final_files: [],
             }),
 
-            // asignación de diseñador
             showAssignModal: false,
             designers: [],
             assignmentForm: this.$inertia.form({
@@ -448,12 +491,14 @@ export default {
         SecondaryButton,
         DesignersWorkload,
         ConfirmationModal,
+        DesignTimeLog,
     },
     props: {
         designOrder: Object,
         designOrders: Array,
         auth: Object,
-        designVersions: Array, //versiones de diseño (modificaciones)
+        designVersions: Array, 
+        parentOrderDurationSeconds: Number, // Recibimos el número puro del backend
     },
     computed: {
         isAssignedDesigner() {
@@ -474,6 +519,20 @@ export default {
                 onError: () => ElMessage.error('No se pudo iniciar el trabajo.')
             });
         },
+        pauseWork() {
+            this.$inertia.put(route('design-orders.pause', this.designOrder.id), {}, {
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Temporizador pausado. Trabajo guardado temporalmente.'),
+                onError: () => ElMessage.error('No se pudo pausar el temporizador.')
+            });
+        },
+        resumeWork() {
+            this.$inertia.put(route('design-orders.resume', this.designOrder.id), {}, {
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Temporizador reanudado. ¡De vuelta al trabajo!'),
+                onError: () => ElMessage.error('No se pudo reanudar el temporizador.')
+            });
+        },
         promptFinishWork() {
             if (this.finishForm.final_files.length === 0) {
                 ElMessage.warning('Debes subir al menos un archivo final para poder terminar el diseño.');
@@ -486,15 +545,15 @@ export default {
                 preserveScroll: true,
                 onSuccess: () => {
                     this.showFinishModal = false;
-                    this.finishForm.reset(); // Limpiar el formulario
-                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
+                    this.finishForm.reset(); 
+                    router.reload({ preserveScroll: true }); 
                     ElMessage.success('¡Excelente! Diseño terminado y archivado.');
                 },
                 onError: (errors) => {
-                    this.showFinishModal = false; // Ocultar modal si hay error
+                    this.showFinishModal = false; 
                     let message = 'No se pudo terminar el diseño.';
                     if (errors.final_files) {
-                        message = errors.final_files; // Mostrar el error específico de los archivos
+                        message = errors.final_files; 
                     }
                     ElMessage.error(message);
                 }
@@ -542,7 +601,7 @@ export default {
                 onSuccess: () => {
                     this.closeAssignModal();
                     ElMessage.success('Diseñador asignado correctamente.');
-                    router.reload({ preserveScroll: true }); // Recargar datos de la tabla
+                    router.reload({ preserveScroll: true }); 
                 },
                 onError: (errors) => {
                      let message = 'Ocurrió un error al asignar el diseñador.';
@@ -557,9 +616,7 @@ export default {
             try {
                 const response = await axios.get(route('design-orders.authorize', this.designOrder.id));
                 if (response.status === 200) {
-                    router.reload({ 
-                        preserveScroll: true,
-                    })                    
+                    router.reload({ preserveScroll: true });                    
                     ElMessage.success(response.data.message);
                 }
             } catch (err) {
@@ -614,10 +671,10 @@ export default {
 
             const date = new Date(dateString);
             const now = new Date();
-            const diffMs = now - date; // Diferencia en milisegundos
+            const diffMs = now - date; 
 
             if (diffMs < 0) {
-                return "En el futuro"; // por si la fecha viene futura
+                return "En el futuro"; 
             }
 
             const seconds = Math.floor(diffMs / 1000);

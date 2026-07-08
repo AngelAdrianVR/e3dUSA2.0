@@ -4,7 +4,7 @@
         <BranchNotes :branch-id="branch.id" />
 
         <!-- === ENCABEZADO === -->
-        <h1 class="dark:text-white font-bold text-2xl mb-4">{{ branch.name }}</h1>
+        <h1 class="dark:text-white font-bold text-2xl mb-4">{{ branch.name }} {{ branch.parent?.id ? '' : '(SUCURSAL MATRIZ)' }}</h1>
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 border-b dark:border-gray-500">
             <div class="w-full lg:w-1/3">
                 <el-select @change="$inertia.get(route('branches.show', selectedBranch))"
@@ -64,6 +64,10 @@
                             <span class="font-semibold text-green-600 dark:text-green-400">{{ branch.id }}</span>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">No. Cliente:</span>
+                            <span class="text-gray-800 dark:text-gray-200">{{ branch.client_number ?? 'No asignado' }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
                             <el-tag :type="branch.status === 'Cliente' ? 'success' : 'info'" size="small">{{ branch.status }}</el-tag>
                         </li>
@@ -72,12 +76,20 @@
                             <span>{{ branch.account_manager?.name ?? 'No asignado' }}</span>
                         </li>
                         <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Matriz:</span>
-                            <span @click="branch.parent?.id ? $inertia.visit(route('branches.show', branch.parent.id)) : null" :class="branch.parent?.id ? 'text-blue-500 hover:underline cursor-pointer' : ''">{{ branch.parent?.name ?? 'N/A' }}</span>
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Grupo:</span>
+                            <span class="text-gray-800 dark:text-gray-200">{{ branch.group_name ?? 'N/A' }}</span>
+                        </li>
+                        <li class="flex flex-col">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Razón Social:</span>
+                            <span class="text-gray-800 dark:text-gray-200 leading-tight mt-1">{{ branch.business_name ?? 'No especificada' }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">RFC:</span>
                             <span>{{ branch.rfc ?? 'No especificado' }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Matriz:</span>
+                            <span @click="branch.parent?.id ? $inertia.visit(route('branches.show', branch.parent.id)) : null" :class="branch.parent?.id ? 'text-blue-500 hover:underline cursor-pointer' : ''">{{ branch.parent?.name ?? 'N/A' }}</span>
                         </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Ultima compra:</span>
@@ -86,16 +98,36 @@
                     </ul>
                 </div>
 
-                <!-- Card de Sucursales -->
+                <!-- Card de Sucursales Hijas Mejorada -->
                 <div v-if="branch.children && branch.children.length > 0" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Sucursales</h3>
-                    <ul class="space-y-3 text-sm">
-                        <li v-for="child in branch.children" :key="child.id">
-                            <Link :href="route('branches.show', child.id)" class="font-semibold text-blue-500 hover:underline">
-                                ID:{{ child.id }} - {{ child.name }}
-                            </Link>
-                        </li>
-                    </ul>
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4 flex items-center justify-between">
+                        <span>Sucursales</span>
+                        <el-tag type="info" size="small" effect="plain" class="!rounded-full">{{ branch.children.length }}</el-tag>
+                    </h3>
+                    <div class="space-y-2 mt-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        <Link v-for="child in branch.children" :key="child.id" :href="route('branches.show', child.id)"
+                              class="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-slate-700/50 bg-gray-50/50 dark:bg-slate-900/30 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors group">
+                            
+                            <div class="flex items-center space-x-3 overflow-hidden">
+                                <div class="shrink-0 size-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs border border-blue-200 dark:border-blue-800">
+                                    {{ child.id }}
+                                </div>
+                                <div class="truncate">
+                                    <p class="font-semibold text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors text-sm truncate">
+                                        {{ child.name }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                        <i class="fa-solid fa-location-dot mr-1 opacity-70"></i>
+                                        {{ child.address || 'Sin dirección' }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="shrink-0 pl-2">
+                                <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-primary transition-colors text-xs"></i>
+                            </div>
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Card de Contactos -->
@@ -121,14 +153,20 @@
                                 </el-tooltip>
                             </div>
 
-                            <p class="font-semibold">{{ contact.name }}</p>
+                            <p class="font-semibold">{{ contact.prefix }} {{ contact.name }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
                                 <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
-                                <p v-if="getPrimaryDetail(contact, 'Teléfono')">
-                                    <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
-                                    {{ formatPhone(getPrimaryDetail(contact, 'Teléfono')) }}
-                                </p>
+                                
+                                <!-- Mostrar todos los teléfonos -->
+                                <template v-if="getContactDetails(contact, 'Teléfono').length">
+                                    <p v-for="phone in getContactDetails(contact, 'Teléfono')" :key="phone.id" class="flex items-center">
+                                        <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
+                                        {{ formatPhone(phone.value) }}
+                                        <el-tag v-if="phone.is_primary" type="success" size="small" class="ml-2 !h-5 !px-1.5 text-[10px]">Principal</el-tag>
+                                    </p>
+                                </template>
+                                
                                 <p v-if="contact.birthdate">
                                     <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
                                 </p>
@@ -145,12 +183,19 @@
                         <el-tabs v-model="activeTab" class="p-5">
                         <el-tab-pane label="Información General" name="general">
                             <ul class="space-y-4 text-sm mt-2">
-                                <li><strong class="font-semibold w-32 inline-block">Dirección:</strong> {{ branch.address ?? 'No especificada' }}</li>
-                                <li><strong class="font-semibold w-32 inline-block">Código Postal:</strong> {{ branch.post_code ?? 'N/A' }}</li>
-                                <li><strong class="font-semibold w-32 inline-block">Nos conoció por:</strong> {{ branch.meet_way ?? 'No especificado' }}</li>
-                                <li><strong class="font-semibold w-32 inline-block">Notas:</strong> {{ branch.important_notes ?? 'No hay notas.' }}</li>
+                                <li><strong class="font-semibold w-40 inline-block">Cuenta Bancaria:</strong> {{ branch.bank_account ?? 'No especificada' }}</li>
+                                <li><strong class="font-semibold w-40 inline-block">Dirección:</strong> {{ branch.address ?? 'No especificada' }}</li>
+                                <li><strong class="font-semibold w-40 inline-block">Código Postal:</strong> {{ branch.post_code ?? 'N/A' }}</li>
+                                <li><strong class="font-semibold w-40 inline-block">Nos conoció por:</strong> {{ branch.meet_way ?? 'No especificado' }}</li>
+                                <li>
+                                    <strong class="font-semibold inline-block mb-1">Notas:</strong>
+                                    <p class="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-md border border-gray-100 dark:border-slate-700 mt-1">
+                                        {{ branch.important_notes ?? 'No hay notas registradas para este cliente.' }}
+                                    </p>
+                                </li>
                             </ul>
                         </el-tab-pane>
+                        
                         <el-tab-pane name="products">
                              <template #label>
                                 <div class="flex items-center">
@@ -175,6 +220,17 @@
                                 <SuggestedProducts :products="branch.suggested_products" />
                             </div>
                              <p v-else class="text-sm text-gray-500 dark:text-gray-400 p-4 text-center">No hay productos sugeridos para este cliente.</p>
+                        </el-tab-pane>
+
+                        <!-- PESTAÑA COMPONENTIZADA: Análisis de Consumo -->
+                        <el-tab-pane name="analytics">
+                             <template #label>
+                                <div class="flex items-center">
+                                    <i class="fa-solid fa-chart-bar mr-2"></i>
+                                    <span>Análisis de Consumo</span>
+                                </div>
+                            </template>
+                            <ConsumptionAnalytics :consumption-data="consumptionData" />
                         </el-tab-pane>
 
                         <el-tab-pane label="Cotizaciones" name="quotes">
@@ -232,7 +288,8 @@
 import Products from "@/Pages/Branch/Tabs/Products.vue";
 import Quotes from "@/Pages/Branch/Tabs/Quotes.vue";
 import Sales from "@/Pages/Branch/Tabs/Sales.vue";
-import SuggestedProducts from "@/Pages/Branch/Tabs/SuggestedProducts.vue"; // <-- NUEVO COMPONENTE
+import SuggestedProducts from "@/Pages/Branch/Tabs/SuggestedProducts.vue";
+import ConsumptionAnalytics from "@/Pages/Branch/Tabs/ConsumptionAnalytics.vue"; // <- El nuevo componente
 
 // Modals
 import AddProductsModal from "@/Pages/Branch/Modals/AddProductsModal.vue";
@@ -308,7 +365,8 @@ export default {
         Products,
         Quotes,
         Sales,
-        SuggestedProducts, // <-- REGISTRAR NUEVO COMPONENTE
+        SuggestedProducts, 
+        ConsumptionAnalytics,
         AddProductsModal,
         ModalCrearEditarContacto,
     },
@@ -316,12 +374,13 @@ export default {
         branch: Object,
         branches: Array,
         catalog_products: Array,
+        consumptionData: Object,
     },
     computed: {
         availableProducts() {
             const assignedProductIds = this.branch.products.map(p => p.id);
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
-        }
+        },
     },
     methods: {
         formatPhone(number) {
@@ -347,6 +406,10 @@ export default {
                     ElMessage.error('Ocurrió un error al eliminar el contacto');
                 }
             });
+        },
+        getContactDetails(contact, type) {
+            if (!contact.details) return [];
+            return contact.details.filter(d => d.type === type);
         },
         getPrimaryDetail(contact, type) {
             if (!contact.details) return 'No disponible';
@@ -522,5 +585,17 @@ export default {
 /* Personalización para que las pestañas se vean más limpias */
 .el-tabs__header {
     margin-bottom: 24px !important;
+}
+
+/* Ocultar barra de scroll principal de tarjetas pero mantener funcionamiento */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 20px;
 }
 </style>

@@ -39,7 +39,7 @@
                                 </template>
                             </el-popconfirm>
                             
-                            <!-- Nuevo: Grupo de botones para los filtros de vista -->
+                            <!-- Grupo de botones para los filtros de vista -->
                             <div class="flex items-center p-1 bg-gray-100 dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
                                 <button @click="switchView('mine')" :class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm': activeView === 'mine', 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700': activeView !== 'mine'}" class="px-4 py-1.5 text-sm font-semibold rounded-md transition-all duration-200">
                                     Mías
@@ -54,6 +54,15 @@
                                     </span>
                                 </button>
                             </div>
+
+                            <!-- Filtro por Estatus -->
+                            <el-select v-model="statusFilter" placeholder="Filtrar por estatus" clearable class="!w-44" @change="handleStatusFilter">
+                                <el-option label="Pendiente" value="Pendiente" />
+                                <el-option label="Autorizada" value="Autorizada" />
+                                <el-option label="En proceso" value="En proceso" />
+                                <el-option label="Terminada" value="Terminada" />
+                                <el-option label="Cancelada" value="Cancelada" />
+                            </el-select>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -88,31 +97,34 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="order_title" label="Título" width="170" />
+                            <el-table-column prop="order_title" label="Título" width="160" show-overflow-tooltip />
                             <el-table-column label="Categoría" width="120">
                                 <template #default="scope">
                                     {{ scope.row.design_category?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Solicitante" width="140">
+                            <el-table-column label="Solicitante" width="130" show-overflow-tooltip>
                                 <template #default="scope">
                                     {{ scope.row.requester?.name ?? 'N/A' }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Diseñador Asignado" width="140">
+                            <el-table-column label="Diseñador Asignado" width="140" show-overflow-tooltip>
                                 <template #default="scope">
                                     <span v-if="scope.row.designer?.name">{{ scope.row.designer?.name }}</span>
                                     <span class="text-amber-500" v-else>Sin asignar</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Solicitado el" width="150">
-                                <template #default="scope">
-                                    {{ formatDate(scope.row.created_at) ?? 'N/A' }}
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="status" label="Estatus" width="120">
+                            <el-table-column prop="status" label="Estatus" width="130">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
+                                        <!-- NUEVO: Indicador de Pausa Animado -->
+                                        <el-tooltip v-if="scope.row.is_paused" content="Orden Pausada" placement="top">
+                                            <span class="flex h-2.5 w-2.5 relative">
+                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                            </span>
+                                        </el-tooltip>
+
                                         <el-tag :type="getStatusTagType(scope.row.status)" effect="light">
                                             {{ scope.row.status }}
                                         </el-tag>
@@ -122,6 +134,47 @@
                                     </div>
                                 </template>
                             </el-table-column>
+
+                            <!-- NUEVO: COLUMNA DE TIEMPO INVERTIDO CON LOG DE PAUSAS -->
+                            <el-table-column label="Tiempo Invertido" width="160">
+                                <template #default="scope">
+                                    <div class="flex items-center space-x-2">
+                                        <span v-if="!scope.row.started_at" class="text-gray-400 italic text-xs">No iniciado</span>
+                                        <span v-else class="font-semibold text-indigo-600 dark:text-indigo-400 text-sm">
+                                            {{ scope.row.active_time_formatted }}
+                                        </span>
+
+                                        <!-- Tooltip de historial de pausas -->
+                                        <el-tooltip placement="top" effect="light" v-if="scope.row.pauses && scope.row.pauses.length > 0">
+                                            <template #content>
+                                                <div class="p-1 max-w-xs">
+                                                    <p class="font-bold border-b border-gray-200 dark:border-gray-600 pb-2 mb-2 text-gray-800 dark:text-gray-200">
+                                                        <i class="fa-solid fa-clock-rotate-left mr-1"></i> Historial de pausas ({{ scope.row.pauses.length }})
+                                                    </p>
+                                                    <ul class="space-y-3 text-xs">
+                                                        <li v-for="(pause, idx) in scope.row.pauses" :key="pause.id" class="bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                                                            <div class="flex items-center text-amber-500 dark:text-amber-400 font-medium">
+                                                                <i class="fa-solid fa-pause w-4 text-[10px]"></i>
+                                                                <span>{{ formatDateTime(pause.paused_at) }}</span>
+                                                            </div>
+                                                            <div class="flex items-center text-green-500 dark:text-green-400 mt-1">
+                                                                <i class="fa-solid fa-play w-4 text-[10px]"></i>
+                                                                <span v-if="pause.resumed_at">{{ formatDateTime(pause.resumed_at) }}</span>
+                                                                <span v-else class="italic text-gray-400">Pausa en curso...</span>
+                                                            </div>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                            <!-- Botón (icono) que activa el Tooltip -->
+                                            <button class="flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-500 hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-400 transition-colors">
+                                                <i class="fa-solid fa-circle-info text-[11px]"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
+                                </template>
+                            </el-table-column>
+
                             <el-table-column label="Autorizado" width="100" align="center">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.authorized_at" placement="top">
@@ -131,12 +184,7 @@
                                         </template>
                                         <i class="fa-solid fa-check-double text-green-500 text-lg"></i>
                                     </el-tooltip>
-                                    <p v-else>No autorizada</p>
-                                </template>
-                            </el-table-column>
-                             <el-table-column label="Terminado el" width="130">
-                                <template #default="scope">
-                                    {{ formatDate(scope.row.finished_at) ?? 'N/A' }}
+                                    <p v-else class="text-xs text-gray-400">No autorizada</p>
                                 </template>
                             </el-table-column>
                           
@@ -200,10 +248,8 @@
 
         <!-- Modal para Asignar Diseñador -->
         <DialogModal :show="showAssignModal" @close="closeAssignModal">
-            <template #title>
-                Asignar Diseñador a Orden
-            </template>
-
+            <!-- ... (Tu contenido del modal AssignDesigner queda igual) ... -->
+            <template #title> Asignar Diseñador a Orden </template>
             <template #content>
                 <div v-if="selectedOrder">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
@@ -215,19 +261,10 @@
                     <p class="text-sm text-gray-600 dark:text-gray-400">
                         Fecha de Solicitud: <span class="font-medium">{{ formatDate(selectedOrder.created_at) }}</span>
                     </p>
-
                     <div class="mt-4">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Seleccionar diseñador
-                        </label>
-                        <el-select v-model="assignmentForm.designer_id" :teleported="false"
-                                placeholder="Selecciona un diseñador"
-                                class="!w-1/2 mt-1"
-                                filterable>
-                            <el-option v-for="designer in designers"
-                                    :key="designer.id"
-                                    :label="designer.name"
-                                    :value="designer.id" />
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300"> Seleccionar diseñador </label>
+                        <el-select v-model="assignmentForm.designer_id" :teleported="false" placeholder="Selecciona un diseñador" class="!w-1/2 mt-1" filterable>
+                            <el-option v-for="designer in designers" :key="designer.id" :label="designer.name" :value="designer.id" />
                         </el-select>
                         <div v-if="assignmentForm.errors.designer_id" class="text-red-500 text-xs mt-1">
                             {{ assignmentForm.errors.designer_id }}
@@ -235,12 +272,8 @@
                     </div>
                 </div>
             </template>
-
             <template #footer>
-                <CancelButton @click="closeAssignModal">
-                    Cancelar
-                </CancelButton>
-
+                <CancelButton @click="closeAssignModal"> Cancelar </CancelButton>
                 <SecondaryButton @click="submitAssignment" :loading="assignmentForm.processing" class="ml-3">
                     <span v-if="assignmentForm.processing">Asignando...</span>
                     <span v-else>Asignar</span>
@@ -261,7 +294,7 @@ import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import DialogModal from '@/Components/DialogModal.vue';
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
-import DesignersReport from './Partials/DesignersReport.vue'; // <-- Importar componente
+import DesignersReport from './Partials/DesignersReport.vue';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
@@ -275,10 +308,11 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.designOrders.data,
-            activeView: this.filters.view || 'mine', 
+            activeView: this.filters.view || 'mine',
+            statusFilter: this.filters.status || '',
             SearchProps: ['Folio', 'Título', 'Solicitante', 'Diseñador', 'Estatus'],
             showAssignModal: false,
-            showReportModal: false, // <-- Estado para el modal de reporte
+            showReportModal: false,
             designers: [],
             selectedOrder: null,
             assignmentForm: this.$inertia.form({
@@ -295,7 +329,7 @@ export default {
         LoadingIsoLogo,
         SecondaryButton,
         DesignersWorkload,
-        DesignersReport, // <-- Registrar componente
+        DesignersReport,
     },
     props: {
         designOrders: Object,
@@ -327,6 +361,12 @@ export default {
             if (!dateString) return '';
             const date = new Date(dateString);
             return format(date, "d 'de' MMM, yyyy", { locale: es });
+        },
+        // NUEVO MÉTODO DE FECHA: Para que el tooltip de las pausas muestre la hora
+        formatDateTime(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return format(date, "d MMM, yyyy HH:mm", { locale: es });
         },
         handleSelectionChange(selection) {
             this.selectedItems = selection;
@@ -419,6 +459,9 @@ export default {
             if (this.activeView !== 'mine') {
                 params.view = this.activeView;
             }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
+            }
             router.get(route('design-orders.index', params), {
                 preserveState: true,
                 replace: true,
@@ -429,6 +472,24 @@ export default {
             const params = {};
             if (this.activeView !== 'mine') {
                 params.view = this.activeView;
+            }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
+            }
+            router.get(route('design-orders.index', params), {
+                preserveState: true,
+                replace: true,
+                onStart: () => this.loading = true,
+                onFinish: () => this.loading = false,
+            });
+        },
+        handleStatusFilter() {
+            const params = {};
+            if (this.activeView !== 'mine') {
+                params.view = this.activeView;
+            }
+            if (this.statusFilter) {
+                params.status = this.statusFilter;
             }
             router.get(route('design-orders.index', params), {
                 preserveState: true,

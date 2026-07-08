@@ -30,7 +30,11 @@ class BranchPriceHistoryController extends Controller
         $basePrice = $lastPriceRecord ? $lastPriceRecord->price : $product->base_price;
         $minAllowedPrice = $basePrice * 0.96;
 
-        if ($validated['amount'] < $minAllowedPrice) {
+        // Verificamos si el usuario tiene el permiso especial (Spatie)
+        $canBypassRule = $request->user() && $request->user()->can('Crear clientes');
+
+        // Si NO tiene el permiso y el precio no cumple con el mínimo requerido, lanzamos el error
+        if (!$canBypassRule && $validated['amount'] < $minAllowedPrice) {
             // Lanza una excepción de validación que será capturada por el frontend
             throw ValidationException::withMessages([
                 'amount' => 'El precio no puede tener un descuento mayor al 4%. El mínimo permitido es $' . number_format($minAllowedPrice, 2),
@@ -50,6 +54,7 @@ class BranchPriceHistoryController extends Controller
         BranchPriceHistory::create([
             'branch_id' => $branch->id,
             'product_id' => $product->id,
+            'user_id' => auth()->id(), // Guardamos el usuario que realiza el cambio
             'price' => $validated['amount'],
             'currency' => $validated['currency'],
             'valid_from' => Carbon::parse($validated['valid_from']),

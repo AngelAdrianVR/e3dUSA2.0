@@ -6,16 +6,35 @@
         direction="rtl" 
         :size="drawerSize"
         >
-        <div class="md:p-3">
+        <div class="md:p-3 relative">
             <p class="dark:text-gray-500 text-center my-4" v-if="!clientProducts.length && !loading">
             Este cliente no tiene productos registrados.
             </p>
 
-            <!-- Estado de carga -->
+            <!-- Estado de carga de productos del cliente -->
             <LoadingIsoLogo class="col-span-full" v-if="loading" />
 
-            <!-- Lista de productos -->
             <div v-else class="space-y-4">
+                <!-- AVISO DE VARIANTES HUÉRFANAS -->
+                <div v-if="orphanedVariants.length > 0" class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-900/20 dark:border-amber-700">
+                    <div class="flex items-start">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-500 mt-1 mr-2"></i>
+                        <div>
+                            <p class="text-sm text-amber-700 dark:text-amber-400 font-semibold">Se encontraron variantes sin su producto base asignado.</p>
+                            <p class="text-xs text-amber-600 dark:text-amber-500 mb-2">Para mantener el sistema libre de errores, se recomienda asignarles su producto padre dando clic abajo:</p>
+                            <ul class="text-xs space-y-1">
+                                <li v-for="variant in orphanedVariants" :key="variant.id" class="flex items-center justify-between border-b border-amber-200 dark:border-amber-800/50 pb-1">
+                                    <span>Variante: <strong>{{ variant.name }}</strong></span>
+                                    <button @click="fixOrphanedVariant(variant)" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-semibold transition">
+                                        <i class="fa-solid fa-link mr-1"></i> Asignar padre
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de productos -->
                 <div 
                     v-for="product in clientProducts" 
                     :key="product.id" 
@@ -24,12 +43,12 @@
                     <!-- BOTONES DE ACCIÓN -->
                     <div class="absolute top-2 right-2 flex items-center space-x-1">
                         <el-tooltip content="Actualizar precio especial" placement="top">
-                            <button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors">
+                            <button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
                                 <i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-600"></i>
                             </button>
                         </el-tooltip>
                         <el-tooltip content="Ver producto" placement="top">
-                            <button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full size-8 transition-colors">
+                            <button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
                                 <i class="fa-solid fa-eye text-gray-500 dark:text-gray-600"></i>
                             </button>
                         </el-tooltip>
@@ -50,17 +69,18 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">
                             Código: {{ product.code }}
                             </p>
-                            <el-tag v-if="product.archived_at" type="warning">Obsoleto</el-tag>
+                            <el-tag v-if="product.parent_id" type="info" size="small" class="mt-1">Variante</el-tag>
+                            <el-tag v-if="product.archived_at" type="warning" size="small" class="mt-1 ml-1">Obsoleto</el-tag>
                         </div>
                     </div>
 
                     <!-- Precios -->
                     <div class="mt-4 flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio base</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio base <small>(Para clientes que no tienen precio asignado)</small></p>
                         <p class="font-medium text-blue-400">${{ product.base_price }} {{ product.currency }}</p>
                     </div>
                     <div class="flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual <small>(Precio al que se vende actualmente a este cliente)</small></p>
                         <p class="font-semibold text-green-600 dark:text-green-400">
                         ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
                                 ? product.price_history[0].price + ' ' + product.price_history[0].currency
@@ -77,29 +97,35 @@
                         <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
                     </div>
 
-                    <!-- Historial de precios (MODIFICADO CON ETIQUETAS) -->
+                    <!-- Historial de precios -->
                     <el-collapse v-if="product.price_history?.length" class="mt-4">
                         <el-collapse-item :title="'Historial de precios'" name="history">
-                            <ul class="space-y-2 max-h-40 overflow-y-auto pr-2 text-sm">
+                            <ul class="space-y-3 max-h-40 overflow-y-auto pr-2 text-sm">
                             <li 
                                 v-for="(history, idx) in product.price_history" 
                                 :key="idx" 
-                                class="flex justify-between items-center text-gray-600 dark:text-gray-400"
+                                class="flex flex-col border-b dark:border-gray-700 pb-2 last:border-0 last:pb-0"
                             >
-                                <div class="flex items-center space-x-2">
-                                    <span>{{ formatDate(history.valid_from) }}</span>
-                                    <!-- ETIQUETAS DE ESTADO -->
-                                    <span v-if="!history.valid_to" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
-                                    <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
+                                <div class="flex justify-between items-center text-gray-600 dark:text-gray-400">
+                                    <div class="flex items-center space-x-2">
+                                        <span>{{ formatDate(history.valid_from) }}</span>
+                                        <!-- ETIQUETAS DE ESTADO -->
+                                        <span v-if="!history.valid_to" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
+                                        <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
+                                    </div>
+                                    <div class="flex items-center space-x-1">
+                                        <span class="font-medium">${{ history.price }} {{ history.currency }}</span>
+                                        <!-- BOTÓN PARA FINALIZAR PRECIO ACTIVO -->
+                                        <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
+                                            <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
+                                                <i class="fa-solid fa-calendar-xmark text-sm"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
                                 </div>
-                                <div class="flex items-center space-x-1">
-                                    <span class="font-medium">${{ history.price }} {{ history.currency }}</span>
-                                    <!-- BOTÓN PARA FINALIZAR PRECIO ACTIVO -->
-                                    <el-tooltip v-if="!history.valid_to" content="Finalizar vigencia de este precio" placement="top">
-                                        <button @click="confirmCloseSpecialPrice(history.id)" class="size-7 flex items-center justify-center rounded-md text-red-500 bg-red-100 hover:bg-red-200 dark:bg-red-900/50 dark:hover:bg-red-900 transition-colors">
-                                            <i class="fa-solid fa-calendar-xmark text-sm"></i>
-                                        </button>
-                                    </el-tooltip>
+                                <!-- NUEVO: Usuario -->
+                                <div class="text-xs text-gray-400 mt-1">
+                                    Registrado por: <span v-if="history.user">{{ history.user.name }}</span><span v-else class="italic">Sistema</span>
                                 </div>
                             </li>
                             </ul>
@@ -108,37 +134,47 @@
 
                     <p class="text-sm text-gray-600 dark:text-gray-500 italic mt-3" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
                 </div>
-                <div @click="showAddProductsModal = true"
+                
+                <!-- BOTÓN PARA AGREGAR PRODUCTOS -->
+                <div @click="openAddProductsModal"
                     class="border-2 border-dashed border-gray-400 dark:border-gray-600 h-40 rounded-2xl flex items-center justify-center 
-                            cursor-pointer group transition transform duration-300 ease-in-out 
-                            hover:scale-105 hover:shadow-lg hover:border-indigo-500 dark:hover:border-indigo-400"
+                            cursor-pointer group transition transform duration-300 ease-in-out"
+                    :class="loadingAddModal ? 'opacity-50 pointer-events-none' : 'hover:scale-105 hover:shadow-lg hover:border-indigo-500 dark:hover:border-indigo-400'"
                 >
-                    <span class="flex items-center text-gray-600 dark:text-gray-300 font-medium text-lg group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="flex items-center text-gray-600 dark:text-gray-300 font-medium text-lg transition"
+                          :class="loadingAddModal ? '' : 'group-hover:text-indigo-500 dark:group-hover:text-indigo-400'">
+                        <i v-if="loadingAddModal" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
+                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
-                        Agregar producto al cliente
+                        {{ loadingAddModal ? 'Preparando...' : 'Agregar producto base al cliente' }}
                     </span>
                 </div>
             </div>
         </div>
     </el-drawer>
 
+    <!-- ESTADO DE CARGA PANTALLA COMPLETA CON BLUR (Bloquea clicks) -->
+    <div v-if="loadingAddModal" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gray-500/30 dark:bg-gray-900/50 backdrop-blur-sm">
+        <LoadingIsoLogo />
+        <span class="text-lg font-semibold text-gray-800 dark:text-gray-200 mt-4">Procesando solicitud...</span>
+    </div>
+
     <!-- ===== MODAL PARA AGREGAR PRODUCTOS ===== -->
     <DialogModal :show="showAddProductsModal" @close="showAddProductsModal = false">
         <template #title>
             <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos a {{ branches?.find(b => b.id == branchId)?.name }}
+                <i class="fa-solid fa-tags mr-2"></i> Asignar Productos Base a {{ branches?.find(b => b.id == branchId)?.name }}
             </h2>
         </template>
         <template #content>
-            <form @submit.prevent="saveProducts">
+            <form @submit.prevent="saveProducts" class="min-h-96">
                 <div class="p-4 border border-gray-200 dark:border-slate-700 rounded-lg">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
-                        <div>
-                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto*</label>
-                            <!-- ===== SELECT de productos de catalogo ===== -->
-                            <el-select @change="getProductMedia" :teleported="false" v-model="currentCatalogProduct.product_id" placeholder="Selecciona un producto" class="!w-full" filterable>
+                    <!-- Solo mostramos los productos padres -->
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-x-5 gap-y-4 items-end">
+                        <div class="md:col-span-5">
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Buscar producto base*</label>
+                            <el-select @change="getProductMedia" :teleported="false" v-model="currentCatalogProduct.product_id" placeholder="Selecciona un producto" class="!w-full mt-1" filterable>
                                 <el-option v-for="item in availableProducts" 
                                     :key="item.id" 
                                     :label="item.name" 
@@ -147,15 +183,24 @@
                                 />
                             </el-select>
                         </div>
+                        <div class="md:col-span-3">
+                            <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Moneda*</label>
+                            <el-select v-model="currentCatalogProduct.currency" :teleported="false" class="!w-full mt-1" placeholder="Moneda">
+                                <el-option label="MXN" value="MXN" />
+                                <el-option label="USD" value="USD" />
+                            </el-select>
+                        </div>
+                    </div>
+                    <div class="md:col-span-4 mt-2">
                         <TextInput label="Precio Especial (Opcional)" v-model="currentCatalogProduct.price"
-                            :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                            :helpContent="'Si no agregas precio se tomará el precio base'" type="number" :step="0.01" placeholder="Ej. 150.00" />
                     </div>
 
                     <div v-if="loadingCatalogProductMedia" class="flex items-center justify-center h-32">
                         <p class="text-gray-500">Cargando imagen...</p>
                     </div>
                     <div v-else-if="currentCatalogProduct.media" class="flex items-center space-x-4 p-2 bg-gray-100 dark:bg-slate-900/50 rounded-md col-span-full mt-4">
-                        <figure class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg">
+                        <figure class="relative flex items-center justify-center size-32 rounded-2xl border border-gray-200 dark:border-slate-900 overflow-hidden shadow-lg bg-white dark:bg-slate-800">
                             <img v-if="currentCatalogProduct.media?.length" :src="currentCatalogProduct.media[0]?.original_url" alt="Imagen del producto" class="rounded-2xl w-full h-auto object-cover">
                             <div v-else class="flex flex-col items-center justify-center text-gray-400 dark:text-slate-500 p-2 text-center">
                                 <i class="fa-solid fa-image text-3xl"></i>
@@ -175,7 +220,7 @@
                         </div>
                     </div>
                     
-                    <div class="flex justify-end mt-4">
+                    <div class="flex justify-end my-5">
                         <PrimaryButton @click="addBranchProduct" type="button" plain :disabled="!currentCatalogProduct.product_id">
                             <i class="fa-solid fa-plus mr-2"></i> Agregar a la lista
                         </PrimaryButton>
@@ -192,7 +237,7 @@
                             </span>
                             <div class="flex items-center space-x-3 text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">
-                                    Precio Especial: <strong>${{ product.price ?? 'N/A' }}</strong>
+                                    Precio Especial: <strong>${{ product.price ?? 'N/A' }} {{ product.price ? product.currency : '' }}</strong>
                                 </span>
                                 <button @click="removeBranchProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                     <i class="fa-solid fa-trash"></i>
@@ -222,7 +267,11 @@
         </template>
         <template #content>
             <div class="space-y-4 text-sm dark:text-gray-300">
-                <p>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                    <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+                </p>
+                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
                         <label class="font-semibold">Aumento en porcentaje*</label>
@@ -250,7 +299,8 @@
                         <el-date-picker v-model="priceForm.valid_from" type="date" :teleported="false" placeholder="Selecciona una fecha" class="!w-full mt-1" />
                     </div>
                 </div>
-                <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+                <!-- MENSAJE DE ERROR MODIFICADO -->
+                <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
                     El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
                 </div>
@@ -314,7 +364,6 @@ export default {
     },
     emits: ['update:show', 'products-loaded'],
     data() {
-        // --- FORMULARIO PARA AGREGAR PRODUCTOS A CLIENTE ---
         const newBranchProductForm = useForm({
             products: [],
         });
@@ -322,15 +371,14 @@ export default {
         return {
             newBranchProductForm,
             loading: false,
+            loadingAddModal: false, 
             clientProducts: [],
-            drawerSize: "35%", // valor inicial
+            drawerSize: "35%", 
             showAddProductsModal: false,
 
-            // --- para cerrar precio especial ---
             showClosePriceConfirmModal: false,
             priceHistoryToClose: null,
 
-            // --- DATOS PARA EL MODAL DE PRECIO ---
             showPriceModal: false,
             productForUpdate: null,
             priceForm: {
@@ -342,10 +390,10 @@ export default {
                 min_allowed_price: 0,
             },
             
-            // --- LÓGICA PARA ASIGNAR PRODUCTOS A CLIENTE (dentro del drawer) ---
             currentCatalogProduct: {
                 product_id: null,
                 price: null,
+                currency: 'MXN',
                 media: null,
                 base_price: null,
                 current_stock: null,
@@ -355,21 +403,67 @@ export default {
         };
     },
     computed: {
+        canBypassPriceRule() {
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+        },
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
-            // if (this.priceForm.amount < this.priceForm.current_base_price) return true;
+            if (this.canBypassPriceRule) return false;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
         },
-
-        // filtra los productos de catalogo que no tiene agregados el cliente seleccionado
         availableProducts() {
-            // Obtiene un array de IDs de los productos que el cliente ya tiene.
             const assignedProductIds = this.clientProducts.map(p => p.id);
-            // Filtra el catálogo general para excluir los productos que ya están asignados.
-            return this.catalog_products?.filter(p => !assignedProductIds.includes(p.id));
+            // RESTRICCIÓN: Mostrar en el seleccionador ÚNICAMENTE productos padre (que no tengan parent_id)
+            return this.catalog_products?.filter(p => !assignedProductIds.includes(p.id) && !p.parent_id);
+        },
+        orphanedVariants() {
+            // Encuentra los productos del cliente que son variantes de un padre, 
+            // pero el cliente NO tiene asignado a dicho padre.
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+            const orphans = [];
+            
+            for (const cp of this.clientProducts) {
+                const baseProduct = this.catalog_products?.find(parent => parent.variants?.some(v => v.id === cp.id));
+                if (baseProduct && !clientProductIds.has(baseProduct.id)) {
+                    orphans.push({
+                        ...cp,
+                        parent_name: baseProduct.name,
+                        parent_id: baseProduct.id
+                    });
+                }
+            }
+            return orphans;
         }
     },
     methods: {
+        openAddProductsModal() {
+            if (this.loadingAddModal) return; 
+            this.loadingAddModal = true;
+            
+            setTimeout(() => {
+                this.showAddProductsModal = true;
+                this.loadingAddModal = false;
+            }, 100);
+        },
+        async fixOrphanedVariant(variant) {
+            try {
+                this.loadingAddModal = true;
+                const payload = {
+                    products: [{ 
+                        product_id: variant.parent_id, 
+                        price: variant.price_history?.[0]?.price || variant.base_price, // Mantener su precio como base
+                        currency: variant.price_history?.[0]?.currency || 'MXN'
+                    }]
+                };
+                await axios.post(route('branches.add-products', this.branchId), payload);
+                ElMessage.success(`Producto base "${variant.parent_name}" asignado correctamente.`);
+                await this.fetchClientProducts();
+            } catch (error) {
+                ElMessage.error('Error al intentar asignar el producto base.');
+            } finally {
+                this.loadingAddModal = false;
+            }
+        },
         async fetchClientProducts() {
             if (!this.branchId) return;
             this.loading = true;
@@ -377,7 +471,7 @@ export default {
             try {
                 const response = await axios.get(route('branches.fetch-products', this.branchId));
                 this.clientProducts = response.data;
-                this.$emit('products-loaded', this.clientProducts); // Emitir productos al padre
+                this.$emit('products-loaded', this.clientProducts);
             } catch (error) {
                 console.error("Error fetching client products:", error);
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
@@ -385,7 +479,6 @@ export default {
                 this.loading = false;
             }
         },
-        // ------ Metodos para el drawer ( productos del cliente ) -------
         openProduct(id) {
             window.open(`/catalog-products/${id}`, "_blank");
         },
@@ -424,7 +517,6 @@ export default {
             if (isNaN(num)) return '0.00';
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
         },
-        // --- MÉTODOS PARA GESTIÓN DE PRECIOS ---
         openPriceModal(product) {
             const basePrice = product.price_history?.[0]?.price ?? product.base_price;
             
@@ -435,7 +527,7 @@ export default {
                 currency: 'MXN',
                 valid_from: new Date(),
                 current_base_price: basePrice,
-                min_allowed_price: basePrice * 1.04, // Regla de aumento del 4%
+                min_allowed_price: basePrice * 1.04, 
             };
             this.showPriceModal = true;
         },
@@ -458,7 +550,6 @@ export default {
             }
         },
 
-        // --- Metodos para cerrar precio especial ---
         confirmCloseSpecialPrice(historyId) {
             this.priceHistoryToClose = historyId;
             this.showClosePriceConfirmModal = true;
@@ -467,11 +558,10 @@ export default {
         async closeSpecialPrice() {
             if (!this.priceHistoryToClose) return;
             try {
-                // Usamos PATCH para indicar una actualización parcial del recurso
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
                     ElMessage.success('El precio especial ha sido finalizado.');
-                    this.fetchClientProducts(this.branchId);
+                    this.fetchClientProducts();
                 }
             } catch (error) {
                 console.error("Error al finalizar el precio:", error);
@@ -490,7 +580,6 @@ export default {
 
             try {
                 const routeName = 'branches.products.price.store';
-                // Usamos el ID del cliente del formulario principal
                 const routeParams = { branch: this.branchId, product: this.productForUpdate.id };
                 
                 const response = await axios.post(route(routeName, routeParams), this.priceForm);
@@ -498,8 +587,7 @@ export default {
                 if (response.status === 200) {
                     ElMessage.success('Precio actualizado correctamente.');
                     this.showPriceModal = false;
-                    // Recargamos solo los productos del cliente para no afectar el formulario
-                    this.fetchClientProducts(this.branchId);
+                    this.fetchClientProducts();
                 }
             } catch (error) {
                 console.error("Error al actualizar el precio:", error);
@@ -507,17 +595,14 @@ export default {
             }
         },
 
-        // --- MÉTODOS PARA GUARDAR PRODUCTOS AL CLIENTE ---
         saveProducts() {
-            // Se necesita una nueva ruta para manejar esta lógica en el backend
             this.newBranchProductForm.post(route('branches.add-products', this.branchId), {
                 preserveScroll: true,
                 onSuccess: () => {
                     ElMessage.success('Productos asignados correctamente.');
                     this.showAddProductsModal = false;
                     this.newBranchProductForm.reset();
-                    this.fetchClientProducts(this.branchId);
-                    // Inertia recargará los props automáticamente, actualizando la lista de productos.
+                    this.fetchClientProducts();
                 },
                 onError: () => {
                      ElMessage.error('Ocurrió un error al asignar los productos.');
@@ -529,7 +614,6 @@ export default {
                 ElMessage.warning('Debes seleccionar un producto.');
                 return;
             }
-            // Evitar duplicados (ya controlado con :disabled, pero es buena práctica tenerlo)
             if (this.isBranchProductForm(this.currentCatalogProduct.product_id)) {
                 ElMessage.warning('Este producto ya está en la lista.');
                 return;
@@ -544,6 +628,7 @@ export default {
             this.currentCatalogProduct = {
                 product_id: null,
                 price: null,
+                currency: 'MXN',
                 media: null,
                 base_price: null,
                 current_stock: null,
@@ -573,7 +658,7 @@ export default {
             } catch (error) {
                 console.error("Error al cargar detalles del producto:", error);
                 ElMessage.error('No se pudo cargar la información del producto.');
-                this.resetCurrentProduct();
+                this.resetCurrentBranchProduct(); 
             } finally {
                 this.loadingCatalogProductMedia = false;
             }
@@ -581,17 +666,16 @@ export default {
         updateDrawerSize() {
             const width = window.innerWidth;
             if (width < 640) {
-                this.drawerSize = "90%"; // móvil
+                this.drawerSize = "90%";
             } else if (width < 1024) {
-                this.drawerSize = "60%"; // tablet
+                this.drawerSize = "60%";
             } else {
-                this.drawerSize = "35%"; // desktop
+                this.drawerSize = "35%";
             }
         },
     },
     watch: {
         show(newVal) {
-            // Cada vez que se abre el drawer, se recargan los productos
             if (newVal) {
                 this.fetchClientProducts();
             }

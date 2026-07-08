@@ -1,9 +1,16 @@
 <template>
-  <div v-for="product in products" :key="product.id" class="bg-gray-100 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 transition-all hover:shadow-md">
-    <!-- ... Información del producto ... -->
+  <!-- CAMBIO AQUÍ: Clases dinámicas dependiendo de si el producto tiene parent_id -->
+  <div v-for="product in products" :key="product.id" 
+       :class="[
+           'bg-gray-100 dark:bg-slate-900/50 border rounded-lg p-4 transition-all hover:shadow-md relative overflow-hidden',
+           product.parent_id 
+            ? 'border-l-4 border-l-blue-400 border-gray-200 dark:border-gray-700' 
+            : 'border-l-4 border-l-emerald-500 border-gray-200 dark:border-gray-700'
+       ]">
+    
     <div class="flex items-start space-x-4">
         <figure class="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border dark:border-slate-600">
-            <img v-if="product.media?.length" :src="product.media[0]?.original_url" :alt="product.name" class="w-full h-full object-cover">
+            <img v-if="product.media?.length" :src="product.media[0]?.original_url" :alt="product.name" @error="handleImageError" class="w-full h-full object-cover">
             <div v-else class="w-full h-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center text-gray-400 dark:text-slate-500">
                 <i class="fa-solid fa-image text-3xl"></i>
             </div>
@@ -11,8 +18,18 @@
         <div class="flex-grow">
             <div class="flex justify-between items-start">
                 <div>
-                    <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400">{{ product.name }}</h4>
-                    <el-tag v-if="product.archived_at" type="warning" class="mb-1">Obsoleto</el-tag>
+                    <!-- CAMBIO AQUÍ: Etiquetas visuales para diferenciar productos Base de Variantes -->
+                    <div class="flex items-center gap-2 mb-1">
+                        <el-tag v-if="!product.parent_id" type="success" size="small" effect="dark" round>Producto Base</el-tag>
+                        
+                        <el-tag v-else type="primary" size="small" round>
+                            <i class="fa-solid fa-code-branch mr-1"></i> Variante de: <span class="font-bold">{{ product.parent?.name || 'Producto Desconocido' }}</span>
+                        </el-tag>
+
+                        <el-tag v-if="product.archived_at" type="warning" size="small">Obsoleto</el-tag>
+                    </div>
+
+                    <h4 @click="$inertia.visit(route('catalog-products.show', product.id))" class="font-bold text-lg text-gray-800 dark:text-gray-100 cursor-pointer hover:!text-blue-400 mt-1">{{ product.name }}</h4>
                     <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ product.code }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
@@ -29,9 +46,10 @@
                 </div>
             </div>
             <div class="text-sm mt-2 space-y-px">
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Precio actual:</strong> ${{ currentPrice(product).price }} {{ currentPrice(product).currency }}</p>
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Material:</strong> {{ product.material }}</p>
-                <p><strong class="font-semibold text-gray-600 dark:text-gray-300">Stock disponible:</strong> {{ product.storages[0]?.quantity }} {{ product.measure_unit }}</p>
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Precio actual:</strong> ${{ currentPrice(product).price }} {{ currentPrice(product).currency }}</p>
+                <!-- <p><strong class="font-bold text-gray-500 dark:text-gray-400">Material:</strong> {{ product.material }}</p> -->
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Stock disponible:</strong> {{ product.storages?.[0]?.quantity || 0 }} {{ product.measure_unit }}</p>
+                <p><strong class="font-bold text-gray-500 dark:text-gray-400">Stock mínimo:</strong> {{ product.min_quantity?.toLocaleString() }} {{ product.measure_unit }}</p>
             </div>
         </div>
     </div>
@@ -46,7 +64,7 @@
     </div>
     
     <!-- Historial de Precios Especiales -->
-    <div v-if="product.price_history.length" class="mt-4">
+    <div v-if="product.price_history?.length" class="mt-4">
         <el-collapse>
             <el-collapse-item>
                 <template #title>
@@ -54,11 +72,12 @@
                         <i class="fa-solid fa-clock-rotate-left mr-2"></i> Ver Historial de Precios Especiales ({{ product.price_history.length }})
                     </span>
                 </template>
-                <div class="p-2">
-                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <div class="p-2 overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400 min-w-[500px]">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                             <tr>
                                 <th scope="col" class="px-4 py-2">Precio Especial</th>
+                                <th scope="col" class="px-4 py-2">Usuario</th>
                                 <th scope="col" class="px-4 py-2">Vigente Desde</th>
                                 <th scope="col" class="px-4 py-2">Vigente Hasta</th>
                             </tr>
@@ -66,6 +85,10 @@
                         <tbody>
                             <tr v-for="history in product.price_history" :key="history.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
                                 <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ history.price }} {{ history.currency }}</td>
+                                <td class="px-4 py-2">
+                                    <span v-if="history.user">{{ history.user.name }}</span>
+                                    <span v-else class="text-gray-400 italic text-xs">Sistema</span>
+                                </td>
                                 <td class="px-4 py-2">{{ formatDate(history.valid_from) }}</td>
                                 <td class="px-4 py-2 flex items-center justify-between">
                                     <span>{{ history.valid_to ? formatDate(history.valid_to) : 'Indefinido' }}</span>
@@ -83,7 +106,7 @@
             </el-collapse-item>
         </el-collapse>
     </div>
-        <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
+    <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
         No hay precios especiales registrados para este producto.
     </p>
 </div>
@@ -95,7 +118,12 @@
     </template>
     <template #content>
         <div class="space-y-4 text-sm dark:text-gray-300">
-            <p>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+            <!-- Mensaje de advertencia o permiso especial -->
+            <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
+                <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
+            </p>
+            <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
                     <label class="font-semibold">Aumento en porcentaje*</label>
@@ -124,7 +152,7 @@
                 </div>
             </div>
             <!-- MENSAJE DE ERROR -->
-            <div v-if="priceForm.amount && isPriceInvalid" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
+            <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                 <i class="fa-solid fa-circle-exclamation mr-1"></i>
                 El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
             </div>
@@ -154,7 +182,7 @@
     </template>
 </ConfirmationModal>
 
-<!-- ===== NUEVO MODAL PARA REMOVER PRODUCTO ===== -->
+<!-- ===== MODAL PARA REMOVER PRODUCTO ===== -->
 <ConfirmationModal :show="showRemoveModal" @close="showRemoveModal = false">
     <template #title>
         Remover Producto del Cliente
@@ -201,7 +229,7 @@ data() {
         showClosePriceConfirmModal: false,
         priceHistoryToClose: null,
 
-        // --- NUEVOS DATOS PARA EL MODAL DE REMOVER ---
+        // --- DATOS PARA EL MODAL DE REMOVER ---
         showRemoveModal: false,
         productToRemove: null,
     }
@@ -216,12 +244,31 @@ props:{
     branchId: Number
 },
 computed: {
+    canBypassPriceRule() {
+        return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+    },
     isPriceInvalid() {
         if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
+        if (this.canBypassPriceRule) return false;
         return this.priceForm.amount < this.priceForm.min_allowed_price;
     }
 },
 methods:{
+    handleImageError(event) {
+        const img = event.target;
+        const currentSrc = img.src;
+        const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+        
+        if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+        img.dataset.fallbackAttempted = "true";
+
+        try {
+            const urlObj = new URL(currentSrc);
+            img.src = prodDomain + urlObj.pathname;
+        } catch (e) {
+            img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+        }
+    },
     openPriceModal(product) {
         const basePrice = product.price_history?.[0]?.price ?? product.base_price;
         

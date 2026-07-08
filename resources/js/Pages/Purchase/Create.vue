@@ -129,9 +129,13 @@
                                             </figure>
 
                                             <!-- informacion de almacén -->
-                                            <div>
+                                            <div class="text-sm">
                                                 <p class="text-gray-500 dark:text-gray-300">
-                                                    Stock: <strong>{{ productForm.storages[0]?.quantity.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ productForm.measure_unit }}</strong>
+                                                    Stock: <strong>{{ productForm.storages?.[0]?.quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }} {{ productForm.measure_unit }}</strong>
+                                                </p>
+                                                <p class="text-gray-500 dark:text-gray-300 mt-1">
+                                                    Mín: <strong>{{ productForm.min_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 0 }}</strong> | 
+                                                    Máx: <strong>{{ productForm.max_quantity?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") || 'N/A' }}</strong>
                                                 </p>
                                             </div>
                                         </div>
@@ -348,6 +352,8 @@ export default {
             ship_stock: 0,
             type: 'Venta',
             notes: '',
+            min_quantity: null, // NUEVO
+            max_quantity: null, // NUEVO
         };
 
         return {
@@ -375,6 +381,53 @@ export default {
     props: {
         suppliers: Array,
         products: Array,
+        prefill: Object, // Nuevo prop para datos precargados
+        preselectedProduct: Object, // Nuevo prop para detalles del producto precargado
+    },
+    async mounted() {
+        // Verificar si hay datos precargados para llenar el formulario
+        if (this.prefill?.supplier_id) {
+            this.form.supplier_id = parseInt(this.prefill.supplier_id);
+            
+            // Cargar datos del proveedor (esto limpiará los items, así que lo hacemos antes de agregar el preseleccionado)
+            await this.fetchSupplierDetails();
+
+            // Si hay producto preseleccionado, agregarlo
+            if (this.prefill.product_id && this.preselectedProduct) {
+                // Intentar encontrar el producto en la lista cargada del proveedor para obtener precio específico
+                const productInList = this.availableProducts.find(p => p.value == this.prefill.product_id);
+                
+                let price = 0;
+                // Usar nombre y código del prop por defecto
+                let name = `${this.preselectedProduct.name} (${this.preselectedProduct.code})`;
+
+                if (productInList) {
+                    name = productInList.label; // Usar etiqueta del select si está disponible
+                    if (productInList.pivot && productInList.pivot.last_price) {
+                        price = parseFloat(productInList.pivot.last_price);
+                    } else {
+                        price = productInList.cost ?? 0;
+                    }
+                }
+
+                // Agregar el item al formulario
+                this.form.items.push({
+                    product_id: parseInt(this.prefill.product_id),
+                    product_name: name,
+                    quantity: parseFloat(this.prefill.quantity) || 1,
+                    unit_price: price,
+                    additional_stock: 0,
+                    plane_stock: 0,
+                    ship_stock: 0,
+                    type: 'Venta',
+                    needs_mold: false,
+                    mold_price: 0,
+                    notes: '',
+                });
+                
+                ElMessage.info('Producto precargado desde alerta de stock.');
+            }
+        }
     },
     computed: {
         // Calcula los totales de la orden
@@ -426,10 +479,11 @@ export default {
                 const data = response.data;
                 this.supplierContacts = data.contacts;
                 this.supplierBankAccounts = data.bankAccounts;
+                // NOTA: Laravel envía los datos de la relación (last_price) dentro de un objeto llamado 'pivot'
                 this.availableProducts = data.products.map(product => ({
                     value: product.id,
                     label: `${product.name} (${product.code})`,
-                    ...product
+                    ...product // Al usar spread, la propiedad 'pivot' queda disponible en availableProducts
                 }));
             } catch (error) {
                 console.error("Error al obtener detalles del proveedor:", error);
@@ -441,7 +495,15 @@ export default {
             const product = this.availableProducts.find(p => p.value === productId);
             if (product) {
                 this.productForm.product_name = product.label;
-                this.productForm.unit_price = product.cost ?? 0;
+                
+                // CORRECCIÓN AQUI:
+                // Verificamos si existe el pivot (dato de la relación) y si tiene un last_price
+                if (product.pivot && product.pivot.last_price) {
+                    this.productForm.unit_price = parseFloat(product.pivot.last_price);
+                } else {
+                    // Si no tiene precio específico con este proveedor, usamos el costo global
+                    this.productForm.unit_price = product.cost ?? 0;
+                }
             }
             this.getProductMedia();
         },
@@ -454,14 +516,14 @@ export default {
                 if ( response.status === 200 ) {
                     this.productForm.media = response.data.product.media;
                     this.productForm.storages = response.data.product.storages;
-                    this.productForm.cost = response.data.product.cost;
+                    // Ya no sobreescribimos el costo aquí porque onProductSelect ya tiene la lógica correcta
+                    // this.productForm.cost = response.data.product.cost; 
                     this.productForm.measure_unit = response.data.product.measure_unit;
                     this.productForm.currency = response.data.product.currency;
-
-                    // Si estamos agregando un nuevo producto (no editando), se asigna el costo como precio.
-                    if (this.editingProductIndex === null) {
-                        this.productForm.last_price = response.data.product.cost;
-                    }
+                    
+                    // ASIGNACIÓN DEL STOCK MÁXIMO Y MÍNIMO
+                    this.productForm.min_quantity = response.data.product.min_quantity;
+                    this.productForm.max_quantity = response.data.product.max_quantity;
                 }
             } catch (error) {
                 console.log(error);
@@ -510,6 +572,12 @@ export default {
         editProduct(index) {
             this.editProductIndex = index;
             this.productForm = { ...this.form.items[index] };
+            
+            // Si falta info detallada (como en items precargados que no tienen storages), buscarla
+            if (!this.productForm.storages) {
+                this.getProductMedia();
+            }
+
             this.$refs.formProduct.scrollIntoView({ behavior: 'smooth' });
         },
         // Cancelar la edición de un producto
@@ -531,6 +599,8 @@ export default {
                 needs_mold: false,
                 mold_price: null,
                 notes: '',
+                min_quantity: null, // RESET MÍNIMO
+                max_quantity: null, // RESET MÁXIMO
             };
             this.editProductIndex = null;
         },

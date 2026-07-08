@@ -15,6 +15,8 @@ class ShipmentProduct extends Model
         'shipment_id',
         'sale_product_id',
         'quantity',
+        'original_quantity', // This field is used to store the original quantity of the product before any adjustments.
+        'less_sent_reason', // This field is used to store the reason for sending less quantity than originally ordered, if applicable.
     ];
 
     protected $guarded = ['id'];

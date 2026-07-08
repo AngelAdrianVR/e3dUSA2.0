@@ -17,9 +17,9 @@ class BranchController extends Controller
 {
     public function index()
     {
-        // Usamos with() para cargar las relaciones y evitar el problema N+1.
-        // Esto hace que la consulta sea mucho más eficiente.
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Cargamos solo las matrices (parent_branch_id = null) y sus sucursales hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest() // Ordena por los más recientes primero
             ->paginate(30); // Pagina los resultados
 
@@ -28,13 +28,88 @@ class BranchController extends Controller
         ]);
     }
 
+    // --- MÉTODO PARA EL REPORTE ---
+    public function report()
+    {
+        // Consultamos todas las matrices y sus hijas sin paginación para el reporte completo
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc') // Orden alfabético para el reporte
+            ->get();
+
+        return Inertia::render('Branch/Report', [
+            'matrices' => $matrices,
+        ]);
+    }
+
+    // --- MÉTODO PARA EXPORTAR A EXCEL (CSV) ---
+    public function export()
+    {
+        $fileName = 'Directorio_Clientes_' . date('Y-m-d_H-i-s') . '.csv';
+
+        $matrices = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+            ->orderBy('name', 'asc')
+            ->get();
+
+        $headers = [
+            "Content-type"        => "text/csv; charset=UTF-8",
+            "Content-Disposition" => "attachment; filename=$fileName",
+            "Pragma"              => "no-cache",
+            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
+            "Expires"             => "0"
+        ];
+
+        $columns = ['ID', 'Nombre', 'RFC', 'Direccion', 'Razon Social', 'Vendedor Asignado', 'Tipo (Matriz/Sucursal)'];
+
+        $callback = function() use($matrices, $columns) {
+            $file = fopen('php://output', 'w');
+            
+            // Agregar BOM para que Excel lea correctamente los caracteres especiales (UTF-8, Acentos, etc.)
+            fputs($file, $bom =(chr(0xEF) . chr(0xBB) . chr(0xBF)));
+            
+            // Escribir cabeceras
+            fputcsv($file, $columns);
+
+            foreach ($matrices as $matriz) {
+                // Escribir fila de la matriz
+                fputcsv($file, [
+                    $matriz->id,
+                    $matriz->name,
+                    $matriz->rfc,
+                    $matriz->address,
+                    $matriz->business_name,
+                    $matriz->accountManager->name ?? 'No asignado',
+                    'Matriz'
+                ]);
+
+                foreach ($matriz->children as $hija) {
+                    // Escribir fila de la hija
+                    fputcsv($file, [
+                        $hija->id,
+                        '   -> ' . $hija->name, // Se indenta el nombre para fácil lectura
+                        $hija->rfc,
+                        $hija->address,
+                        $hija->business_name,
+                        $hija->accountManager->name ?? 'No asignado',
+                        'Sucursal'
+                    ]);
+                }
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
     public function create()
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
     }
 
@@ -42,7 +117,14 @@ class BranchController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches',
-            'rfc' => 'nullable|string|max:20',
+            'rfc' => 'required_without:parent_branch_id|nullable|string|min:10|max:20',
+            
+            // Nuevas columnas validadas
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'required_without:parent_branch_id|nullable|string|min:3|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -58,6 +140,7 @@ class BranchController extends Controller
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
+            'contacts.*.prefix' => 'nullable|string|max:50',
 
             // Validación para productos asignados
             'products' => 'nullable|array',
@@ -75,6 +158,13 @@ class BranchController extends Controller
             $branch = Branch::create([
                 'name' => $validated['name'],
                 'rfc' => $validated['rfc'],
+                
+                // Nuevas columnas mapeadas para inserción
+                'group_name' => $validated['group_name'] ?? null,
+                'business_name' => $validated['business_name'] ?? null,
+                'bank_account' => $validated['bank_account'] ?? null,
+                'client_number' => $validated['client_number'] ?? null,
+
                 'address' => $validated['address'],
                 'post_code' => $validated['post_code'],
                 'status' => $validated['status'],
@@ -96,6 +186,7 @@ class BranchController extends Controller
                     }
 
                     $contact = $branch->contacts()->create([
+                        'prefix' => $contactData['prefix'] ?? 'Ing.', // Toma el valor o por defecto Ing.
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
@@ -169,11 +260,14 @@ class BranchController extends Controller
 
         // Cargamos los productos desde la sucursal matriz
         $products = $productSourceBranch->products()->with([
+            'parent:id,name', // <--- NUEVO: Cargar producto padre para identificar si es variante
             'storages',
             'media',
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
-                $query->where('branch_id', $productSourceBranch->id)->orderBy('valid_from', 'desc');
+                $query->where('branch_id', $productSourceBranch->id)
+                      ->with('user:id,name')
+                      ->orderBy('valid_from', 'desc');
             }
         ])->get();
 
@@ -182,17 +276,133 @@ class BranchController extends Controller
 
         $allBranches = Branch::select('id', 'name')->get();
 
+        // Mandamos llamar a nuestro nuevo método refactorizado
+        $consumptionData = $this->calculateSalesAnalytics($branch);
+
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get()
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
+            'consumptionData' => $consumptionData, 
         ]);
+    }
+
+    /**
+     * NUEVO MÉTODO: Endpoint para obtener analíticas vía petición (Axios)
+     */
+    public function getSalesAnalytics(Branch $branch)
+    {
+        // Retornamos la data en formato JSON para peticiones frontend
+        return response()->json($this->calculateSalesAnalytics($branch));
+    }
+
+    /**
+     * NUEVO MÉTODO PRIVADO: Centraliza la lógica de cálculos de consumo
+     * para usarla tanto en el show como en el endpoint JSON.
+     */
+    private function calculateSalesAnalytics(Branch $branch)
+    {
+        $oneYearAgo = now()->subYear();
+        
+        $annualConsumption = $branch->sales()->where('created_at', '>=', $oneYearAgo)->where('type', 'venta')->where('status', '!=', 'Cancelada')->sum('total_amount');
+        $monthlyConsumption = $annualConsumption / 12;
+
+        // Cargar productos de ventas del último año
+        $salesProductsLastYear = \App\Models\SaleProduct::with('product.media')
+            ->whereHas('sale', function($query) use ($branch, $oneYearAgo) {
+                $query->where('branch_id', $branch->id)
+                      ->where('created_at', '>=', $oneYearAgo)
+                      ->where('type', 'venta')
+                      ->where('status', '!=', 'Cancelada');
+            })
+            ->get();
+            
+        $productConsumption = $salesProductsLastYear->groupBy('product_id')->map(function ($items) {
+            $first = $items->first();
+            $annualQuantity = $items->sum('quantity');
+            $annualTotal = $items->sum(function($item) { return $item->quantity * $item->price; });
+            
+            $imageUrl = null;
+            if ($first->product && $first->product->media && $first->product->media->isNotEmpty()) {
+                $imageUrl = $first->product->media->first()->original_url;
+            }
+
+            return [
+                'product_id' => $first->product_id,
+                'name' => $first->product->name ?? 'Producto temporal',
+                'code' => $first->product->code ?? 'N/A',
+                'image_url' => $imageUrl,
+                'annual_quantity' => $annualQuantity,
+                'monthly_quantity' => round($annualQuantity / 12, 2),
+                'annual_total' => $annualTotal,
+                'monthly_total' => $annualTotal / 12,
+            ];
+        })->values()->sortByDesc('annual_quantity')->toArray();
+
+        // Histórico de Ventas (Con desglose de productos)
+        $allSales = $branch->sales()
+            ->with('saleProducts.product') 
+            ->where('type', 'venta')
+            ->where('status', '!=', 'Cancelada')
+            ->get();
+
+        $salesByYearMonth = [];
+        foreach ($allSales as $sale) {
+            $year = \Carbon\Carbon::parse($sale->created_at)->format('Y');
+            $month = (int)\Carbon\Carbon::parse($sale->created_at)->format('m');
+
+            if (!isset($salesByYearMonth[$year])) {
+                $salesByYearMonth[$year] = array_fill(1, 12, ['total' => 0, 'products' => []]);
+            }
+
+            $salesByYearMonth[$year][$month]['total'] += (float)$sale->total_amount;
+
+            if ($sale->saleProducts) {
+                foreach ($sale->saleProducts as $sp) {
+                    $prodId = $sp->product_id;
+                    $prodName = $sp->product->name ?? 'Producto Eliminado';
+                    
+                    if (!isset($salesByYearMonth[$year][$month]['products'][$prodId])) {
+                        $salesByYearMonth[$year][$month]['products'][$prodId] = [
+                            'name' => $prodName,
+                            'quantity' => 0,
+                            'total' => 0,
+                        ];
+                    }
+                    
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['quantity'] += $sp->quantity;
+                    $salesByYearMonth[$year][$month]['products'][$prodId]['total'] += ($sp->quantity * $sp->price);
+                }
+            }
+        }
+
+        foreach ($salesByYearMonth as $year => &$months) {
+            foreach ($months as $month => &$data) {
+                usort($data['products'], function($a, $b) {
+                    return $b['total'] <=> $a['total']; 
+                });
+                $data['products'] = array_values($data['products']);
+            }
+        }
+
+        return [
+            'annual_consumption' => $annualConsumption,
+            'monthly_consumption' => $monthlyConsumption,
+            'product_breakdown' => $productConsumption,
+            'sales_by_year_month' => $salesByYearMonth,
+        ];
     }
 
     public function edit(Branch $branch)
     {
         // Cargar las relaciones que no dependen de la matriz
         $branch->load(['contacts.details', 'suggestedProducts', 'parent']);
+
+        if ($branch->parent_branch_id) {
+            $branch->business_name = $branch->business_name ?? $branch->parent?->business_name;
+            $branch->rfc = $branch->rfc ?? $branch->parent?->rfc;
+        }
+
         $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
         // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
@@ -212,6 +422,7 @@ class BranchController extends Controller
             
             return [
                 'id' => $contact->id,
+                'prefix' => $contact->prefix,
                 'name' => $contact->name,
                 'charge' => $contact->charge,
                 'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
@@ -242,8 +453,8 @@ class BranchController extends Controller
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
             'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
-            'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name')->get(),
-            'catalog_products' => Product::where('product_type', 'Catálogo')->whereNull('archived_at')->select('id', 'name')->get(),
+            'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
+            'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
         ]);
     }
@@ -257,7 +468,14 @@ class BranchController extends Controller
                 'max:255',
                 Rule::unique('branches', 'name')->ignore($branch->id),
             ],
-            'rfc' => 'nullable|string|max:20',
+            'rfc' => 'required_without:parent_branch_id|nullable|string|min:10|max:20',
+            
+            // Nuevas columnas también agregadas al update por seguridad y consistencia
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'required_without:parent_branch_id|nullable|string|min:3|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
+
             'address' => 'nullable|string',
             'post_code' => 'nullable|string|max:10',
             'status' => 'required|in:Prospecto,Cliente',
@@ -274,6 +492,7 @@ class BranchController extends Controller
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
+            'contacts.*.prefix' => 'nullable|string|max:50',
 
             // Validación para productos asignados
             'products' => 'nullable|array',
@@ -287,7 +506,7 @@ class BranchController extends Controller
         ]);
 
         DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar datos de la sucursal
+            // 1. Actualizar datos de la sucursal (al usar collect except automáticamente recoge las nuevas si fueron validadas)
             $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
 
             // 2. Sincronizar contactos
@@ -303,6 +522,7 @@ class BranchController extends Controller
                 $contact = $branch->contacts()->updateOrCreate(
                     ['id' => $contactData['id'] ?? null],
                     [
+                        'prefix' => $contactData['prefix'] ?? 'Ing.', // <--- NUEVO
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
@@ -365,9 +585,14 @@ class BranchController extends Controller
             $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
         });
 
+        if ($request->has('redirect_to')) {
+            return to_route($request->query('redirect_to'));
+        }
+
         return to_route('branches.show', $branch->id);
     }
 
+    
     public function destroy(Branch $branch)
     {
         try {
@@ -451,20 +676,27 @@ class BranchController extends Controller
     {
         $query = $request->input('query');
 
-        // Realiza la búsqueda
-        $branches = Branch::with(['accountManager:id,name', 'parent:id,name'])
+        // Realiza la búsqueda mostrando solo matrices y filtrando si hay coincidencias en las hijas
+        $branches = Branch::whereNull('parent_branch_id')
+            ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
                 ->orWhere('name', 'like', "%{$query}%")
+                ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda por Razón Social
                 ->orWhere('status', 'like', "%{$query}%")
-                // Busca dentro de la relación de la matriz (parent)
-                ->orWhereHas('parent', function ($parentQuery) use ($query) {
-                    $parentQuery->where('name', 'like', "%{$query}%");
-                })
-                // Correcto uso de whereHas para buscar en la relación
+                // Busca dentro de su propio account manager
                 ->orWhereHas('accountManager', function ($userquery) use ($query) {
                     $userquery->where('name', 'like', "%{$query}%");
+                })
+                // Busca si alguna sucursal hija coincide
+                ->orWhereHas('children', function ($childQuery) use ($query) {
+                    $childQuery->where('name', 'like', "%{$query}%")
+                               ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda en hijas
+                               ->orWhere('status', 'like', "%{$query}%")
+                               ->orWhereHas('accountManager', function($uq) use ($query){
+                                   $uq->where('name', 'like', "%{$query}%");
+                               });
                 });
             })
             ->get();
@@ -496,21 +728,24 @@ class BranchController extends Controller
                 $productIdsToSync[] = $productData['product_id'];
 
                 if (isset($productData['price']) && !is_null($productData['price'])) {
-                    // Invalidar precios anteriores para este producto y cliente (en la matriz)
+                    // Invalidar precios anteriores...
                     DB::table('branch_price_history')
                         ->where('branch_id', $productTargetBranch->id)
                         ->where('product_id', $productData['product_id'])
                         ->whereNull('valid_to')
                         ->update(['valid_to' => $now]);
 
-                    // Agregar el nuevo precio especial a la matriz
+                    // Agregar el nuevo precio especial a la matriz (modificado)
                     $priceHistoryData[] = [
                         'branch_id' => $productTargetBranch->id,
                         'product_id' => $productData['product_id'],
+                        // Se asegura de guardar el ID de usuario autenticado
+                        'user_id' => auth()->id(), 
                         'price' => $productData['price'],
                         'valid_from' => $now,
                         'valid_to' => null,
-                        'currency' => $productData['currency'],
+                        // Usamos Null Coalescing por si algún día falla la petición
+                        'currency' => $productData['currency'] ?? 'MXN', 
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -539,9 +774,10 @@ class BranchController extends Controller
                 // El historial de precios también se consulta con el ID de la matriz
                 'priceHistory' => function ($query) use ($productSourceBranch) {
                     $query->where('branch_id', $productSourceBranch->id)
+                        ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
                         ->orderBy('valid_from', 'desc');
                 }
-            ])
+            ])->whereNull('archived_at')
             ->get();
 
         return response()->json($products);
@@ -554,6 +790,11 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:branches,name',
             'rfc' => 'nullable|string|max:13',
+            // Agregado por si decides enviarlos desde la forma rápida también
+            'group_name' => 'nullable|string|max:255',
+            'business_name' => 'nullable|string|max:255',
+            'bank_account' => 'nullable|string|max:255',
+            'client_number' => 'nullable|string|max:255',
         ]);
 
         $branch = Branch::create($validated + ['password' => bcrypt('e3d')]);
@@ -584,5 +825,48 @@ class BranchController extends Controller
     {
         // Si la sucursal tiene un padre, esa es la matriz. De lo contrario, es ella misma.
         return $branch->parent_branch_id ? $branch->parent : $branch;
+    }
+
+    // === AGREGAR ESTE NUEVO MÉTODO AL FINAL DE TU CONTROLADOR ===
+    public function checkSaleValidity(Branch $branch)
+    {
+        $branch->load(['parent', 'contacts']);
+        
+        $missingData = [];
+
+        // 1. Revisar si la propia sucursal tiene la información
+        $hasOwnRfc = !empty($branch->rfc);
+        $hasOwnBusinessName = !empty($branch->business_name);
+
+        // 2. Si es hija y le falta algo, revisar el padre
+        if ($branch->parent_branch_id) {
+            if (!$hasOwnRfc && empty($branch->parent->rfc)) {
+                $missingData[] = 'RFC';
+            }
+            if (!$hasOwnBusinessName && empty($branch->parent->business_name)) {
+                $missingData[] = 'Razón Social';
+            }
+        } else {
+            // Es matriz, revisar sus propios datos
+            if (!$hasOwnRfc) {
+                $missingData[] = 'RFC';
+            }
+            if (!$hasOwnBusinessName) {
+                $missingData[] = 'Razón Social';
+            }
+        }
+
+        if ($branch->contacts->isEmpty()) {
+            $missingData[] = 'Al menos un contacto';
+        }
+
+        if (count($missingData) > 0) {
+            return response()->json([
+                'valid' => false,
+                'message' => implode(', ', $missingData)
+            ]);
+        }
+
+        return response()->json(['valid' => true]);
     }
 }

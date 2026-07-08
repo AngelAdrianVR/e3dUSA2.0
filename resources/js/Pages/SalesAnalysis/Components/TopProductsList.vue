@@ -7,7 +7,9 @@
         :class="['flex items-center space-x-4 p-3 rounded-lg cursor-pointer transition-all duration-200',
           selectedProduct?.id === product.id ? 'dark:bg-indigo-900 bg-blue-200 shadow-lg' : 'dark:hover:bg-gray-700 hover:bg-gray-100']">
         <span :class="['font-bold text-lg w-8 text-center flex-shrink-0', selectedProduct?.id === product.id ? 'text-white' : 'text-secondary dark:text-indigo-400']">{{ index + 1 }}</span>
-        <img :src="product.image_url || 'https://placehold.co/40x40/1f2937/9ca3af?text=N/A'" class="w-10 h-10 rounded-md object-cover bg-gray-700">
+        <img :src="product.image_url || 'https://placehold.co/40x40/1f2937/9ca3af?text=N/A'"
+             @error="handleImageError"
+             class="w-10 h-10 rounded-md object-cover bg-gray-700">
         <div class="flex-1 min-w-0">
           <p class="font-semibold text-sm text-gray-600 dark:text-white truncate">{{ product.name }}</p>
           <p class="text-xs text-gray-400">{{ product.code }}</p>
@@ -32,6 +34,23 @@ export default {
     topProducts: Array,
     isLoading: Boolean,
     selectedProduct: Object,
+  },
+  methods: {
+    handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
   },
   emits: ['selectProduct'],
 }

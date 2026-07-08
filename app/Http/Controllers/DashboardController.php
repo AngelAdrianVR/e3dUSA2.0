@@ -10,6 +10,7 @@ use App\Models\EmployeeDetail;
 use App\Models\Event;
 use App\Models\Invoice;
 use App\Models\OvertimeRequest;
+use App\Models\PmsTask;
 use App\Models\Product;
 use App\Models\Production;
 use App\Models\ProductionTask;
@@ -90,9 +91,8 @@ class DashboardController extends Controller
         // Se reestructura el array para enviar un objeto a la vista.
         $warehouseStats = [
             'counts' => [
-                DB::table('products')->where('product_type', 'Materia prima')->count(),
+                DB::table('products')->where('product_type', 'Producto')->count(),
                 DB::table('products')->where('product_type', 'Insumo')->count(),
-                DB::table('products')->where('product_type', 'Catálogo')->count(),
             ],
             'lowStockCount' => $lowStockCount,
         ];
@@ -332,6 +332,17 @@ class DashboardController extends Controller
                     });
             }
 
+         // ------------- NUEVA CONSULTA: Mis Tareas PMS -------------
+        $myPmsTasks = PmsTask::where('responsible_id', $authUserId)
+            ->whereIn('kanban_status', ['Pendiente', 'En proceso', 'Validación'])
+            ->with(['media', 'responsible']) // Cargar relaciones necesarias para el Modal
+            ->orderBy('due_date', 'asc')
+            ->limit(7)
+            ->get();
+
+        // Se requieren los usuarios para el Modal de Tareas PMS en el Dashboard
+        $users = User::where('is_active', true)->whereNot('id', 1)->get();
+
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
             'warehouseStats' => $warehouseStats,
@@ -340,6 +351,8 @@ class DashboardController extends Controller
             'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
+            'myPmsTasks' => $myPmsTasks,
+            'users' => $users,
             'authUserName' => $authUser?->name,
             'news' => $news,
             'productionPerformance' => $productionPerformance,

@@ -6,7 +6,10 @@
             <button @click="$emit('close')" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
         </div>
         <div class="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <img @click="openProductDetail" :src="selectedProduct.image_url || 'https://placehold.co/128x128/1f2937/9ca3af?text=N/A'" class="size-32 cursor-pointer rounded-lg object-cover bg-gray-700">
+            <img @click="openProductDetail" :src="selectedProduct.image_url || 'https://placehold.co/128x128/1f2937/9ca3af?text=N/A'"
+                @error="handleImageError"
+              class="size-32 cursor-pointer rounded-lg object-cover bg-gray-700">
+
             <div class="flex-1">
                 <h3 class="text-2xl font-bold dark:text-white">{{ selectedProduct.name }}</h3>
                 <el-tag v-if="selectedProduct.archived_at" type="warning" class="mb-1">Obsoleto</el-tag>
@@ -72,7 +75,22 @@ export default {
     openProductDetail() {
         const url = route('catalog-products.show', this.selectedProduct.id)
         window.open(url, 'blanck')
-    }
+    },
+    handleImageError(event) {
+            const img = event.target;
+            const currentSrc = img.src;
+            const prodDomain = 'https://www.intranetemblems3d.dtw.com.mx';
+            
+            if (img.dataset.fallbackAttempted || currentSrc.includes(prodDomain)) return;
+            img.dataset.fallbackAttempted = "true";
+
+            try {
+                const urlObj = new URL(currentSrc);
+                img.src = prodDomain + urlObj.pathname;
+            } catch (e) {
+                img.src = currentSrc.replace(/^https?:\/\/[^\/]+/, prodDomain);
+            }
+        },
   },
   emits: ['close'],
 }
