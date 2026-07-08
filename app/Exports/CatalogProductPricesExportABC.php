@@ -25,7 +25,8 @@ class CatalogProductPricesExportABC implements
     public function collection()
     {
         // 1. Obtenemos productos de catálogo activos
-        $products = Product::where('product_type', 'Catálogo')
+        $products = Product::where('product_type', 'Producto')
+            ->where('is_sellable', true)
             ->with([
                 'priceHistory' => function ($query) {
                     // Solo precios vigentes
