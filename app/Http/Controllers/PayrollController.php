@@ -86,7 +86,7 @@ class PayrollController extends Controller
     /**
      * Lógica centralizada para calcular los datos de la nómina.
      */
-    private function calculatePayrollData(Payroll $payroll, $employees)
+    public function calculatePayrollData(Payroll $payroll, $employees)
     {
         $unjustifiedAbsenceType = IncidentType::where('name', 'Falta injustificada')->first();
         $dayOffType = IncidentType::where('name', 'Descanso')->first();
