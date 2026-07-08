@@ -12,6 +12,7 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class CatalogProductPricesExportPriceABC implements
     FromCollection,
@@ -26,9 +27,11 @@ class CatalogProductPricesExportPriceABC implements
     public function collection()
     {
         // Se obtienen los productos con sus sucursales y el historial de precios vigentes.
-        $products = Product::where('product_type', 'Catálogo')
+        $products = Product::where('product_type', 'Producto')
+            ->where('is_sellable', true)
             ->with([
                 'branches', // Cargamos branches sin ordenar aquí, ordenaremos la colección final
+                'storages',
                 'priceHistory' => function ($query) {
                     // Cargar solo los precios especiales que están vigentes
                     $query->whereNull('valid_to');
@@ -45,6 +48,8 @@ class CatalogProductPricesExportPriceABC implements
                 continue;
             }
 
+            $stock = $product->storages->first()?->quantity ?? 0;
+
             // Luego se itera sobre cada sucursal/cliente asociado al producto
             foreach ($product->branches as $branch) {
                 // Se busca el precio especial para esta combinación de producto y sucursal
@@ -53,7 +58,7 @@ class CatalogProductPricesExportPriceABC implements
                                         ->first();
 
                 // Estructura Modificada:
-                // Sucursal / Cliente | Nombre de producto | Moneda (Base) | Precio A (Especial) | Precio B | Precio C
+                // Sucursal / Cliente | Nombre de producto | Moneda (Base) | Precio A (Especial) | Precio B | Precio C | Stock Disponible | ¿Se compra?
                 $data[] = [
                     'Sucursal / Cliente' => $branch?->name,
                     'Nombre de producto' => $product->name,
@@ -61,6 +66,7 @@ class CatalogProductPricesExportPriceABC implements
                     'Precio A'           => $specialPrice->price ?? '-', // Se toma del Precio Especial
                     'Precio B'           => '', // En blanco
                     'Precio C'           => '', // En blanco
+                    'Stock Disponible'   => $stock,
                 ];
             }
         }
@@ -83,6 +89,7 @@ class CatalogProductPricesExportPriceABC implements
             'Precio A',
             'Precio B',
             'Precio C',
+            'Stock Disponible',
         ];
     }
 
@@ -93,12 +100,13 @@ class CatalogProductPricesExportPriceABC implements
     {
         // Anchos de columna ajustados a la nueva estructura (A-F)
         return [
-            'A' => 50, // Sucursal / Cliente (Antes era D)
-            'B' => 45, // Nombre de producto (Antes era A)
+            'A' => 50, // Sucursal / Cliente
+            'B' => 45, // Nombre de producto
             'C' => 12, // Moneda
             'D' => 16, // Precio A
             'E' => 16, // Precio B
             'F' => 16, // Precio C
+            'G' => 18, // Stock Disponible
         ];
     }
 
@@ -113,10 +121,12 @@ class CatalogProductPricesExportPriceABC implements
             1    => [
                 'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                 'fill' => [
-                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'fillType' => Fill::FILL_SOLID,
                     'startColor' => ['rgb' => '0D6EFD'],
                 ],
             ],
         ];
     }
+
+
 }

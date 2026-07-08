@@ -30,7 +30,8 @@ class CatalogProductPricesExport implements
     {
         // Se obtienen los productos con sus sucursales y el historial de precios vigentes.
         // Cargar 'priceHistory' donde 'valid_to' es nulo evita problemas de N+1 consultas.
-        $products = Product::where('product_type', 'Catálogo')
+        $products = Product::where('product_type', 'Producto')
+            ->where('is_sellable', true)
             ->with([
                 'branches' => function ($query) {
                     $query->orderBy('name');
