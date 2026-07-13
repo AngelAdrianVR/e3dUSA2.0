@@ -24,6 +24,10 @@
                                 <i class="fa-solid fa-user-slash mr-2"></i>{{ user.is_active ? 'Dar de baja' :
                                     'Reactivar' }}
                             </el-dropdown-item>
+                            <el-dropdown-item v-if="user.employee_detail"
+                                @click="openSettlement">
+                                <i class="fa-solid fa-file-invoice-dollar mr-2"></i>Finiquito
+                            </el-dropdown-item>
                             <el-dropdown-item v-if="hasPermission('Crear personal')"
                                 @click="$inertia.get(route('users.create'))" divided>
                                 <i class="fa-solid fa-plus mr-2"></i>Crear nuevo
@@ -147,37 +151,112 @@
                                 <i class="fa-solid fa-plus mr-2"></i>Registrar Movimiento
                             </PrimaryButton>
                         </div>
-                        <div class="grid grid-cols-2 gap-4 mb-4 text-center">
-                            <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
-                                <p class="text-2xl font-bold text-green-700 dark:text-green-200">{{
-                                    vacation_summary.available?.toFixed(2) ?? '0.00'
-                                }}</p>
-                                <p class="text-sm text-green-600 dark:text-green-300">Días Disponibles</p>
+
+                        <!-- Contenido de vacaciones (solo si hay periodos) -->
+                        <template v-if="work_years?.length">
+                            <!-- Selector de año laboral -->
+                            <div class="mb-4">
+                                <InputLabel value="Año Laboral" class="mb-1" />
+                                <el-select :teleported="false" v-model="selectedPeriodIndex" class="w-full">
+                                    <el-option v-for="(period, index) in work_years" :key="index"
+                                        :label="formatPeriodLabel(period)" :value="index" />
+                                </el-select>
                             </div>
-                            <div class="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-lg">
-                                <p class="text-2xl font-bold text-amber-700 dark:text-amber-200">{{
-                                    vacation_summary.taken?.toFixed(2) ?? '0.00'
-                                }}</p>
-                                <p class="text-sm text-amber-600 dark:text-amber-300">Días Tomados</p>
+
+                            <!-- Tarjetas de resumen del periodo -->
+                            <div v-if="selectedPeriod" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-center">
+                                <div class="bg-blue-100 dark:bg-blue-900/50 p-3 rounded-lg">
+                                    <p class="text-xl font-bold text-blue-700 dark:text-blue-200">
+                                        {{ selectedPeriod.max_days_by_law }}
+                                    </p>
+                                    <p class="text-xs text-blue-600 dark:text-blue-300">Días por Ley</p>
+                                </div>
+                                <div class="bg-teal-100 dark:bg-teal-900/50 p-3 rounded-lg">
+                                    <p class="text-xl font-bold text-teal-700 dark:text-teal-200">
+                                        {{ selectedPeriod.accrued_days.toFixed(2) }}
+                                    </p>
+                                    <p class="text-xs text-teal-600 dark:text-teal-300">Devengado</p>
+                                </div>
+                                <div class="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-lg">
+                                    <p class="text-xl font-bold text-amber-700 dark:text-amber-200">
+                                        {{ selectedPeriod.taken_days.toFixed(2) }}
+                                    </p>
+                                    <p class="text-xs text-amber-600 dark:text-amber-300">Tomados</p>
+                                </div>
+                                <div class="bg-green-100 dark:bg-green-900/50 p-3 rounded-lg">
+                                    <p class="text-xl font-bold"
+                                        :class="selectedPeriod.available_days > 0
+                                            ? 'text-green-700 dark:text-green-200'
+                                            : 'text-red-700 dark:text-red-200'">
+                                        {{ selectedPeriod.available_days.toFixed(2) }}
+                                    </p>
+                                    <p class="text-xs text-green-600 dark:text-green-300">Disponibles</p>
+                                </div>
                             </div>
+
+                            <!-- Detalle de acumulación -->
+                            <div v-if="selectedPeriod" class="text-xs text-gray-500 dark:text-gray-400 mb-3 space-y-1">
+                                <p v-if="selectedPeriod.negative_adjustments > 0">
+                                    <span class="font-semibold">Ajustes Negativos:</span>
+                                    -{{ selectedPeriod.negative_adjustments.toFixed(2) }} días
+                                </p>
+                                <p>
+                                    <span class="font-semibold">Periodo:</span>
+                                    {{ formatDate(selectedPeriod.start_date) }} — {{ formatDate(selectedPeriod.end_date) }}
+                                </p>
+                            </div>
+
+                            <!-- Tabla de movimientos del periodo -->
+                            <el-table :data="selectedPeriod?.logs ?? []" max-height="300" stripe size="small"
+                                class="dark:!bg-slate-900">
+                                <el-table-column prop="date" label="Fecha">
+                                    <template #default="{ row }">{{ formatDate(row.date) }}</template>
+                                </el-table-column>
+                                <el-table-column prop="type" label="Tipo de Movimiento">
+                                    <template #default="{ row }">{{ formatVacationType(row.type) }}</template>
+                                </el-table-column>
+                                <el-table-column prop="days" label="Días" align="center">
+                                    <template #default="{ row }">
+                                        <span :class="row.days > 0 ? 'text-green-600' : 'text-red-600'">
+                                            {{ row.days > 0 ? `+${row.days}` : row.days }}
+                                        </span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="description" label="Descripción" />
+                                <el-table-column prop="creator.name" label="Registrado por" />
+                            </el-table>
+                            <div v-if="selectedPeriod && !selectedPeriod.logs.length"
+                                class="text-center text-gray-500 dark:text-gray-400 py-4">
+                                <p>Sin movimientos en este periodo.</p>
+                            </div>
+                        </template>
+
+                        <!-- Sin periodos pero con logs: mostrar tabla simple -->
+                        <template v-else-if="vacation_logs?.length">
+                            <el-table :data="vacation_logs" max-height="300" stripe size="small"
+                                class="dark:!bg-slate-900">
+                                <el-table-column prop="date" label="Fecha">
+                                    <template #default="{ row }">{{ formatDate(row.date) }}</template>
+                                </el-table-column>
+                                <el-table-column prop="type" label="Tipo de Movimiento">
+                                    <template #default="{ row }">{{ formatVacationType(row.type) }}</template>
+                                </el-table-column>
+                                <el-table-column prop="days" label="Días" align="center">
+                                    <template #default="{ row }">
+                                        <span :class="row.days > 0 ? 'text-green-600' : 'text-red-600'">
+                                            {{ row.days > 0 ? `+${row.days}` : row.days }}
+                                        </span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="description" label="Descripción" />
+                                <el-table-column prop="creator.name" label="Registrado por" />
+                            </el-table>
+                        </template>
+
+                        <!-- Sin periodos (sin fecha de ingreso) -->
+                        <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
+                            <p>No hay información de vacaciones disponible.</p>
                         </div>
-                        <el-table :data="vacation_logs" max-height="300" stripe size="small" class="dark:!bg-slate-900">
-                            <el-table-column prop="date" label="Fecha">
-                                <template #default="{ row }">{{ formatDate(row.date) }}</template>
-                            </el-table-column>
-                            <el-table-column prop="type" label="Tipo de Movimiento">
-                                <template #default="{ row }">{{ formatVacationType(row.type) }}</template>
-                            </el-table-column>
-                            <el-table-column prop="days" label="Días" align="center">
-                                <template #default="{ row }">
-                                    <span :class="row.days > 0 ? 'text-green-600' : 'text-red-600'">
-                                        {{ row.days > 0 ? `+${row.days}` : row.days }}
-                                    </span>
-                                </template>
-                            </el-table-column>
-                            <el-table-column prop="description" label="Descripción" />
-                            <el-table-column prop="creator.name" label="Registrado por" />
-                        </el-table>
                     </div>
 
                     <!-- Historial de Bajas -->
@@ -310,12 +389,13 @@ import TextInput from '@/Components/TextInput.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 
 const props = defineProps({
     user: Object,
     vacation_logs: Array,
+    work_years: { type: Array, default: () => [] },
     termination_logs: Array,
     vacation_summary: Object,
     age: Number,
@@ -324,6 +404,15 @@ const props = defineProps({
 
 const showVacationModal = ref(false);
 const showChangeStatusModal = ref(false);
+
+// Índice del periodo seleccionado. Por defecto, el periodo actual (is_current = true)
+const selectedPeriodIndex = ref(
+    props.work_years?.length
+        ? Math.max(0, props.work_years.findIndex(p => p.is_current))
+        : 0
+);
+
+const selectedPeriod = computed(() => props.work_years?.[selectedPeriodIndex.value] ?? null);
 
 const permissions = usePage().props.auth.user.permissions || [];
 const hasPermission = (permission) => {
@@ -358,6 +447,17 @@ const formatVacationType = (type) => {
     return types[type] || type;
 };
 
+const formatPeriodLabel = (period) => {
+    const start = new Date(period.start_date + 'T00:00:00');
+    const end = new Date(period.end_date + 'T00:00:00');
+    const fmtOpts = { day: 'numeric', month: 'short', year: 'numeric' };
+    const startStr = start.toLocaleDateString('es-MX', fmtOpts);
+    const endStr = end.toLocaleDateString('es-MX', fmtOpts);
+    let label = `Año ${period.year_number} (${startStr} — ${endStr})`;
+    if (period.is_current) label += ' · Actual';
+    return label;
+};
+
 const submitVacationLog = () => {
     vacationForm.post(route('vacation-logs.store'), {
         onSuccess: () => {
@@ -367,6 +467,10 @@ const submitVacationLog = () => {
         },
         preserveScroll: true,
     });
+};
+
+const openSettlement = () => {
+    window.open(route('users.settlement', props.user), '_blank');
 };
 
 const submitTermination = () => {
