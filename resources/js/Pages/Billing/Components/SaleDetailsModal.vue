@@ -89,7 +89,14 @@
                                         <i class="fa-solid fa-image"></i>
                                     </div>
                                 </td>
-                                <td class="p-2 text-gray-800 dark:text-gray-200 uppercase">{{ item.product?.name || 'Producto Desconocido' }}</td>
+                                <td class="p-2 text-gray-800 dark:text-gray-200 uppercase">
+                                    {{ item.product?.name || 'Producto Desconocido' }}
+                                    <div v-if="item.product?.material" class="mt-1">
+                                        <el-tag size="small" type="warning" effect="plain" class="!text-[10px]">
+                                            Material: {{ item.product.material }}
+                                        </el-tag>
+                                    </div>
+                                </td>
                                 <td class="p-2 text-gray-600 dark:text-gray-400 text-center">{{ item.quantity }} pzas</td>
                                 <td class="p-2 text-gray-600 dark:text-gray-400 text-right">${{ formatCurrency(item.price) }}</td>
                             </tr>

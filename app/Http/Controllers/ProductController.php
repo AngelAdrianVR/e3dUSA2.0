@@ -695,6 +695,7 @@ class ProductController extends Controller
             'products.*.is_sellable' => 'present|boolean',
             'products.*.is_purchasable' => 'present|boolean',
             'products.*.parent_id' => 'nullable|exists:products,id',
+            'products.*.name' => 'nullable|string|max:255',
         ]);
     
         DB::beginTransaction();
@@ -711,6 +712,10 @@ class ProductController extends Controller
                     'parent_id' => $productData['parent_id'] ?? null,
                     'material' => isset($productData['material']) ? $materialMap[$productData['material']] : null,
                 ];
+
+                if (!empty($productData['name'])) {
+                    $updateData['name'] = $productData['name'];
+                }
 
                 if (isset($productData['product_type_key'])) {
                     $newType = $productTypesMap[$productData['product_type_key']];
