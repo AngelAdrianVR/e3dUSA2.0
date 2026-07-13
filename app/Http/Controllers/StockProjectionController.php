@@ -55,7 +55,12 @@ class StockProjectionController extends Controller
     }
 
     /**
-     * Extrae la data de la proyección basada en los filtros
+     * Extrae la data de la proyección basada en los filtros.
+     * 
+     * LÓGICA CLAVE: Los productos ensamblados (compuestos) se "explotan" en sus
+     * componentes comprables. Ejemplo: si se venden 100 "Llavero Toyota c/Medallón",
+     * se contabilizan 100 "Llavero Toyota" + 100 "Medallón" para la proyección.
+     * Las ventas directas de componentes también se suman normalmente.
      */
     private function getReportData(Request $request)
     {
@@ -69,76 +74,173 @@ class StockProjectionController extends Controller
         $startDate = Carbon::parse($request->start_date)->startOfDay();
         $endDate = Carbon::parse($request->end_date)->endOfDay();
         
-        // Calculamos los meses de diferencia, mínimo 1 para evitar división por 0
         $monthsDiff = $startDate->diffInMonths($endDate);
         if ($monthsDiff < 1) {
             $monthsDiff = 1;
         }
 
-        // 1. Query Base
-        $query = DB::table('sale_products')
-            ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
-            ->join('products', 'sale_products.product_id', '=', 'products.id')
-            ->whereBetween('sales.created_at', [$startDate, $endDate])
-            ->whereIn('sales.status', ['Completada', 'Autorizada', 'Enviada', 'En Proceso', 'Preparando Envío', 'En Producción'])
-            ->where('products.is_purchasable', true);
+        // ==========================================
+        // 1. CARGAR DATOS MAESTROS
+        // ==========================================
 
-        // Si se seleccionaron productos específicos, filtramos
-        if ($request->product_mode === 'selected' && !empty($request->product_ids)) {
-            $query->whereIn('products.id', $request->product_ids);
+        // Mapa de explosión: [product_id (int) => [ [component_id (int), quantity (float)], ... ]]
+        // Se construye desde product_components y se hereda a variantes (parent_id)
+        // igual que hace el accessor Product::actual_components
+        $explosionMap = [];
+        $rawComponents = DB::table('product_components')
+            ->select('catalog_product_id', 'component_product_id', 'quantity')
+            ->get();
+        foreach ($rawComponents as $row) {
+            $assemblyId = (int) $row->catalog_product_id;
+            if (!isset($explosionMap[$assemblyId])) {
+                $explosionMap[$assemblyId] = [];
+            }
+            $explosionMap[$assemblyId][] = [
+                'component_id' => (int) $row->component_product_id,
+                'quantity'     => (float) $row->quantity,
+            ];
         }
 
-        // 2. Obtener la tabla estratégica sumada por producto
-        $salesData = clone $query;
-        $tableData = $salesData->select(
-                'products.id',
-                'products.code',
-                'products.name',
-                'products.min_quantity',
-                DB::raw('SUM(sale_products.quantity) as total_sold')
-            )
-            ->groupBy('products.id', 'products.code', 'products.name', 'products.min_quantity')
-            ->orderByDesc('total_sold')
+        // Heredar componentes del padre a las variantes (productos con parent_id)
+        // Esto replica la lógica de Product::getActualComponentsAttribute()
+        $variantsWithoutOwnComponents = Product::whereNotNull('parent_id')
+            ->whereNotIn('id', array_keys($explosionMap))
+            ->select('id', 'parent_id')
             ->get();
 
-        // 3. Obtener el Stock Actual y las Imágenes (con Eager Loading para optimizar)
+        foreach ($variantsWithoutOwnComponents as $variant) {
+            $parentId = (int) $variant->parent_id;
+            if (isset($explosionMap[$parentId])) {
+                $explosionMap[(int) $variant->id] = $explosionMap[$parentId];
+            }
+        }
+
+        // Productos comprables (los que la empresa importa)
+        $purchasableProducts = Product::where('is_purchasable', true)
+            ->whereNull('archived_at')
+            ->select('id', 'code', 'name', 'min_quantity')
+            ->get()
+            ->keyBy('id');
+        $purchasableIds = $purchasableProducts->keys()->map(fn($id) => (int) $id)->toArray();
+
+        // ==========================================
+        // 2. QUERY BASE DE VENTAS AUTORIZADAS
+        // ==========================================
+
+        $baseQuery = DB::table('sale_products')
+            ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
+            ->whereNotNull('sales.authorized_at')
+            ->whereBetween('sales.authorized_at', [$startDate, $endDate])
+            ->whereIn('sales.status', ['Completada', 'Autorizada', 'Enviada', 'En Proceso', 'Preparando Envío', 'En Producción']);
+
+        // Modo "selected": incluir también los ensamblados que contienen los productos elegidos
+        if ($request->product_mode === 'selected' && !empty($request->product_ids)) {
+            $selectedIds = array_map('intval', $request->product_ids);
+            $assemblyIds = DB::table('product_components')
+                ->whereIn('component_product_id', $selectedIds)
+                ->pluck('catalog_product_id')
+                ->map(fn($id) => (int) $id)
+                ->toArray();
+            $allRelevantIds = array_unique(array_merge($selectedIds, $assemblyIds));
+            $baseQuery->whereIn('sale_products.product_id', $allRelevantIds);
+        }
+
+        // ==========================================
+        // 3. EXPLOTAR ENSAMBLADOS Y AGREGAR
+        // ==========================================
+
+        $rawSales = (clone $baseQuery)
+            ->select('sale_products.product_id', 'sale_products.quantity')
+            ->get();
+
+        // Debug: registrar si hay datos de explosión y ventas
+        \Log::info('StockProjection :: Ensamblados en product_components: ' . count($explosionMap) 
+            . ' (directos + ' . $variantsWithoutOwnComponents->count() . ' variantes heredados)'
+            . ' | Ventas encontradas en periodo: ' . $rawSales->count()
+            . ' | Productos comprables: ' . count($purchasableIds));
+
+        $aggregatedSales = []; // (int) product_id => (int) total_quantity
+        $explodedCount = 0;
+        foreach ($rawSales as $sale) {
+            $prodId = (int) $sale->product_id;
+            $qty    = (int) $sale->quantity;
+
+            // Si el producto vendido es un ensamblado, "explotar" en sus componentes
+            if (isset($explosionMap[$prodId])) {
+                $explodedCount++;
+                foreach ($explosionMap[$prodId] as $comp) {
+                    $compId = $comp['component_id'];
+                    if (in_array($compId, $purchasableIds, true)) {
+                        $derivedQty = (int) round($qty * $comp['quantity']);
+                        $aggregatedSales[$compId] = ($aggregatedSales[$compId] ?? 0) + $derivedQty;
+                    }
+                }
+            }
+
+            // Siempre contar la venta directa si el producto en sí es comprable
+            if (in_array($prodId, $purchasableIds, true)) {
+                $aggregatedSales[$prodId] = ($aggregatedSales[$prodId] ?? 0) + $qty;
+            }
+        }
+
+        // Modo "selected": filtrar resultado final solo a los productos seleccionados
+        if ($request->product_mode === 'selected' && !empty($request->product_ids)) {
+            $selectedIds = array_map('intval', $request->product_ids);
+            $aggregatedSales = array_intersect_key(
+                $aggregatedSales,
+                array_flip($selectedIds)
+            );
+        }
+
+        \Log::info('StockProjection :: Ensamblados explotados: ' . $explodedCount
+            . ' | Productos resultantes en proyección: ' . count($aggregatedSales));
+
+        // ==========================================
+        // 4. CONSTRUIR TABLA DE PROYECCIÓN
+        // ==========================================
+
+        $tableData = collect();
+        foreach ($aggregatedSales as $prodId => $totalSold) {
+            $product = $purchasableProducts->get($prodId);
+            if (!$product) continue;
+            $tableData->push((object)[
+                'id'         => $prodId,
+                'code'       => $product->code,
+                'name'       => $product->name,
+                'min_quantity' => $product->min_quantity,
+                'total_sold' => $totalSold,
+            ]);
+        }
+        $tableData = $tableData->sortByDesc('total_sold')->values();
+
+        // Obtener Stock Actual e Imágenes
         $productIds = $tableData->pluck('id')->toArray();
         $productsDetails = Product::with(['storages', 'media'])
                                   ->whereIn('id', $productIds)
                                   ->get()
                                   ->keyBy('id');
 
-        // 4. Formatear Tabla, Calcular Promedios y Sugerencias
+        // Formatear Tabla, Calcular Promedios y Sugerencias
         $criticalAlerts = 0;
         $totalUnitsSold = 0;
 
         $formattedTable = $tableData->map(function ($item) use ($monthsDiff, &$criticalAlerts, &$totalUnitsSold, $productsDetails) {
-            // Obtenemos el modelo cargado con sus relaciones
             $productModel = $productsDetails->get($item->id);
-
-            // Sumamos el stock de todos los almacenes para este producto
             $currentStock = $productModel ? $productModel->storages->sum('quantity') : 0;
             
-            // Obtenemos la imagen y aplicamos el reemplazo del dominio
             $imageUrl = $productModel ? $productModel->getFirstMediaUrl('images') : null;
             if ($imageUrl) {
                 $imageUrl = str_replace('http://127.0.0.1:8000', 'https://www.intranetemblems3d.dtw.com.mx', $imageUrl);
             }
 
-            // Cálculos de proyección
             $monthlyAvg = $item->total_sold / $monthsDiff;
-            $projection3Months = round($monthlyAvg * 3); // 3 Meses sugeridos de stock en total
-            
-            // Sugerencia real de compra (Lo que falta) descontando el stock actual
+            $projection3Months = round($monthlyAvg * 3);
             $toOrder = max(0, $projection3Months - $currentStock);
-
             $totalUnitsSold += $item->total_sold;
 
-            // Determinar estado de la sugerencia
             $status = 'Óptimo';
             if ($toOrder > 0) {
                 $status = 'Pedir Pronto';
-                // Si hay que pedir y además el stock actual está por debajo del mínimo, es crítico
                 if ($currentStock <= $item->min_quantity) {
                     $criticalAlerts++;
                 }
@@ -149,50 +251,77 @@ class StockProjectionController extends Controller
                 'code' => $item->code,
                 'name' => $item->name,
                 'min_quantity' => $item->min_quantity,
-                'current_stock' => $currentStock, 
-                'image_url' => $imageUrl,         
+                'current_stock' => $currentStock,
+                'image_url' => $imageUrl,
                 'total_sold' => $item->total_sold,
                 'monthly_average' => round($monthlyAvg, 1),
-                'projection_3_months' => $projection3Months, // La proyección bruta de 3 meses
-                'to_order' => $toOrder,                      // Faltante (Sugerencia)
+                'projection_3_months' => $projection3Months,
+                'to_order' => $toOrder,
                 'status' => $status
             ];
         });
 
-        // 5. Preparar Datos para Gráfica (Tendencia mensual del Top 5 productos)
-        $top5Ids = $tableData->take(5)->pluck('id')->toArray();
+        // ==========================================
+        // 5. GRÁFICA DE TENDENCIA MENSUAL (Top 5)
+        // ==========================================
+
+        $top5Ids = $tableData->take(5)->pluck('id')->map(fn($id) => (int) $id)->toArray();
         $chartCategories = [];
         $chartSeries = [];
 
         if (count($top5Ids) > 0) {
-            $trendQuery = clone $query;
-            $trendData = $trendQuery->whereIn('products.id', $top5Ids)
+            $trendRaw = (clone $baseQuery)
                 ->select(
-                    'products.id',
-                    'products.name',
-                    DB::raw('DATE_FORMAT(sales.created_at, "%Y-%m") as month'),
-                    DB::raw('SUM(sale_products.quantity) as sold')
+                    'sale_products.product_id',
+                    'sale_products.quantity',
+                    DB::raw('DATE_FORMAT(sales.authorized_at, "%Y-%m") as month')
                 )
-                ->groupBy('products.id', 'products.name', 'month')
-                ->orderBy('month')
                 ->get();
 
+            // Explotar tendencia por producto + mes
+            $trendAgg = []; // "productId|month" => quantity
+            foreach ($trendRaw as $row) {
+                $month  = $row->month;
+                $prodId = (int) $row->product_id;
+                $qty    = (int) $row->quantity;
+
+                if (isset($explosionMap[$prodId])) {
+                    foreach ($explosionMap[$prodId] as $comp) {
+                        $compId = $comp['component_id'];
+                        if (in_array($compId, $top5Ids, true)) {
+                            $derivedQty = (int) round($qty * $comp['quantity']);
+                            $key = $compId . '|' . $month;
+                            $trendAgg[$key] = ($trendAgg[$key] ?? 0) + $derivedQty;
+                        }
+                    }
+                }
+                if (in_array($prodId, $top5Ids, true)) {
+                    $key = $prodId . '|' . $month;
+                    $trendAgg[$key] = ($trendAgg[$key] ?? 0) + $qty;
+                }
+            }
+
             // Extraer meses únicos ordenados
-            $chartCategories = $trendData->pluck('month')->unique()->values()->toArray();
-            
-            // Construir las series para ApexCharts
+            $allMonths = [];
+            foreach ($trendAgg as $key => $val) {
+                $parts = explode('|', $key);
+                $allMonths[] = $parts[1];
+            }
+            $chartCategories = array_values(array_unique($allMonths));
+            sort($chartCategories);
+
+            // Construir series para ApexCharts
             foreach ($top5Ids as $pid) {
-                $prodData = $trendData->where('id', $pid);
-                if ($prodData->isEmpty()) continue;
+                $product = $purchasableProducts->get($pid);
+                if (!$product) continue;
 
                 $dataPoints = [];
                 foreach ($chartCategories as $catMonth) {
-                    $monthRecord = $prodData->firstWhere('month', $catMonth);
-                    $dataPoints[] = $monthRecord ? (int)$monthRecord->sold : 0;
+                    $key = $pid . '|' . $catMonth;
+                    $dataPoints[] = $trendAgg[$key] ?? 0;
                 }
-
                 $chartSeries[] = [
-                    'name' => $prodData->first()->name,
+                    'name' => $product->name,
                     'data' => $dataPoints
                 ];
             }

@@ -6,6 +6,8 @@
 namespace App\Exports;
 
 use App\Models\Product;
+use App\Models\SaleProduct;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -40,6 +42,19 @@ class CatalogProductPricesExportPriceABC implements
             ->whereNull('archived_at')
             ->get();
 
+        // Construir mapa de última compra: (branch_id, product_id) => fecha
+        $productIds = $products->pluck('id')->toArray();
+        $branchIds = $products->pluck('branches.*.id')->flatten()->unique()->toArray();
+
+        $lastPurchases = SaleProduct::query()
+            ->join('sales', 'sales.id', '=', 'sale_products.sale_id')
+            ->whereIn('sale_products.product_id', $productIds)
+            ->whereIn('sales.branch_id', $branchIds)
+            ->selectRaw('sales.branch_id, sale_products.product_id, MAX(sales.created_at) as last_purchase_date')
+            ->groupBy('sales.branch_id', 'sale_products.product_id')
+            ->get()
+            ->keyBy(fn ($item) => $item->branch_id . '-' . $item->product_id);
+
         $data = [];
 
         // Se itera sobre cada producto
@@ -57,16 +72,24 @@ class CatalogProductPricesExportPriceABC implements
                                         ->where('branch_id', $branch?->id)
                                         ->first();
 
-                // Estructura Modificada:
-                // Sucursal / Cliente | Nombre de producto | Moneda (Base) | Precio A (Especial) | Precio B | Precio C | Stock Disponible | ¿Se compra?
+                // Última compra de esta sucursal para este producto
+                $purchaseKey = $branch->id . '-' . $product->id;
+                $lastPurchase = $lastPurchases->get($purchaseKey);
+                $lastPurchaseDate = $lastPurchase
+                    ? Carbon::parse($lastPurchase->last_purchase_date)->format('d/m/Y')
+                    : 'Sin compras';
+
+                // Estructura:
+                // Sucursal / Cliente | Nombre de producto | Moneda | Precio A | Precio B | Precio C | Stock Disponible | Última compra
                 $data[] = [
                     'Sucursal / Cliente' => $branch?->name,
                     'Nombre de producto' => $product->name,
-                    'Moneda'             => $product->currency ?? '-', // Se toma de Moneda Base
-                    'Precio A'           => $specialPrice->price ?? '-', // Se toma del Precio Especial
-                    'Precio B'           => '', // En blanco
-                    'Precio C'           => '', // En blanco
+                    'Moneda'             => $product->currency ?? '-',
+                    'Precio A'           => $specialPrice->price ?? '-',
+                    'Precio B'           => '',
+                    'Precio C'           => '',
                     'Stock Disponible'   => $stock,
+                    'Última compra'      => $lastPurchaseDate,
                 ];
             }
         }
@@ -90,6 +113,7 @@ class CatalogProductPricesExportPriceABC implements
             'Precio B',
             'Precio C',
             'Stock Disponible',
+            'Última compra',
         ];
     }
 
@@ -107,6 +131,7 @@ class CatalogProductPricesExportPriceABC implements
             'E' => 16, // Precio B
             'F' => 16, // Precio C
             'G' => 18, // Stock Disponible
+            'H' => 16, // Última compra
         ];
     }
 

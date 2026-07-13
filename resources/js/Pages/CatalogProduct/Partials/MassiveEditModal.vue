@@ -11,20 +11,20 @@
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
                 <thead class="bg-gray-50 dark:bg-slate-800">
                     <tr>
-                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300">Img</th>
-                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[180px]">Producto</th>
-                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-store" title="¿Se Vende?"></i> Venta</th>
-                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-truck" title="¿Se Compra?"></i> Compra</th>
-                        <th class="px-3 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-puzzle-piece" title="¿Es Componente?"></i> Comp.</th>
-                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[200px]">Producto Padre</th>
-                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[150px]">Familia</th>
-                        <th class="px-3 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[120px]">Tipo</th>
+                        <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300">Img</th>
+                        <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[180px]">Producto</th>
+                        <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-store" title="¿Se Vende?"></i> Venta</th>
+                        <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-truck" title="¿Se Compra?"></i> Compra</th>
+                        <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-puzzle-piece" title="¿Es Componente?"></i> Comp.</th>
+                        <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[200px]">Producto Padre</th>
+                        <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[150px]">Familia</th>
+                        <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[120px]">Tipo</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-gray-700">
                     <tr v-for="(item, index) in form.products" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
                         <!-- Imagen -->
-                        <td class="px-3 py-2">
+                        <td class="px-2 py-2">
                             <img v-if="originalProducts[index]?.media?.length" 
                                  :src="originalProducts[index].media[0].original_url" 
                                  class="w-12 h-12 object-cover rounded cursor-pointer border border-gray-200 dark:border-gray-600 hover:opacity-80" 
@@ -34,29 +34,29 @@
                             </div>
                         </td>
                         
-                        <!-- Nombre (solo lectura) -->
-                        <td class="px-3 py-2 text-gray-800 dark:text-gray-200 font-medium">
-                            {{ originalProducts[index]?.name }}
-                            <div class="text-xs text-gray-400">{{ originalProducts[index]?.code }}</div>
+                        <!-- Nombre (editable) -->
+                        <td class="px-2 py-2">
+                            <el-input v-model="item.name" placeholder="Nombre del producto" size="small" class="w-full" />
+                            <div class="text-xs text-gray-400 mt-1">{{ originalProducts[index]?.code }}</div>
                         </td>
 
                         <!-- Checkbox Venta -->
-                        <td class="px-3 py-2 text-center">
+                        <td class="px-2 py-2 text-center">
                             <el-checkbox v-model="item.is_sellable" />
                         </td>
                         
                         <!-- Checkbox Compra -->
-                        <td class="px-3 py-2 text-center">
+                        <td class="px-2 py-2 text-center">
                             <el-checkbox v-model="item.is_purchasable" />
                         </td>
 
                         <!-- Checkbox Componente -->
-                        <td class="px-3 py-2 text-center">
+                        <td class="px-2 py-2 text-center">
                             <el-checkbox v-model="item.is_used_as_component" />
                         </td>
 
                         <!-- Selector Padre -->
-                        <td class="px-3 py-2">
+                        <td class="px-2 py-2">
                             <el-select 
                                 v-model="item.parent_id" 
                                 filterable 
@@ -78,14 +78,14 @@
                         </td>
 
                         <!-- Selector Familia -->
-                        <td class="px-3 py-2">
+                        <td class="px-2 py-2">
                             <el-select v-model="item.product_family_id" filterable clearable placeholder="Familia" class="w-full" :disabled="item.product_type_key === 'I'">
                                 <el-option v-for="fam in product_families" :key="fam.id" :label="fam.name" :value="fam.id" />
                             </el-select>
                         </td>
 
                         <!-- Selector Tipo -->
-                        <td class="px-3 py-2">
+                        <td class="px-2 py-2">
                             <el-select v-model="item.product_type_key" placeholder="Tipo" class="w-full">
                                 <el-option label="Producto" value="P" />
                                 <el-option label="Insumo" value="I" />
@@ -166,6 +166,7 @@ export default {
             // Construimos la estructura exacta para enviar al backend
             this.editList = this.selected_products.map(p => ({
                 id: p.id,
+                name: p.name ?? '',
                 parent_id: p.parent_id ?? null,
                 product_family_id: p.product_family_id ?? null,
                 is_sellable: p.is_sellable == 1,
