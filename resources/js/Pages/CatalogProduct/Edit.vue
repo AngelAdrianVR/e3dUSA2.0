@@ -77,6 +77,12 @@
                                     <Checkbox v-model:checked="form.is_used_as_component" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se usa para armar otros productos?</span>
                                 </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.requires_director_approval" />
+                                    <span class="ml-2 text-sm text-amber-700 dark:text-amber-300 group-hover:text-amber-600 transition-colors">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i>¿Consultar con Sherman antes de comprar?
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
@@ -535,6 +541,7 @@ export default {
                 is_sellable: this.catalog_product.is_sellable == 1,
                 is_purchasable: this.catalog_product.is_purchasable == 1,
                 is_used_as_component: this.catalog_product.is_used_as_component == 1,
+                requires_director_approval: this.catalog_product.requires_director_approval == 1,
                 // -----------------------------
                 
                 width: this.catalog_product.width,

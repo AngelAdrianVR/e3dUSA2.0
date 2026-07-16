@@ -75,6 +75,12 @@
                                     <Checkbox v-model:checked="form.is_used_as_component" />
                                     <span class="ml-2 text-sm text-gray-700 dark:text-gray-300 group-hover:text-indigo-600 transition-colors">¿Se usa como componente?</span>
                                 </label>
+                                <label class="flex items-center cursor-pointer group">
+                                    <Checkbox v-model:checked="form.requires_director_approval" />
+                                    <span class="ml-2 text-sm text-amber-700 dark:text-amber-300 group-hover:text-amber-600 transition-colors">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i>¿Consultar con Sherman antes de comprar?
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
@@ -536,6 +542,7 @@ export default {
                 is_sellable: true,
                 is_purchasable: false,
                 is_used_as_component: false,
+                requires_director_approval: false,
 
                 product_type_key: 'P', // P = Producto, I = Insumo
                 material: null,

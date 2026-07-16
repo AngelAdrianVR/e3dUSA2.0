@@ -142,6 +142,9 @@
                         <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex flex-wrap items-center gap-3">
                             {{ activeProduct.name }}
                             <el-tag v-if="activeProduct.archived_at" type="warning">Obsoleto</el-tag>
+                            <el-tag v-if="activeProduct.requires_director_approval" type="danger" effect="dark">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i>Consultar con Sherman
+                            </el-tag>
                             
                             <!-- Botón superior para regresar a ver el producto Padre -->
                             <button v-if="selectedVariant" @click="selectedVariant = null" class="text-xs bg-gray-200 hover:bg-gray-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-full font-medium transition-colors flex items-center">

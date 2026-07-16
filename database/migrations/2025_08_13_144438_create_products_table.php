@@ -21,6 +21,7 @@ return new class extends Migration
             $table->date('base_price_updated_at')->nullable(); // precio de la ultima actualizacion de precio base
             $table->boolean('is_sellable')->default(true); // indica si es un producto que se vende
             $table->boolean('is_purchasable')->default(true); // indica si es un producto que se compra
+            $table->boolean('requires_director_approval')->default(false); // bandera para consultar con dirección antes de comprar
             $table->timestamp('archived_at')->nullable(); // fecha ar archivacion a obsoletos
             $table->string('material')->nullable(); // tipo de material con el cual esta hecho el producto Zamak, acero, abs, etc
             $table->float('large')->unsigned()->nullable();

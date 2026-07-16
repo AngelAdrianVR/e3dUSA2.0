@@ -40,6 +40,7 @@ class Product extends Model implements HasMedia, Auditable
         'is_purchasable',
         'product_family_id',
         'is_used_as_component', // indica is el producto es usado como componente
+        'requires_director_approval', // bandera para consultar con dirección antes de comprar
         'base_price_updated_at', // fecha de la ultima actualización de precio base (para revision automatica de cada año)
         'parent_id' // para productos que son variantes de otro producto (ejemplo: un producto llavero chevrolet puede tener variantes de grabados para diferentes agencias)
     ];
@@ -49,6 +50,7 @@ class Product extends Model implements HasMedia, Auditable
         'is_sellable' => 'boolean',
         'is_purchasable' => 'boolean',
         'is_used_as_component' => 'boolean',
+        'requires_director_approval' => 'boolean',
     ];
 
     // protected $appends = ['images_urls']; // se incluirá en el JSON un arreglo con las URLs de las imágenes

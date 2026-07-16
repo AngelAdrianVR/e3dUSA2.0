@@ -6,10 +6,10 @@
 Aquí está el resumen de los productos afectados:
 
 <x-mail::table>
-| Producto | Código | Stock Actual | Mínimo Permitido |
-|:---------|:-------|:-------------|:-----------------|
+| Producto | Código | Stock Actual | Mínimo Permitido | ⚠️ |
+|:---------|:-------|:-------------|:-----------------|:----|
 @foreach($products as $product)
-| {{ $product->name }} | {{ $product->code ?? 'N/A' }} | **{{ $product->current_stock }}** | {{ $product->min_quantity }} |
+| {{ $product->name }} | {{ $product->code ?? 'N/A' }} | **{{ $product->current_stock }}** | {{ $product->min_quantity }} | {{ $product->requires_director_approval ? 'Consultar con Sherman antes de comprar' : '' }} |
 @endforeach
 </x-mail::table>
 
