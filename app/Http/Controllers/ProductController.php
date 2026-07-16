@@ -122,6 +122,7 @@ class ProductController extends Controller
             'is_sellable' => 'boolean',
             'is_purchasable' => 'boolean',
             'is_used_as_component' => 'boolean',
+            'requires_director_approval' => 'boolean',
             'parent_id' => 'nullable|exists:products,id',
 
             'currency' => [
@@ -338,6 +339,7 @@ class ProductController extends Controller
             'is_sellable' => 'boolean',
             'is_purchasable' => 'boolean',
             'is_used_as_component' => 'boolean',
+            'requires_director_approval' => 'boolean',
             'parent_id' => 'nullable|exists:products,id',
 
             'caracteristics' => 'nullable|string',
@@ -694,6 +696,7 @@ class ProductController extends Controller
             'products.*.is_used_as_component' => 'present|boolean',
             'products.*.is_sellable' => 'present|boolean',
             'products.*.is_purchasable' => 'present|boolean',
+            'products.*.requires_director_approval' => 'present|boolean',
             'products.*.parent_id' => 'nullable|exists:products,id',
             'products.*.name' => 'nullable|string|max:255',
         ]);
@@ -709,6 +712,7 @@ class ProductController extends Controller
                     'is_used_as_component' => $productData['is_used_as_component'],
                     'is_sellable' => $productData['is_sellable'],
                     'is_purchasable' => $productData['is_purchasable'],
+                    'requires_director_approval' => $productData['requires_director_approval'],
                     'parent_id' => $productData['parent_id'] ?? null,
                     'material' => isset($productData['material']) ? $materialMap[$productData['material']] : null,
                 ];

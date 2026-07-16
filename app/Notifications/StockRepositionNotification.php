@@ -45,6 +45,11 @@ class StockRepositionNotification extends Notification implements ShouldQueue
         foreach ($this->products as $product) {
             $stockActual = $product->storages->sum('quantity');
             $mail->line("• [{$product->code}] {$product->name} (Actual: {$stockActual} | Mín: {$product->min_quantity})");
+
+            // Advertencia si el producto requiere consultar con Sherman antes de comprar
+            if ($product->requires_director_approval) {
+                $mail->line("   ⚠️ Consultar con Sherman antes de hacer la compra de este producto.");
+            }
         }
 
         return $mail

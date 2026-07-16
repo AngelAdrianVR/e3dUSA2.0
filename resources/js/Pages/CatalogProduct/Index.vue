@@ -225,6 +225,14 @@
                                     <i v-else class="fa-solid fa-xmark text-red-500"></i>
                                 </template>
                             </el-table-column>
+                            <el-table-column label="Sherman" width="85" align="center">
+                                <template #default="scope">
+                                    <el-tooltip v-if="scope.row.requires_director_approval" content="Consultar con Sherman antes de comprar" placement="top">
+                                        <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg"></i>
+                                    </el-tooltip>
+                                    <span v-else class="text-gray-400">--</span>
+                                </template>
+                            </el-table-column>
 
                             <el-table-column v-if="$page.props.auth.user.permissions.includes('Ver costos de productos')" prop="cost" label="Costo" width="100">
                                 <template #default="scope">

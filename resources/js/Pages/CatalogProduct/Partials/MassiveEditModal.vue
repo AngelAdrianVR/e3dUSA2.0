@@ -16,6 +16,7 @@
                         <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-store" title="¿Se Vende?"></i> Venta</th>
                         <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-truck" title="¿Se Compra?"></i> Compra</th>
                         <th class="px-2 py-3 text-center font-medium text-gray-500 dark:text-gray-300"><i class="fa-solid fa-puzzle-piece" title="¿Es Componente?"></i> Comp.</th>
+                        <th class="px-2 py-3 text-center font-medium text-amber-600 dark:text-amber-400"><i class="fa-solid fa-triangle-exclamation" title="¿Consultar con Sherman?"></i> Sherman</th>
                         <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[200px]">Producto Padre</th>
                         <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[150px]">Familia</th>
                         <th class="px-2 py-3 text-left font-medium text-gray-500 dark:text-gray-300 min-w-[120px]">Tipo</th>
@@ -53,6 +54,11 @@
                         <!-- Checkbox Componente -->
                         <td class="px-2 py-2 text-center">
                             <el-checkbox v-model="item.is_used_as_component" />
+                        </td>
+
+                        <!-- Checkbox Sherman -->
+                        <td class="px-2 py-2 text-center">
+                            <el-checkbox v-model="item.requires_director_approval" />
                         </td>
 
                         <!-- Selector Padre -->
@@ -172,6 +178,7 @@ export default {
                 is_sellable: p.is_sellable == 1,
                 is_purchasable: p.is_purchasable == 1,
                 is_used_as_component: p.is_used_as_component == 1,
+                requires_director_approval: p.requires_director_approval == 1,
                 product_type_key: p.product_type === 'Insumo' ? 'I' : 'P',
                 material: p.material ? this.reverseMaterial(p.material) : null
             }));

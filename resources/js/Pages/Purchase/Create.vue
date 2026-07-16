@@ -316,7 +316,7 @@ import SecondaryButton from "@/Components/SecondaryButton.vue";
 import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
 
@@ -524,6 +524,15 @@ export default {
                     // ASIGNACIÓN DEL STOCK MÁXIMO Y MÍNIMO
                     this.productForm.min_quantity = response.data.product.min_quantity;
                     this.productForm.max_quantity = response.data.product.max_quantity;
+
+                    // Verificar si el producto requiere aprobación de dirección
+                    if (response.data.product.requires_director_approval) {
+                        ElMessageBox.alert(
+                            'Consultar con Sherman antes de hacer la compra de este producto.',
+                            'Advertencia',
+                            { confirmButtonText: 'Entendido', type: 'warning' }
+                        );
+                    }
                 }
             } catch (error) {
                 console.log(error);
