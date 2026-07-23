@@ -35,6 +35,7 @@ return new class extends Migration
             $table->decimal('total_amount', 10, 2)->nullable();
             $table->string('freight_option')->nullable();
             $table->decimal('freight_cost', 10, 2)->nullable();
+            $table->string('tooling_cost')->nullable();
             $table->string('authorized_user_name')->nullable();
             $table->timestamp('authorized_at')->nullable();
 

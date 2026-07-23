@@ -44,6 +44,13 @@
                         <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Sucursal/Alias Orig.</span>
                         <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.name }}</span>
                     </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Costo de Herramental</span>
+                        <span  v-if="sale.quote?.tooling_cost || sale.tooling_cost" class="text-amber-600 dark:text-amber-400 font-bold">
+                            ${{ sale.quote?.tooling_cost ? formatCurrency(sale.quote.tooling_cost) : sale.tooling_cost }}
+                        </span>
+                        <span v-else class="text-amber-600 dark:text-amber-400 font-bold">Sin costo de herramental</span>
+                    </div>
                 </div>
 
                 <!-- Notas y Pie de factura -->

@@ -140,6 +140,10 @@
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
+                                <TextInput label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
+                                    <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                </TextInput>
+
                                 <!-- ENVÍOS / PARCIALIDADES -->
                                 <div v-if="form.products.length" class="col-span-full">
                                     <div v-if="!form.shipping_option" class="text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-800 p-3 rounded-lg">
@@ -416,6 +420,7 @@ export default {
                 order_via: '',
                 freight_option: 'Por cuenta del cliente',
                 freight_cost: 0,
+                tooling_cost: '',
                 notes: '',
                 currency: 'MXN',
                 is_high_priority: false,
@@ -489,7 +494,7 @@ export default {
             if (newType === 'stock') {
                 this.form.reset(
                     'branch_id', 'quote_id', 'contact_id', 'order_via', 
-                    'freight_option', 'freight_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
+                    'freight_option', 'freight_cost', 'tooling_cost', 'shipping_option', 'products', 'shipments', 'has_low_price'
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
@@ -501,7 +506,7 @@ export default {
             if (newQuoteId) {
                 this.fetchQuoteDetails(newQuoteId);
             } else if (this.form.type === 'venta') {
-                this.form.reset('branch_id', 'contact_id', 'freight_option', 'freight_cost', 'notes', 'products');
+                this.form.reset('branch_id', 'contact_id', 'freight_option', 'freight_cost', 'tooling_cost', 'notes', 'products');
                 this.availableContacts = [];
                 this.clientProducts = [];
             }
@@ -686,6 +691,7 @@ export default {
                 this.form.branch_id = quoteData.branch_id;
                 this.form.freight_option = quoteData.freight_option;
                 this.form.freight_cost = quoteData.freight_cost;
+                this.form.tooling_cost = quoteData.tooling_cost || '';
                 this.form.currency = quoteData.currency;
                 this.form.notes = quoteData.notes;
 

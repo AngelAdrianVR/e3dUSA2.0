@@ -59,7 +59,7 @@ class BillingDashboardController extends Controller
         $query = Sale::where('id', '>=', $minSaleId)
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
-            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media']);
+            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media', 'quote']);
 
         // Filtro: Estado de Facturación
         if ($request->filled('billing_status')) {

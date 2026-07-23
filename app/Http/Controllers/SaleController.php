@@ -108,6 +108,7 @@ class SaleController extends Controller
             'is_high_priority' => 'required|boolean',
             'has_low_price' => 'boolean', // NUEVO CAMPO
             'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
+            'tooling_cost' => 'nullable|string',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -158,11 +159,11 @@ class SaleController extends Controller
                 'user_id' => auth()->id(),
                 'status' => 'Pendiente', // El status es pendiente por defecto (Esperando Autorización)
                 'has_low_price' => $validated['has_low_price'] ?? false,
-                'low_price_reason' => $validated['low_price_reason'] ?? null,
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
+                'tooling_cost' => $validated['tooling_cost'] ?? null,
                 'promise_date' => $firstPromiseDate, // Se asigna la fecha del primer envío
                 
                 // Campos que son nulos para 'stock'
@@ -426,6 +427,7 @@ class SaleController extends Controller
             'is_high_priority' => 'required|boolean',
             'has_low_price' => 'boolean',
             'low_price_reason' => 'nullable|string', // NUEVO CAMPO AGREGADO A LA RAIZ
+            'tooling_cost' => 'nullable|string',
             'products' => 'required|array|min:1',
             'products.*.id' => 'required|exists:products,id',
             'products.*.quantity' => 'required|integer|min:1',
@@ -484,7 +486,7 @@ class SaleController extends Controller
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
                 'has_low_price' => $validated['has_low_price'] ?? false,
-                'low_price_reason' => $validated['low_price_reason'] ?? null,
+                'tooling_cost' => $validated['tooling_cost'] ?? null,
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
@@ -668,6 +670,11 @@ class SaleController extends Controller
                 $this->revertStockForSale($sale);
             }
 
+            // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
+            if ($sale->quote_id) {
+                Quote::where('id', $sale->quote_id)->update(['sale_id' => null]);
+            }
+
             // Eliminar la orden y sus relaciones
             $sale->delete();
 
@@ -701,6 +708,10 @@ class SaleController extends Controller
                     // Solo revertimos stock para las órdenes de tipo 'venta'
                     if ($sale->type === 'venta') {
                         $this->revertStockForSale($sale);
+                    }
+                    // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
+                    if ($sale->quote_id) {
+                        Quote::where('id', $sale->quote_id)->update(['sale_id' => null]);
                     }
                     $sale->delete();
                 }

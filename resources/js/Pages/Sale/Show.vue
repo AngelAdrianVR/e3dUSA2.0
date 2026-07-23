@@ -222,6 +222,10 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Notas generales:</span>
                             <div class="prose prose-sm dark:text-white" v-html="sale.notes"></div>
                         </li>
+                        <li v-if="sale.tooling_cost" class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Costo de Herramental:</span>
+                            <span class="text-amber-600 dark:text-amber-400 font-medium">${{ sale.tooling_cost?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
+                        </li>
                          <li v-if="sale.type === 'venta'" class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
                             <span>${{ parseFloat(sale.total_amount)?.toFixed(2)?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
