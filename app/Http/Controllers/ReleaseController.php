@@ -12,7 +12,10 @@ class ReleaseController extends Controller
 {
     public function index()
     {
-        $releases = Release::withCount('items') 
+        $releases = Release::withCount('items')
+            ->with(['items' => function($q) {
+                $q->orderBy('order');
+            }, 'items.media', 'users:id,name', 'targetUsers:id,name'])
             ->orderByDesc('created_at')
             ->paginate(10);
             
@@ -23,7 +26,14 @@ class ReleaseController extends Controller
 
     public function create()
     {
-        return Inertia::render('Releases/Create');
+        $users = \App\Models\User::where('is_active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        return Inertia::render('Releases/Create', [
+            'allUsers' => $users,
+        ]);
     }
 
     public function store(Request $request)
@@ -32,6 +42,9 @@ class ReleaseController extends Controller
         $validated = $request->validate([
             'version' => 'required|string|max:20',
             'title' => 'required|string|max:255',
+            'target_all' => 'boolean',
+            'target_users' => 'array',
+            'target_users.*' => 'exists:users,id',
             'items' => 'required|array|min:1',
             'items.*.module_name' => 'required|string',
             'items.*.description' => 'required|string',
@@ -43,8 +56,14 @@ class ReleaseController extends Controller
             $release = Release::create([
                 'version' => $validated['version'],
                 'title'   => $validated['title'],
-                'is_published' => false 
+                'is_published' => false,
+                'target_all' => $validated['target_all'] ?? true,
             ]);
+
+            // Sincronizar público objetivo
+            if (!($validated['target_all'] ?? true) && !empty($validated['target_users'])) {
+                $release->targetUsers()->sync($validated['target_users']);
+            }
 
             foreach ($validated['items'] as $index => $itemData) {
                 $item = $release->items()->create([
@@ -67,31 +86,31 @@ class ReleaseController extends Controller
     // NUEVO: Método Edit
     public function edit(Release $release)
     {
-        // Si está publicada, no permitimos editar para mantener integridad histórica
-        if ($release->is_published) {
-            return back()->with('error', 'No puedes editar una actualización que ya ha sido publicada.');
-        }
-
-        // Cargamos la release con sus items y medios para el formulario
+        // Cargamos la release con sus items, medios y público objetivo
         $release->load(['items' => function($q) {
             $q->orderBy('order');
-        }, 'items.media']);
+        }, 'items.media', 'targetUsers:id']);
+
+        $users = \App\Models\User::where('is_active', true)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Releases/Edit', [
-            'release' => $release
+            'release' => $release,
+            'allUsers' => $users,
         ]);
     }
 
     // NUEVO: Método Update
     public function update(Request $request, Release $release)
     {
-        if ($release->is_published) {
-            return back()->with('error', 'No puedes editar una actualización publicada.');
-        }
-
         $validated = $request->validate([
             'version' => 'required|string|max:20',
             'title' => 'required|string|max:255',
+            'target_all' => 'boolean',
+            'target_users' => 'array',
+            'target_users.*' => 'exists:users,id',
             'items' => 'required|array|min:1',
             'items.*.id' => 'nullable|integer', // ID para identificar si existe
             'items.*.module_name' => 'required|string',
@@ -104,7 +123,15 @@ class ReleaseController extends Controller
             $release->update([
                 'version' => $validated['version'],
                 'title'   => $validated['title'],
+                'target_all' => $validated['target_all'] ?? true,
             ]);
+
+            // Sincronizar público objetivo
+            if (!($validated['target_all'] ?? true) && !empty($validated['target_users'])) {
+                $release->targetUsers()->sync($validated['target_users']);
+            } else {
+                $release->targetUsers()->detach();
+            }
 
             // 2. Sincronizar Items
             $submittedIds = [];

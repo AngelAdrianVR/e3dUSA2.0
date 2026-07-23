@@ -37,6 +37,7 @@ class Sale extends Model implements HasMedia, Auditable
         'total_amount',
         'freight_option',
         'freight_cost',
+        'tooling_cost',
         'authorized_user_name',
         'authorized_at',
         'shipping_option', // indica cuantas parcialidades tiene la venta
@@ -93,6 +94,12 @@ class Sale extends Model implements HasMedia, Auditable
     {
         // Asegúrate de tener un modelo Branch
         return $this->belongsTo(Branch::class);
+    }
+
+    /** Una venta puede pertenecer a una cotización */
+    public function quote(): BelongsTo
+    {
+        return $this->belongsTo(Quote::class);
     }
     
     /** Una venta tiene muchos productos */

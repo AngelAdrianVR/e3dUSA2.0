@@ -624,6 +624,7 @@ class QuoteController extends Controller
             'contact_id' => $quote->branch->main_contact_id,
             'freight_option' => $quote->freight_option,
             'freight_cost' => $quote->freight_cost,
+            'tooling_cost' => $quote->tooling_cost,
             'notes' => $quote->notes,
             'currency' => $quote->currency,
             'products' => $approvedProducts->values(),

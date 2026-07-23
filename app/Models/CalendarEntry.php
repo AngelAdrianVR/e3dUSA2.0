@@ -22,6 +22,7 @@ class CalendarEntry extends Model
         'start_datetime',
         'end_datetime',
         'is_full_day',
+        'color',
         'user_id',
     ];
 

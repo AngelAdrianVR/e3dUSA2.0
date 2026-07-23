@@ -35,6 +35,61 @@
                         </div>
                     </div>
 
+                    <!-- Sección: Audiencia -->
+                    <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sm:p-8 mb-8 transition-colors">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                            <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300 flex items-center justify-center text-sm mr-3 font-bold">
+                                <i class="fa-solid fa-users text-xs"></i>
+                            </span>
+                            Audiencia
+                        </h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Define quiénes verán esta actualización.</p>
+
+                        <!-- Toggle: Todos los usuarios -->
+                        <div class="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-900 mb-4">
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Mostrar a todos los usuarios activos</p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500">La actualización se mostrará a todos los usuarios con cuenta activa.</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                <input type="checkbox" v-model="form.target_all" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Selector de usuarios específicos (si no es para todos) -->
+                        <div v-if="!form.target_all">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Usuarios específicos</label>
+                                <button type="button" @click="selectAllUsers" class="text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 font-medium">
+                                    Seleccionar todos
+                                </button>
+                            </div>
+                            <el-select 
+                                v-model="form.target_users" 
+                                multiple 
+                                filterable 
+                                placeholder="Busca y selecciona usuarios..."
+                                class="w-full"
+                                collapse-tags
+                                collapse-tags-tooltip
+                            >
+                                <el-option 
+                                    v-for="user in allUsers" 
+                                    :key="user.id" 
+                                    :label="user.name" 
+                                    :value="user.id" 
+                                />
+                            </el-select>
+                            <p class="text-xs text-gray-400 mt-2">
+                                <span v-if="form.target_users.length > 0">{{ form.target_users.length }} usuario(s) seleccionado(s)</span>
+                                <span v-else>No has seleccionado ningún usuario.</span>
+                            </p>
+                        </div>
+
+                        <p v-if="form.errors.target_users" class="text-red-500 text-xs mt-1">{{ form.errors.target_users }}</p>
+                    </div>
+
                     <!-- Sección 2: Items -->
                     <div class="space-y-6">
                         <div class="flex items-center justify-between px-2">
@@ -111,14 +166,17 @@ import { Link, useForm } from '@inertiajs/vue3';
 export default {
     components: { AppLayout, Link },
     props: {
-        release: Object
+        release: Object,
+        allUsers: Array,
     },
     data() {
         return {
             form: useForm({
-                _method: 'PUT', // Truco para enviar archivos en edición
+                _method: 'PUT',
                 version: this.release.version,
                 title: this.release.title,
+                target_all: this.release.target_all ?? true,
+                target_users: this.release.target_users?.map(u => u.id) || [],
                 items: this.release.items.map(item => ({
                     id: item.id, // Importante para identificarlo
                     ui_id: item.id,
@@ -133,6 +191,9 @@ export default {
         }
     },
     methods: {
+        selectAllUsers() {
+            this.form.target_users = this.allUsers.map(u => u.id);
+        },
         addItem() {
             this.form.items.push({
                 ui_id: Date.now(),

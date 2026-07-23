@@ -12,11 +12,13 @@ class Release extends Model
         'version',
         'title',
         'is_published',
+        'target_all',
         'published_at'
     ];
 
     protected $casts = [
         'is_published' => 'boolean',
+        'target_all' => 'boolean',
         'published_at' => 'datetime',
     ];
 
@@ -31,6 +33,12 @@ class Release extends Model
     {
         return $this->belongsToMany(User::class, 'release_user')
                     ->withPivot('read_at');
+    }
+
+    // Relación: Público objetivo (a quién se muestra)
+    public function targetUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'release_targets');
     }
     
     // Helper para publicar
