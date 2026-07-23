@@ -48,7 +48,8 @@
           <span :class="['font-semibold', day.isToday ? 'bg-blue-600 text-white rounded-full h-7 w-7 flex items-center justify-center' : 'text-gray-700 dark:text-gray-200']">{{ day.dayNumber }}</span>
           <div class="mt-2 space-y-1">
             <div v-for="entry in entriesByDay[day.date]" :key="entry.id" @click.stop="openDetailDrawer(entry)"
-                 :class="['px-2 py-1 rounded-md text-xs font-medium cursor-pointer truncate flex items-center gap-2', getEntryClasses(entry)]">
+                 :class="['px-2 py-1 rounded-md text-xs font-medium cursor-pointer truncate flex items-center gap-2 calendar-entry', getEntryClasses(entry)]"
+                 :style="getEntryStyle(entry)">
               <i :class="getEntryIcon(entry)"></i>
               <span>{{ entry.title }}</span>
             </div>
@@ -236,13 +237,32 @@ export default {
     isEvent(entry) { return entry.entryable_type.includes('Event'); },
     isTask(entry) { return entry.entryable_type.includes('Task'); },
     getEntryClasses(entry) {
-      if (this.isEvent(entry)) return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:hover:bg-blue-700 dark:text-blue-200 hover:bg-blue-300';
-      if (this.isTask(entry)) {
-        return entry.entryable?.status === 'Completada'
-          ? 'bg-green-100 hover:bg-green-300 text-green-800 dark:bg-green-900 dark:hover:bg-green-700 dark:text-green-200 line-through opacity-70'
-          : 'bg-yellow-100 hover:bg-yellow-300 text-yellow-800 dark:bg-yellow-900 dark:hover:bg-yellow-700 dark:text-yellow-200 hover:bg-yellow-200';
+      if (this.isTask(entry) && entry.entryable?.status === 'Completada') {
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 line-through opacity-70';
       }
-      return 'bg-gray-100 text-gray-800';
+      return '';
+    },
+    getEntryStyle(entry) {
+      // Tareas completadas siempre en verde
+      if (this.isTask(entry) && entry.entryable?.status === 'Completada') {
+        return {};
+      }
+      const color = entry.color || '#6366F1'; // Color por defecto
+      const textColor = this.isLightColor(color) ? '#1e293b' : '#ffffff';
+      return {
+        backgroundColor: color,
+        color: textColor,
+      };
+    },
+    /**
+     * Determina si un color hex es claro (para usar texto oscuro encima).
+     */
+    isLightColor(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness > 150;
     },
     getEntryIcon(entry) {
       if (this.isEvent(entry)) return 'fa-solid fa-users';
@@ -311,4 +331,15 @@ export default {
   },
 };
 </script>
+
+<style scoped>
+/* Efecto hover: aclara el color de fondo de las entradas del calendario */
+.calendar-entry {
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.calendar-entry:hover {
+  filter: brightness(1.2);
+  transform: scale(1.02);
+}
+</style>
 

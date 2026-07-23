@@ -52,16 +52,26 @@ class HandleInertiaRequests extends Middleware
             $user->load(['employeeDetail', 'roles']);
 
             // --- LÓGICA DE RELEASES / ACTUALIZACIONES ---
-            // Buscamos la release publicada más antigua que el usuario NO haya visto
-            $popupRelease = Release::where('is_published', true)
-                ->whereDoesntHave('users', function ($query) use ($user) {
-                    $query->where('user_id', $user->id);
-                })
-                ->with(['items' => function ($query) {
-                    $query->orderBy('order');
-                }, 'items.media']) // Cargar items ordenados y sus imágenes
-                ->orderBy('published_at', 'asc')
-                ->first();
+            // Solo usuarios activos ven releases; los inactivos no.
+            if ($user->is_active) {
+                // Buscamos la release publicada más antigua que el usuario NO haya visto
+                // y que esté dirigida a él (target_all = true O está en release_targets)
+                $popupRelease = Release::where('is_published', true)
+                    ->where(function ($query) use ($user) {
+                        $query->where('target_all', true)
+                            ->orWhereHas('targetUsers', function ($q) use ($user) {
+                                $q->where('user_id', $user->id);
+                            });
+                    })
+                    ->whereDoesntHave('users', function ($query) use ($user) {
+                        $query->where('user_id', $user->id);
+                    })
+                    ->with(['items' => function ($query) {
+                        $query->orderBy('order');
+                    }, 'items.media'])
+                    ->orderBy('published_at', 'asc')
+                    ->first();
+            }
             // ---------------------------------------------
 
             // Si tiene un perfil de empleado, procedemos a buscar sus datos de asistencia.

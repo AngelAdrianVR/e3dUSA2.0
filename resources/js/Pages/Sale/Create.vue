@@ -140,7 +140,18 @@
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
-                                <TextInput label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
+                                <!-- Costo de Herramental: bloqueado si viene de cotización -->
+                                <div v-if="form.quote_id">
+                                    <InputLabel value="Costo de Herramental" />
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.tooling_cost || '0' }}</span>
+                                    </div>
+                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                        El costo de herramental se edita desde la cotización
+                                        <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
+                                    </p>
+                                </div>
+                                <TextInput v-else label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 

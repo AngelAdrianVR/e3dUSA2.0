@@ -72,6 +72,7 @@ class CalendarController extends Controller
             'entry_type' => 'required|in:Evento,Tarea',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'color' => 'nullable|string|max:7',
             'start_datetime' => 'required|date',
             'end_datetime' => 'required|date|after_or_equal:start_datetime',
             'location' => 'required_if:entry_type,Evento|nullable|string|max:255',
@@ -97,7 +98,7 @@ class CalendarController extends Controller
                 }
                 
                 // Creamos la entrada de calendario
-                $entryable->calendarEntry()->create($request->only('title', 'description', 'start_datetime', 'end_datetime') + ['user_id' => $currentUser->id]);
+                $entryable->calendarEntry()->create($request->only('title', 'description', 'color', 'start_datetime', 'end_datetime') + ['user_id' => $currentUser->id]);
 
                 // --- LÓGICA DE NOTIFICACIÓN ---
                 // Obtenemos los usuarios a notificar (todos los participantes menos el creador)
@@ -110,7 +111,7 @@ class CalendarController extends Controller
                 
             } else {
                 $entryable = Task::create(['status' => 'Pendiente']);
-                $entryable->calendarEntry()->create($request->only('title', 'description', 'start_datetime', 'end_datetime') + ['user_id' => $currentUser->id]);
+                $entryable->calendarEntry()->create($request->only('title', 'description', 'color', 'start_datetime', 'end_datetime') + ['user_id' => $currentUser->id]);
             }
         });
 

@@ -24,6 +24,47 @@
                 <InputError :message="form.errors.entry_type" class="mt-2" />
               </div>
 
+              <!-- Selector de Color -->
+              <div>
+                <InputLabel value="Color" class="mb-2" />
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">Selecciona un color para identificar tu entrada en el calendario.</p>
+                <div class="space-y-3">
+                  <!-- Colores Normales -->
+                  <div>
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Colores intensos</span>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                      <button
+                        v-for="color in normalColors"
+                        :key="color"
+                        type="button"
+                        @click="form.color = color"
+                        class="w-8 h-8 rounded-full border-2 transition-all duration-150 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400"
+                        :class="form.color === color ? 'border-gray-800 dark:border-white scale-110 shadow-lg ring-2 ring-offset-2 ring-blue-400' : 'border-gray-300 dark:border-gray-600'"
+                        :style="{ backgroundColor: color }"
+                        :title="color"
+                      ></button>
+                    </div>
+                  </div>
+                  <!-- Colores Pasteles -->
+                  <div>
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Colores pastel</span>
+                    <div class="flex flex-wrap gap-2 mt-1">
+                      <button
+                        v-for="color in pastelColors"
+                        :key="color"
+                        type="button"
+                        @click="form.color = color"
+                        class="w-8 h-8 rounded-full border-2 transition-all duration-150 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400"
+                        :class="form.color === color ? 'border-gray-800 dark:border-white scale-110 shadow-lg ring-2 ring-offset-2 ring-blue-400' : 'border-gray-300 dark:border-gray-600'"
+                        :style="{ backgroundColor: color }"
+                        :title="color"
+                      ></button>
+                    </div>
+                  </div>
+                </div>
+                <InputError :message="form.errors.color" class="mt-2" />
+              </div>
+
               <!-- Título -->
               <div>
                 <TextInput id="title" v-model="form.title" :label="'Título*'" :error="form.errors.title" type="text"
@@ -127,6 +168,7 @@ export default {
         entry_type: 'Evento',
         title: '',
         description: '',
+        color: null,
         start_datetime: null,
         end_datetime: null,
         is_full_day: false,
@@ -134,6 +176,14 @@ export default {
         conference_link: '',
         participants: [],
       }),
+      normalColors: [
+        '#6366F1', '#8B5CF6', '#EC4899', '#F43F5E', '#F97316',
+        '#EAB308', '#06B6D4', '#3B82F6', '#A855F7', '#EF4444',
+      ],
+      pastelColors: [
+        '#C7D2FE', '#DDD6FE', '#FBCFE8', '#FFE4E6', '#FFEDD5',
+        '#FEF9C3', '#CFFAFE', '#DBEAFE', '#F3E8FF', '#FEE2E2',
+      ],
     };
   },
   methods: {
