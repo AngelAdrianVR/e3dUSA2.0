@@ -362,6 +362,7 @@ onMounted(() => {
                                 </div>
 
                                 <!-- chat -->
+                                <!--
                                 <div class="rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 relative">
                                     <el-tooltip v-if="$page.props.auth.user?.permissions?.includes('Chatear')"
                                         content="Chat" placement="bottom">
@@ -375,6 +376,7 @@ onMounted(() => {
                                         {{ unseenMessages }}
                                     </div>
                                 </div>
+                                -->
 
                                 <!-- ============================= -->
                                 <!-- NUEVO: Notificaciones TAREAS  -->
