@@ -90,6 +90,21 @@ class Quote extends Model implements Auditable
     {
         return $this->hasMany(Quote::class, 'root_quote_id', 'root_quote_id')->where('is_active', true);
     }
+
+    /**
+     * Obtiene el sale_id de cualquier versión de la misma familia de cotizaciones.
+     * Si alguna versión (activa o inactiva) tiene una OV vinculada, retorna ese ID.
+     * 
+     * NOTA: En el índice se precarga manualmente desde el controlador para evitar N+1.
+     * Este accessor es el fallback para cuando se accede a una cotización individual.
+     */
+    public function getFamilySaleIdAttribute(): ?int
+    {
+        return self::where('root_quote_id', $this->root_quote_id)
+            ->whereNotNull('sale_id')
+            ->orderBy('id', 'desc')
+            ->value('sale_id');
+    }
     
     // ------------------ ACCESORS & MUTATORS ------------------
 

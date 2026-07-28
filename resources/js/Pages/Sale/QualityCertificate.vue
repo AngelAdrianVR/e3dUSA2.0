@@ -53,7 +53,7 @@
                                 <th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
                                 <th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
                                 <th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Material</th>
-                                <th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dimensiones</th>
+                                <!-- <th scope="col" class="px-6 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dimensiones</th> -->
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200 text-sm">
@@ -61,14 +61,14 @@
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.product?.name ?? 'N/A' }}</td>
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.quantity }}</td>
                                 <td class="px-6 py-3 whitespace-nowrap">{{ item.product?.material ?? 'N/A' }}</td>
-                                <td class="px-6 py-3 whitespace-nowrap">
+                                <!-- <td class="px-6 py-3 whitespace-nowrap">
                                   <span v-if="item.product?.diameter">
                                     {{ item.product?.width ?? '0' }} x {{ item.product?.diameter ?? '0' }} mm
                                   </span>
                                   <span v-else>
                                     {{ item.product?.large ?? '0' }} x {{ item.product?.height ?? '0' }} x {{ item.product?.diameter ?? '0' }} mm
                                   </span>
-                                </td>
+                                </td> -->
                             </tr>
                         </tbody>
                     </table>
@@ -194,26 +194,62 @@ export default {
     display: none;
   }
 
-  /* Asegura que el contenido del certificado use todo el espacio */
-  body, .bg-gray-100 {
-    background-color: white !important;
+  html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  body, .bg-gray-100 {
+    background-color: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .min-h-screen {
+    min-height: auto !important;
+    height: 100% !important;
+    padding: 0 !important;
   }
 
   @page {
-    size: A4;
-    margin: 0;
+    size: letter;
+    margin: 10mm;
   }
 
+  /* Contenedor del certificado: ocupa toda la página */
   #certificateContent {
-    box-shadow: none;
-    border: 2px solid #000;
-    margin: 0;
-    max-width: 100%;
-    border-radius: 0;
+    position: fixed !important;
+    top: 5mm !important;
+    left: 5mm !important;
+    right: 5mm !important;
+    bottom: 5mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    padding: 1rem 1.5rem !important;
+    overflow: hidden !important;
   }
-  
+
+  /* Contenedor interno usa flex para empujar el footer al fondo */
+  #certificateContent > .relative.z-10 {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+
+  /* El footer se pega al final de la página */
+  #certificateContent > .relative.z-10 > footer {
+    margin-top: auto !important;
+    padding-top: 0.5rem !important;
+  }
+
   /* Asegura que la marca de agua se imprima */
   #certificateContent::before,
   #certificateContent::after {

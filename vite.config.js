@@ -33,9 +33,9 @@ export default defineConfig({
                     // 2. Agrupar TODO el código de la aplicación en un solo bloque.
                     // Al juntar Pages, Components y Layouts evitamos el error "ReferenceError" 
                     // provocado por dependencias circulares, manteniendo las peticiones al mínimo.
-                    if (id.includes('resources/js/')) {
-                        return 'app-frontend'; 
-                    }
+                    // if (id.includes('resources/js/')) {
+                    //     return 'app-frontend'; 
+                    // }
                 }
             }
         }
