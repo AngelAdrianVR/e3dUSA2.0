@@ -219,10 +219,10 @@
                             </el-table-column>
                             <el-table-column label="Cotización" width="100">
                                  <template #default="scope">
-                                    <a v-if="scope.row.quote_id" @click.stop
-                                        :href="route('quotes.show', scope.row.quote_id)" target="_blank"
+                                    <a v-if="scope.row.quote_root_id" @click.stop
+                                        :href="route('quotes.show', scope.row.quote_active_id)" target="_blank"
                                         class="text-blue-500 hover:underline">
-                                        COT-{{ String(scope.row.quote_id).padStart(4, '0') }}
+                                        COT-{{ String(scope.row.quote_root_id).padStart(4, '0') }}
                                     </a>
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>

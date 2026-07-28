@@ -48,6 +48,28 @@ class QuoteController extends Controller
             ->paginate(20)
             ->withQueryString();
 
+        // Buscar OV vinculadas a CUALQUIER versión de la misma familia (misma root_quote_id).
+        // Así, aunque la versión activa no tenga sale_id, se muestra la OV si alguna
+        // versión hermana la tiene.
+        $rootIds = $quotes->pluck('root_quote_id')->unique()->filter();
+        if ($rootIds->isNotEmpty()) {
+            $familySales = Quote::whereIn('root_quote_id', $rootIds)
+                ->whereNotNull('sale_id')
+                ->select('root_quote_id', 'sale_id')
+                ->orderBy('id', 'desc')
+                ->get()
+                ->keyBy('root_quote_id');
+
+            $quotes->each(function ($quote) use ($familySales) {
+                $familySale = $familySales->get($quote->root_quote_id);
+                // Solo sobrescribimos si el modelo actual NO tiene sale_id propio
+                // y alguna versión hermana sí lo tiene.
+                if (!$quote->sale_id && $familySale) {
+                    $quote->sale_id = $familySale->sale_id;
+                }
+            });
+        }
+
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
             'filters' => $request->only(['view', 'filter']),
@@ -537,6 +559,24 @@ class QuoteController extends Controller
                 });
             })
             ->get();
+
+        // Buscar OV vinculadas a cualquier versión de la misma familia
+        $rootIds = $quotes->pluck('root_quote_id')->unique()->filter();
+        if ($rootIds->isNotEmpty()) {
+            $familySales = Quote::whereIn('root_quote_id', $rootIds)
+                ->whereNotNull('sale_id')
+                ->select('root_quote_id', 'sale_id')
+                ->orderBy('id', 'desc')
+                ->get()
+                ->keyBy('root_quote_id');
+
+            $quotes->each(function ($quote) use ($familySales) {
+                $familySale = $familySales->get($quote->root_quote_id);
+                if (!$quote->sale_id && $familySale) {
+                    $quote->sale_id = $familySale->sale_id;
+                }
+            });
+        }
 
         return response()->json(['items' => $quotes], 200);
     }

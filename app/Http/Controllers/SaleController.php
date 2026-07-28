@@ -44,13 +44,44 @@ class SaleController extends Controller
                         'branch:id,name', 
                         'saleProducts.product:id,name,cost', 
                         'invoice:id,folio,sale_id',
-                        'productExchanges.returnedProduct:id,name', // <--- Carga optimizada para tooltip
-                        'productExchanges.newProduct:id,name'       // <--- Carga optimizada para tooltip
+                        'quote:id,root_quote_id', // Para obtener el root_quote_id de la cotización padre
+                        'productExchanges.returnedProduct:id,name',
+                        'productExchanges.newProduct:id,name'
                     ])
                     ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at')
                     ->latest() 
                     ->paginate(15) 
-                    ->withQueryString(); 
+                    ->withQueryString();
+
+        // Para cada venta con cotización, obtenemos el root_quote_id (para mostrar el folio padre)
+        // y el ID de la versión activa más reciente (para el enlace).
+        $quoteIds = $sales->pluck('quote_id')->unique()->filter();
+        if ($quoteIds->isNotEmpty()) {
+            $quotesData = Quote::whereIn('id', $quoteIds)
+                ->select('id', 'root_quote_id')
+                ->get()
+                ->keyBy('id');
+
+            // Obtener los root_quote_id únicos y buscar su versión activa
+            $rootIds = $quotesData->pluck('root_quote_id')->unique()->filter();
+            $activeVersions = collect();
+            if ($rootIds->isNotEmpty()) {
+                $activeVersions = Quote::whereIn('root_quote_id', $rootIds)
+                    ->where('is_active', true)
+                    ->select('id', 'root_quote_id')
+                    ->orderBy('version', 'desc')
+                    ->get()
+                    ->keyBy('root_quote_id');
+            }
+
+            $sales->each(function ($sale) use ($quotesData, $activeVersions) {
+                if ($sale->quote_id && isset($quotesData[$sale->quote_id])) {
+                    $rootId = $quotesData[$sale->quote_id]->root_quote_id;
+                    $sale->quote_root_id = $rootId;                       // Para mostrar COT-{root}
+                    $sale->quote_active_id = $activeVersions->get($rootId)?->id ?? $sale->quote_id; // Para el enlace
+                }
+            });
+        }
         
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
@@ -68,11 +99,16 @@ class SaleController extends Controller
 
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
+        // Excluir familias de cotizaciones donde ALGUNA versión ya tiene OV vinculada
+        $familiesWithSale = Quote::whereNotNull('sale_id')->pluck('root_quote_id')->unique()->filter();
+
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
                     ->where('status', 'Aceptada')
-                    ->whereDoesntHave('sale')
+                    ->when($familiesWithSale->isNotEmpty(), function ($q) use ($familiesWithSale) {
+                        $q->whereNotIn('root_quote_id', $familiesWithSale);
+                    })
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
                     ->take(100)
@@ -388,11 +424,16 @@ class SaleController extends Controller
     {
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
+        // Excluir familias de cotizaciones donde ALGUNA versión ya tiene OV vinculada
+        $familiesWithSale = Quote::whereNotNull('sale_id')->pluck('root_quote_id')->unique()->filter();
+
         $quotes = Quote::where('authorized_at', '!=', null)
                     ->latest()
                     ->where('is_active', true)
                     ->where('status', 'Aceptada')
-                    ->whereDoesntHave('sale')
+                    ->when($familiesWithSale->isNotEmpty(), function ($q) use ($familiesWithSale) {
+                        $q->whereNotIn('root_quote_id', $familiesWithSale);
+                    })
                     ->select('id', 'branch_id', 'sale_id')
                     ->with('branch:id,name')
                     ->take(100)
@@ -738,6 +779,7 @@ class SaleController extends Controller
                 'user:id,name', 
                 'branch', 
                 'saleProducts.product:id,name,cost',
+                'quote:id,root_quote_id',
                 // Agregamos las relaciones necesarias para el tooltip de cambios
                 'productExchanges.returnedProduct:id,name',
                 'productExchanges.newProduct:id,name'
@@ -755,6 +797,34 @@ class SaleController extends Controller
             })
             ->select('id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
             ->get();
+
+        // Misma lógica del index: root_quote_id para mostrar, active version para enlazar
+        $quoteIds = $sales->pluck('quote_id')->unique()->filter();
+        if ($quoteIds->isNotEmpty()) {
+            $quotesData = Quote::whereIn('id', $quoteIds)
+                ->select('id', 'root_quote_id')
+                ->get()
+                ->keyBy('id');
+
+            $rootIds = $quotesData->pluck('root_quote_id')->unique()->filter();
+            $activeVersions = collect();
+            if ($rootIds->isNotEmpty()) {
+                $activeVersions = Quote::whereIn('root_quote_id', $rootIds)
+                    ->where('is_active', true)
+                    ->select('id', 'root_quote_id')
+                    ->orderBy('version', 'desc')
+                    ->get()
+                    ->keyBy('root_quote_id');
+            }
+
+            $sales->each(function ($sale) use ($quotesData, $activeVersions) {
+                if ($sale->quote_id && isset($quotesData[$sale->quote_id])) {
+                    $rootId = $quotesData[$sale->quote_id]->root_quote_id;
+                    $sale->quote_root_id = $rootId;
+                    $sale->quote_active_id = $activeVersions->get($rootId)?->id ?? $sale->quote_id;
+                }
+            });
+        }
 
         return response()->json(['items' => $sales], 200);
     }
