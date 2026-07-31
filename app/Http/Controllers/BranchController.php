@@ -856,10 +856,6 @@ class BranchController extends Controller
             }
         }
 
-        if ($branch->contacts->isEmpty()) {
-            $missingData[] = 'Al menos un contacto';
-        }
-
         if (count($missingData) > 0) {
             return response()->json([
                 'valid' => false,
