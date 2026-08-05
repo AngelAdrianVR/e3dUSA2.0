@@ -30,11 +30,12 @@ class BillingDashboardController extends Controller
 
         // 1. Lógica de KPIs actualizada a los nuevos requerimientos y filtrada por el mes/año seleccionado
         $kpis = [
-            // Pendiente Pre-factura: No tiene folio de pre-factura
+            // Pendiente Pre-factura: No tiene folio de pre-factura NI timbrado
             'total_pending_pre_invoice' => Sale::where('id', '>=', $minSaleId)
                 ->whereYear('created_at', $year)
                 ->whereMonth('created_at', $month)
                 ->whereNull('pre_invoice_folio')
+                ->whereNull('stamped_invoice_folio')
                 ->where('status', '!=', 'Cancelada') // Asumiendo que no facturamos canceladas
                 ->count(),
 
@@ -59,7 +60,7 @@ class BillingDashboardController extends Controller
         $query = Sale::where('id', '>=', $minSaleId)
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
-            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media', 'quote']);
+            ->with(['contact', 'user', 'branch.parent', 'saleProducts.product.media', 'saleProducts.product.parent.media', 'quote']);
 
         // Filtro: Estado de Facturación
         if ($request->filled('billing_status')) {
@@ -91,7 +92,7 @@ class BillingDashboardController extends Controller
         if ($request->filled('kpi_filter')) {
             switch ($request->kpi_filter) {
                 case 'pending_pre_invoice':
-                    $query->whereNull('pre_invoice_folio')->where('status', '!=', 'Cancelada');
+                    $query->whereNull('pre_invoice_folio')->whereNull('stamped_invoice_folio')->where('status', '!=', 'Cancelada');
                     break;
                 case 'pending_stamping':
                     $query->whereNotNull('pre_invoice_folio')

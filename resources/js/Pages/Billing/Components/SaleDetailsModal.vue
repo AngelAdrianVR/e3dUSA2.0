@@ -81,13 +81,13 @@
                             <tr v-for="item in sale.sale_products" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-slate-800">
                                 <td class="p-2">
                                     <el-image 
-                                        v-if="item.product?.media?.length"
+                                        v-if="getDisplayProduct(item).media?.length"
                                         style="width: 40px; height: 40px; border-radius: 4px;"
-                                        :src="item.product.media[0].original_url" 
+                                        :src="getDisplayProduct(item).media[0].original_url" 
                                         :zoom-rate="1.2"
                                         :max-scale="7"
                                         :min-scale="0.2"
-                                        :preview-src-list="item.product.media[0].original_url ? [item.product.media[0].original_url] : []"
+                                        :preview-src-list="getDisplayProduct(item).media[0].original_url ? [getDisplayProduct(item).media[0].original_url] : []"
                                       :initial-index="0"
                                         fit="cover"
                                         hide-on-click-modal
@@ -97,11 +97,25 @@
                                     </div>
                                 </td>
                                 <td class="p-2 text-gray-800 dark:text-gray-200 uppercase">
-                                    {{ item.product?.name || 'Producto Desconocido' }}
-                                    <div v-if="item.product?.material" class="mt-1">
+                                    {{ getDisplayProduct(item).name || 'Producto Desconocido' }}
+                                    <div v-if="getDisplayProduct(item).material" class="mt-1">
                                         <el-tag size="small" type="warning" effect="plain" class="!text-[10px]">
-                                            Material: {{ item.product.material }}
+                                            Material: {{ getDisplayProduct(item).material }}
                                         </el-tag>
+                                    </div>
+                                    <!-- Botón de toggle para variantes -->
+                                    <div v-if="item.product?.parent_id && item.product?.parent" class="mt-1.5">
+                                        <!-- <el-button 
+                                            size="small" 
+                                            type="info" 
+                                            plain 
+                                            @click="toggleParentView(item.id)"
+                                            class="!text-[10px] !py-0 !px-2 !h-6"
+                                        >
+                                            <i :class="parentToggles[item.id] ? 'fa-solid fa-rotate-left' : 'fa-solid fa-arrow-up-right-from-square'"
+                                               class="mr-1"></i>
+                                            {{ parentToggles[item.id] ? 'Ver producto padre' : 'Ver variante: ' + item.product.name }}
+                                        </el-button> -->
                                     </div>
                                 </td>
                                 <td class="p-2 text-gray-600 dark:text-gray-400 text-center">{{ item.quantity }} pzas</td>
@@ -192,7 +206,10 @@ export default {
             form: useForm({
                 pre_invoice_folio: '',
                 stamped_invoice_folio: '',
-            })
+            }),
+            // Objeto para trackear el toggle padre/variante por saleProduct.id
+            // true = mostrando variante (toggle activado), false/undefined = mostrando padre (default)
+            parentToggles: {},
         };
     },
     watch: {
@@ -208,6 +225,9 @@ export default {
                     this.folios.stamped_invoice = newVal.stamped_invoice_folio 
                         ? newVal.stamped_invoice_folio.split(',').map(s => s.trim()).filter(s => s) 
                         : [];
+
+                    // Resetear toggles de padre/variante al cambiar de venta
+                    this.parentToggles = {};
                 }
             }
         }
@@ -225,6 +245,29 @@ export default {
             if (sale.branch.rfc) return sale.branch.rfc;
             if (sale.branch.parent && sale.branch.parent.rfc) return sale.branch.parent.rfc;
             return 'Sin RFC';
+        },
+        // --- TOGGLE PRODUCTO PADRE / VARIANTE ---
+        /**
+         * Devuelve el producto que se debe mostrar según el estado del toggle.
+         * Por defecto muestra el producto padre (si existe).
+         * Si el toggle está activo (true), muestra la variante (hijo).
+         */
+        getDisplayProduct(saleProductItem) {
+            if (!saleProductItem || !saleProductItem.product) return {};
+            // Si no está activado el toggle y existe un padre, mostrar el padre por defecto
+            if (!this.parentToggles[saleProductItem.id] && saleProductItem.product.parent) {
+                return saleProductItem.product.parent;
+            }
+            // Si el toggle está activo, mostrar la variante (o producto normal si no tiene padre)
+            return saleProductItem.product;
+        },
+        /**
+         * Alterna la vista entre producto padre y variante.
+         */
+        toggleParentView(saleProductId) {
+            this.parentToggles[saleProductId] = !this.parentToggles[saleProductId];
+            // Forzar reactividad de Vue 3
+            this.parentToggles = { ...this.parentToggles };
         },
         // ---------------------------------------------
         

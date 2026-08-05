@@ -47,7 +47,7 @@
                     
                     <!-- PRECIO DE VENTA Y TOOLTIP -->
                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Precio Unitario (Venta)</p>
+                        <p class="text-gray-500 dark:text-gray-400">Vendido a:</p>
                         <div class="flex items-center space-x-2 mt-0.5">
                             <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
                                 {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
@@ -510,7 +510,7 @@ export default {
         },
         currentPriceLabel() {
             return this.activeSpecialPrice
-                ? 'Precio Actual (Especial)'
+                ? 'Precio Establecido Actual (Especial)'
                 : 'Precio Actual (Base)';
         },
         lastUpdateInfo() {
