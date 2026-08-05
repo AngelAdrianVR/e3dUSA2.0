@@ -31,7 +31,7 @@ class SampleTrackingController extends Controller
     {
         // Pasa los datos necesarios para los selectores del formulario
         $branches = Branch::with(['contacts:id,name,contactable_id,contactable_type'])->get(['id', 'name']);
-        $products = Product::where('product_type', 'Catálogo')->whereNull('archived_at')->get(['id', 'name']); 
+        $products = Product::where('product_type', 'Producto')->whereNull('archived_at')->get(['id', 'name']); 
 
         return Inertia::render('SampleTracking/Create', compact('branches', 'products'));
     }
@@ -157,7 +157,7 @@ class SampleTrackingController extends Controller
 
         // --- CORREGIDO: Cargar contactos con la relación polimórfica ---
         $branches = Branch::with(['contacts:id,name,contactable_id,contactable_type'])->get(['id', 'name']);
-        $products = Product::where('product_type', 'Catálogo')->get(['id', 'name']);
+        $products = Product::where('product_type', 'Producto')->whereNull('archived_at')->get(['id', 'name']);
 
         return Inertia::render('SampleTracking/Edit', compact('sampleTracking', 'branches', 'products'));
     }
