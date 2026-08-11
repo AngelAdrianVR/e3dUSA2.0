@@ -226,6 +226,7 @@ class QuoteController extends Controller
             'authorizedBy',
             'quoteProducts.media',
             'quoteProducts.product.media',
+            'quoteProducts.product.parent.media',
             'quoteProducts.product.priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
                       ->orderBy('valid_from', 'desc');

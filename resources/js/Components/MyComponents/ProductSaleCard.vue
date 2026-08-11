@@ -8,19 +8,36 @@
         </div>
 
         <div class="flex flex-col md:flex-row gap-5">
-            <div @click="$inertia.visit(route('catalog-products.show', saleProduct.product.id))" class="flex-shrink-0 w-full cursor-pointer md:w-40 h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
-                <img v-if="saleProduct.product?.media?.length" :src="saleProduct.product.media[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
-                <div v-else class="text-gray-300 dark:text-gray-600 text-center">
-                    <i class="fa-regular fa-image text-5xl"></i>
-                    <p class="text-xs mt-2">Sin imagen</p>
+            <div class="flex-shrink-0 w-full md:w-40 flex flex-col items-center gap-2">
+                <div @click="$inertia.visit(route('catalog-products.show', getDisplayProduct().id))" class="w-full cursor-pointer h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
+                    <img v-if="getDisplayProductMedia()?.length" :src="getDisplayProductMedia()[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
+                    <div v-else class="text-gray-300 dark:text-gray-600 text-center">
+                        <i class="fa-regular fa-image text-5xl"></i>
+                        <p class="text-xs mt-2">Sin imagen</p>
+                    </div>
+                    <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
+                         <span class="text-white text-xs font-semibold">CÓDIGO: {{ getDisplayProduct()?.code }}</span>
+                    </div>
                 </div>
-                <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl">
-                     <span class="text-white text-xs font-semibold">CÓDIGO: {{ saleProduct.product?.code }}</span>
-                </div>
+                <!-- Botón toggle padre/variante (debajo de la imagen) -->
+                <el-tooltip v-if="saleProduct.product?.parent_id && saleProduct.product?.parent"
+                    placement="left" effect="dark">
+                    <template #content>
+                        <div class="w-64 text-xs leading-relaxed">
+                            <p class="font-semibold mb-1">Ayuda</p>
+                            Este botón solo cambia la vista entre el producto vendido y su producto padre. Por defecto se muestra el producto que fue vendido y es meramente informativo.
+                        </div>
+                    </template>
+                    <button @click="toggleParentView"
+                        class="text-[10px] text-sky-600 hover:text-sky-800 hover:underline transition-colors focus:outline-none">
+                        <i :class="showParent ? 'fa-solid fa-rotate-left' : 'fa-solid fa-arrow-up-right-from-square'" class="mr-1 text-[9px]"></i>
+                        {{ showParent ? 'Ver variante' : 'Ver producto padre' }}
+                    </button>
+                </el-tooltip>
             </div>
 
             <div class="flex-1 relative">
-                <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ saleProduct.product?.name }}</h3>
+                <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ getDisplayProduct()?.name }}</h3>
                 <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
                 
                 <el-tag v-if="saleProduct.is_new_design" type="primary" size="small" effect="light" class="mt-2">
@@ -401,6 +418,8 @@ export default {
             showPriceModal: false,
             showClosePriceConfirmModal: false,
             priceHistoryToClose: null,
+            // true = mostrando producto padre (por defecto se muestra el vendido)
+            showParent: false,
             priceForm: useForm({
                 amount: null,
                 percentage: null,
@@ -540,6 +559,26 @@ export default {
         },
     },
     methods: {
+        // --- TOGGLE PRODUCTO PADRE / VARIANTE ---
+        // Por defecto muestra el producto vendido (variante o padre).
+        getDisplayProduct() {
+            const product = this.saleProduct.product;
+            if (!product) return null;
+            if (this.showParent && product.parent) return product.parent;
+            return product;
+        },
+        getDisplayProductMedia() {
+            const product = this.getDisplayProduct();
+            if (product?.media?.length) return product.media;
+            // Fallback: si el mostrado no tiene media, usar el del otro (padre ↔ variante)
+            const other = this.showParent ? this.saleProduct.product : this.saleProduct.product?.parent;
+            if (other?.media?.length) return other.media;
+            return [];
+        },
+        toggleParentView() {
+            this.showParent = !this.showParent;
+        },
+        // -----------------------------------------
         formatDate(dateString) {
             if (!dateString) return '';
             const date = new Date(dateString);

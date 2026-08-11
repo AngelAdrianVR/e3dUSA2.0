@@ -183,6 +183,10 @@
                                 <div>{{ activeProduct.measure_unit ?? '--' }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias del p. terminado</div>
                                 <div>{{ activeStorage?.quantity ?? '0' }} {{ activeProduct.measure_unit }}</div>
+                                <div class="font-semibold text-gray-500 dark:text-gray-400">Stock Mínimo</div>
+                                <div>{{ activeProduct.min_quantity?.toLocaleString() ?? '0' }} {{ activeProduct.measure_unit }}</div>
+                                <div class="font-semibold text-gray-500 dark:text-gray-400">Stock Máximo</div>
+                                <div>{{ activeProduct.max_quantity?.toLocaleString() ?? '--' }} {{ activeProduct.measure_unit }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Ubicación</div>
                                 <div>{{ activeStorage?.location ?? '--' }}</div>
                             </div>
