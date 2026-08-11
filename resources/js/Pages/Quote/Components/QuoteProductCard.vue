@@ -4,17 +4,27 @@
         
         <!-- Imagen y Selector -->
         <div class="bg-gray-100 relative group md:w-40 print:w-full print:h-36 flex-shrink-0 flex items-center justify-center">
-            <img v-if="item.show_image && productMedia?.length" 
-                draggable="false"
-                class="rounded-md w-full h-40 md:h-full print:h-full object-contain print:object-contain mx-auto"
-                :src="productMedia[activeImageIndex]?.original_url"
-                :alt="item.product ? item.product.name : item.custom_name"
-                @error="handleImageError">
+            <template v-if="item.show_image && getDisplayProductMedia(item)?.length">
+                <img 
+                    draggable="false"
+                    class="rounded-md w-full h-40 md:h-full print:h-full object-contain print:object-contain mx-auto"
+                    :src="getDisplayProductMedia(item)[activeImageIndex]?.original_url"
+                    :alt="getDisplayProductForImage(item) ? getDisplayProductForImage(item).name : item.custom_name"
+                    @error="handleImageError">
+            </template>
+            <template v-else>
+                <div class="flex items-center justify-center w-full h-40 md:h-full print:h-20 rounded-md bg-gray-200 text-gray-500 text-sm print:text-xs font-semibold italic">
+                    {{ quote.is_spanish_template ? 'Sin imagen' : 'No image' }}
+                </div>
+            </template>
 
-            <!-- Contenedor alternativo si no hay imagen -->
-            <div v-else class="flex items-center justify-center w-full h-40 md:h-full print:h-20 rounded-md bg-gray-200 text-gray-500 text-sm print:text-xs font-semibold italic">
-                {{ quote.is_spanish_template ? 'Sin imagen' : 'No image' }}
-            </div>
+            <!-- Botón toggle imagen padre/variante -->
+            <button v-if="showVariantToggles && item.product?.parent_id && item.product?.parent"
+                @click="toggleImageView(item.id)"
+                class="absolute top-1 left-1 z-20 print:hidden bg-white/80 hover:bg-white text-[10px] text-sky-600 rounded-full size-5 flex items-center justify-center shadow-sm hover:shadow transition-colors"
+                :title="imageToggles[item.id] ? 'Ver imagen padre' : 'Ver imagen variante'">
+                <i :class="imageToggles[item.id] ? 'fa-solid fa-image' : 'fa-regular fa-image'" class="text-[9px]"></i>
+            </button>
 
             <!-- Status Badge -->
             <span v-if="item.customer_approval_status === 'Aprobado'"
@@ -76,7 +86,7 @@
             </div>
 
             <!-- Botones de Navegación de Imagen -->
-            <div v-if="productMedia?.length > 1 && item.show_image" v-show="showAdditionalElements">
+            <div v-if="getDisplayProductMedia(item)?.length > 1 && item.show_image" v-show="showAdditionalElements">
                 <button @click="prevImage" 
                         class="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-20 text-white size-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                     <i class="fa-solid fa-chevron-left"></i>
@@ -91,9 +101,21 @@
         <!-- Contenido de la tarjeta -->
         <div class="p-3 print:p-2 flex flex-col flex-grow">
             <h3 class="font-bold text-base text-gray-800 uppercase print:text-[11px] print:leading-tight">
-                {{ item.product ? item.product.name : item.custom_name }}
+                {{ getDisplayProductForName(item) ? getDisplayProductForName(item).name : item.custom_name }}
                 <span v-if="!item.product" class="text-[10px] ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full normal-case tracking-normal print:hidden border border-blue-200">Nuevo</span>
             </h3>
+            
+            <!-- Botón toggle nombre padre/variante -->
+            <div v-if="showVariantToggles && item.product?.parent_id && item.product?.parent" class="mt-1 print:hidden">
+                <button 
+                    @click="toggleNameView(item.id)"
+                    class="text-[10px] text-sky-600 hover:text-sky-800 hover:underline transition-colors focus:outline-none"
+                >
+                    <i :class="nameToggles[item.id] ? 'fa-solid fa-rotate-left' : 'fa-solid fa-arrow-up-right-from-square'"
+                       class="mr-1 text-[9px]"></i>
+                    {{ nameToggles[item.id] ? 'Ver padre' : 'Ver variante' }}
+                </button>
+            </div>
             
             <p v-if="item.notes" class="text-xs text-gray-600 mt-1 flex-grow italic print:text-[9px] print:leading-tight print:mt-0">"{{ item.notes }}"</p>
             
@@ -280,7 +302,8 @@ export default {
         item: { type: Object, required: true },
         quote: { type: Object, required: true },
         showAdditionalElements: { type: Boolean, default: true },
-        labelChanged: { type: Boolean, default: false }
+        labelChanged: { type: Boolean, default: false },
+        showVariantToggles: { type: Boolean, default: false }
     },
     emits: ['update-status'],
     data() {
@@ -296,6 +319,9 @@ export default {
                 current_base_price: 0,
                 min_allowed_price: 0,
             },
+            // Toggles independientes: true = mostrando variante
+            imageToggles: {},
+            nameToggles: {},
         }
     },
     computed: {
@@ -328,6 +354,36 @@ export default {
         }
     },
     methods: {
+        // --- TOGGLE PRODUCTO PADRE / VARIANTE (IMAGEN Y NOMBRE INDEPENDIENTES) ---
+        getDisplayProductForImage(item) {
+            if (!item || !item.product) return null;
+            if (!this.imageToggles[item.id] && item.product.parent) return item.product.parent;
+            return item.product;
+        },
+        getDisplayProductForName(item) {
+            if (!item || !item.product) return null;
+            if (!this.nameToggles[item.id] && item.product.parent) return item.product.parent;
+            return item.product;
+        },
+        getDisplayProductMedia(item) {
+            const product = this.getDisplayProductForImage(item);
+            if (product && product.media?.length) return product.media;
+            // Si la variante no tiene media propio, usar el del padre (o viceversa)
+            const otherProduct = (product === item.product?.parent) ? item.product : item.product?.parent;
+            if (otherProduct && otherProduct.media?.length) return otherProduct.media;
+            // fallback: media directa del item (productos custom)
+            return item?.media || [];
+        },
+        toggleImageView(itemId) {
+            this.imageToggles[itemId] = !this.imageToggles[itemId];
+            this.imageToggles = { ...this.imageToggles };
+            this.activeImageIndex = 0;
+        },
+        toggleNameView(itemId) {
+            this.nameToggles[itemId] = !this.nameToggles[itemId];
+            this.nameToggles = { ...this.nameToggles };
+        },
+        // -------------------------------------------------------------
         handleImageError(event) {
             const img = event.target;
             const currentSrc = img.src;

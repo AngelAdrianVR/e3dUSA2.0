@@ -20,6 +20,14 @@
                     <i class="fa-solid fa-print text-2xl"></i>
                 </button>
 
+                <!-- Botón maestro de variantes (esquina inferior izquierda) -->
+                <button v-show="showAdditionalElements" @click="showVariantToggles = !showVariantToggles"
+                    class="fixed bottom-6 left-6 rounded-full shadow-lg transition-all duration-300 z-50 flex items-center justify-center opacity-10 hover:opacity-100"
+                    :class="showVariantToggles ? 'bg-sky-600 text-white size-14' : 'bg-gray-500 text-white size-10'"
+                    :title="showVariantToggles ? 'Ocultar opciones de variante' : 'Mostrar opciones de variante'">
+                    <i class="fa-solid fa-code-branch" :class="showVariantToggles ? 'text-xl' : 'text-sm'"></i>
+                </button>
+
                 <!-- Encabezado -->
                 <header class="flex justify-between items-start pb-6 mb-6 border-b">
                     <div class="w-1/2">
@@ -137,6 +145,7 @@
                                 :quote="quote" 
                                 :show-additional-elements="showAdditionalElements"
                                 :label-changed="labelChanged"
+                                :show-variant-toggles="showVariantToggles"
                                 @update-status="updateProductStatus" 
                             />
                         </div>
@@ -254,6 +263,7 @@ export default {
             showPromotion: true,
             showTaxes: false,
             taxPercentage: 16,
+            showVariantToggles: false,
         }
     },
     computed: {

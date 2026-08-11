@@ -376,6 +376,7 @@ class SaleController extends Controller
             'user:id,name',
             'productions.tasks', 
             'saleProducts.product.media',
+            'saleProducts.product.parent.media',
             
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->with('user')->orderBy('created_at', 'desc'); 
