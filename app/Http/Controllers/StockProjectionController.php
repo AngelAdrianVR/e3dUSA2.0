@@ -17,7 +17,9 @@ class StockProjectionController extends Controller
      */
     public function index()
     {
-        return Inertia::render('StockProjection/Index');
+        return Inertia::render('StockProjection/Index', [
+            'product_families' => \App\Models\ProductFamily::select('id', 'name')->orderBy('name')->get(),
+        ]);
     }
 
     /**
@@ -36,14 +38,24 @@ class StockProjectionController extends Controller
             });
         }
 
-        // Paginación de 100 en 100 para no saturar
-        $products = $query->select('id', 'code', 'name', 'min_quantity')
-                          ->orderBy('name')
-                          ->paginate(100);
+        // Filtro por familia
+        if ($request->filled('family_id')) {
+            $query->where('product_family_id', $request->family_id);
+        }
 
-        // Agregamos la URL de la imagen principal usando Spatie Media Library con reemplazo de dominio
+        // Paginación de 30 en 30 para no saturar al servidor
+        $products = $query->select('id', 'code', 'name', 'min_quantity')
+                          ->with(['media', 'parent.media']) // media propia + heredar del padre en variantes
+                          ->orderBy('name')
+                          ->paginate(30);
+
+        // Agregamos la URL de la imagen usando la relación media cruda (igual que el catálogo,
+        // así funciona sin importar la colección en la que se guardó)
         $products->getCollection()->transform(function ($product) {
-            $url = $product->getFirstMediaUrl('images');
+            $url = $product->media->isNotEmpty() ? $product->media->first()->getUrl() : null;
+            if (!$url && $product->parent && $product->parent->media->isNotEmpty()) {
+                $url = $product->parent->media->first()->getUrl();
+            }
             if ($url) {
                 $url = str_replace('http://127.0.0.1:8000', 'https://www.intranetemblems3d.dtw.com.mx', $url);
             }
@@ -213,9 +225,9 @@ class StockProjectionController extends Controller
         }
         $tableData = $tableData->sortByDesc('total_sold')->values();
 
-        // Obtener Stock Actual e Imágenes
+        // Obtener Stock Actual, Imágenes y Familia (media del padre para heredar en variantes)
         $productIds = $tableData->pluck('id')->toArray();
-        $productsDetails = Product::with(['storages', 'media'])
+        $productsDetails = Product::with(['storages', 'media', 'parent.media', 'productFamily'])
                                   ->whereIn('id', $productIds)
                                   ->get()
                                   ->keyBy('id');
@@ -228,7 +240,16 @@ class StockProjectionController extends Controller
             $productModel = $productsDetails->get($item->id);
             $currentStock = $productModel ? $productModel->storages->sum('quantity') : 0;
             
-            $imageUrl = $productModel ? $productModel->getFirstMediaUrl('images') : null;
+            // Usa la relación media cruda (igual que el catálogo): funciona sin importar la colección.
+            // Si la variante no tiene media propia, hereda la del padre.
+            $imageUrl = null;
+            if ($productModel) {
+                if ($productModel->media->isNotEmpty()) {
+                    $imageUrl = $productModel->media->first()->getUrl();
+                } elseif ($productModel->parent && $productModel->parent->media->isNotEmpty()) {
+                    $imageUrl = $productModel->parent->media->first()->getUrl();
+                }
+            }
             if ($imageUrl) {
                 $imageUrl = str_replace('http://127.0.0.1:8000', 'https://www.intranetemblems3d.dtw.com.mx', $imageUrl);
             }
@@ -257,7 +278,9 @@ class StockProjectionController extends Controller
                 'monthly_average' => round($monthlyAvg, 1),
                 'projection_3_months' => $projection3Months,
                 'to_order' => $toOrder,
-                'status' => $status
+                'status' => $status,
+                'family_id' => $productModel?->product_family_id ?? null,
+                'family_name' => $productModel?->productFamily?->name ?? null,
             ];
         });
 

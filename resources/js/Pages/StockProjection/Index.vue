@@ -109,8 +109,15 @@
 
           <!-- Tabla de Proyección -->
           <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+            <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
               <h3 class="text-lg font-bold text-gray-800 dark:text-white">Proyección de Compras y Alertas</h3>
+              <!-- Buscador y filtro por familia -->
+              <div class="flex flex-col sm:flex-row gap-3">
+                <el-select v-model="tableFamilyId" placeholder="Filtrar por familia" clearable class="!w-full sm:!w-48" @change="tablePage = 1">
+                  <el-option v-for="fam in product_families" :key="fam.id" :label="fam.name" :value="fam.id" />
+                </el-select>
+                <input type="text" v-model="tableSearch" @input="tablePage = 1" placeholder="Buscar por nombre o código..." class="w-full sm:w-56 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse">
@@ -126,7 +133,7 @@
                   </tr>
                 </thead>
                 <tbody class="text-sm divide-y divide-gray-100 dark:divide-gray-700">
-                  <tr v-for="item in reportData.table" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                  <tr v-for="item in paginatedTable" :key="item.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
                     
                     <td class="p-4 font-medium text-gray-900 dark:text-white">
                       <div class="flex items-center gap-3">
@@ -171,11 +178,20 @@
                       </span>
                     </td>
                   </tr>
-                  <tr v-if="reportData.table.length === 0">
+                  <tr v-if="filteredTable.length === 0">
                     <td colspan="7" class="p-8 text-center text-gray-500">No hay ventas registradas en el periodo con los filtros seleccionados.</td>
                   </tr>
                 </tbody>
               </table>
+              <!-- Paginación de la tabla -->
+              <div v-if="filteredTable.length > tablePerPage" class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                <p class="text-xs text-gray-500">Mostrando {{ paginatedTable.length }} de {{ filteredTable.length }} productos</p>
+                <div class="flex items-center gap-1">
+                  <button @click="tablePage > 1 && tablePage--" :disabled="tablePage <= 1" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition">Anterior</button>
+                  <span class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium">{{ tablePage }} / {{ totalTablePages }}</span>
+                  <button @click="tablePage < totalTablePages && tablePage++" :disabled="tablePage >= totalTablePages" class="px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition">Siguiente</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -192,8 +208,11 @@
           </button>
         </div>
         
-        <div class="p-4 border-b border-gray-100 dark:border-gray-700">
-          <input type="text" v-model="productSearch" @input="debouncedFetchProducts" placeholder="Buscar por código o nombre..." class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        <div class="p-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row gap-3">
+          <input type="text" v-model="productSearch" @input="debouncedFetchProducts" placeholder="Buscar por código o nombre..." class="flex-1 border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+          <el-select v-model="productFamilyId" placeholder="Filtrar por familia" clearable class="!w-full sm:!w-48" @change="onProductFamilyChange">
+            <el-option v-for="fam in product_families" :key="fam.id" :label="fam.name" :value="fam.id" />
+          </el-select>
         </div>
 
         <div class="p-4 flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
@@ -249,6 +268,12 @@ export default {
     AppLayout,
     apexchart: VueApexCharts
   },
+  props: {
+    product_families: {
+      type: Array,
+      default: () => [],
+    },
+  },
   data() {
     return {
       filters: {
@@ -263,15 +288,38 @@ export default {
       modals: { productSelector: false, imageViewer: false },
       productsList: [],
       productSearch: '',
+      productFamilyId: null, // Filtro de familia del modal
       searchTimeout: null,
       pagination: { currentPage: 1, lastPage: 1 },
       currentLargeImage: '',
+
+      // Filtros y paginación de la tabla principal (client-side)
+      tableSearch: '',
+      tableFamilyId: null,
+      tablePage: 1,
+      tablePerPage: 30,
 
       // Se agregó "export" al state the loading
       isLoading: { report: false, products: false, export: false }
     };
   },
   computed: {
+    filteredTable() {
+      if (!this.reportData?.table) return [];
+      const search = this.tableSearch.trim().toLowerCase();
+      return this.reportData.table.filter((item) => {
+        if (this.tableFamilyId && Number(item.family_id) !== Number(this.tableFamilyId)) return false;
+        if (search && !`${item.name} ${item.code}`.toLowerCase().includes(search)) return false;
+        return true;
+      });
+    },
+    totalTablePages() {
+      return Math.max(1, Math.ceil(this.filteredTable.length / this.tablePerPage));
+    },
+    paginatedTable() {
+      const start = (this.tablePage - 1) * this.tablePerPage;
+      return this.filteredTable.slice(start, start + this.tablePerPage);
+    },
     chartOptions() {
       return {
         chart: { toolbar: { show: false }, zoom: { enabled: false }, foreColor: '#9CA3AF' },
@@ -294,6 +342,7 @@ export default {
       try {
         const response = await axios.post(route('stock-projection.report'), this.filters);
         this.reportData = response.data;
+        this.tablePage = 1; // Reiniciar paginación al generar un nuevo reporte
       } catch (error) {
         console.error(error);
         alert("Ocurrió un error al generar la proyección.");
@@ -355,7 +404,7 @@ export default {
       this.isLoading.products = true;
       try {
         const response = await axios.get(route('stock-projection.products'), {
-          params: { page: page, search: this.productSearch }
+          params: { page: page, search: this.productSearch, family_id: this.productFamilyId }
         });
         
         if (page === 1) {
@@ -376,6 +425,10 @@ export default {
       if (this.pagination.currentPage < this.pagination.lastPage) {
         this.fetchProducts(this.pagination.currentPage + 1);
       }
+    },
+    onProductFamilyChange() {
+      this.productsList = [];
+      this.fetchProducts(1);
     },
     viewLargeImage(url) {
       this.currentLargeImage = url;
