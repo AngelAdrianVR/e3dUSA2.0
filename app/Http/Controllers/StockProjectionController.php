@@ -375,6 +375,102 @@ class StockProjectionController extends Controller
     }
 
     /**
+     * Calcula la proyección de ventas de los ÚLTIMOS 12 MESES para UN producto:
+     * ventas totales, promedio mensual, proyección a 3 meses y proyección
+     * anual aproximada (cantidad a pedir). Incluye la serie mensual para la
+     * mini-gráfica. Se consume bajo demanda (botón) para no afectar la carga
+     * del index. Se usa una ventana móvil de 12 meses para que siempre haya
+     * datos suficientes (evita proyecciones poco certeras a inicios de año).
+     */
+    public function productProjection(Product $product)
+    {
+        $startDate = Carbon::now()->subMonths(12)->startOfDay();
+        $endDate   = Carbon::now()->endOfDay();
+
+        // --- Ensamblados (y sus variantes) que contienen este producto como componente ---
+        $componentRows = DB::table('product_components')
+            ->where('component_product_id', $product->id)
+            ->get(['catalog_product_id', 'quantity']);
+
+        $qtyByAssembly = []; // assembly_id (int) => cantidad_por_unidad (float)
+        foreach ($componentRows as $row) {
+            $qtyByAssembly[(int) $row->catalog_product_id] = (float) $row->quantity;
+        }
+
+        // Las variantes de esos ensamblados heredan los componentes del padre
+        if (!empty($qtyByAssembly)) {
+            $variants = Product::whereIn('parent_id', array_keys($qtyByAssembly))
+                ->pluck('parent_id', 'id'); // [variant_id => parent_id]
+            foreach ($variants as $variantId => $parentId) {
+                $qtyByAssembly[(int) $variantId] = $qtyByAssembly[(int) $parentId];
+            }
+        }
+
+        $relevantIds = array_merge([$product->id], array_keys($qtyByAssembly));
+
+        // --- Ventas autorizadas de los últimos 12 meses ---
+        $sales = DB::table('sale_products')
+            ->join('sales', 'sale_products.sale_id', '=', 'sales.id')
+            ->whereIn('sale_products.product_id', $relevantIds)
+            ->whereNotNull('sales.authorized_at')
+            ->whereBetween('sales.authorized_at', [$startDate, $endDate])
+            ->whereIn('sales.status', ['Completada', 'Autorizada', 'Enviada', 'En Proceso', 'Preparando Envío', 'En Producción'])
+            ->select('sale_products.product_id', 'sale_products.quantity', DB::raw('DATE_FORMAT(sales.authorized_at, "%Y-%m") as month'))
+            ->get();
+
+        $monthlySales = []; // 'YYYY-MM' => cantidad
+        $totalSold    = 0;
+
+        foreach ($sales as $row) {
+            $soldId = (int) $row->product_id;
+            $qty    = (int) $row->quantity;
+            $month  = $row->month;
+
+            // Explosión: si lo vendido es un ensamblado que contiene a este producto
+            if (isset($qtyByAssembly[$soldId])) {
+                $derivedQty = (int) round($qty * $qtyByAssembly[$soldId]);
+                $monthlySales[$month] = ($monthlySales[$month] ?? 0) + $derivedQty;
+                $totalSold += $derivedQty;
+            }
+
+            // Venta directa del producto
+            if ($soldId === $product->id) {
+                $monthlySales[$month] = ($monthlySales[$month] ?? 0) + $qty;
+                $totalSold += $qty;
+            }
+        }
+
+        // Serie mensual de los últimos 12 meses (ventana móvil)
+        $chart = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $date = Carbon::now()->subMonths($i)->startOfMonth();
+            $chart[] = [
+                'month'    => $date->format('M'),
+                'quantity' => $monthlySales[$date->format('Y-m')] ?? 0,
+            ];
+        }
+
+        $monthsElapsed     = 12; // Ventana fija de 12 meses
+        $monthlyAverage    = $totalSold / $monthsElapsed;
+        $projection3Months = (int) round($monthlyAverage * 3);
+        $annualProjection  = (int) round($monthlyAverage * 12);
+        $currentStock      = (int) $product->storages()->sum('quantity');
+        $annualToOrder     = max(0, $annualProjection - $currentStock);
+
+        return response()->json([
+            'product_id'          => $product->id,
+            'current_stock'       => $currentStock,
+            'total_sold'          => $totalSold,
+            'months_elapsed'      => $monthsElapsed,
+            'monthly_average'     => round($monthlyAverage, 1),
+            'projection_3_months' => $projection3Months,
+            'annual_projection'   => $annualProjection,
+            'annual_to_order'     => $annualToOrder,
+            'chart'               => $chart,
+        ]);
+    }
+
+    /**
      * Exporta el reporte generado a un archivo Excel
      */
     public function exportReport(Request $request)

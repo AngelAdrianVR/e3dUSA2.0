@@ -51,6 +51,22 @@
                         </span>
                         <span v-else class="text-amber-600 dark:text-amber-400 font-bold">Sin costo de herramental</span>
                     </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Fecha de creación</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ formatDate(sale.created_at) }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">OCE</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.oce_name }}</span>
+                    </div>
+                </div>
+        
+                <!-- Archivos de OCE -->
+                <div v-if="oceMediaFiles.length" class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-3">
+                    <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold mb-2">Archivos de OCE (Orden de Compra externa)</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <FileView v-for="file in oceMediaFiles" :key="file.id" :file="file" />
+                    </div>
                 </div>
 
                 <!-- Notas y Pie de factura -->
@@ -186,16 +202,23 @@
 </template>
 
 <script>
+import FileView from "@/Components/MyComponents/FileView.vue";
 import { useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 
 export default {
     name: 'SaleDetailsModal',
+    components: { FileView },
     props: {
         show: Boolean,
         sale: Object,
     },
     emits: ['update:show', 'saved'],
+    computed: {
+        oceMediaFiles() {
+            return (this.sale?.media || []).filter(m => m.collection_name === 'oce_media');
+        },
+    },
     data() {
         return {
             // Arrays temporales para el manejo visual múltiple en Element Plus
@@ -273,6 +296,14 @@ export default {
         
         formatCurrency(value) {
             return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        formatDate(value) {
+            if (!value) return 'N/A';
+            return new Date(value).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
         },
         submitUpdate() {
             // Unimos el array de nuevo en una sola cadena separada por comas para enviarla a tu controlador (ej. "PF-1, PF-2")

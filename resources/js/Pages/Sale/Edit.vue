@@ -250,16 +250,18 @@
                             </div>
                             
                             <!-- Archivos adjuntos de la orden (OCE) -->
-                            <div v-if="sale.media?.filter(m => m.collection_name === 'oce_media')?.length" label="Archivos adjuntos" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
-                                <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">Archivos adjuntos</label>
-                                <FileView v-for="file in sale.media?.filter(m => m.collection_name == 'oce_media')" :key="file" :file="file" :deletable="true"
+                            <div v-if="oceMediaFiles.length" label="Archivos de OCE" class="grid grid-cols-2 lg:grid-cols-3 gap-3 col-span-full mb-3">
+                                <label class="col-span-full text-gray-700 dark:text-white text-sm" for="">
+                                    <i class="fa-regular fa-file-lines mr-1"></i> Archivos de OCE
+                                </label>
+                                <FileView v-for="file in oceMediaFiles" :key="file.id" :file="file" :deletable="true"
                                     @delete-file="deleteFile($event)" />
                             </div>
 
                             <!-- Archivos de OCE -->
                             <div v-if="form.type === 'venta'" class="col-span-full my-2">
-                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
-                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
+                                <InputLabel value="Archivos de OCE (máx. 3 archivos) max. 10 MB" />
+                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" :max-file-size="10" />
                             </div>
                             <div></div> <!-- Espaciador -->
 
@@ -437,6 +439,7 @@ export default {
                 contact_id: this.sale.contact_id,
                 quote_id: this.sale.quote_id,
                 oce_name: this.sale.oce_name,
+                oce_media: [],
                 order_via: this.sale.order_via,
                 freight_option: this.sale.freight_option,
                 freight_cost: this.sale.freight_cost,
@@ -503,6 +506,9 @@ export default {
         };
     },
     computed: {
+        oceMediaFiles() {
+            return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
+        },
         availableBaseProducts() {
             if (this.form.type === 'stock') {
                 return this.catalog_products;
@@ -603,6 +609,11 @@ export default {
                         shipment.acknowledgement_file = shipment.acknowledgement_file.file;
                     }
                 });
+            }
+
+            // Normalizar archivos OCE: garantizar que sean objetos File reales para el envío
+            if (Array.isArray(this.form.oce_media)) {
+                this.form.oce_media = this.form.oce_media.map(f => f?.file || f);
             }
 
             this.form.post(route("sales.update", this.sale.id), {

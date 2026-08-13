@@ -104,7 +104,7 @@
           <!-- Gráfica -->
           <div v-if="reportData.chart.series.length > 0" class="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
             <h3 class="text-lg font-bold text-gray-800 dark:text-white mb-4">Tendencia Mensual (Top 5 Productos)</h3>
-            <apexchart type="line" height="350" :options="chartOptions" :series="reportData.chart.series"></apexchart>
+            <apexchart :key="chartRenderKey" type="line" height="350" :options="chartOptions" :series="reportData.chart.series"></apexchart>
           </div>
 
           <!-- Tabla de Proyección -->
@@ -261,6 +261,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import VueApexCharts from "vue3-apexcharts";
 import axios from "axios";
+import { debounce } from 'lodash';
 
 export default {
   name: 'StockProjectionDashboard',
@@ -300,7 +301,10 @@ export default {
       tablePerPage: 30,
 
       // Se agregó "export" al state the loading
-      isLoading: { report: false, products: false, export: false }
+      isLoading: { report: false, products: false, export: false },
+
+      // Identificador para descartar respuestas obsoletas al cambiar de rango
+      reportRequestId: 0
     };
   },
   computed: {
@@ -329,6 +333,10 @@ export default {
         tooltip: { theme: 'light' },
         grid: { borderColor: '#E5E7EB', strokeDashArray: 4 },
       };
+    },
+    // Cambia cada vez que se modifica el rango/filtros para forzar el re-render de la gráfica
+    chartRenderKey() {
+      return `${this.filters.start_date}-${this.filters.end_date}-${this.filters.product_mode}-${this.filters.product_ids.join(',')}`;
     }
   },
   methods: {
@@ -338,16 +346,22 @@ export default {
         return;
       }
       
+      const requestId = ++this.reportRequestId; // Para descartar respuestas de rangos anteriores
       this.isLoading.report = true;
       try {
         const response = await axios.post(route('stock-projection.report'), this.filters);
+        if (requestId !== this.reportRequestId) return; // Ya llegó una respuesta más reciente
         this.reportData = response.data;
         this.tablePage = 1; // Reiniciar paginación al generar un nuevo reporte
       } catch (error) {
-        console.error(error);
-        alert("Ocurrió un error al generar la proyección.");
+        if (requestId === this.reportRequestId) {
+          console.error(error);
+          alert("Ocurrió un error al generar la proyección.");
+        }
       } finally {
-        this.isLoading.report = false;
+        if (requestId === this.reportRequestId) {
+          this.isLoading.report = false;
+        }
       }
     },
     
@@ -456,6 +470,15 @@ export default {
     formatNumber(value) {
       return new Intl.NumberFormat('es-MX').format(value || 0);
     }
+  },
+  watch: {
+    // Al cambiar el rango de fechas se regenera la proyección automáticamente
+    'filters.start_date': debounce(function () {
+      this.generateReport();
+    }, 600),
+    'filters.end_date': debounce(function () {
+      this.generateReport();
+    }, 600),
   },
   mounted() {
     // Generar reporte automático al inicio (con modo 'all' por defecto)

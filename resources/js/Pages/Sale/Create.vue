@@ -262,8 +262,8 @@
 
                             <!-- Archivos de OCE -->
                             <div v-if="form.type === 'venta'" class="col-span-full my-2">
-                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
-                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
+                                <InputLabel value="Archivos de OCE (máx. 3 archivos) max. 10 MB" />
+                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" :max-file-size="10" />
                             </div>
                             <div></div> <!-- Espaciador -->
 
@@ -458,7 +458,7 @@ export default {
                 is_high_priority: false,
                 has_low_price: false, 
                 products: [],
-                oce_media: null,
+                oce_media: [],
                 anotherFiles: null,
                 shipping_option: null,
                 shipments: [], 
@@ -575,6 +575,11 @@ export default {
                         shipment.acknowledgement_file = shipment.acknowledgement_file.file;
                     }
                 });
+            }
+
+            // Normalizar archivos OCE: garantizar que sean objetos File reales para el envío
+            if (Array.isArray(this.form.oce_media)) {
+                this.form.oce_media = this.form.oce_media.map(f => f?.file || f);
             }
 
             this.form.post(route("sales.store"), {

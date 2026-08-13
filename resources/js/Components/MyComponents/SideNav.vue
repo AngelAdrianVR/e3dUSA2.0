@@ -470,7 +470,7 @@ export default {
                         // },
                         // --- INICIO NUEVO MÓDULO ---
                         {
-                            label: 'Cobranza',
+                            label: 'Facturación',
                             route: 'billing.dashboard',
                             active: route().current('billing.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver facturas'),

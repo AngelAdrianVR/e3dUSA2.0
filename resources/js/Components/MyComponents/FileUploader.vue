@@ -47,6 +47,9 @@
         <p class="text-xs text-gray-400 dark:text-gray-500">
           {{ acceptedFormatLabel }}
         </p>
+        <p v-if="props.maxFileSize > 0" class="text-xs text-amber-500 dark:text-amber-400 mt-1">
+          Tamaño máximo por archivo: {{ props.maxFileSize }} MB
+        </p>
         <div v-if="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/80 dark:bg-slate-900/80 rounded-xl">
           <svg class="w-8 h-8 text-primary animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -111,6 +114,7 @@ const props = defineProps({
   format: { type: String, default: 'Todo' }, // 'Video', 'PDF', 'Imagen', 'Todo'
   existingFileUrls: { type: Array, default: () => [] },
   maxFiles: { type: Number, default: 0 }, // 0 = sin límite
+  maxFileSize: { type: Number, default: 0 }, // 0 = sin límite (en MB)
 });
 const emit = defineEmits(['files-selected']);
 
@@ -149,7 +153,21 @@ const processAndAddFiles = (files) => {
     const fileArray = Array.from(files);
     let filesToAdd = fileArray;
 
-    // --- INICIO DE LA MODIFICACIÓN ---
+    // --- Validación de tamaño máximo por archivo (retroalimentación al usuario) ---
+    if (props.maxFileSize > 0) {
+        const limitBytes = props.maxFileSize * 1024 * 1024;
+        const oversized = fileArray.filter(f => f.size > limitBytes);
+
+        oversized.forEach(f => {
+            console.warn(`El archivo "${f.name}" supera el tamaño máximo de ${props.maxFileSize} MB.`);
+            ElMessage.error(`El archivo "${f.name}" supera el tamaño máximo de ${props.maxFileSize} MB y no se agregó.`);
+        });
+
+        filesToAdd = fileArray.filter(f => f.size <= limitBytes);
+        if (filesToAdd.length === 0) return;
+    }
+
+    // --- INICIO DE LA MODIFICACIÓN (límite de cantidad de archivos) ---
     if (props.maxFiles > 0) {
         const currentCount = processedFiles.value.length;
         const availableSlots = props.maxFiles - currentCount;
@@ -161,11 +179,11 @@ const processAndAddFiles = (files) => {
             return;
         }
 
-        if (fileArray.length > availableSlots) {
+        if (filesToAdd.length > availableSlots) {
           console.warn(`Solo se pueden agregar ${availableSlots} archivos más. Se han ignorado los archivos extras.`);
           ElMessage.warning(`Solo se pueden agregar ${availableSlots} archivos más. Se han ignorado los archivos extras.`);
             // Opcional: Muestra una notificación al usuario aquí.
-            filesToAdd = fileArray.slice(0, availableSlots);
+            filesToAdd = filesToAdd.slice(0, availableSlots);
         }
     }
     // --- FIN DE LA MODIFICACIÓN ---

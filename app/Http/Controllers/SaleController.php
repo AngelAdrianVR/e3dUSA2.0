@@ -153,7 +153,7 @@ class SaleController extends Controller
             'products.*.has_low_price' => 'boolean', // AGREGADO
             'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000',
         ];
 
         // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
@@ -172,7 +172,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];
@@ -482,7 +482,7 @@ class SaleController extends Controller
             'products.*.has_low_price' => 'boolean', // AGREGADO
             'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000',
         ];
 
         // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
@@ -503,7 +503,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];

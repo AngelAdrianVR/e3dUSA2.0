@@ -338,4 +338,14 @@ class Sale extends Model implements HasMedia, Auditable
 
         });
     }
+
+    // --- MEDIA LIBRARY ---
+    /**
+     * Registra la colección de medios para los archivos de OCE
+     * (orden de compra externa) adjuntos a la orden.
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('oce_media');
+    }
 }
