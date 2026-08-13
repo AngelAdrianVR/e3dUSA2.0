@@ -84,6 +84,23 @@ class PayrollController extends Controller
     }
 
     /**
+     * Activa o desactiva la penalización de 30 minutos por no registrar descanso
+     * para una nómina específica.
+     */
+    public function toggleBreakPenalty(Request $request, Payroll $payroll)
+    {
+        $request->validate([
+            'break_penalty_enabled' => 'required|boolean',
+        ]);
+
+        $payroll->update([
+            'break_penalty_enabled' => $request->boolean('break_penalty_enabled'),
+        ]);
+
+        return back();
+    }
+
+    /**
      * Lógica centralizada para calcular los datos de la nómina.
      */
     public function calculatePayrollData(Payroll $payroll, $employees)
@@ -136,6 +153,9 @@ class PayrollController extends Controller
                     'breaks_details' => [],
                     'unauthorized_overtime_seconds' => 0,
                     'approved_overtime_day_seconds' => 0,
+                    'break_penalty' => false,
+                    'break_penalty_seconds' => 0,
+                    'rigid_mode' => false,
                 ];
 
                 if ($payroll->status === 'Abierta' && !$incident && !$dayAttendances->count()) {
@@ -179,7 +199,21 @@ class PayrollController extends Controller
                         $dayData['breaks_details'][] = ['start' => $start->format('H:i'), 'end' => $end->format('H:i'), 'total' => floor($diff / 60) . 'm'];
                     }
                 }
-                if ($breakSeconds > 0) $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
+
+                // Penalización de descanso: si la nómina la tiene activada y trabajó el día (entrada y
+                // salida) pero no registró ningún descanso, se le descuentan 30 minutos de su tiempo trabajado.
+                $penaltyBreakSeconds = 0;
+                if ($payroll->break_penalty_enabled && $entry && $exit && $breakSeconds == 0) {
+                    $penaltyBreakSeconds = 30 * 60; // 30 minutos
+                    $dayData['break_penalty'] = true;
+                    $dayData['break_penalty_seconds'] = $penaltyBreakSeconds;
+                }
+
+                if ($breakSeconds > 0) {
+                    $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
+                } elseif ($dayData['break_penalty']) {
+                    $dayData['total_break_time'] = gmdate('G\h i\m', $penaltyBreakSeconds);
+                }
 
                 $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
 
@@ -199,6 +233,8 @@ class PayrollController extends Controller
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
 
                         $scheduledSeconds = 0;
+                        $startTime = null;
+                        $endTime = null;
                         if ($workDayConfig && $workDayConfig['works']) {
                             $startTime = Carbon::parse($workDayConfig['start_time']);
                             $endTime = Carbon::parse($workDayConfig['end_time']);
@@ -206,8 +242,34 @@ class PayrollController extends Controller
                             $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
                         }
 
-                        $rawWorkedSeconds = Carbon::parse($entry->timestamp)->diffInSeconds(Carbon::parse($exit->timestamp)) - $breakSeconds;
-                        $dayWorkedSeconds = max(0, $rawWorkedSeconds);
+                        $entryTime = Carbon::parse($entry->timestamp);
+                        $exitTime = Carbon::parse($exit->timestamp);
+
+                        // Tiempo bruto trabajado (entrada -> salida) menos descansos registrados
+                        $actualWorkedSeconds = max(0, $entryTime->diffInSeconds($exitTime) - $breakSeconds);
+
+                        // --- Modo Rígido ---
+                        // El tiempo efectivo (pagado) sólo cuenta dentro del horario establecido para el empleado.
+                        // Si checa entrada antes de su hora o sale después, ese tiempo fuera del horario no se paga.
+                        $rigidMode = (bool) ($employee->rigid_schedule ?? false);
+                        $effectiveSeconds = $actualWorkedSeconds;
+                        if ($rigidMode && $startTime && $endTime) {
+                            // Aplicar el horario establecido a la FECHA del día que se está calculando,
+                            // para que coincida con las fechas de entrada/salida (timestamps reales).
+                            $shiftStart = $date->copy()->setTimeFromTimeString($workDayConfig['start_time']);
+                            $shiftEnd = $date->copy()->setTimeFromTimeString($workDayConfig['end_time']);
+                            // Turno que cruza la medianoche: la hora de salida pertenece al día siguiente
+                            if ($shiftEnd->lt($shiftStart)) {
+                                $shiftEnd->addDay();
+                            }
+
+                            $overlapStart = max($entryTime->timestamp, $shiftStart->timestamp);
+                            $overlapEnd = min($exitTime->timestamp, $shiftEnd->timestamp);
+                            $overlapSeconds = max(0, $overlapEnd - $overlapStart);
+
+                            $effectiveSeconds = max(0, $overlapSeconds - $breakSeconds);
+                            $dayData['rigid_mode'] = true;
+                        }
 
                         $approvedOvertimeDaySeconds = 0;
                         if (isset($approvedOvertime[$dayString])) {
@@ -215,11 +277,26 @@ class PayrollController extends Controller
                             $dayData['approved_overtime_day_seconds'] = $approvedOvertimeDaySeconds;
                         }
 
-                        $payableSeconds = min($dayWorkedSeconds, $scheduledSeconds + $approvedOvertimeDaySeconds);
-                        $dayData['unauthorized_overtime_seconds'] = max(0, $dayWorkedSeconds - ($scheduledSeconds + $approvedOvertimeDaySeconds));
+                        if ($rigidMode) {
+                            // Tiempo pagado = tiempo efectivo (dentro del horario) + horas extra aprobadas
+                            $payableSeconds = min($effectiveSeconds + $approvedOvertimeDaySeconds, $scheduledSeconds + $approvedOvertimeDaySeconds);
+                            // No autorizado: tiempo trabajado que excede el tiempo efectivo + el aprobado
+                            $dayData['unauthorized_overtime_seconds'] = max(0, $actualWorkedSeconds - ($effectiveSeconds + $approvedOvertimeDaySeconds));
+                        } else {
+                            $payableSeconds = min($actualWorkedSeconds, $scheduledSeconds + $approvedOvertimeDaySeconds);
+                            $dayData['unauthorized_overtime_seconds'] = max(0, $actualWorkedSeconds - ($scheduledSeconds + $approvedOvertimeDaySeconds));
+                        }
+
+                        // Penalización de descanso: si no registró ningún descanso, se descuentan 30 minutos
+                        // del tiempo a pagar (además del descanso configurado en su horario).
+                        if ($dayData['break_penalty']) {
+                            $payableSeconds = max(0, $payableSeconds - $penaltyBreakSeconds);
+                        }
 
                         $totalWorkedSeconds += $payableSeconds;
-                        $dayData['total_time'] = gmdate('G\h i\m', $dayWorkedSeconds);
+                        // Tiempo efectivo contabilizado (después de la penalización de descanso)
+                        $countedSeconds = max(0, $effectiveSeconds - ($dayData['break_penalty'] ? $penaltyBreakSeconds : 0));
+                        $dayData['total_time'] = gmdate('G\h i\m', $countedSeconds);
 
                         if ($isHoliday) {
                             $dayData['worked_on_holiday'] = true;
@@ -277,6 +354,7 @@ class PayrollController extends Controller
                     'name' => $employee->user->name,
                     'job_position' => $employee->job_position,
                     'hours_per_week' => $employee->hours_per_week,
+                    'rigid_schedule' => (bool) ($employee->rigid_schedule ?? false),
                 ],
                 'week_details' => $daysData,
                 'summary' => [

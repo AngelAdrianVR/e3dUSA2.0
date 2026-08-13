@@ -1,7 +1,7 @@
 <template>
     <AppLayout title="Crear Producto">
         <div class="flex justify-between items-center">
-            <Back :href="route('catalog-products.index')" />
+            <Back :href="backHref" />
             <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
                 Agregar nuevo producto
             </h2>
@@ -652,6 +652,12 @@ export default {
                 return total + (quantity * cost);
             }, 0);
         },
+        // Si el producto se está registrando desde una orden de venta,
+        // el botón "Atrás" regresa a completar la orden.
+        backHref() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('redirect_to') || 'catalog-products.index';
+        },
     },
 
     methods: {
@@ -754,7 +760,15 @@ export default {
             this.form.post(route("catalog-products.store"), {
                 onSuccess: () => {
                     ElMessage.success('Producto creado con éxito');
-                    this.form.reset();
+                    // Si el producto se registró desde una orden de venta,
+                    // regresamos a completar la orden.
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const redirectTo = urlParams.get('redirect_to');
+                    if (redirectTo) {
+                        router.visit(redirectTo);
+                    } else {
+                        this.form.reset();
+                    }
                 },
                 onError: () => {
                     ElMessage.error('Hubo un problema al crear el producto. Revisa los campos.');

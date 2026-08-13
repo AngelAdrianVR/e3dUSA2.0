@@ -82,7 +82,12 @@
                                                 </div>
                                             </td>
                                             <td class="p-2 print:p-px text-center font-mono">{{ format12HourTime(day.exit) }}</td>
-                                            <td class="p-2 print:p-px text-center font-mono">{{ day.total_break_time ?? '0h 0m' }}</td>
+                                            <td class="p-2 print:p-px text-center font-mono">
+                                                <span v-if="day.break_penalty" class="text-red-500 font-bold" :title="`Penalización: se descontaron ${formatTime(day.break_penalty_seconds)} por no registrar descanso`">
+                                                    {{ day.total_break_time ?? '0h 0m' }}
+                                                </span>
+                                                <span v-else>{{ day.total_break_time ?? '0h 0m' }}</span>
+                                            </td>
                                             <td class="p-2 print:p-px text-center font-mono">
                                                  <span v-if="day.approved_overtime_day_seconds > 0" class="text-indigo-600 dark:text-indigo-400 font-semibold">
                                                     {{ formatTime(day.approved_overtime_day_seconds) }}
@@ -91,6 +96,9 @@
                                             </td>
                                             <td class="p-2 print:p-px text-center font-mono font-bold">
                                                 <span v-if="day.unauthorized_overtime_seconds > 0" class="text-red-500" :title="`Tiempo adicional no autorizado: ${formatTime(day.unauthorized_overtime_seconds)}`">
+                                                    {{ day.total_time ?? '0h 0m' }}
+                                                </span>
+                                                <span v-else-if="day.break_penalty" class="text-red-500" :title="`Penalización por no registrar descanso: -${formatTime(day.break_penalty_seconds)}`">
                                                     {{ day.total_time ?? '0h 0m' }}
                                                 </span>
                                                 <span v-else>{{ day.total_time ?? '0h 0m' }}</span>

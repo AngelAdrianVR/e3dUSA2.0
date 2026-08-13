@@ -15,6 +15,11 @@ class Payroll extends Model
         'start_date',
         'end_date',
         'status',
+        'break_penalty_enabled',
+    ];
+
+    protected $casts = [
+        'break_penalty_enabled' => 'boolean',
     ];
 
     public function incidents()

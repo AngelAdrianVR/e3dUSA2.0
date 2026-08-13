@@ -99,6 +99,30 @@
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Horas por Semana:</span>
                                 <span class="dark:text-gray-300">{{ user.employee_detail.hours_per_week }}h</span>
                             </div>
+                            <div class="grid grid-cols-2 items-center">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400 flex items-center space-x-1">
+                                    <span>Modo Rígido:</span>
+                                    <el-tooltip placement="top">
+                                        <template #content>
+                                            <div class="max-w-xs text-xs leading-relaxed">
+                                                <b>Modo Rígido:</b> el tiempo efectivo (pagado) sólo cuenta dentro del horario
+                                                establecido del empleado. Si checa entrada antes de su hora o sale después, ese tiempo
+                                                fuera de su horario no se paga (salvo horas extra aprobadas). Si está desactivado, se
+                                                paga todo el tiempo trabajado hasta el horario + horas extra aprobadas.
+                                            </div>
+                                        </template>
+                                        <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-sm"></i>
+                                    </el-tooltip>
+                                </span>
+                                <el-switch
+                                    v-model="rigidSchedule"
+                                    :disabled="!hasPermission('Editar personal')"
+                                    @change="toggleRigidSchedule"
+                                    active-text="Activado"
+                                    inactive-text="Desactivado"
+                                    inline-prompt
+                                />
+                            </div>
                             <div class="col-span-2 mt-4">
                                 <p class="font-semibold text-gray-600 dark:text-gray-400 mb-2">Horario Semanal</p>
                                 <div class="overflow-x-auto">
@@ -285,6 +309,55 @@
                             <p>El empleado no tiene registros de bajas.</p>
                         </div>
                     </div>
+
+                    <!-- Historial de Aumentos Salariales -->
+                    <div v-if="user.employee_detail"
+                        class="mt-6 bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
+                        <div class="flex justify-between items-center border-b dark:border-slate-700 pb-2 mb-4">
+                            <h3 class="font-bold text-lg dark:text-gray-200">Historial de Aumentos Salariales</h3>
+                            <PrimaryButton v-if="hasPermission('Editar personal')" @click="openSalaryModal">
+                                <i class="fa-solid fa-plus mr-2"></i>Registrar Aumento
+                            </PrimaryButton>
+                        </div>
+                        <div v-if="salary_increases.length">
+                            <el-table :data="salary_increases" max-height="300" stripe size="small"
+                                class="dark:!bg-slate-900">
+                                <el-table-column prop="increase_date" label="Fecha">
+                                    <template #default="{ row }">{{ formatDate(row.increase_date) }}</template>
+                                </el-table-column>
+                                <el-table-column label="Cantidad Anterior">
+                                    <template #default="{ row }">{{ formatCurrency(row.previous_amount) }}</template>
+                                </el-table-column>
+                                <el-table-column label="Nueva Cantidad">
+                                    <template #default="{ row }">
+                                        <span class="text-green-600 dark:text-green-400 font-semibold">
+                                            {{ formatCurrency(row.new_amount) }}
+                                        </span>
+                                        <span class="text-xs text-green-500 dark:text-green-400 ml-1">
+                                            (+{{ formatCurrency(row.new_amount - row.previous_amount) }})
+                                        </span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="notes" label="Notas">
+                                    <template #default="{ row }">
+                                        <span v-if="row.notes">{{ row.notes }}</span>
+                                        <span v-else class="text-gray-400">—</span>
+                                    </template>
+                                </el-table-column>
+                                <el-table-column prop="creator.name" label="Registrado por" />
+                                <el-table-column v-if="hasPermission('Editar personal')" label="" align="right" width="60">
+                                    <template #default="{ row }">
+                                        <el-button type="danger" text size="small" @click="deleteSalaryIncrease(row)">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </el-button>
+                                    </template>
+                                </el-table-column>
+                            </el-table>
+                        </div>
+                        <div v-else class="text-center text-gray-500 dark:text-gray-400 py-4">
+                            <p>No hay aumentos salariales registrados.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -376,6 +449,48 @@
                 </div>
             </template>
         </DialogModal>
+
+        <!-- Modal para Registrar Aumento Salarial -->
+        <DialogModal :show="showSalaryModal" @close="showSalaryModal = false">
+            <template #title>Registrar Aumento Salarial</template>
+            <template #content>
+                <form @submit.prevent="submitSalaryIncrease" class="space-y-4">
+                    <div>
+                        <InputLabel value="Fecha del aumento*" />
+                        <el-date-picker :teleported="false" v-model="salaryForm.increase_date" type="date"
+                            class="!w-full" format="DD MMMM, YYYY" value-format="YYYY-MM-DD" />
+                        <InputError :message="salaryForm.errors.increase_date" />
+                    </div>
+                    <div>
+                        <InputLabel value="Cantidad anterior*" />
+                        <TextInput v-model="salaryForm.previous_amount" type="number" step="0.01"
+                            :error="salaryForm.errors.previous_amount" />
+                    </div>
+                    <div>
+                        <InputLabel value="Nueva cantidad*" />
+                        <TextInput v-model="salaryForm.new_amount" type="number" step="0.01"
+                            :error="salaryForm.errors.new_amount" />
+                    </div>
+                    <div>
+                        <InputLabel value="Notas (opcional)" />
+                        <TextInput v-model="salaryForm.notes" :isTextarea="true" :error="salaryForm.errors.notes" />
+                    </div>
+                    <div>
+                        <el-checkbox v-model="salaryForm.update_current_salary">
+                            Actualizar el salario actual del empleado
+                        </el-checkbox>
+                    </div>
+                </form>
+            </template>
+            <template #footer>
+                <div class="flex items-center space-x-1">
+                    <CancelButton @click="showSalaryModal = false" :disabled="salaryForm.processing">Cancelar
+                    </CancelButton>
+                    <PrimaryButton @click="submitSalaryIncrease" :loading="salaryForm.processing">Guardar Aumento
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
     </AppLayout>
 </template>
 
@@ -390,11 +505,12 @@ import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 const props = defineProps({
     user: Object,
     vacation_logs: Array,
+    salary_increases: { type: Array, default: () => [] },
     work_years: { type: Array, default: () => [] },
     termination_logs: Array,
     vacation_summary: Object,
@@ -404,6 +520,24 @@ const props = defineProps({
 
 const showVacationModal = ref(false);
 const showChangeStatusModal = ref(false);
+
+// Modo Rígido: el tiempo efectivo (pagado) sólo cuenta dentro del horario establecido del empleado.
+const rigidSchedule = ref(!!props.user.employee_detail?.rigid_schedule);
+const rigidScheduleForm = useForm({ rigid_schedule: false });
+
+const toggleRigidSchedule = (val) => {
+    rigidScheduleForm.rigid_schedule = val;
+    rigidScheduleForm.put(route('users.toggle-rigid-schedule', props.user), {
+        onSuccess: () => {
+            ElMessage.success(val ? 'Modo rígido activado' : 'Modo rígido desactivado');
+        },
+        onError: () => {
+            rigidSchedule.value = !val;
+            ElMessage.error('No se pudo actualizar el modo rígido');
+        },
+        preserveScroll: true,
+    });
+};
 
 // Índice del periodo seleccionado. Por defecto, el periodo actual (is_current = true)
 const selectedPeriodIndex = ref(
@@ -432,6 +566,60 @@ const statusForm = useForm({
     disabled_at: new Date().toISOString().slice(0, 10), // Fecha de hoy en formato YYYY-MM-DD
     reason: '',
 });
+
+// --- Aumentos Salariales ---
+const showSalaryModal = ref(false);
+
+const salaryForm = useForm({
+    employee_detail_id: props.user.employee_detail?.id,
+    increase_date: new Date().toISOString().slice(0, 10),
+    previous_amount: props.user.employee_detail?.week_salary ?? null,
+    new_amount: null,
+    notes: '',
+    update_current_salary: true,
+});
+
+const salaryDeleteForm = useForm({});
+
+const openSalaryModal = () => {
+    salaryForm.employee_detail_id = props.user.employee_detail?.id;
+    salaryForm.previous_amount = props.user.employee_detail?.week_salary ?? null;
+    salaryForm.increase_date = new Date().toISOString().slice(0, 10);
+    salaryForm.new_amount = null;
+    salaryForm.notes = '';
+    salaryForm.update_current_salary = true;
+    salaryForm.clearErrors();
+    showSalaryModal.value = true;
+};
+
+const submitSalaryIncrease = () => {
+    salaryForm.post(route('salary-increases.store'), {
+        onSuccess: () => {
+            showSalaryModal.value = false;
+            salaryForm.reset();
+            ElMessage.success('Aumento salarial registrado');
+        },
+        onError: () => ElMessage.error('Hubo un error al registrar el aumento'),
+        preserveScroll: true,
+    });
+};
+
+const deleteSalaryIncrease = (row) => {
+    ElMessageBox.confirm(
+        `¿Eliminar el aumento registrado el ${formatDate(row.increase_date)} (${formatCurrency(row.previous_amount)} → ${formatCurrency(row.new_amount)})?`,
+        'Confirmar eliminación',
+        {
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            type: 'warning',
+        }
+    ).then(() => {
+        salaryDeleteForm.delete(route('salary-increases.destroy', row.id), {
+            onSuccess: () => ElMessage.success('Registro eliminado'),
+            preserveScroll: true,
+        });
+    }).catch(() => {});
+};
 
 const formatCurrency = (value) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(value);
 const formatDate = (dateString) => new Date(dateString.split('T')[0] + 'T00:00:00').toLocaleDateString('es-MX', { year: 'numeric', month: 'long', day: 'numeric' });

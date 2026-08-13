@@ -17,6 +17,7 @@ class EmployeeDetail extends Model
         'job_position',
         'department',
         'hours_per_week',
+        'rigid_schedule',
         'work_days',
         'vacations',
         'department_details',
@@ -26,6 +27,7 @@ class EmployeeDetail extends Model
         'work_days' => 'array',
         'vacations' => 'array',
         'department_details' => 'array',
+        'rigid_schedule' => 'boolean',
         'join_date' => 'datetime',
         'birthdate' => 'date',
     ];
@@ -61,5 +63,10 @@ class EmployeeDetail extends Model
     public function incidents()
     {
         return $this->hasMany(Incident::class);
+    }
+
+    public function salaryIncreases()
+    {
+        return $this->hasMany(SalaryIncrease::class);
     }
 }
