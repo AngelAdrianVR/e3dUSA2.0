@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\ChMessage;
 use App\Models\Discount;
 use App\Models\Payroll;
+use App\Models\SalaryIncrease;
 use App\Models\TerminationLog;
 use App\Models\User;
 use App\Models\VacationLog;
@@ -66,6 +67,7 @@ class UserController extends Controller
         $user->load('employeeDetail.bonuses', 'employeeDetail.discounts', 'roles');
 
         $vacationLogs = collect();
+        $salaryIncreases = collect();
         $workYears = [];
         $age = null;
         $seniority = null;
@@ -74,6 +76,11 @@ class UserController extends Controller
             $vacationLogs = VacationLog::with('creator:id,name')
                 ->where('employee_detail_id', $user->employeeDetail->id)
                 ->latest('date')
+                ->get();
+
+            $salaryIncreases = SalaryIncrease::with('creator:id,name')
+                ->where('employee_detail_id', $user->employeeDetail->id)
+                ->latest('increase_date')
                 ->get();
 
             if ($user->employeeDetail->birthdate) {
@@ -102,6 +109,7 @@ class UserController extends Controller
         return inertia('User/Show', [
             'user' => $user,
             'vacation_logs' => $vacationLogs,
+            'salary_increases' => $salaryIncreases,
             'work_years' => $workYears,
             'termination_logs' => $terminationLogs,
             'vacation_summary' => [
@@ -477,6 +485,26 @@ class UserController extends Controller
                 ]);
             });
         }
+    }
+
+    /**
+     * Activa o desactiva el modo rígido de horario para un empleado.
+     * En modo rígido, el tiempo efectivo (pagado) sólo cuenta dentro del
+     * horario establecido en su configuración de días de trabajo.
+     */
+    public function toggleRigidSchedule(Request $request, User $user)
+    {
+        $request->validate([
+            'rigid_schedule' => 'required|boolean',
+        ]);
+
+        if ($user->employeeDetail) {
+            $user->employeeDetail->update([
+                'rigid_schedule' => $request->boolean('rigid_schedule'),
+            ]);
+        }
+
+        return back();
     }
 
     public function getUnseenMessages()

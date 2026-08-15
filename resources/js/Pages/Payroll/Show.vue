@@ -33,13 +33,42 @@
                         </div>
                     </header>
 
+                    <!-- Control de penalización de descanso -->
+                    <div class="flex flex-wrap items-center gap-2 mb-4 p-3 bg-gray-50 dark:bg-slate-800/50 rounded-lg">
+                        <el-switch
+                            v-model="breakPenaltyEnabled"
+                            :disabled="!hasPermission('Editar nominas')"
+                            @change="toggleBreakPenalty"
+                            active-text="Activado"
+                            inactive-text="Desactivado"
+                            inline-prompt
+                        />
+                        <span class="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                            Penalización por no registrar descanso (30 min)
+                        </span>
+                        <el-tooltip placement="top">
+                            <template #content>
+                                <div class="max-w-[240px] text-xs leading-relaxed space-y-1">
+                                    <p class="m-0">Si está <b>activado</b>, a los días trabajados sin descanso registrado se les descuentan 30 minutos como penalización (se muestra en rojo en la nómina).</p>
+                                    <p class="m-0">Si está <b>desactivado</b>, no se aplica ningún descuento por no registrar descanso.</p>
+                                </div>
+                            </template>
+                            <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-sm"></i>
+                        </el-tooltip>
+                    </div>
+
                     <!-- Lista de Empleados -->
                     <div class="space-y-6">
                         <div v-for="employeeData in filteredEmployees" :key="employeeData.employee.id" class="bg-gray-100/50 dark:bg-slate-800/50 p-4 rounded-lg">
                             <!-- Cabecera del Empleado -->
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3">
                                 <div class="mb-2 md:mb-0">
-                                    <h3 class="font-bold text-lg dark:text-gray-200">{{ employeeData.employee.name }}</h3>
+                                    <h3 class="font-bold text-lg dark:text-gray-200">
+                                        {{ employeeData.employee.name }}
+                                        <el-tag v-if="employeeData.employee.rigid_schedule" type="warning" size="small" effect="plain" class="ml-2 align-middle">
+                                            <i class="fa-solid fa-lock mr-1"></i>Modo Rígido
+                                        </el-tag>
+                                    </h3>
                                     <p class="text-sm text-gray-500 dark:text-gray-400">{{ employeeData.employee.job_position }}</p>
                                 </div>
                                 <div class="w-full md:w-auto grid grid-cols-2 md:flex md:space-x-2 text-sm text-center">
@@ -96,9 +125,21 @@
                                                 <span>{{ row.exit ? format12HourTime(row.exit) : '--:--' }}</span>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column label="Descansos" align="center" width="110">
+                                        <el-table-column label="Descansos" align="center" width="150">
                                             <template #default="{ row }">
-                                                <el-tooltip placement="top" v-if="row.breaks_details.length">
+                                                <el-tooltip v-if="row.break_penalty" placement="top">
+                                                    <template #content>
+                                                        <div class="text-xs">
+                                                            Penalización: no registró ningún descanso, se descontaron
+                                                            {{ formatTime(row.break_penalty_seconds) }} de su tiempo trabajado.
+                                                        </div>
+                                                    </template>
+                                                    <span class="text-red-500 font-bold border-b border-dashed border-red-500 cursor-help">
+                                                        {{ row.total_break_time }}
+                                                        <i class="fa-solid fa-triangle-exclamation ml-1"></i>
+                                                    </span>
+                                                </el-tooltip>
+                                                <el-tooltip placement="top" v-else-if="row.breaks_details.length">
                                                     <template #content>
                                                         <div v-for="(br, index) in row.breaks_details" :key="index" class="text-xs">
                                                             <span>{{ br.start }} - {{ br.end }} ({{ br.total }})</span>
@@ -109,7 +150,26 @@
                                                 <span v-else>Sin descansos</span>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column label="T. Adicional" align="center" width="90">
+                                        <el-table-column label="T. Adicional" align="center" width="120">
+                                            <template #header>
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <span>T. Adicional</span>
+                                                    <el-tooltip placement="top">
+                                                        <template #content>
+                                                            <div class="max-w-[240px] text-xs leading-relaxed space-y-1">
+                                                                <p class="m-0">Horas extra aprobadas de ese día.</p>
+                                                                <p v-if="employeeData.employee.rigid_schedule" class="m-0">
+                                                                    En <b>modo rígido</b> se suman al tiempo efectivo (dentro del horario establecido) y se pagan además de la jornada programada.
+                                                                </p>
+                                                                <p v-else class="m-0">
+                                                                    Se suman al tiempo a pagar y elevan el tope sobre la jornada programada.
+                                                                </p>
+                                                            </div>
+                                                        </template>
+                                                        <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-xs"></i>
+                                                    </el-tooltip>
+                                                </div>
+                                            </template>
                                             <template #default="{ row }">
                                                 <span v-if="row.approved_overtime_day_seconds > 0" class="dark:text-white font-semibold">
                                                     {{ formatTime(row.approved_overtime_day_seconds) }}
@@ -117,10 +177,35 @@
                                                 <span v-else>--:--</span>
                                             </template>
                                         </el-table-column>
-                                        <el-table-column prop="total_time" label="T. Total" align="center" width="90">
+                                        <el-table-column prop="total_time" label="T. Total" align="center" width="120">
+                                            <template #header>
+                                                <div class="flex items-center justify-center gap-1">
+                                                    <span>T. Total</span>
+                                                    <el-tooltip placement="top">
+                                                        <template #content>
+                                                            <div class="max-w-[240px] text-xs leading-relaxed space-y-1">
+                                                                <p v-if="employeeData.employee.rigid_schedule" class="m-0">
+                                                                    <b>Modo rígido:</b> sólo cuenta el tiempo trabajado dentro del horario establecido (intersección de la jornada real con su horario) menos descansos. El tiempo fuera de su horario no se paga.
+                                                                </p>
+                                                                <p v-else class="m-0">
+                                                                    Tiempo trabajado (entrada a salida) menos descansos registrados.
+                                                                </p>
+                                                                <p class="m-0">Sólo se paga hasta la jornada programada + horas extra aprobadas; el excedente se marca en rojo como "no autorizado".</p>
+                                                                <p class="m-0">Si no registró descanso se descuentan 30 min (penalización en rojo).</p>
+                                                            </div>
+                                                        </template>
+                                                        <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-xs"></i>
+                                                    </el-tooltip>
+                                                </div>
+                                            </template>
                                             <template #default="{ row }">
                                                 <el-tooltip v-if="row.unauthorized_overtime_seconds > 60"
                                                     :content="`Tiempo adicional no autorizado: ${formatTime(row.unauthorized_overtime_seconds)}`"
+                                                    placement="top">
+                                                    <span class="text-red-500 font-bold border-b border-dashed border-red-500 cursor-help">{{ row.total_time }}</span>
+                                                </el-tooltip>
+                                                <el-tooltip v-else-if="row.break_penalty"
+                                                    :content="`Penalización por no registrar descanso: -${formatTime(row.break_penalty_seconds)}`"
                                                     placement="top">
                                                     <span class="text-red-500 font-bold border-b border-dashed border-red-500 cursor-help">{{ row.total_time }}</span>
                                                 </el-tooltip>
@@ -234,6 +319,9 @@
             </template>
         </el-dialog>
 
+        <!-- Calculadora flotante de horas (abajo a la derecha) -->
+        <FloatingHoursCalculator />
+
         <!-- Modal para Impresión de Nóminas -->
         <el-dialog v-model="showPrintModal" title="Seleccionar Empleados para Imprimir" width="600px">
             <div class="mb-4">
@@ -269,6 +357,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import Back from '@/Components/MyComponents/Back.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import FloatingHoursCalculator from '@/Components/MyComponents/FloatingHoursCalculator.vue';
 import InputError from '@/Components/InputError.vue';
 import { ref, computed } from 'vue';
 import { useForm, usePage } from '@inertiajs/vue3';
@@ -288,6 +377,24 @@ const showEditModal = ref(false);
 const showPrintModal = ref(false);
 const currentEmployeeName = ref('');
 const currentDate = ref('');
+
+// Penalización de descanso: bandera por nómina (activada por defecto al crearla).
+const breakPenaltyEnabled = ref(!!props.payroll.break_penalty_enabled);
+const breakPenaltyForm = useForm({ break_penalty_enabled: false });
+
+const toggleBreakPenalty = (val) => {
+    breakPenaltyForm.break_penalty_enabled = val;
+    breakPenaltyForm.put(route('payrolls.toggle-break-penalty', props.payroll), {
+        onSuccess: () => {
+            ElMessage.success(val ? 'Penalización de descanso activada' : 'Penalización de descanso desactivada');
+        },
+        onError: () => {
+            breakPenaltyEnabled.value = !val;
+            ElMessage.error('No se pudo actualizar la penalización');
+        },
+        preserveScroll: true,
+    });
+};
 
 const filteredEmployees = computed(() => {
     if (!searchQuery.value) {

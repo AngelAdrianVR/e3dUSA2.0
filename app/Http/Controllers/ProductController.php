@@ -632,6 +632,32 @@ class ProductController extends Controller
         ]);
     }
 
+    /**
+     * Actualiza los límites de stock (mínimo y máximo) de un producto
+     * desde la columna de stock del index de productos.
+     */
+    public function updateStockLimits(Request $request, Product $product)
+    {
+        $request->validate([
+            'min_quantity' => 'nullable|numeric|min:0',
+            'max_quantity' => 'nullable|numeric|min:0|gte:min_quantity',
+        ]);
+
+        $product->update([
+            'min_quantity' => $request->min_quantity ?? null,
+            'max_quantity' => $request->max_quantity ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Límites de stock actualizados correctamente.',
+            'product' => [
+                'id' => $product->id,
+                'min_quantity' => $product->min_quantity,
+                'max_quantity' => $product->max_quantity,
+            ],
+        ]);
+    }
+
     public function pricesReport()
     {
         $catalog_products = Product::where('product_type', 'Producto')

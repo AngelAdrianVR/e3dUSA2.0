@@ -241,9 +241,114 @@
                             </el-table-column>
                              <el-table-column label="Stock" width="120">
                                 <template #default="scope">
-                                    <span :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold' : 'text-green-600 font-semibold'">
-                                        {{ (getProductStock(scope.row).quantity).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
-                                    </span>
+                                    <el-popover placement="top" trigger="hover" :width="360" :persistent="false">
+                                        <template #reference>
+                                            <span
+                                                :class="getProductStock(scope.row).quantity <= 10 ? 'text-red-500 font-bold cursor-pointer' : 'text-green-600 font-semibold cursor-pointer'"
+                                                title="Pasa el cursor para editar stock mínimo/máximo"
+                                            >
+                                                {{ (getProductStock(scope.row).quantity).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
+                                            </span>
+                                        </template>
+
+                                        <!-- Edición rápida de límites de stock (mínimo/máximo) -->
+                                        <div class="text-left">
+                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200 mb-2">
+                                                Stock actual: {{ getProductStock(scope.row).quantity }} {{ scope.row.measure_unit }}
+                                            </p>
+                                            <div class="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Stock mínimo</p>
+                                                    <el-input-number
+                                                        v-model="stockDrafts[scope.row.id].min_quantity"
+                                                        :min="0"
+                                                        size="small"
+                                                        controls-position="right"
+                                                        class="!w-full"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Stock máximo</p>
+                                                    <el-input-number
+                                                        v-model="stockDrafts[scope.row.id].max_quantity"
+                                                        :min="0"
+                                                        size="small"
+                                                        controls-position="right"
+                                                        class="!w-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div class="flex justify-end mt-2">
+                                                <el-button size="small" type="primary" @click="saveStockLimits(scope.row)" :loading="savingStockLimitsId === scope.row.id">
+                                                    <i class="fa-solid fa-floppy-disk mr-1"></i> Guardar
+                                                </el-button>
+                                            </div>
+
+                                            <!-- Proyección de ventas del año en curso (cálculo bajo demanda) -->
+                                            <div class="mt-3 border-t border-gray-200 dark:border-gray-700 pt-2">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                                        Proyección (últimos 12 meses)
+                                                    </p>
+                                                    <el-button
+                                                        size="small"
+                                                        @click="fetchAnnualProjection(scope.row)"
+                                                        :loading="isCalculatingProjection === scope.row.id"
+                                                        :disabled="isCalculatingProjection !== null && isCalculatingProjection !== scope.row.id"
+                                                    >
+                                                        <i class="fa-solid fa-calculator mr-1"></i>
+                                                        {{ annualProjections[scope.row.id] ? 'Recalcular' : 'Calcular' }}
+                                                    </el-button>
+                                                </div>
+
+                                                <template v-if="annualProjections[scope.row.id]">
+                                                    <!-- Desglose: ventas año / promedio mensual / 3 meses -->
+                                                    <div class="grid grid-cols-3 gap-1.5 mb-2">
+                                                        <div class="bg-gray-50 dark:bg-slate-800 rounded-lg py-1.5 text-center">
+                                                            <p class="text-[10px] text-gray-500 dark:text-gray-400">Ventas 12 m</p>
+                                                            <p class="text-xs font-bold text-gray-800 dark:text-gray-200">{{ formatProjectionNumber(annualProjections[scope.row.id].total_sold) }}</p>
+                                                        </div>
+                                                        <div class="bg-gray-50 dark:bg-slate-800 rounded-lg py-1.5 text-center">
+                                                            <p class="text-[10px] text-gray-500 dark:text-gray-400">Prom. mensual</p>
+                                                            <p class="text-xs font-bold text-gray-800 dark:text-gray-200">{{ formatProjectionNumber(annualProjections[scope.row.id].monthly_average) }}</p>
+                                                        </div>
+                                                        <div class="bg-gray-50 dark:bg-slate-800 rounded-lg py-1.5 text-center">
+                                                            <p class="text-[10px] text-gray-500 dark:text-gray-400">3 meses</p>
+                                                            <p class="text-xs font-bold text-blue-600 dark:text-blue-400">{{ formatProjectionNumber(annualProjections[scope.row.id].projection_3_months) }}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Mini gráfica mensual del año en curso -->
+                                                    <div class="flex items-end gap-1 h-20">
+                                                        <div
+                                                            v-for="(bar, i) in annualProjections[scope.row.id].chart"
+                                                            :key="i"
+                                                            class="flex-1 flex flex-col items-center justify-end"
+                                                            :title="`${bar.month}: ${formatProjectionNumber(bar.quantity)} u.`"
+                                                        >
+                                                            <span class="text-[8px] text-gray-500 dark:text-gray-400 leading-none mb-0.5">{{ formatProjectionNumber(bar.quantity) }}</span>
+                                                            <div
+                                                                class="w-full rounded-t bg-blue-400 dark:bg-blue-500"
+                                                                :style="{ height: getBarHeight(bar.quantity, annualProjections[scope.row.id].chart) + 'px' }"
+                                                            ></div>
+                                                            <span class="text-[8px] text-gray-400 mt-0.5 leading-none">{{ bar.month }}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Proyección anual aproximada (cantidad a comprar) -->
+                                                    <!-- <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-100 dark:border-gray-700">
+                                                        <p class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                                            Proyección anual aprox.
+                                                        </p>
+                                                        <p class="text-base font-bold text-blue-700 dark:text-blue-400">
+                                                            {{ formatProjectionNumber(annualProjections[scope.row.id].annual_to_order) }} u.
+                                                        </p>
+                                                    </div> -->
+                                                </template>
+                                                <p v-else class="text-xs text-gray-400 italic">Pulsa "Calcular" para ver la proyección.</p>
+                                            </div>
+                                        </div>
+                                    </el-popover>
                                     <span class="text-xs text-gray-500 ml-1">{{ scope.row.measure_unit }}</span>
                                 </template>
                             </el-table-column>
@@ -413,7 +518,15 @@ export default {
                 'ABS': 'ABS', 'PVC': 'PVC', 'TELA': 'T', 'CAUCHO': 'CAU', 'VINILPIEL': 'VPL', 
                 'FIBRA DE CARBONO': 'FC', 'OVERLAY': 'OV', 'ACERO': 'AC', 'FIBRA DSE CARBONO': 'FDC',
                 'RESINA': 'RS', 'ENCAPSULADO': 'ENC', 'CORTE DIAMANTE': 'CDT' 
-            }
+            },
+
+            // --- Edición rápida de límites de stock (mínimo/máximo) desde la tabla ---
+            stockDrafts: {},
+            savingStockLimitsId: null,
+
+            // --- Proyección anual de compra (cálculo bajo demanda) ---
+            annualProjections: {},
+            isCalculatingProjection: null,
         };
     },
     components: {
@@ -575,6 +688,57 @@ export default {
             }
             return { quantity: 0, location: 'N/A' };
         },
+        async saveStockLimits(row) {
+            const draft = this.stockDrafts[row.id] || {};
+            this.savingStockLimitsId = row.id;
+            try {
+                const response = await axios.put(route('products.update-stock-limits', row.id), {
+                    min_quantity: draft.min_quantity,
+                    max_quantity: draft.max_quantity,
+                });
+
+                ElMessage.success('Límites de stock actualizados correctamente.');
+
+                // Refrescar los valores en la fila y en el borrador para que el tooltip muestre lo guardado
+                row.min_quantity = response.data.product.min_quantity;
+                row.max_quantity = response.data.product.max_quantity;
+                this.stockDrafts[row.id] = {
+                    min_quantity: response.data.product.min_quantity,
+                    max_quantity: response.data.product.max_quantity,
+                };
+            } catch (error) {
+                if (error.response && error.response.status === 422) {
+                    ElMessage.error('El stock máximo no puede ser menor que el stock mínimo.');
+                } else {
+                    ElMessage.error('Ocurrió un error al actualizar los límites de stock.');
+                }
+                console.error(error);
+            } finally {
+                this.savingStockLimitsId = null;
+            }
+        },
+        async fetchAnnualProjection(row) {
+            this.isCalculatingProjection = row.id;
+            try {
+                const response = await axios.get(route('stock-projection.product', row.id));
+                this.annualProjections = {
+                    ...this.annualProjections,
+                    [row.id]: response.data,
+                };
+            } catch (error) {
+                console.error('Error al calcular la proyección anual:', error);
+                ElMessage.error('Ocurrió un error al calcular la proyección anual.');
+            } finally {
+                this.isCalculatingProjection = null;
+            }
+        },
+        formatProjectionNumber(value) {
+            return new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 }).format(value || 0);
+        },
+        getBarHeight(quantity, chart) {
+            const max = Math.max(...(chart || []).map(b => b.quantity || 0), 1);
+            return Math.max(3, Math.round((quantity / max) * 56));
+        },
         handleSelectionChange(selection) {
             this.selectedItems = selection;
         },
@@ -706,6 +870,20 @@ export default {
         },
         familyId() {
             this.fetchData();
+        },
+        // Mantiene los borradores de stock sincronizados con la página actual
+        products: {
+            immediate: true,
+            handler(newVal) {
+                const drafts = {};
+                (newVal?.data || []).forEach(p => {
+                    drafts[p.id] = {
+                        min_quantity: p.min_quantity ?? null,
+                        max_quantity: p.max_quantity ?? null,
+                    };
+                });
+                this.stockDrafts = drafts;
+            }
         }
     }
 };

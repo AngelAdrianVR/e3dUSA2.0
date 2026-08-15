@@ -262,8 +262,8 @@
 
                             <!-- Archivos de OCE -->
                             <div v-if="form.type === 'venta'" class="col-span-full my-2">
-                                <InputLabel value="Archivos de OCE (máx. 3 archivos)" />
-                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" />
+                                <InputLabel value="Archivos de OCE (máx. 3 archivos) max. 10 MB" />
+                                <FileUploader @files-selected="form.oce_media = $event" :multiple="true" acceptedFormat="Todo" :max-files="3" :max-file-size="10" />
                             </div>
                             <div></div> <!-- Espaciador -->
 
@@ -344,7 +344,24 @@
             <div v-if="productToAssign" class="flex flex-col items-center text-center">
                 <img :src="productToAssign.image_url || 'https://placehold.co/200x200/e2e8f0/e2e8f0?text=N/A'" class="w-48 h-48 rounded-lg object-cover border mb-4" />
                 
-                <p v-if="!productToAssign.isVariant" class="mb-4">
+                <!-- PRODUCTO NUEVO: No está registrado en el catálogo -->
+                <div v-if="productToAssign.isNewProduct" class="mb-4">
+                    <p class="mb-3">
+                        El producto <strong>"{{ productToAssign.name }}"</strong> es un producto nuevo que
+                        <strong>no está registrado en el catálogo de productos</strong>.
+                    </p>
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                        Para poder vincularlo automáticamente a este cliente, primero es necesario registrarlo en el catálogo.
+                        Una vez registrado, regresa a esta orden para completarla. 
+                        <br />
+                        <br />
+                        <span class="text-orange-500">
+                            Es importante que el producto se registre
+                            <strong>con el mismo nombre <strong>"{{ productToAssign.name }}"</strong> </strong> para que el sistema lo reconozca.
+                        </span>
+                    </p>
+                </div>
+                <p v-else-if="!productToAssign.isVariant" class="mb-4">
                     El producto <strong>"{{ productToAssign.name }}"</strong> no está asignado a este cliente. ¿Deseas asignarlo para continuar con la venta?
                 </p>
                 <p v-else class="mb-4">
@@ -356,7 +373,7 @@
                     ¿Deseas proceder para continuar con la venta?
                 </p>
                 
-                <div class="w-full text-left bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
+                <div v-if="!productToAssign.isNewProduct" class="w-full text-left bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
                     <p class="text-xs text-gray-500 mb-2">Establece el precio que tendrá este producto para el cliente:</p>
                     <div class="grid grid-cols-2 gap-3 items-end">
                         <TextInput label="Precio Especial (Opcional)" v-model="assignProductForm.price" type="number" step="0.01" />
@@ -373,7 +390,11 @@
             <template #footer>
                 <span class="dialog-footer">
                     <el-button @click="cancelAssignProduct">Omitir producto</el-button>
-                    <el-button type="primary" @click="confirmAssignProduct">Asignar y continuar</el-button>
+                    <!-- Producto nuevo: primero debe registrarse en el catálogo -->
+                    <el-button v-if="productToAssign?.isNewProduct" type="primary" @click="goRegisterProduct">
+                        <i class="fa-solid fa-box mr-1"></i> Registrar producto
+                    </el-button>
+                    <el-button v-else type="primary" @click="confirmAssignProduct">Asignar y continuar</el-button>
                 </span>
             </template>
         </el-dialog>
@@ -437,7 +458,7 @@ export default {
                 is_high_priority: false,
                 has_low_price: false, 
                 products: [],
-                oce_media: null,
+                oce_media: [],
                 anotherFiles: null,
                 shipping_option: null,
                 shipments: [], 
@@ -462,6 +483,8 @@ export default {
                 price: null,
                 currency: 'MXN'
             },
+            // Evita seguir procesando productos mientras se navega a registrar uno nuevo
+            isLeavingToRegisterProduct: false,
 
             orderVias: [
                 'Correo electrónico', 'WhatsApp', 'Llamada telefónica', 'Resurtido programado', 'Otro',
@@ -552,6 +575,11 @@ export default {
                         shipment.acknowledgement_file = shipment.acknowledgement_file.file;
                     }
                 });
+            }
+
+            // Normalizar archivos OCE: garantizar que sean objetos File reales para el envío
+            if (Array.isArray(this.form.oce_media)) {
+                this.form.oce_media = this.form.oce_media.map(f => f?.file || f);
             }
 
             this.form.post(route("sales.store"), {
@@ -722,41 +750,101 @@ export default {
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
 
             for (const product of quoteProducts) {
-                let hasProduct = clientProductIds.has(product.id);
+                // Si el usuario está yendo a registrar un producto nuevo, detenemos el procesamiento
+                if (this.isLeavingToRegisterProduct) return;
+
+                const hasProduct = clientProductIds.has(product.id);
 
                 if (hasProduct) {
                     this.addProductToSaleForm(product);
+                    continue;
+                }
+
+                // PREPARAR FLUJO DE MODAL CUSTOM
+                this.productToAssign = product;
+
+                // ¿El producto existe en el catálogo por ID (como padre o como variante)?
+                const baseProduct = this.catalog_products.find(p => p.variants?.some(v => v.id === product.id));
+                const isInCatalogById = this.catalog_products.some(p => p.id === product.id) || !!baseProduct;
+
+                // Si no está por ID, se busca por NOMBRE EXACTO (para detectar productos ya registrados)
+                const nameMatch = !isInCatalogById ? this.findCatalogProductByName(product.name) : null;
+
+                // Si se encontró por nombre y ya está asignado al cliente, se agrega directamente
+                if (nameMatch && clientProductIds.has(nameMatch.product.id)) {
+                    this.addProductToSaleForm({ ...product, id: nameMatch.product.id, name: nameMatch.product.name });
+                    continue;
+                }
+
+                if (isInCatalogById && baseProduct) {
+                    // Ya registrado como variante
+                    this.productToAssign.isNewProduct = false;
+                    this.productToAssign.isVariant = true;
+                    this.productToAssign.parent = baseProduct;
+                    // Comprobar si también le falta el padre
+                    this.productToAssign.missingParent = !clientProductIds.has(baseProduct.id);
+                } else if (isInCatalogById) {
+                    // Ya registrado como producto base
+                    this.productToAssign.isNewProduct = false;
+                    this.productToAssign.isVariant = false;
+                    this.productToAssign.missingParent = false;
+                } else if (nameMatch) {
+                    // Ya registrado en el catálogo: se usa el id real del catálogo
+                    this.productToAssign.id = nameMatch.product.id;
+                    this.productToAssign.name = nameMatch.product.name;
+                    this.productToAssign.isNewProduct = false;
+                    this.productToAssign.isVariant = !!nameMatch.parent;
+                    this.productToAssign.parent = nameMatch.parent;
+                    this.productToAssign.missingParent = nameMatch.parent ? !clientProductIds.has(nameMatch.parent.id) : false;
                 } else {
-                    // PREPARAR FLUJO DE MODAL CUSTOM
-                    this.productToAssign = product;
-                    
-                    const baseProduct = this.catalog_products.find(p => p.variants?.some(v => v.id === product.id));
-                    if (baseProduct) {
-                        this.productToAssign.isVariant = true;
-                        this.productToAssign.parent = baseProduct;
-                        // Comprobar si también le falta el padre
-                        this.productToAssign.missingParent = !clientProductIds.has(baseProduct.id);
-                    } else {
-                        this.productToAssign.isVariant = false;
-                        this.productToAssign.missingParent = false;
-                    }
+                    // PRODUCTO NUEVO: no está registrado en el catálogo de productos
+                    this.productToAssign.isNewProduct = true;
+                    this.productToAssign.isVariant = false;
+                    this.productToAssign.missingParent = false;
+                    // Guardamos el id de la línea de cotización para pre-cargar y vincular al registrar
+                    this.productToAssign.quote_product_id = (typeof product.id === 'string' && product.id.startsWith('custom_'))
+                        ? product.id.replace('custom_', '')
+                        : null;
+                }
 
-                    this.assignProductForm.price = product.unit_price; 
-                    this.assignProductForm.currency = this.form.currency || 'MXN';
-                    
-                    this.assignProductModalVisible = true;
+                this.assignProductForm.price = product.unit_price; 
+                this.assignProductForm.currency = this.form.currency || 'MXN';
+                
+                this.assignProductModalVisible = true;
 
-                    try {
-                        await new Promise((resolve, reject) => {
-                            this.resolveAssignProduct = resolve;
-                            this.rejectAssignProduct = reject;
-                        });
+                try {
+                    await new Promise((resolve, reject) => {
+                        this.resolveAssignProduct = resolve;
+                        this.rejectAssignProduct = reject;
+                    });
+                    // Los productos nuevos no se pueden asociar hasta registrarse en el catálogo
+                    if (!this.productToAssign.isNewProduct) {
                         await this.associateAndAddProduct(this.productToAssign);
-                    } catch (e) {
-                        ElMessage.info(`Se omitió el producto: "${product.name}"`);
+                    } else {
+                        ElMessage.info(`El producto "${product.name}" quedó pendiente. Regístralo en el catálogo y vuelve a esta orden para completarla.`);
                     }
+                } catch (e) {
+                    ElMessage.info(`Se omitió el producto: "${product.name}"`);
                 }
             }
+        },
+        // Busca un producto en el catálogo por nombre EXACTO (ignorando mayúsculas/minúsculas).
+        // Devuelve { product, parent } donde parent es el producto base si es variante, o null.
+        findCatalogProductByName(name) {
+            if (!name) return null;
+            const normalized = name.trim().toLowerCase();
+
+            // Buscar en productos base del catálogo
+            const parentMatch = this.catalog_products.find(p => p.name?.trim().toLowerCase() === normalized);
+            if (parentMatch) return { product: parentMatch, parent: null };
+
+            // Buscar en variantes del catálogo
+            for (const parent of this.catalog_products) {
+                const variant = parent.variants?.find(v => v.name?.trim().toLowerCase() === normalized);
+                if (variant) return { product: variant, parent };
+            }
+
+            return null;
         },
         confirmAssignProduct() {
             if (this.resolveAssignProduct) {
@@ -769,6 +857,25 @@ export default {
                 this.rejectAssignProduct();
                 this.assignProductModalVisible = false;
             }
+        },
+        goRegisterProduct() {
+            // Evitamos seguir mostrando modales mientras navegamos a registrar el producto
+            this.isLeavingToRegisterProduct = true;
+            this.cancelAssignProduct();
+
+            // Pre-cargamos en el formulario el nombre, imagen y precio de la cotización,
+            // y el id de la línea para vincular el producto al registrarlo.
+            const product = this.productToAssign || {};
+            const params = {
+                redirect_to: route('sales.create'),
+                name: product.name || '',
+            };
+            if (product.image_url) params.image_url = product.image_url;
+            if (product.quote_product_id) params.quote_product_id = product.quote_product_id;
+            if (product.unit_price) params.price = product.unit_price;
+
+            // Al registrarlo en el catálogo se regresará a completar la orden de venta
+            router.visit(route('catalog-products.create', params));
         },
         async associateAndAddProduct(product) {
             try {

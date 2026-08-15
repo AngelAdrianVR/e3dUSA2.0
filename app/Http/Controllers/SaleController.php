@@ -153,7 +153,7 @@ class SaleController extends Controller
             'products.*.has_low_price' => 'boolean', // AGREGADO
             'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000',
         ];
 
         // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
@@ -172,7 +172,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];
@@ -306,25 +306,29 @@ class SaleController extends Controller
                     $quantityToProduce = $quantityInTransaction;
                 }
 
-                // 6.3 Descontar stock de los componentes (se ejecuta siempre que haya algo que producir)
-                // CORRECCIÓN: Usar actual_components en lugar de components para soportar productos variables
-                if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                // 6.3 Descontar stock de los componentes del producto vendido.
+                // CORRECCIÓN: Antes solo se descontaban componentes si había algo "por producir"
+                // (quantityToProduce > 0); si el producto terminado tenía stock, los componentes
+                // NUNCA se descontaban ni se registraba su movimiento. Ahora, si el producto tiene
+                // componentes, se descuenta la cantidad COMPLETA de la orden y se registra el
+                // movimiento de stock correspondiente.
+                if ($product->actual_components->isNotEmpty()) {
                     foreach ($product->actual_components as $component) {
-                        $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+                        $requiredQuantity = $component->pivot->quantity * $quantityInTransaction;
                         $componentStorage = $component->storages->first();
 
                         if ($componentStorage && $componentStorage->quantity > 0) {
                             $currentStock = $componentStorage->quantity;
                             $discountQuantity = min($requiredQuantity, $currentStock);
 
-                            // CORRECCIÓN: Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
+                            // Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
                             $componentStorage->decrement('quantity', $discountQuantity);
 
                             if ($discountQuantity > 0) {
                                 // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
                                 $notes = $isSaleType 
-                                    ? "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id})"
-                                    : "Descuento para producir {$quantityToProduce} de {$product->name} para stock.";
+                                    ? "Descuento de componentes para {$quantityInTransaction} de {$product->name} (Orden #{$sale->id})"
+                                    : "Descuento de componentes para {$quantityInTransaction} de {$product->name} para stock.";
 
                                 StockMovement::create([
                                     'product_id' => $component->id,
@@ -478,7 +482,7 @@ class SaleController extends Controller
             'products.*.has_low_price' => 'boolean', // AGREGADO
             'products.*.low_price_reason' => 'nullable|string', // AGREGADO
             'oce_media' => 'nullable|array|max:3',
-            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048',
+            'oce_media.*' => 'file|mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000',
         ];
 
         // --- 2. AÑADIR REGLAS CONDICIONALES PARA 'VENTA' ---
@@ -499,7 +503,7 @@ class SaleController extends Controller
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
             $rules['shipments.*.shipping_company'] = ['nullable', 'string', 'max:255'];
             $rules['shipments.*.tracking_guide'] = ['nullable', 'string', 'max:255'];
-            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:2048'];
+            $rules['shipments.*.acknowledgement_file'] = ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp|max:10000'];
             $rules['shipments.*.products'] = ['required', 'array'];
             $rules['shipments.*.products.*.product_id'] = ['required', 'exists:products,id'];
             $rules['shipments.*.products.*.quantity'] = ['required', 'integer', 'min:0'];
@@ -648,16 +652,17 @@ class SaleController extends Controller
                     }
 
                     // Lógica para descontar componentes (si aplica)
-                    // CORRECCIÓN: Usar actual_components en lugar de components
-                    if ($quantityToProduce > 0 && $product->actual_components->isNotEmpty()) {
+                    // CORRECCIÓN: Igual que en store(), ahora se descuentan los componentes de la
+                    // cantidad COMPLETA de la orden (no solo lo que falta por producir) y se registra
+                    // el movimiento, aunque el producto terminado tenga stock.
+                    if ($product->actual_components->isNotEmpty()) {
                         foreach ($product->actual_components as $component) {
-                            $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+                            $requiredQuantity = $component->pivot->quantity * $quantityInSale;
                             $componentStorage = $component->storages->first();
                             
                             if ($componentStorage && $componentStorage->quantity > 0) {
                                 $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
                                 
-                                // Ya tenías decrement() aquí, se mantiene
                                 $componentStorage->decrement('quantity', $discountQuantity);
                                 
                                 StockMovement::create([
@@ -665,7 +670,7 @@ class SaleController extends Controller
                                     'storage_id' => $componentStorage->id,
                                     'quantity_change' => $discountQuantity,
                                     'type' => 'Salida',
-                                    'notes' => "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$sale->id}, Actualizado)"
+                                    'notes' => "Descuento de componentes para {$quantityInSale} de {$product->name} (Orden #{$sale->id}, Actualizado)"
                                 ]);
                             }
                         }
@@ -910,14 +915,16 @@ class SaleController extends Controller
     private function revertStockForSale(Sale $sale)
     {
         // Carga las relaciones necesarias para acceder a los datos de stock
-        $sale->load('saleProducts.product.components.storages', 'saleProducts.product.storages');
+        // CORRECCIÓN: se cargan también los componentes del padre (parent.components.storages)
+        // para que las variantes hereden correctamente los componentes al revertir.
+        $sale->load('saleProducts.product.components.storages', 'saleProducts.product.parent.components.storages', 'saleProducts.product.storages');
 
         foreach ($sale->saleProducts as $saleProduct) {
             $product = $saleProduct->product;
             $totalQuantity = $saleProduct->quantity;
             $quantityToProduce = $saleProduct->quantity_to_produce;
 
-            // 1. Revertir stock de producto terminado
+            // 1. Revertir stock de producto terminado (solo la parte que se tomó de stock)
             $takenFromStock = $totalQuantity - $quantityToProduce;
             if ($takenFromStock > 0 && $product->storages->first()) {
                 $storage = $product->storages->first();
@@ -932,10 +939,14 @@ class SaleController extends Controller
                 ]);
             }
 
-            // 2. Revertir stock de componentes
-            if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                foreach ($product->components as $component) {
-                    $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+            // 2. Revertir stock de componentes (cantidad completa de la orden, ya que en
+            // store/update ahora se descuentan los componentes de la cantidad total vendida).
+            // CORRECCIÓN: se usa actual_components para soportar variantes que heredan
+            // componentes del producto padre.
+            $components = $product->actual_components;
+            if ($components->isNotEmpty()) {
+                foreach ($components as $component) {
+                    $requiredQuantity = $component->pivot->quantity * $totalQuantity;
                     if ($component->storages->first()) {
                         $componentStorage = $component->storages->first();
                         $componentStorage->increment('quantity', $requiredQuantity);
@@ -1039,7 +1050,7 @@ class SaleController extends Controller
                 // Determinar si es venta o stock para ajustar la lógica
                 $isSaleType = $newSale->type === 'venta';
 
-                $product = Product::with(['storages', 'components.storages'])->find($newItem->product_id);
+                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($newItem->product_id);
                 $quantityInTransaction = $newItem->quantity;
                 $quantityToProduce = 0;
 
@@ -1072,9 +1083,12 @@ class SaleController extends Controller
                 }
 
                 // Descontar stock de componentes (materia prima)
-                if ($quantityToProduce > 0 && $product->components->isNotEmpty()) {
-                    foreach ($product->components as $component) {
-                        $requiredQuantity = $component->pivot->quantity * $quantityToProduce;
+                // CORRECCIÓN: igual que en store(), se descuentan los componentes de la cantidad
+                // completa y se usa actual_components para soportar variantes que heredan
+                // componentes del producto padre.
+                if ($product->actual_components->isNotEmpty()) {
+                    foreach ($product->actual_components as $component) {
+                        $requiredQuantity = $component->pivot->quantity * $quantityInTransaction;
                         $componentStorage = $component->storages->first();
 
                         if ($componentStorage) {
@@ -1085,8 +1099,8 @@ class SaleController extends Controller
 
                             if ($discountQuantity > 0) {
                                 $notes = $isSaleType 
-                                    ? "Descuento para producir {$quantityToProduce} de {$product->name} (Orden #{$newSale->id})"
-                                    : "Descuento para producir {$quantityToProduce} de {$product->name} para stock (Clon).";
+                                    ? "Descuento de componentes para {$quantityInTransaction} de {$product->name} (Orden #{$newSale->id})"
+                                    : "Descuento de componentes para {$quantityInTransaction} de {$product->name} para stock (Clon).";
 
                                 StockMovement::create([
                                     'product_id' => $component->id,

@@ -15,4 +15,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('attendances/update-day', [AttendanceController::class, 'updateDayAttendances'])->name('attendances.update_day');
     Route::get('payrolls/{payroll}/print', [PayrollController::class, 'print'])->name('payrolls.print'); // Nueva ruta para imprimir
     Route::get('payrolls/{payroll}/employee-details', [PayrollController::class, 'getEmployeePayrollDetails'])->name('payrolls.get-employee-details');
+    Route::put('payrolls-toggle-break-penalty/{payroll}', [PayrollController::class, 'toggleBreakPenalty'])->name('payrolls.toggle-break-penalty');
 });

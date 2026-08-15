@@ -90,6 +90,7 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/web/overtime_requests.php';
     require __DIR__ . '/web/users.php';
     require __DIR__ . '/web/vacation-logs.php';
+    require __DIR__ . '/web/salary-increases.php';
     require __DIR__ . '/web/authorized-devices.php';
 });
 
@@ -135,6 +136,7 @@ Route::post('products/{product}/stock-movement', [ProductController::class, 'han
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
+Route::put('products/{product}/update-stock-limits', [ProductController::class, 'updateStockLimits'])->middleware('auth')->name('products.update-stock-limits');
 Route::get('catalog-products-prices-report', [ProductController::class, 'pricesReport'])->name('catalog-products.prices-report');
 Route::get('catalog-products-export-excel', [ProductController::class, 'exportExcel'])->name('catalog-products.export-excel');
 Route::get('catalog-products-export-excel-abc', [ProductController::class, 'exportExcelABC'])->name('catalog-products.export-excel-abc');
@@ -339,6 +341,7 @@ Route::get('/stock-reposition', [StockRepositionController::class, 'index'])->na
 Route::get('/stock-projection', [StockProjectionController::class, 'index'])->name('stock-projection.index')->middleware('auth');
 Route::post('/stock-projection/report', [StockProjectionController::class, 'generateReport'])->name('stock-projection.report')->middleware('auth');
 Route::get('/stock-projection/products', [StockProjectionController::class, 'fetchProducts'])->name('stock-projection.products')->middleware('auth');
+Route::get('/stock-projection/product/{product}', [StockProjectionController::class, 'productProjection'])->name('stock-projection.product')->middleware('auth');
 Route::post('/stock-projection/export', [StockProjectionController::class, 'exportReport'])->name('stock-projection.export')->middleware('auth');
 
 

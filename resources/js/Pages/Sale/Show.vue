@@ -303,15 +303,14 @@
                 </div>
 
                 <!-- Card de Archivos adjuntos de Órden -->
-                <div v-if="sale.media?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Archivos de la Órden</h3>
-
-                    <div v-if="sale.media?.length" label="Archivos adjuntos" class="grid grid-cols-2 gap-3 col-span-full mb-3">
-                        <FileView v-for="file in sale.media" :key="file" :file="file" :deletable="true"
+                <div v-if="oceMediaFiles.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">
+                        <i class="fa-regular fa-file-lines mr-2"></i> Archivos de OCE (Orden de Compra)
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3 col-span-full">
+                        <FileView v-for="file in oceMediaFiles" :key="file.id" :file="file" :deletable="true"
                             @delete-file="deleteFile($event)" />
                     </div>
-
-                    <Empty v-else />
                 </div>
 
                 <!-- Card de Información de Envío (NUEVA SECCIÓN) -->
@@ -649,7 +648,6 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import BranchNotes from "@/Components/MyComponents/BranchNotes.vue";
 import FileView from "@/Components/MyComponents/FileView.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
-import Empty from "@/Components/MyComponents/Empty.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
@@ -670,7 +668,6 @@ export default {
     name: 'SaleShow',
     components: {
         Link,
-        Empty,
         Stepper,
         FileView,
         Dropdown,
@@ -722,6 +719,9 @@ export default {
         };
     },
     computed: {
+        oceMediaFiles() {
+            return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
+        },
         formattedDate() {
             if (!this.sale.created_at) return 'N/A';
             const date = new Date(this.sale.created_at);
