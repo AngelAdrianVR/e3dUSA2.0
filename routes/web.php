@@ -274,6 +274,9 @@ Route::put('/billing/{sale}/update-folios', [BillingDashboardController::class, 
     ->middleware(['auth'])
     ->name('billing.update-folios');
 Route::get('/billing/report', [BillingDashboardController::class, 'report'])->name('billing.report');
+Route::get('/billing/invoice-template', [BillingDashboardController::class, 'invoiceTemplate'])
+    ->middleware(['auth'])
+    ->name('billing.invoice-template');
 
 
 // ------- (Produccion Routes)  ---------

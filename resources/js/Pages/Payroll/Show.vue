@@ -13,7 +13,7 @@
 
         <!-- Contenido principal -->
         <div class="py-4 md:py-7">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[88rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-4 md:p-6">
                     
                     <!-- Controles y Totales -->

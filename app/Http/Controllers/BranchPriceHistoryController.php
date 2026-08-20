@@ -20,7 +20,12 @@ class BranchPriceHistoryController extends Controller
         ]);
 
         // --- Validación de la regla de negocio del 4% en el backend ---
-        $lastPriceRecord = BranchPriceHistory::where('branch_id', $branch->id)
+        // La app lee el historial de precios desde la sucursal matriz
+        // (igual que en BranchController::fetchBranchProducts), por lo que el
+        // nuevo precio también debe registrarse en esa misma sucursal.
+        $targetBranch = $branch->parent_branch_id ? $branch->parent : $branch;
+
+        $lastPriceRecord = BranchPriceHistory::where('branch_id', $targetBranch->id)
             ->where('product_id', $product->id)
             ->whereNull('valid_to') // Busca el precio vigente
             ->latest('valid_from')
@@ -52,7 +57,7 @@ class BranchPriceHistoryController extends Controller
 
         // 2. Crea el nuevo registro de precio
         BranchPriceHistory::create([
-            'branch_id' => $branch->id,
+            'branch_id' => $targetBranch->id,
             'product_id' => $product->id,
             'user_id' => auth()->id(), // Guardamos el usuario que realiza el cambio
             'price' => $validated['amount'],

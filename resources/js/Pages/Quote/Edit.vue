@@ -1107,6 +1107,20 @@ export default {
         // Precarga de información general en el formulario
         this.form.branch_id = this.quote.branch_id;
         this.form.receiver = this.quote.receiver;
+
+        // Separa el nombre del contacto guardado en prefijo + nombre
+        // para rellenar los campos visibles y no perderlo al actualizar.
+        const receiver = this.quote.receiver || '';
+        const receiverPrefixes = ['Ing. ', 'Lic. ', 'Dr. ', 'Arq. ', 'Mtro. ', 'Sr. ', 'Sra. ', 'Srita. '];
+        const matchedPrefix = receiverPrefixes.find(prefix => receiver.startsWith(prefix));
+        if (matchedPrefix !== undefined) {
+            this.receiver_prefix = matchedPrefix;
+            this.receiver_name = receiver.slice(matchedPrefix.length);
+        } else {
+            this.receiver_prefix = '';
+            this.receiver_name = receiver;
+        }
+
         this.form.department = this.quote.department;
         this.form.currency = this.quote.currency;
         this.form.tooling_cost = this.quote.tooling_cost;

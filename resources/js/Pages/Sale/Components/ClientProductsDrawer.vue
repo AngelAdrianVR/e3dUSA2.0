@@ -270,7 +270,7 @@
                 <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                     <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
                 </p>
-                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede tener un descuento mayor al 4% sobre la referencia.</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
@@ -302,7 +302,7 @@
                 <!-- MENSAJE DE ERROR MODIFICADO -->
                 <div v-if="priceForm.amount && isPriceInvalid && !canBypassPriceRule" class="text-red-500 text-xs mt-1 p-2 bg-red-50 dark:bg-red-900/40 rounded-md">
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
-                    El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
+                    El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (descuento máximo del 4%).
                 </div>
             </div>
         </template>
@@ -404,12 +404,14 @@ export default {
     },
     computed: {
         canBypassPriceRule() {
-            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+            // El backend valida este permiso para permitir cualquier precio
+            return this.$page.props.auth?.user?.permissions?.includes('Crear clientes') || false;
         },
         isPriceInvalid() {
-            if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
+            const amount = Number(this.priceForm.amount);
+            if (!this.priceForm.amount || amount <= 0) return true;
             if (this.canBypassPriceRule) return false;
-            return this.priceForm.amount < this.priceForm.min_allowed_price;
+            return amount < this.priceForm.min_allowed_price;
         },
         availableProducts() {
             const assignedProductIds = this.clientProducts.map(p => p.id);
@@ -518,8 +520,10 @@ export default {
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
         },
         openPriceModal(product) {
-            const basePrice = product.price_history?.[0]?.price ?? product.base_price;
-            
+            // Precio de referencia: el registro VIGENTE (sin valid_to), igual que el backend.
+            const activePrice = product.price_history?.find(h => !h.valid_to)?.price;
+            const basePrice = Number(activePrice ?? product.base_price ?? 0);
+
             this.productForUpdate = product;
             this.priceForm = {
                 amount: null,
@@ -527,14 +531,16 @@ export default {
                 currency: 'MXN',
                 valid_from: new Date(),
                 current_base_price: basePrice,
-                min_allowed_price: basePrice * 1.04, 
+                // Mismo criterio que el backend: se permite un descuento máximo del 4% sobre la referencia.
+                min_allowed_price: Number((basePrice * 0.96).toFixed(2)),
             };
             this.showPriceModal = true;
         },
 
         updatePriceFromAmount() {
-            if (this.priceForm.amount && this.priceForm.current_base_price > 0) {
-                const percentage = ((this.priceForm.amount / this.priceForm.current_base_price) - 1) * 100;
+            const amount = Number(this.priceForm.amount);
+            if (amount && this.priceForm.current_base_price > 0) {
+                const percentage = ((amount / this.priceForm.current_base_price) - 1) * 100;
                 this.priceForm.percentage = percentage.toFixed(2);
             } else {
                 this.priceForm.percentage = null;
@@ -542,8 +548,9 @@ export default {
         },
 
         updatePriceFromPercentage() {
+            const percentage = Number(this.priceForm.percentage);
             if (this.priceForm.percentage !== null && this.priceForm.percentage !== '') {
-                const newAmount = this.priceForm.current_base_price * (1 + (this.priceForm.percentage / 100));
+                const newAmount = this.priceForm.current_base_price * (1 + (percentage / 100));
                 this.priceForm.amount = newAmount.toFixed(2);
             } else {
                 this.priceForm.amount = null;
