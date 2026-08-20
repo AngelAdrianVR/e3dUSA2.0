@@ -27,6 +27,7 @@
         "date-fns": "^4.1.0",
         "element-plus": "^2.10.5",
         "lodash": "^4.17.21",
+        "qrcode": "^1.5.4",
         "vue3-apexcharts": "^1.8.0",
         "vuedraggable": "^4.1.0"
     }

@@ -182,4 +182,13 @@ class BillingDashboardController extends Controller
             ]
         ]);
     }
+
+    /**
+     * Página individual de la plantilla de factura (se abre en una pestaña nueva).
+     * Los datos del XML se leen desde localStorage en el frontend.
+     */
+    public function invoiceTemplate()
+    {
+        return Inertia::render('Billing/InvoiceTemplate');
+    }
 }

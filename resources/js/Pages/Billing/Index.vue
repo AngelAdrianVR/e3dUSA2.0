@@ -207,6 +207,9 @@
                     </div>
 
                 </div>
+
+                <!-- SECCIÓN: LECTOR DE FACTURAS XML -->
+                <XmlInvoiceReader />
             </div>
         </div>
 
@@ -263,12 +266,13 @@
 <script>
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SaleDetailsModal from "./Components/SaleDetailsModal.vue";
+import XmlInvoiceReader from "./Components/XmlInvoiceReader.vue";
 import { Link, router } from "@inertiajs/vue3";
 import { debounce } from 'lodash';
 
 export default {
     name: 'BillingDashboard',
-    components: { AppLayout, SaleDetailsModal, Link },
+    components: { AppLayout, SaleDetailsModal, Link, XmlInvoiceReader },
     props: {
         kpis: Object,
         salesForBilling: Object,
