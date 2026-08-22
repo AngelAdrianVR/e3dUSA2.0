@@ -29,6 +29,8 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PmsTaskController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductExchangeController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProjectTaskController;
 use App\Http\Controllers\ProductFamilyController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
@@ -513,6 +515,40 @@ Route::middleware(['auth'])->group(function () {
         // También maneja la subida de evidencia y actualización a Terminado (guardando finished_at)
         Route::post('/{pmsTask}/status', [PmsTaskController::class, 'updateStatus'])->name('update-status');
         
+    });
+
+    // ==========================================
+    // MÓDULO PROYECTOS
+    // ==========================================
+    Route::prefix('projects')->name('projects.')->group(function () {
+
+        // Lista de proyectos (la creación/edición se hace vía modal en el Index)
+        Route::get('/', [ProjectController::class, 'index'])->name('index');
+        Route::post('/', [ProjectController::class, 'store'])->name('store');
+
+        // Detalle del proyecto (pestañas: Información, Tareas, Gantt)
+        Route::get('/{project}', [ProjectController::class, 'show'])->name('show');
+        Route::put('/{project}', [ProjectController::class, 'update'])->name('update');
+        Route::delete('/{project}', [ProjectController::class, 'destroy'])->name('destroy');
+
+        // Subida de archivos al proyecto sin re-validar todo el formulario
+        Route::post('/{project}/files', [ProjectController::class, 'uploadFiles'])->name('files.store');
+
+        // Tareas anidadas al proyecto
+        Route::post('/{project}/tasks', [ProjectTaskController::class, 'store'])->name('tasks.store');
+        // La ruta es PUT: el frontend envía POST + _method=put (necesario para subir archivos con Inertia)
+        // y Symfony reescribe el método a PUT automáticamente.
+        Route::put('/{project}/tasks/{task}', [ProjectTaskController::class, 'update'])->name('tasks.update');
+        Route::delete('/{project}/tasks/{task}', [ProjectTaskController::class, 'destroy'])->name('tasks.destroy');
+
+        // Ruta optimizada para arrastrar y soltar (Drag & Drop) en el Kanban
+        Route::post('/{project}/tasks/{task}/status', [ProjectTaskController::class, 'updateStatus'])->name('tasks.update-status');
+
+        // Comentarios con menciones (devuelve JSON para insertar sin recargar)
+        Route::post('/{project}/tasks/{task}/comments', [ProjectTaskController::class, 'storeComment'])->name('tasks.comments.store');
+
+        // Marca como leídos los comentarios donde el usuario fue mencionado (devuelve JSON)
+        Route::post('/{project}/tasks/{task}/comments/read', [ProjectTaskController::class, 'markCommentsRead'])->name('tasks.comments.read');
     });
 
 });

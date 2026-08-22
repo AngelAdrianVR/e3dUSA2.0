@@ -100,6 +100,9 @@ const allNotifications = computed(() => page.props.auth.user.notifications || []
 const taskClasses = [
     'App\\Notifications\\TaskAssignedNotification',
     'App\\Notifications\\PmsTaskAssignedNotification',
+    'App\\Notifications\\ProjectAssignedNotification',
+    'App\\Notifications\\ProjectTaskAssignedNotification',
+    'App\\Notifications\\ProjectTaskMentionedNotification',
 ];
 
 const taskNotifications = computed(() =>
