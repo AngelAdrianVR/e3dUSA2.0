@@ -176,7 +176,7 @@
                                         <strong class="text-red-600"> High-quality emblems </strong> — we are leading manufacturers serving the automotive, home appliance, electronics, furniture, and toy industries.
                                     </p>
                                     <p class="text-[12px] text-gray-500 leading-snug">
-                                        Within the <strong class="text-blue-600"> Automotive Divisio </strong>n, we specialize in manufacturing chrome emblems, license plate frames, keychains, document holders, styrene plates, and rubber floor mats.
+                                        Within the <strong class="text-blue-600"> Automotive Division </strong>, we specialize in manufacturing chrome emblems, license plate frames, keychains, document holders, styrene plates, and rubber floor mats.
                                     </p>
                                     <div class="mt-2 inline-flex items-center gap-1 bg-slate-900 text-white px-3 py-1 rounded-full text-xs font-semibold">
                                         <i class="fa-solid fa-hand-pointer text-amber-400"></i> emblems3dusa.com
@@ -217,7 +217,6 @@
                                 <div class="grid grid-cols-12 gap-4 mb-4">
                                     <div class="col-span-6 border border-gray-300 rounded p-2 text-xs">
                                         <span class="font-bold text-slate-700 block mb-1">NOTES:</span>
-                                        <p class="text-gray-600">Sherman Corporation</p>
                                     </div>
                                     <div class="col-span-6">
                                         <table class="w-full text-xs border-collapse">
