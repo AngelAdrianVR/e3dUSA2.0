@@ -235,20 +235,27 @@ export function numberToWordsEn(num) {
 
 /**
  * Devuelve el total en letras (con centavos y moneda), para el "Importe con letra".
+ * El "AND" se coloca justo después de la escala mayor (THOUSAND, MILLION, etc.).
  * Ej: amountToWords(1495.45, 'USD')
- *   -> "ONE THOUSAND FOUR HUNDRED NINETY-FIVE AND 45/100 US DOLLARS"
+ *   -> "ONE THOUSAND AND FOUR HUNDRED NINETY-FIVE 45/100 US DOLLARS"
  */
 export function amountToWords(total, currency = 'USD') {
     const amount = Math.abs(parseFloat(total) || 0);
     const integerPart = Math.floor(amount);
     const centsPart = Math.round((amount - integerPart) * 100);
 
-    const integerWords = numberToWordsEn(integerPart) || 'ZERO';
+    let integerWords = numberToWordsEn(integerPart) || 'ZERO';
     const centsStr = String(centsPart).padStart(2, '0');
 
     const currencyName = String(currency || 'USD').toUpperCase() === 'MXN'
         ? 'MEXICAN PESOS'
         : 'US DOLLARS';
 
-    return `${integerWords} AND ${centsStr}/100 ${currencyName}`;
+    // Inserta "AND" justo después de la escala mayor (THOUSAND, MILLION, BILLION, TRILLION)
+    // y elimina el "AND" que se ponía antes de los centavos.
+    integerWords = integerWords
+        .replace(/^(.*?\b(?:THOUSAND|MILLION|BILLION|TRILLION)\b)(.*)$/, '$1 AND$2')
+        .trim();
+
+    return `${integerWords} ${centsStr}/100 ${currencyName}`;
 }
