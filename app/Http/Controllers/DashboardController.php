@@ -80,19 +80,35 @@ class DashboardController extends Controller
             });
 
         // Warehouse Status Chart
-        // Se calcula la cantidad de productos con stock bajo.
-        // Esto asume que tu modelo 'Product' tiene una columna 'min_quantity' y una relación 'storage'.
-        $lowStockCount = Product::whereNotNull('min_quantity')
-            ->whereHas('storages', function ($query) {
-                // Compara la cantidad en storage con la cantidad mínima en products
-                $query->whereRaw('storages.quantity <= products.min_quantity');
-            })->count();
+        // El conteo de bajos en stock debe coincidir con el índice de stock-reposition:
+        // productos tipo 'Producto' o 'Catálogo' (comprables), no archivados,
+        // y con stock total (suma de storages) menor a min_quantity.
+        $lowStockCount = Product::with('storages')
+            ->where(function ($query) {
+                $query->where('product_type', 'Producto')
+                      ->orWhere(function ($q) {
+                          $q->where('product_type', 'Catálogo')
+                            ->where('is_purchasable', true);
+                      });
+            })
+            ->whereNull('archived_at')
+            ->get()
+            ->filter(fn ($product) => $product->storages->sum('quantity') < $product->min_quantity)
+            ->count();
 
         // Se reestructura el array para enviar un objeto a la vista.
         $warehouseStats = [
             'counts' => [
-                DB::table('products')->where('product_type', 'Producto')->count(),
-                DB::table('products')->where('product_type', 'Insumo')->count(),
+                DB::table('products')
+                    ->where('product_type', 'Producto')
+                    ->where('is_purchasable', true)
+                    ->whereNull('parent_id')
+                    ->count(),
+                DB::table('products')
+                    ->where('product_type', 'Insumo')
+                    ->where('is_purchasable', true)
+                    ->whereNull('parent_id')
+                    ->count(),
             ],
             'lowStockCount' => $lowStockCount,
         ];
