@@ -13,8 +13,8 @@
                             <div class="min-w-0">
                                 <h2 class="font-bold text-2xl text-gray-800 dark:text-gray-200 leading-tight flex items-center gap-3 flex-wrap">
                                     {{ project.name }}
-                                    <span v-if="memberRole === 'viewer'" class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">Solo lectura</span>
-                                    <span v-else-if="memberRole === 'editor'" class="text-[10px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Lectura y escritura</span>
+                                    <span v-if="memberRole === 'Colaborador'" class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">Colaborador</span>
+                                    <span v-else-if="memberRole === 'Administrador'" class="text-[10px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Administrador</span>
                                 </h2>
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                     Creado por <strong>{{ project.creator?.name }}</strong> · {{ formatDate(project.start_date) }}
@@ -112,7 +112,7 @@
                                             </div>
                                             <p class="text-[11px] text-gray-400 mt-3 leading-relaxed border-t border-gray-200 dark:border-slate-700 pt-2">
                                                 <i class="fa-solid fa-circle-info text-blue-500 mr-1"></i>
-                                                <strong>Solo lectura</strong>: ver y comentar · <strong>Lectura y escritura</strong>: editar datos y crear/mover tareas. Todos comentan.
+                                                <strong>Colaborador</strong>: ver y comentar · <strong>Administrador</strong>: editar datos y crear/mover tareas. Todos comentan.
                                             </p>
                                         </div>
                                     </div>
@@ -206,8 +206,8 @@ const allMembers = computed(() => {
     return members.map(m => ({
         ...m,
         roleLabel: m.id === props.project.created_by
-            ? 'Creador · Lectura y escritura'
-            : (m.pivot?.role === 'editor' ? 'Lectura y escritura' : 'Solo lectura'),
+            ? 'Creador · Administrador'
+            : (m.pivot?.role === 'Administrador' ? 'Administrador' : 'Colaborador'),
     }));
 });
 

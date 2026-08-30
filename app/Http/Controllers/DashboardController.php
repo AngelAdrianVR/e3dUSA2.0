@@ -10,10 +10,10 @@ use App\Models\EmployeeDetail;
 use App\Models\Event;
 use App\Models\Invoice;
 use App\Models\OvertimeRequest;
-use App\Models\PmsTask;
 use App\Models\Product;
 use App\Models\Production;
 use App\Models\ProductionTask;
+use App\Models\ProjectTask;
 use App\Models\Purchase;
 use App\Models\Quote;
 use App\Models\Sale;
@@ -332,16 +332,30 @@ class DashboardController extends Controller
                     });
             }
 
-         // ------------- NUEVA CONSULTA: Mis Tareas PMS -------------
-        $myPmsTasks = PmsTask::where('responsible_id', $authUserId)
-            ->whereIn('kanban_status', ['Pendiente', 'En proceso', 'Validación'])
-            ->with(['media', 'responsible']) // Cargar relaciones necesarias para el Modal
+         // ------------- NUEVA CONSULTA: Mis Tareas de Proyectos -------------
+        // La sección PMS se sustituyó por el módulo de Proyectos; el widget del Dashboard
+        // ahora muestra las tareas de proyectos asignadas al usuario actual.
+        $myProjectTasks = ProjectTask::where('assigned_to', $authUserId)
+            ->whereIn('status', ['Pendiente', 'En proceso', 'Pausada'])
+            ->with([
+                'media',
+                'assignee:id,name,email,profile_photo_path',
+                'creator:id,name',
+                'comments' => fn ($q) => $q->orderBy('created_at'),
+                'comments.author:id,name,email,profile_photo_path',
+                'project:id,name,created_by',
+                'project.members:id,name,email,profile_photo_path',
+                'project.creator:id,name,email,profile_photo_path',
+            ])
             ->orderBy('due_date', 'asc')
             ->limit(7)
-            ->get();
-
-        // Se requieren los usuarios para el Modal de Tareas PMS en el Dashboard
-        $users = User::where('is_active', true)->whereNot('id', 1)->get();
+            ->get()
+            ->each(function ($task) use ($authUser) {
+                // Flags para que el TaskModal de Proyectos funcione desde el Dashboard
+                $task->can_edit = $task->project->canEdit($authUser);
+                $task->is_member = $task->project->isMember($authUser)
+                    || (int) $task->project->created_by === (int) $authUser->id;
+            });
 
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
@@ -351,8 +365,7 @@ class DashboardController extends Controller
             'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
-            'myPmsTasks' => $myPmsTasks,
-            'users' => $users,
+            'myProjectTasks' => $myProjectTasks,
             'authUserName' => $authUser?->name,
             'news' => $news,
             'productionPerformance' => $productionPerformance,

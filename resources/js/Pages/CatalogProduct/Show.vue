@@ -296,7 +296,7 @@
                             </div>
 
                             <!-- Precios por Cliente -->
-                            <div v-if="activeProduct.price_history?.length" class="mt-4 pt-4 border-t dark:border-slate-700">
+                        <div v-if="Object.keys(groupedPrices).length" class="mt-4 pt-4 border-t dark:border-slate-700">
                                 <h3 class="font-semibold text-sm mb-2">Precios Especiales por Cliente</h3>
                                 <el-collapse accordion>
                                     <el-collapse-item 
@@ -307,6 +307,7 @@
                                         <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
                                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                                                 <tr>
+                                                    <th scope="col" class="px-4 py-2">Producto / Variante</th>
                                                     <th scope="col" class="px-4 py-2">Precio Especial</th>
                                                     <th scope="col" class="px-4 py-2">Vigente Desde</th>
                                                     <th scope="col" class="px-4 py-2">Vigente Hasta</th>
@@ -315,6 +316,10 @@
                                             <tbody>
                                                 <tr v-for="pricing in pricings" 
                                                     :key="pricing.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
+                                                    <td class="px-4 py-2">
+                                                        <span class="font-medium text-gray-700 dark:text-gray-200">{{ pricing.product_name }}</span>
+                                                        <el-tag v-if="pricing.is_variant" size="small" type="info" class="ml-1">Variante</el-tag>
+                                                    </td>
                                                     <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ pricing.price }} {{ pricing.currency }}</td>
                                                     <td class="px-4 py-2">{{ formatDate(pricing.valid_from) }}</td>
                                                     <td class="px-4 py-2 flex items-center justify-between">
@@ -626,10 +631,41 @@ export default {
         },
 
         groupedPrices() {
-            if (!this.activeProduct.price_history) return {};
+            // Juntamos el historial del producto padre y de TODAS sus variantes,
+            // así se muestran todos los clientes con precio especial sin importar
+            // en qué producto (base o variante) lo tengan asignado.
+            const allHistory = [];
+
+            // Precios del producto padre
+            if (this.product.price_history?.length) {
+                this.product.price_history.forEach(pricing => {
+                    allHistory.push({
+                        ...pricing,
+                        product_name: this.product.name,
+                        is_variant: false,
+                    });
+                });
+            }
+
+            // Precios de cada variante
+            if (this.product.variants?.length) {
+                this.product.variants.forEach(variant => {
+                    if (variant.price_history?.length) {
+                        variant.price_history.forEach(pricing => {
+                            allHistory.push({
+                                ...pricing,
+                                product_name: variant.name,
+                                is_variant: true,
+                            });
+                        });
+                    }
+                });
+            }
+
+            if (!allHistory.length) return {};
 
             // ordenar del más nuevo al más viejo
-            const sorted = [...this.activeProduct.price_history].sort((a, b) => {
+            const sorted = allHistory.sort((a, b) => {
                 return new Date(b.created_at) - new Date(a.created_at);
             });
 
@@ -637,7 +673,7 @@ export default {
             return sorted.reduce((groups, pricing) => {
                 const clientName = pricing.branch?.name || "Sin cliente";
                 if (!groups[clientName]) {
-                groups[clientName] = [];
+                    groups[clientName] = [];
                 }
                 groups[clientName].push(pricing);
                 return groups;

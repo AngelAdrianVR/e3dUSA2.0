@@ -61,7 +61,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Crea un proyecto (vía modal en el Index). El creador siempre queda como editor.
+     * Crea un proyecto (vía modal en el Index). El creador siempre queda como Administrador.
      */
     public function store(Request $request)
     {
@@ -202,26 +202,26 @@ class ProjectController extends Controller
             'tentative_end_date' => 'nullable|date|after_or_equal:start_date',
             'members' => 'nullable|array',
             'members.*.user_id' => 'required|exists:users,id',
-            'members.*.role' => 'required|in:viewer,editor',
+            'members.*.role' => 'required|in:Colaborador,Administrador',
             'files' => 'nullable|array|max:10',
             'files.*' => 'file|max:10240',
         ]);
     }
 
     /**
-     * Sincroniza los miembros del proyecto. El creador siempre queda como editor.
+     * Sincroniza los miembros del proyecto. El creador siempre queda como Administrador.
      */
     private function syncMembers(Project $project, array $members, bool $isNew): void
     {
         $creatorId = (int) $project->created_by;
 
-        // Mapa user_id => role (excluyendo al creador, que se re-agrega al final como editor)
+        // Mapa user_id => role (excluyendo al creador, que se re-agrega al final como Administrador)
         $memberData = collect($members)
             ->reject(fn ($m) => (int) $m['user_id'] === $creatorId)
             ->mapWithKeys(fn ($m) => [(int) $m['user_id'] => ['role' => $m['role']]])
             ->toArray();
 
-        $memberData[$creatorId] = ['role' => 'editor'];
+        $memberData[$creatorId] = ['role' => 'Administrador'];
 
         // Detectar miembros nuevos para notificar
         $currentMemberIds = $project->members()->pluck('users.id')->map(fn ($id) => (int) $id)->all();

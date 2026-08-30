@@ -55,8 +55,8 @@ const emit = defineEmits(['update-status', 'task-click']);
 const draggedTask = ref(null);
 
 // ¿Puede arrastrar esta tarea?
-// - Lectura y escritura: puede mover cualquier tarea.
-// - Solo lectura: únicamente sus propias tareas.
+// - Administrador: puede mover cualquier tarea.
+// - Colaborador: únicamente sus propias tareas.
 const canDragTask = (task) => {
     if (props.canEdit) return true;
     return !!props.currentUserId && Number(task.assigned_to) === Number(props.currentUserId);

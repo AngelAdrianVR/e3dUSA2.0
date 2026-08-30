@@ -8,7 +8,7 @@
             <div class="max-w-[95rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
-                        <p class="text-base text-red-500 p-2 rounded-md bg-red-200">Sólo se puede crear un OV desde su respectiva cotización</p>
+                        <p class="text-sm text-red-500 p-2 m-1 rounded-md bg-red-200">Por ordenes de dirección Sólo se puede crear un OV desde su respectiva cotización</p>
                         <!-- Botón para crear nueva venta -->
                         <!-- <Link v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')"
                             :href="route('sales.create')">
@@ -44,19 +44,38 @@
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
                             </div>
 
-                            <!-- Botón filtro: Pendientes -->
-                            <button
-                                @click="togglePendingFilter"
-                                class="flex items-center px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
-                                :class="isPendingFilter ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
-                            >
-                                <i class="fa-solid fa-bell mr-1.5 text-xs" :class="{ 'animate-swing': isPendingFilter }"></i>
-                                Pendientes
-                                <span v-if="pendingCount > 0 && !isPendingFilter"
-                                    class="ml-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
-                                    {{ pendingCount }}
-                                </span>
-                            </button>
+                            <!-- Dropdown de filtros de pendientes -->
+                            <el-dropdown trigger="click" @command="handleFilterCommand">
+                                <button
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
+                                    :class="activeFilterLabel ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
+                                >
+                                    <!-- Indicador de filtro activo -->
+                                    <span v-if="activeFilterLabel" class="relative flex h-2 w-2 shrink-0">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    </span>
+                                    <i v-else class="fa-solid fa-bell text-xs"></i>
+                                    <span>{{ activeFilterLabel || 'Pendientes' }}</span>
+                                    <span v-if="pendingCount > 0 && !isPendingFilter"
+                                        class="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-1">
+                                        {{ pendingCount }}
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                </button>
+                                <template #dropdown>
+                                    <el-dropdown-menu>
+                                        <el-dropdown-item command="pending_authorization">
+                                            <i :class="isPendingAuthFilter ? 'fa-solid fa-check text-red-500' : 'fa-regular fa-circle text-gray-300'" class="mr-1.5 w-3.5"></i>
+                                            Pendiente por autorizar
+                                        </el-dropdown-item>
+                                        <el-dropdown-item command="pending">
+                                            <i :class="isPendingFilter ? 'fa-solid fa-check text-red-500' : 'fa-regular fa-circle text-gray-300'" class="mr-1.5 w-3.5"></i>
+                                            Pendiente de seguimiento
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -325,8 +344,9 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.sales.data,
-            showAllSales: this.filters.view === 'all',
+            showAllSales: this.filters.view !== 'mias',
             isPendingFilter: this.filters.filter === 'pending',
+            isPendingAuthFilter: this.filters.filter === 'pending_authorization',
             SearchProps: ['ID', 'Cliente', 'Creador', 'Estatus'],
         };
     },
@@ -344,6 +364,11 @@ export default {
     computed: {
         pendingCount() {
             return this.$page.props.pending_sale_notifications ?? 0;
+        },
+        activeFilterLabel() {
+            if (this.isPendingAuthFilter) return 'Pendiente por autorizar';
+            if (this.isPendingFilter) return 'Pendiente de seguimiento';
+            return null;
         },
     },
     methods: {
@@ -449,43 +474,42 @@ export default {
             });
         },
         handlePageChange(page) {
-            const params = { page };
-            if (this.showAllSales) {
-                params.view = 'all';
-            }
-            if (this.isPendingFilter) {
-                params.filter = 'pending';
-            }
-            router.get(route('sales.index', params), {
+            router.get(route('sales.index', this.buildParams({ page })), {
                 preserveState: true,
                 replace: true,
             });
         },
-        toggleView() {
-            const params = {};
+        buildParams(extra = {}) {
+            const params = { ...extra };
             if (this.showAllSales) {
                 params.view = 'all';
+            } else {
+                params.view = 'mias';
             }
-            if (this.isPendingFilter) {
+            if (this.isPendingAuthFilter) {
+                params.filter = 'pending_authorization';
+            } else if (this.isPendingFilter) {
                 params.filter = 'pending';
             }
-            router.get(route('sales.index', params), {
+            return params;
+        },
+        toggleView() {
+            router.get(route('sales.index', this.buildParams()), {
                 preserveState: true,
                 replace: true,
                 onStart: () => this.loading = true,
                 onFinish: () => this.loading = false,
             });
         },
-        togglePendingFilter() {
-            this.isPendingFilter = !this.isPendingFilter;
-            const params = {};
-            if (this.showAllSales) {
-                params.view = 'all';
+        handleFilterCommand(command) {
+            if (command === 'pending_authorization') {
+                this.isPendingAuthFilter = !this.isPendingAuthFilter;
+                this.isPendingFilter = false;
+            } else if (command === 'pending') {
+                this.isPendingFilter = !this.isPendingFilter;
+                this.isPendingAuthFilter = false;
             }
-            if (this.isPendingFilter) {
-                params.filter = 'pending';
-            }
-            router.get(route('sales.index', params), {
+            router.get(route('sales.index', this.buildParams()), {
                 preserveState: true,
                 replace: true,
                 onStart: () => this.loading = true,

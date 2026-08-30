@@ -299,6 +299,7 @@ class ProductController extends Controller
             'productionCosts',
             'priceHistory.branch',
             'variants.media', 
+            'variants.priceHistory.branch',
             'variants.storages.stockMovements' => function ($query) {
                 $query->latest()->limit(100); 
             },
