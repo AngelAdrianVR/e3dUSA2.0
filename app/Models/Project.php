@@ -36,7 +36,7 @@ class Project extends Model implements HasMedia
     }
 
     /**
-     * Miembros asignados al proyecto con su rol (viewer | editor) en el pivot.
+     * Miembros asignados al proyecto con su rol (Colaborador | Administrador) en el pivot.
      */
     public function members(): BelongsToMany
     {
@@ -84,12 +84,12 @@ class Project extends Model implements HasMedia
 
     /**
      * ¿Puede editar los detalles del proyecto / crear y mover tareas?
-     * Creador, miembro con rol 'editor' o permiso global 'Editar proyectos'.
+     * Creador, miembro con rol 'Administrador' o permiso global 'Editar proyectos'.
      */
     public function canEdit(User $user): bool
     {
         return $this->isCreator($user)
-            || $this->memberRole($user) === 'editor'
+            || $this->memberRole($user) === 'Administrador'
             || $user->hasPermissionTo('Editar proyectos');
     }
 

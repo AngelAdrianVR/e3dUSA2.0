@@ -20,16 +20,24 @@
                 </svg>
                 {{ warehouseStats.lowStockCount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}
             </p>
+            <!-- Botón para ver el listado completo de productos bajos de stock -->
+            <Link :href="route('stock-reposition.index')"
+                class="inline-flex items-center gap-1.5 mt-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition">
+                <i class="fa-solid fa-boxes-stacked text-xs"></i>
+                Ver productos bajos de stock
+                <i class="fa-solid fa-arrow-right text-xs"></i>
+            </Link>
         </div>
     </div>
 </template>
 
 <script>
 import VueApexCharts from 'vue3-apexcharts';
+import { Link } from '@inertiajs/vue3';
 
 export default {
     name: 'WarehouseStatusChart',
-    components: { apexchart: VueApexCharts },
+    components: { apexchart: VueApexCharts, Link },
     props: {
         theme: String,
         warehouseStats: {

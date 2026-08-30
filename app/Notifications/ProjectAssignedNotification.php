@@ -18,7 +18,7 @@ class ProjectAssignedNotification extends Notification
     /**
      * Create a new notification instance.
      */
-    public function __construct(Project $project, string $role = 'viewer')
+    public function __construct(Project $project, string $role = 'Colaborador')
     {
         $this->project = $project;
         $this->role = $role;
@@ -41,7 +41,7 @@ class ProjectAssignedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
-        $access = $this->role === 'editor' ? 'lectura y escritura' : 'solo lectura';
+        $access = $this->role === 'Administrador' ? 'Administrador' : 'Colaborador';
 
         return [
             'title' => 'Nuevo proyecto asignado',

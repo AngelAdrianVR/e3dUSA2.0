@@ -85,7 +85,7 @@
                     </div>
                 </template>
 
-                <!-- ===== VISTA SOLO LECTURA (miembros sin permiso de escritura) ===== -->
+                <!-- ===== VISTA COLABORADOR (miembros sin permiso de escritura) ===== -->
                 <template v-else-if="isEditing">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                         <p><span class="font-semibold text-gray-500">Estatus:</span> <el-tag size="small" :type="statusTagType">{{ task.status }}</el-tag></p>

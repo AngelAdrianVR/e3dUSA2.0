@@ -216,7 +216,7 @@ const handlePageChange = (page) => {
 const canEditProject = (project) => {
     if (currentUser.id === project.created_by) return true;
     if (page.props.auth.user.permissions.includes('Editar proyectos')) return true;
-    return project.members.some(m => m.id === currentUser.id && m.pivot?.role === 'editor');
+    return project.members.some(m => m.id === currentUser.id && m.pivot?.role === 'Administrador');
 };
 
 const canDeleteProject = (project) => {

@@ -10,10 +10,10 @@ use App\Models\EmployeeDetail;
 use App\Models\Event;
 use App\Models\Invoice;
 use App\Models\OvertimeRequest;
-use App\Models\PmsTask;
 use App\Models\Product;
 use App\Models\Production;
 use App\Models\ProductionTask;
+use App\Models\ProjectTask;
 use App\Models\Purchase;
 use App\Models\Quote;
 use App\Models\Sale;
@@ -80,19 +80,35 @@ class DashboardController extends Controller
             });
 
         // Warehouse Status Chart
-        // Se calcula la cantidad de productos con stock bajo.
-        // Esto asume que tu modelo 'Product' tiene una columna 'min_quantity' y una relación 'storage'.
-        $lowStockCount = Product::whereNotNull('min_quantity')
-            ->whereHas('storages', function ($query) {
-                // Compara la cantidad en storage con la cantidad mínima en products
-                $query->whereRaw('storages.quantity <= products.min_quantity');
-            })->count();
+        // El conteo de bajos en stock debe coincidir con el índice de stock-reposition:
+        // productos tipo 'Producto' o 'Catálogo' (comprables), no archivados,
+        // y con stock total (suma de storages) menor a min_quantity.
+        $lowStockCount = Product::with('storages')
+            ->where(function ($query) {
+                $query->where('product_type', 'Producto')
+                      ->orWhere(function ($q) {
+                          $q->where('product_type', 'Catálogo')
+                            ->where('is_purchasable', true);
+                      });
+            })
+            ->whereNull('archived_at')
+            ->get()
+            ->filter(fn ($product) => $product->storages->sum('quantity') < $product->min_quantity)
+            ->count();
 
         // Se reestructura el array para enviar un objeto a la vista.
         $warehouseStats = [
             'counts' => [
-                DB::table('products')->where('product_type', 'Producto')->count(),
-                DB::table('products')->where('product_type', 'Insumo')->count(),
+                DB::table('products')
+                    ->where('product_type', 'Producto')
+                    ->where('is_purchasable', true)
+                    ->whereNull('parent_id')
+                    ->count(),
+                DB::table('products')
+                    ->where('product_type', 'Insumo')
+                    ->where('is_purchasable', true)
+                    ->whereNull('parent_id')
+                    ->count(),
             ],
             'lowStockCount' => $lowStockCount,
         ];
@@ -332,16 +348,30 @@ class DashboardController extends Controller
                     });
             }
 
-         // ------------- NUEVA CONSULTA: Mis Tareas PMS -------------
-        $myPmsTasks = PmsTask::where('responsible_id', $authUserId)
-            ->whereIn('kanban_status', ['Pendiente', 'En proceso', 'Validación'])
-            ->with(['media', 'responsible']) // Cargar relaciones necesarias para el Modal
+         // ------------- NUEVA CONSULTA: Mis Tareas de Proyectos -------------
+        // La sección PMS se sustituyó por el módulo de Proyectos; el widget del Dashboard
+        // ahora muestra las tareas de proyectos asignadas al usuario actual.
+        $myProjectTasks = ProjectTask::where('assigned_to', $authUserId)
+            ->whereIn('status', ['Pendiente', 'En proceso', 'Pausada'])
+            ->with([
+                'media',
+                'assignee:id,name,email,profile_photo_path',
+                'creator:id,name',
+                'comments' => fn ($q) => $q->orderBy('created_at'),
+                'comments.author:id,name,email,profile_photo_path',
+                'project:id,name,created_by',
+                'project.members:id,name,email,profile_photo_path',
+                'project.creator:id,name,email,profile_photo_path',
+            ])
             ->orderBy('due_date', 'asc')
             ->limit(7)
-            ->get();
-
-        // Se requieren los usuarios para el Modal de Tareas PMS en el Dashboard
-        $users = User::where('is_active', true)->whereNot('id', 1)->get();
+            ->get()
+            ->each(function ($task) use ($authUser) {
+                // Flags para que el TaskModal de Proyectos funcione desde el Dashboard
+                $task->can_edit = $task->project->canEdit($authUser);
+                $task->is_member = $task->project->isMember($authUser)
+                    || (int) $task->project->created_by === (int) $authUser->id;
+            });
 
         return Inertia::render('Dashboard/Index', [
             'calendarEvents' => $calendarEvents,
@@ -351,8 +381,7 @@ class DashboardController extends Controller
             'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
             'myPendingTasks' => $myPendingTasks ?? null,
-            'myPmsTasks' => $myPmsTasks,
-            'users' => $users,
+            'myProjectTasks' => $myProjectTasks,
             'authUserName' => $authUser?->name,
             'news' => $news,
             'productionPerformance' => $productionPerformance,

@@ -22,9 +22,14 @@ class SaleController extends Controller
 {
     public function index(Request $request)
     {
-        // Determina si se deben mostrar todas las ventas o solo las del usuario.
-        $showAll = $request->query('view') === 'all';
-        $filterPending = $request->query('filter') === 'pending';
+        $view = $request->query('view');
+        $user = Auth::user();
+
+        // Por defecto se muestran TODAS las ventas (si el usuario tiene permiso).
+        // El parámetro 'mias' fuerza a mostrar solo las del usuario.
+        $showAll = $view !== 'mias' && $user->hasPermissionTo('Ver todas las ventas');
+        $filterPending = $request->query('filter') === 'pending'; // Pendiente de seguimiento (autorizadas)
+        $filterPendingAuth = $request->query('filter') === 'pending_authorization'; // Pendiente por autorizar
 
         $query = Sale::query();
 
@@ -32,9 +37,14 @@ class SaleController extends Controller
             $query->where('user_id', Auth::id());
         }
 
-        // Filtro: solo ventas con estatus "Autorizada"
+        // Filtro: Pendiente de seguimiento (autorizadas)
         if ($filterPending) {
             $query->where('status', 'Autorizada');
+        }
+
+        // Filtro: Pendiente por autorizar
+        if ($filterPendingAuth) {
+            $query->where('status', 'Pendiente');
         }
 
         // AGREGADO: 'productExchanges.returnedProduct:id,name' y 'productExchanges.newProduct:id,name'

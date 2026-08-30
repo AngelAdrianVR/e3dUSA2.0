@@ -3,11 +3,11 @@
         <!-- Header -->
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">Mis Tareas (PMS)</h5>
+                <h5 class="text-xl font-bold leading-none text-gray-900 dark:text-white">Mis Tareas (Proyectos)</h5>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Tareas pendientes y en proceso asignadas a ti.</p>
             </div>
-            <Link :href="route('pms.index')" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
-                Ver tablero completo
+            <Link :href="route('projects.index')" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-500">
+                Ver todos los proyectos
             </Link>
         </div>
 
@@ -19,7 +19,7 @@
                         
                         <!-- Icono / Avatar de la tarea -->
                         <div class="flex-shrink-0 cursor-pointer" @click="$emit('view', task)">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" :class="deptColor(task.department)">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" :class="projectColor(task.project?.name)">
                                 <i class="fa-solid fa-list-check"></i>
                             </div>
                         </div>
@@ -27,10 +27,10 @@
                         <!-- Textos de la Tarea -->
                         <div class="flex-1 min-w-0 cursor-pointer" @click="$emit('view', task)">
                             <p class="text-sm font-bold text-gray-900 truncate dark:text-white group-hover:text-blue-600 transition-colors">
-                                {{ task.folio }} - {{ task.title }}
+                                {{ task.title }}
                             </p>
                             <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5 space-x-2">
-                                <span class="font-medium">{{ task.department }}</span>
+                                <span class="font-medium truncate">{{ task.project?.name || 'Sin proyecto' }}</span>
                                 <span>&bull;</span>
                                 <span :class="{'text-red-500 font-bold': isExpired(task.due_date)}">
                                     <i class="fa-regular fa-clock"></i> {{ formatDate(task.due_date) }}
@@ -43,7 +43,7 @@
                             
                             <!-- Botón de Subir Evidencia Rápida -->
                             <div class="relative">
-                                <el-tooltip content="Subir Evidencia (Regla ISO)" placement="top">
+                                <el-tooltip content="Subir archivos / evidencia" placement="top">
                                     <button 
                                         @click="triggerFileInput(task.id)"
                                         :disabled="uploadingTask === task.id"
@@ -71,15 +71,15 @@
 
                             <!-- Dropdown de Estatus -->
                             <select
-                                :value="task.kanban_status"
+                                :value="task.status"
                                 @change="(e) => updateStatus(task, e)"
                                 class="w-[110px] sm:w-28 py-1 pl-2 pr-6 rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-xs font-semibold cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-500 transition-colors"
-                                :class="statusColorSelect(task.kanban_status)"
+                                :class="statusColorSelect(task.status)"
                             >
                                 <option value="Pendiente">Pendiente</option>
                                 <option value="En proceso">En proceso</option>
-                                <option value="Validación">Validación</option>
-                                <option value="Terminado">Terminado</option>
+                                <option value="Pausada">Pausada</option>
+                                <option value="Terminada">Terminada</option>
                             </select>
                         </div>
                         
@@ -101,7 +101,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { isPast, parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
@@ -115,7 +115,6 @@ const props = defineProps({
 
 defineEmits(['view']);
 
-const page = usePage();
 const uploadingTask = ref(null);
 
 // --- LÓGICA DE SUBIDA DE EVIDENCIA RÁPIDA ---
@@ -131,9 +130,9 @@ const handleFileUpload = (e, task) => {
     uploadingTask.value = task.id;
 
     // Usamos la misma ruta de actualización de estatus, enviando el estatus actual y los archivos.
-    router.post(route('pms.update-status', task.id), {
-        kanban_status: task.kanban_status, // Mantenemos el estatus como está
-        evidence_files: files
+    router.post(route('projects.tasks.update-status', [task.project_id, task.id]), {
+        status: task.status, // Mantenemos el estatus como está
+        files
     }, {
         forceFormData: true, // Requerido para enviar archivos
         preserveScroll: true,
@@ -142,8 +141,8 @@ const handleFileUpload = (e, task) => {
             e.target.value = ''; // Limpiar el input para permitir subir más después
         },
         onError: (errors) => {
-            if (errors.evidence_files) {
-                ElMessage.error(`Error: ${errors.evidence_files}`);
+            if (errors.files) {
+                ElMessage.error(`Error: ${errors.files}`);
             } else {
                 ElMessage.error('Error al subir la evidencia');
             }
@@ -157,55 +156,46 @@ const handleFileUpload = (e, task) => {
 // --- LÓGICA DE CAMBIO DE ESTATUS ---
 const updateStatus = (task, event) => {
     const newStatus = event.target.value;
-    const permissions = page.props.auth.user.permissions;
 
-    // Front-end validación de seguridad (igual al backend)
-    if (task.kanban_status === 'Validación' && newStatus === 'Terminado' && !permissions.includes('Validar tareas')) {
-        ElMessage.warning('No tienes permiso para pasar a Terminado (Requiere permiso "Validar tareas").');
-        event.target.value = task.kanban_status; // Revertir select
-        return;
-    }
-
-    router.post(route('pms.update-status', task.id), {
-        kanban_status: newStatus
+    router.post(route('projects.tasks.update-status', [task.project_id, task.id]), {
+        status: newStatus
     }, {
         preserveScroll: true,
         onSuccess: () => {
             ElMessage.success('Estatus actualizado');
         },
         onError: (errors) => {
-            // Manejador de errores del backend (ISO o Permisos)
-            if (errors.evidence_files) {
-                ElMessage.error({ message: `Regla ISO 9001: ${errors.evidence_files}`, duration: 5000 });
+            // Manejador de errores del backend (permisos del proyecto)
+            if (errors.status) {
+                ElMessage.error(errors.status);
             } else if (errors.permission) {
                 ElMessage.error(errors.permission);
             } else {
                 ElMessage.error('Error al actualizar el estatus');
             }
-            event.target.value = task.kanban_status; // Revertir select visualmente en caso de error
+            event.target.value = task.status; // Revertir select visualmente en caso de error
         }
     });
 };
 
 
 // --- UTILERÍAS VISUALES ---
-const deptColor = (dept) => {
-    const map = {
-        'Producción': 'bg-blue-500',
-        'Ventas': 'bg-green-500',
-        'Administración': 'bg-yellow-500',
-        'Diseño': 'bg-red-500',
-        'General': 'bg-gray-500'
-    };
-    return map[dept] || 'bg-gray-500';
+// Color del avatar según el proyecto (hash estable por nombre)
+const projectColor = (name = '') => {
+    const colors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500', 'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+    }
+    return colors[hash % colors.length];
 };
 
 const statusColorSelect = (status) => {
     const map = {
         'Pendiente': 'text-gray-700 bg-gray-50',
         'En proceso': 'text-yellow-700 bg-yellow-50',
-        'Validación': 'text-blue-700 bg-blue-50',
-        'Terminado': 'text-green-700 bg-green-50'
+        'Pausada': 'text-orange-700 bg-orange-50',
+        'Terminada': 'text-green-700 bg-green-50'
     };
     return map[status] || 'text-gray-700';
 };

@@ -93,8 +93,8 @@ class ProjectTaskController extends Controller
         abort_if($task->project_id !== $project->id, 404);
 
         // Permiso para cambiar estatus (drag & drop):
-        // - Lectura y escritura (editor/creador/permiso global): puede mover cualquier tarea.
-        // - Solo lectura (viewer): únicamente sus propias tareas y sin reasignar.
+        // - Administrador (Administrador/creador/permiso global): puede mover cualquier tarea.
+        // - Colaborador: únicamente sus propias tareas y sin reasignar.
         if (!$project->canEdit($user)) {
             if ((int) $task->assigned_to !== (int) $user->id) {
                 abort(403, 'Solo puedes mover tus propias tareas.');
@@ -108,6 +108,8 @@ class ProjectTaskController extends Controller
             'status' => 'required|in:Pendiente,En proceso,Pausada,Terminada',
             'position' => 'nullable|integer|min:0',
             'assigned_to' => 'nullable|exists:users,id',
+            'files' => 'nullable|array|max:10',
+            'files.*' => 'file|max:10240',
         ]);
 
         $data = ['status' => $request->status];
@@ -130,13 +132,16 @@ class ProjectTaskController extends Controller
 
         $task->update($data);
 
+        // Subida de archivos/evidencia desde el Kanban o el Dashboard
+        $this->saveFiles($task, $request);
+
         $this->notifyAssigneeIfChanged($task, $oldAssignee);
 
         return back()->with('success', 'Estatus actualizado.');
     }
 
     /**
-     * Agrega un comentario a una tarea (cualquier miembro, incluso solo lectura).
+     * Agrega un comentario a una tarea (cualquier miembro, incluso Colaborador).
      * Devuelve JSON para insertarlo sin recargar la página.
      */
     public function storeComment(Request $request, Project $project, ProjectTask $task)

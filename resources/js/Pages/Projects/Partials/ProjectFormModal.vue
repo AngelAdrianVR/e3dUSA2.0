@@ -71,11 +71,11 @@
                         </el-tooltip>
                     </div>
 
-                    <!-- Creador (fijo, siempre editor) -->
+                    <!-- Creador (fijo, siempre Administrador) -->
                     <div class="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 mb-2">
                         <img :src="creatorAvatar" class="size-7 rounded-full object-cover" alt="Creador" />
                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{{ creatorName }}</span>
-                        <span class="ml-auto text-[10px] font-semibold text-blue-600 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded-full shrink-0">Creador · Lectura y escritura</span>
+                        <span class="ml-auto text-[10px] font-semibold text-blue-600 bg-blue-100 dark:bg-blue-900/40 px-2 py-0.5 rounded-full shrink-0">Creador · Administrador</span>
                     </div>
 
                     <!-- Miembros editables -->
@@ -84,8 +84,8 @@
                             <el-option v-for="u in availableUsersFor(index)" :key="u.id" :label="u.name" :value="u.id" />
                         </el-select>
                         <el-select v-model="member.role" :teleported="false" class="w-44">
-                            <el-option label="Solo lectura" value="viewer" />
-                            <el-option label="Lectura y escritura" value="editor" />
+                            <el-option label="Colaborador" value="Colaborador" />
+                            <el-option label="Administrador" value="Administrador" />
                         </el-select>
                         <button type="button" @click="form.members.splice(index, 1)"
                             class="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-900/30 transition shrink-0"
@@ -154,7 +154,7 @@ const creatorName = computed(() => props.project?.creator?.name || currentUser?.
 const creatorAvatar = computed(() => props.project?.creator?.profile_photo_url || currentUser?.profile_photo_url || '/images/default-avatar.png');
 const creatorId = computed(() => props.project?.created_by || currentUser?.id || null);
 
-const permissionHelp = '🟢 <b>Solo lectura:</b> puede ver el proyecto y comentar en las tareas.<br/>🔵 <b>Lectura y escritura:</b> además puede editar los datos del proyecto y crear, editar o mover tareas.<br/><br/>Todos los miembros pueden comentar, sin importar su permiso.';
+const permissionHelp = '🟢 <b>Colaborador:</b> puede ver el proyecto y comentar en las tareas.<br/>🔵 <b>Administrador:</b> además puede editar los datos del proyecto y crear, editar o mover tareas.<br/><br/>Todos los miembros pueden comentar, sin importar su permiso.';
 
 const emptyForm = () => ({
     name: '',
@@ -181,10 +181,10 @@ const resetForm = () => {
         form.currency = props.project.currency || 'MXN';
         form.start_date = props.project.start_date ? String(props.project.start_date).slice(0, 10) : '';
         form.tentative_end_date = props.project.tentative_end_date ? String(props.project.tentative_end_date).slice(0, 10) : '';
-        // El creador no se edita (siempre editor); el resto de miembros con su rol
+        // El creador no se edita (siempre Administrador); el resto de miembros con su rol
         form.members = (props.project.members || [])
             .filter(m => m.id !== props.project.created_by)
-            .map(m => ({ user_id: m.id, role: m.pivot?.role || 'viewer' }));
+            .map(m => ({ user_id: m.id, role: m.pivot?.role || 'Colaborador' }));
     }
 };
 
@@ -193,7 +193,7 @@ watch(() => props.show, (open) => {
 });
 
 const addMember = () => {
-    form.members.push({ user_id: null, role: 'viewer' });
+    form.members.push({ user_id: null, role: 'Colaborador' });
 };
 
 // Usuarios disponibles: activos, excluyendo al creador y a los ya seleccionados en otras filas

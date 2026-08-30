@@ -22,8 +22,14 @@ class QuoteController extends Controller
 {
     public function index(Request $request)
     {
-        $showAll = $request->query('view') === 'all';
-        $filterPending = $request->query('filter') === 'pending';
+        $view = $request->query('view');
+        $user = Auth::user();
+
+        // Por defecto se muestran TODAS las cotizaciones (si el usuario tiene permiso).
+        // El parámetro 'mias' fuerza a mostrar solo las del usuario.
+        $showAll = $view !== 'mias' && $user->hasPermissionTo('Ver todas las cotizaciones');
+        $filterPending = $request->query('filter') === 'pending'; // Pendiente de seguimiento (autorizada sin respuesta del cliente)
+        $filterPendingAuth = $request->query('filter') === 'pending_authorization'; // Pendiente por autorizar
         $query = Quote::query();
 
         $query->where('is_active', true);
@@ -32,10 +38,15 @@ class QuoteController extends Controller
             $query->where('user_id', Auth::id());
         }
 
-        // Filtro: solo cotizaciones pendientes (autorizadas sin respuesta del cliente)
+        // Filtro: Pendiente de seguimiento (autorizadas sin respuesta del cliente)
         if ($filterPending) {
             $query->whereNotNull('authorized_at')
                   ->whereNull('customer_responded_at');
+        }
+
+        // Filtro: Pendiente por autorizar (aún no autorizadas)
+        if ($filterPendingAuth) {
+            $query->whereNull('authorized_at');
         }
 
         $query->withCount('allVersions');

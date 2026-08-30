@@ -494,28 +494,28 @@ Route::prefix('calendar')->name('calendar.')->group(function () {
 
 Route::middleware(['auth'])->group(function () {
     
-    // ==========================================
-    // MÓDULO PMS (Control de Actividades ISO)
-    // ==========================================
-    Route::prefix('pms')->name('pms.')->group(function () {
+    // // ==========================================
+    // // MÓDULO PMS (Control de Actividades ISO)
+    // // ==========================================
+    // Route::prefix('pms')->name('pms.')->group(function () {
         
-        // Vista principal (Tablero Kanban). Se pasan los detalles en la misma colección (para el modal)
-        Route::get('/', [PmsTaskController::class, 'index'])->name('index');
+    //     // Vista principal (Tablero Kanban). Se pasan los detalles en la misma colección (para el modal)
+    //     Route::get('/', [PmsTaskController::class, 'index'])->name('index');
         
-        // Crear una nueva tarea manualmente (Para usuarios con permiso)
-        Route::post('/', [PmsTaskController::class, 'store'])->name('store');
+    //     // Crear una nueva tarea manualmente (Para usuarios con permiso)
+    //     Route::post('/', [PmsTaskController::class, 'store'])->name('store');
         
-        // Actualizar la tarea completa (Responsable, Fechas, Prioridad, etc.) desde el Modal
-        Route::put('/{pmsTask}', [PmsTaskController::class, 'update'])->name('update');
+    //     // Actualizar la tarea completa (Responsable, Fechas, Prioridad, etc.) desde el Modal
+    //     Route::put('/{pmsTask}', [PmsTaskController::class, 'update'])->name('update');
         
-        // Eliminar tarea
-        Route::delete('/{pmsTask}', [PmsTaskController::class, 'destroy'])->name('destroy');
+    //     // Eliminar tarea
+    //     Route::delete('/{pmsTask}', [PmsTaskController::class, 'destroy'])->name('destroy');
         
-        // Ruta específica y optimizada para arrastrar y soltar (Drag & Drop)
-        // También maneja la subida de evidencia y actualización a Terminado (guardando finished_at)
-        Route::post('/{pmsTask}/status', [PmsTaskController::class, 'updateStatus'])->name('update-status');
+    //     // Ruta específica y optimizada para arrastrar y soltar (Drag & Drop)
+    //     // También maneja la subida de evidencia y actualización a Terminado (guardando finished_at)
+    //     Route::post('/{pmsTask}/status', [PmsTaskController::class, 'updateStatus'])->name('update-status');
         
-    });
+    // });
 
     // ==========================================
     // MÓDULO PROYECTOS

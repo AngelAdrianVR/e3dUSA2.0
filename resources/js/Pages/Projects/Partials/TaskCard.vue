@@ -3,7 +3,7 @@
         draggable="true"
         class="group bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-slate-700 border-l-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
         :class="[meta.border, canDrag ? '' : 'cursor-default']"
-        :title="canDrag ? 'Arrastra para cambiar de estatus' : 'Solo lectura'"
+        :title="canDrag ? 'Arrastra para cambiar de estatus' : 'Colaborador'"
         @dragstart="onDragStart"
         @click="$emit('card-click', task)"
     >

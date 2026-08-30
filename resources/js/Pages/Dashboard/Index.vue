@@ -20,7 +20,7 @@
                     <div class="grid grid-cols-3 gap-5 lg:col-span-3 xl:col-span-4">
                         <OvertimeRequestPanel class="col-span-1" v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :pending-requests="pendingOvertimeRequests" />
                         <AvailableSalesPanel class="col-span-2" :orders="availableSales" />
-                        <MyPmsTasks :tasks="myPmsTasks" @view="openTaskModal" />
+                        <MyPmsTasks :tasks="myProjectTasks" @view="openTaskModal" />
                     </div>
 
                     <!-- Warehouse Status -->
@@ -65,11 +65,13 @@
             </div>
         </div>
 
-        <!-- Modal de Tareas PMS -->
+        <!-- Modal de Tareas de Proyectos -->
         <TaskModal 
             :show="showTaskModal" 
             :task="selectedTask" 
-            :users="users"
+            :project="selectedProject"
+            :can-edit="taskCanEdit"
+            :is-member="taskIsMember"
             @close="closeTaskModal" 
         />
     </AppLayout>
@@ -87,7 +89,7 @@ import MyPendingInvoices from './Components/MyPendingInvoices.vue';
 import MySalesOrders from './Components/MySalesOrders.vue';
 import MyPendingTasks from './Components/MyPendingTasks.vue';
 import MyPmsTasks from './Components/MyPmsTasks.vue';
-import TaskModal from '../PMS/Partials/TaskModal.vue';
+import TaskModal from '../Projects/Partials/TaskModal.vue';
 import NewsPanel from './Components/NewsPanel.vue';
 import OvertimeRequestPanel from './Components/OvertimeRequestPanel.vue';
 import AvailableSalesPanel from './Components/AvailableSalesPanel.vue';
@@ -117,8 +119,7 @@ export default {
         upcomingBirthdays: Array,
         mySalesOrders: Array,
         myPendingTasks: Array,
-        myPmsTasks: Array,
-        users: Array,
+        myProjectTasks: Array,
         authUserName: String,
         news: Array,
         myPendingInvoices: Array,
@@ -134,6 +135,9 @@ export default {
            isDark: true,
            showTaskModal: false,
            selectedTask: null,
+           selectedProject: null,
+           taskCanEdit: false,
+           taskIsMember: false,
         }
     },
     computed: {
@@ -147,11 +151,17 @@ export default {
         },
         openTaskModal(task) {
             this.selectedTask = task;
+            this.selectedProject = task.project || null;
+            this.taskCanEdit = !!task.can_edit;
+            this.taskIsMember = !!task.is_member;
             this.showTaskModal = true;
         },
         closeTaskModal() {
             this.showTaskModal = false;
             this.selectedTask = null;
+            this.selectedProject = null;
+            this.taskCanEdit = false;
+            this.taskIsMember = false;
         }
     },
     mounted() {
