@@ -98,6 +98,7 @@
                         <el-table 
                             ref="multipleTable"
                             row-key="id"
+                            :row-class-name="rowClassName"
                             max-height="600" 
                             :data="products.data"
                             style="width: 100%" 
@@ -109,7 +110,13 @@
                             <el-table-column type="selection" width="40" reserve-selection />
                             
                             <!-- Columna Expandible para Variantes -->
-                            <el-table-column type="expand" width="40">
+                            <el-table-column type="expand" width="62" align="center">
+                                <!-- Icono personalizado: solo se muestra si el producto tiene variantes -->
+                                <template #expand="{ expanded }">
+                                    <span class="variants-expand-icon" :class="{ 'is-expanded': expanded }">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </span>
+                                </template>
                                 <template #default="props">
                                     <div class="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg ml-12 mr-4 my-2 border border-gray-200 dark:border-slate-700">
                                         <div class="flex justify-between items-center mb-3">
@@ -745,6 +752,10 @@ export default {
         handleRowClick(row) {
             this.$inertia.get(route('catalog-products.show', row));
         },
+        // Agrega una clase a las filas sin variantes para ocultar el icono de desplegar
+        rowClassName({ row }) {
+            return row.variants?.length ? '' : 'no-variants-row';
+        },
         handleCommand(command) {
             const commandParts = command.split('-');
             const commandName = commandParts[0];
@@ -901,12 +912,43 @@ export default {
     background-color: #3b82f6 !important;
 }
 
-/* Evitar icono de expandir oculto si no hay data, Element UI a veces lo oculta pero mejor aseguramos UI limpia */
-.el-table__expand-icon {
-    display: inline-block;
+/* ===== Icono de expandir variantes ===== */
+/* Área del botón más grande para facilitar el clic sin abrir el producto */
+.el-table .el-table__expand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
     color: #6b7280;
+    transition: background-color .2s ease, color .2s ease;
 }
-.dark .el-table__expand-icon {
+/* Hover: resalta el área del botón */
+.el-table .el-table__expand-icon:hover {
+    background-color: #dbeafe;
+    color: #2563eb;
+}
+.el-table .el-table__expand-icon i {
+    font-size: 13px;
+    transition: transform .25s ease;
+}
+.el-table .el-table__expand-icon--expanded i {
+    transform: rotate(90deg);
+}
+
+/* Ocultar el icono en productos sin variantes */
+.el-table .no-variants-row .el-table__expand-icon {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Modo oscuro */
+.dark .el-table .el-table__expand-icon {
     color: #9ca3af;
+}
+.dark .el-table .el-table__expand-icon:hover {
+    background-color: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
 }
 </style>

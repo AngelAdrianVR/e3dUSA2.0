@@ -84,23 +84,6 @@ class PayrollController extends Controller
     }
 
     /**
-     * Activa o desactiva la penalización de 30 minutos por no registrar descanso
-     * para una nómina específica.
-     */
-    public function toggleBreakPenalty(Request $request, Payroll $payroll)
-    {
-        $request->validate([
-            'break_penalty_enabled' => 'required|boolean',
-        ]);
-
-        $payroll->update([
-            'break_penalty_enabled' => $request->boolean('break_penalty_enabled'),
-        ]);
-
-        return back();
-    }
-
-    /**
      * Lógica centralizada para calcular los datos de la nómina.
      */
     public function calculatePayrollData(Payroll $payroll, $employees)
@@ -153,8 +136,6 @@ class PayrollController extends Controller
                     'breaks_details' => [],
                     'unauthorized_overtime_seconds' => 0,
                     'approved_overtime_day_seconds' => 0,
-                    'break_penalty' => false,
-                    'break_penalty_seconds' => 0,
                     'rigid_mode' => false,
                 ];
 
@@ -179,11 +160,27 @@ class PayrollController extends Controller
                 $entry = $dayAttendances->firstWhere('type', 'entry');
                 $exit = $dayAttendances->where('type', 'exit')->last();
 
+                // Ignorar los segundos en TODOS los cálculos: se truncan a minuto (startOfMinute).
+                $entryTime = $entry ? Carbon::parse($entry->timestamp)->startOfMinute() : null;
+                $exitTime = $exit ? Carbon::parse($exit->timestamp)->startOfMinute() : null;
+
                 if ($entry) {
                     $dayData['entry'] = $entry->timestamp->format('H:i:s');
-                    $dayData['late_minutes'] = $entry->late_minutes ?? 0;
                     $dayData['ignore_late'] = $entry->ignore_late ?? false;
                     $dayData['entry_id'] = $entry->id;
+
+                    // Calcular el retardo AL PROCESAR LA NÓMINA comparando la entrada real contra la
+                    // hora programada del día (horario ACTUAL). No depende del valor guardado al checar,
+                    // que puede quedar desactualizado si el horario cambia después del checado.
+                    $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
+                    $lateMinutes = 0;
+                    if ($workDayConfig && $workDayConfig['works']) {
+                        $scheduledStartTime = $date->copy()->setTimeFromTimeString($workDayConfig['start_time']);
+                        if ($entryTime->isAfter($scheduledStartTime)) {
+                            $lateMinutes = (int) $scheduledStartTime->diffInMinutes($entryTime);
+                        }
+                    }
+                    $dayData['late_minutes'] = $lateMinutes;
                 }
                 if ($exit) $dayData['exit'] = $exit->timestamp->format('H:i:s');
 
@@ -192,27 +189,17 @@ class PayrollController extends Controller
                 $breakEnds = $dayAttendances->where('type', 'end_break')->values();
                 for ($i = 0; $i < $breakStarts->count(); $i++) {
                     if (isset($breakEnds[$i])) {
-                        $start = Carbon::parse($breakStarts[$i]->timestamp);
-                        $end = Carbon::parse($breakEnds[$i]->timestamp);
+                        // Truncar a minuto para que los descansos también ignoren los segundos
+                        $start = Carbon::parse($breakStarts[$i]->timestamp)->startOfMinute();
+                        $end = Carbon::parse($breakEnds[$i]->timestamp)->startOfMinute();
                         $diff = $start->diffInSeconds($end);
                         $breakSeconds += $diff;
                         $dayData['breaks_details'][] = ['start' => $start->format('H:i'), 'end' => $end->format('H:i'), 'total' => floor($diff / 60) . 'm'];
                     }
                 }
 
-                // Penalización de descanso: si la nómina la tiene activada y trabajó el día (entrada y
-                // salida) pero no registró ningún descanso, se le descuentan 30 minutos de su tiempo trabajado.
-                $penaltyBreakSeconds = 0;
-                if ($payroll->break_penalty_enabled && $entry && $exit && $breakSeconds == 0) {
-                    $penaltyBreakSeconds = 30 * 60; // 30 minutos
-                    $dayData['break_penalty'] = true;
-                    $dayData['break_penalty_seconds'] = $penaltyBreakSeconds;
-                }
-
                 if ($breakSeconds > 0) {
                     $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
-                } elseif ($dayData['break_penalty']) {
-                    $dayData['total_break_time'] = gmdate('G\h i\m', $penaltyBreakSeconds);
                 }
 
                 $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
@@ -233,20 +220,26 @@ class PayrollController extends Controller
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
 
                         $scheduledSeconds = 0;
+                        $scheduledBreakSeconds = 0;
                         $startTime = null;
                         $endTime = null;
                         if ($workDayConfig && $workDayConfig['works']) {
                             $startTime = Carbon::parse($workDayConfig['start_time']);
                             $endTime = Carbon::parse($workDayConfig['end_time']);
                             $breakMinutes = $workDayConfig['break_minutes'] ?? 0;
-                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
+                            $scheduledBreakSeconds = $breakMinutes * 60;
+                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - $scheduledBreakSeconds;
                         }
 
-                        $entryTime = Carbon::parse($entry->timestamp);
-                        $exitTime = Carbon::parse($exit->timestamp);
+                        // Break efectivo del día: se descuenta el MAYOR entre el descanso configurado
+                        // en su jornada (break_minutes) y el descanso realmente registrado. Así, aunque
+                        // el empleado no chequee break (o chequee menos), se le descuenta el break
+                        // asignado de ese día; si registra más tiempo, también se descuenta.
+                        $effectiveBreakSeconds = max($scheduledBreakSeconds, $breakSeconds);
 
-                        // Tiempo bruto trabajado (entrada -> salida) menos descansos registrados
-                        $actualWorkedSeconds = max(0, $entryTime->diffInSeconds($exitTime) - $breakSeconds);
+                        // $entryTime y $exitTime ya están truncados a minuto (definidos antes).
+                        // Tiempo bruto trabajado (entrada -> salida) menos el break efectivo del día
+                        $actualWorkedSeconds = max(0, $entryTime->diffInSeconds($exitTime) - $effectiveBreakSeconds);
 
                         // --- Modo Rígido ---
                         // El tiempo efectivo (pagado) sólo cuenta dentro del horario establecido para el empleado.
@@ -267,7 +260,7 @@ class PayrollController extends Controller
                             $overlapEnd = min($exitTime->timestamp, $shiftEnd->timestamp);
                             $overlapSeconds = max(0, $overlapEnd - $overlapStart);
 
-                            $effectiveSeconds = max(0, $overlapSeconds - $breakSeconds);
+                            $effectiveSeconds = max(0, $overlapSeconds - $effectiveBreakSeconds);
                             $dayData['rigid_mode'] = true;
                         }
 
@@ -287,16 +280,10 @@ class PayrollController extends Controller
                             $dayData['unauthorized_overtime_seconds'] = max(0, $actualWorkedSeconds - ($scheduledSeconds + $approvedOvertimeDaySeconds));
                         }
 
-                        // Penalización de descanso: si no registró ningún descanso, se descuentan 30 minutos
-                        // del tiempo a pagar (además del descanso configurado en su horario).
-                        if ($dayData['break_penalty']) {
-                            $payableSeconds = max(0, $payableSeconds - $penaltyBreakSeconds);
-                        }
-
                         $totalWorkedSeconds += $payableSeconds;
-                        // Tiempo efectivo contabilizado (después de la penalización de descanso)
-                        $countedSeconds = max(0, $effectiveSeconds - ($dayData['break_penalty'] ? $penaltyBreakSeconds : 0));
-                        $dayData['total_time'] = gmdate('G\h i\m', $countedSeconds);
+                        // Break efectivo del día (configurado o registrado, el mayor)
+                        $dayData['total_break_time'] = gmdate('G\h i\m', $effectiveBreakSeconds);
+                        $dayData['total_time'] = gmdate('G\h i\m', $effectiveSeconds);
 
                         if ($isHoliday) {
                             $dayData['worked_on_holiday'] = true;
@@ -355,6 +342,7 @@ class PayrollController extends Controller
                     'job_position' => $employee->job_position,
                     'hours_per_week' => $employee->hours_per_week,
                     'rigid_schedule' => (bool) ($employee->rigid_schedule ?? false),
+                    'work_days' => $employee->work_days,
                 ],
                 'week_details' => $daysData,
                 'summary' => [
