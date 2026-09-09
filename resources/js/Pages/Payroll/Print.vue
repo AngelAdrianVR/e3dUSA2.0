@@ -83,10 +83,7 @@
                                             </td>
                                             <td class="p-2 print:p-px text-center font-mono">{{ format12HourTime(day.exit) }}</td>
                                             <td class="p-2 print:p-px text-center font-mono">
-                                                <span v-if="day.breaks_details.length === 0 && day.total_break_time && day.total_break_time !== '0h 0m'" :title="`Descanso de su jornada aplicado (no registró break): ${day.total_break_time}`">
-                                                    {{ day.total_break_time }}
-                                                </span>
-                                                <span v-else>{{ day.total_break_time ?? '0h 0m' }}</span>
+                                                {{ day.total_break_time ?? '0h 0m' }}
                                             </td>
                                             <td class="p-2 print:p-px text-center font-mono">
                                                  <span v-if="day.approved_overtime_day_seconds > 0" class="text-indigo-600 dark:text-indigo-400 font-semibold">

@@ -220,26 +220,18 @@ class PayrollController extends Controller
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
 
                         $scheduledSeconds = 0;
-                        $scheduledBreakSeconds = 0;
                         $startTime = null;
                         $endTime = null;
                         if ($workDayConfig && $workDayConfig['works']) {
                             $startTime = Carbon::parse($workDayConfig['start_time']);
                             $endTime = Carbon::parse($workDayConfig['end_time']);
                             $breakMinutes = $workDayConfig['break_minutes'] ?? 0;
-                            $scheduledBreakSeconds = $breakMinutes * 60;
-                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - $scheduledBreakSeconds;
+                            $scheduledSeconds = $startTime->diffInSeconds($endTime) - ($breakMinutes * 60);
                         }
 
-                        // Break efectivo del día: se descuenta el MAYOR entre el descanso configurado
-                        // en su jornada (break_minutes) y el descanso realmente registrado. Así, aunque
-                        // el empleado no chequee break (o chequee menos), se le descuenta el break
-                        // asignado de ese día; si registra más tiempo, también se descuenta.
-                        $effectiveBreakSeconds = max($scheduledBreakSeconds, $breakSeconds);
-
                         // $entryTime y $exitTime ya están truncados a minuto (definidos antes).
-                        // Tiempo bruto trabajado (entrada -> salida) menos el break efectivo del día
-                        $actualWorkedSeconds = max(0, $entryTime->diffInSeconds($exitTime) - $effectiveBreakSeconds);
+                        // Tiempo bruto trabajado (entrada -> salida) menos el descanso REALMENTE registrado
+                        $actualWorkedSeconds = max(0, $entryTime->diffInSeconds($exitTime) - $breakSeconds);
 
                         // --- Modo Rígido ---
                         // El tiempo efectivo (pagado) sólo cuenta dentro del horario establecido para el empleado.
@@ -260,7 +252,7 @@ class PayrollController extends Controller
                             $overlapEnd = min($exitTime->timestamp, $shiftEnd->timestamp);
                             $overlapSeconds = max(0, $overlapEnd - $overlapStart);
 
-                            $effectiveSeconds = max(0, $overlapSeconds - $effectiveBreakSeconds);
+                            $effectiveSeconds = max(0, $overlapSeconds - $breakSeconds);
                             $dayData['rigid_mode'] = true;
                         }
 
@@ -281,8 +273,8 @@ class PayrollController extends Controller
                         }
 
                         $totalWorkedSeconds += $payableSeconds;
-                        // Break efectivo del día (configurado o registrado, el mayor)
-                        $dayData['total_break_time'] = gmdate('G\h i\m', $effectiveBreakSeconds);
+                        // Descanso realmente registrado
+                        $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
                         $dayData['total_time'] = gmdate('G\h i\m', $effectiveSeconds);
 
                         if ($isHoliday) {

@@ -181,7 +181,7 @@
                                 <div>{{ formattedDimensions }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Unidad de Medida</div>
                                 <div>{{ activeProduct.measure_unit ?? '--' }}</div>
-                                <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias del p. terminado</div>
+                                <div class="font-semibold text-gray-500 dark:text-gray-400">Existencias en stock</div>
                                 <div>{{ activeStorage?.quantity ?? '0' }} {{ activeProduct.measure_unit }}</div>
                                 <div class="font-semibold text-gray-500 dark:text-gray-400">Stock Mínimo</div>
                                 <div>{{ activeProduct.min_quantity?.toLocaleString() ?? '0' }} {{ activeProduct.measure_unit }}</div>
