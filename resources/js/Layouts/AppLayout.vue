@@ -337,7 +337,12 @@ onMounted(() => {
             <section class="md:col-span-11">
                 <nav class="bg-white dark:bg-zinc-900 dark:border-slate-700">
                     <!-- Primary Navigation Menu -->
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between">
+                        <!-- logotipo -->
+                        <div class="flex items-center justify-center">
+                            <img src="/images/logo.png" alt="Logo" class="h-8 w-auto">
+                        </div>
+                        
                         <div class="flex justify-end h-14">
                             <div class="hidden sm:flex sm:items-center sm:ms-6 transition duration-300 space-x-1">
                                 <!-- Dark mode toggle -->

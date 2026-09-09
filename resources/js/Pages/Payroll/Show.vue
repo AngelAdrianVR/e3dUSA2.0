@@ -115,15 +115,6 @@
                                                     </template>
                                                     <span class="border-b border-dashed border-black cursor-help">{{ row.total_break_time }}</span>
                                                 </el-tooltip>
-                                                <el-tooltip placement="top" v-else-if="row.total_break_time && row.total_break_time !== '0h 0m'">
-                                                    <template #content>
-                                                        <div class="text-xs">
-                                                            Descanso de su jornada aplicado (no registró break):
-                                                            {{ row.total_break_time }}
-                                                        </div>
-                                                    </template>
-                                                    <span class="border-b border-dashed border-gray-400 cursor-help">{{ row.total_break_time }}</span>
-                                                </el-tooltip>
                                                 <span v-else>Sin descansos</span>
                                             </template>
                                         </el-table-column>

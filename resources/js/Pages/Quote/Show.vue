@@ -188,7 +188,7 @@
                         </div>
                         
                         <div v-if="showTaxes" class="flex justify-between p-2 text-gray-600 border-t">
-                            <span class="font-semibold">IVA ({{ taxPercentage }}%):<span class="text-[10px] text-gray-400 block font-normal leading-tight">({{ quote.is_spanish_template ? 'Solo productos' : 'Products only' }})</span></span>
+                            <span class="font-semibold">IVA ({{ taxPercentage }}%):</span>
                             <span class="font-bold text-gray-700">{{ formatNumber(taxAmount) }} {{ quote.currency }}</span>
                         </div>
 
@@ -272,9 +272,10 @@ export default {
         },
         taxAmount() {
             if (!this.showTaxes) return 0;
-            const subtotal = Number(this.quote.total_data.subtotal) || 0;
+            // Base gravable: productos aprobados + flete + herramental (total_after_discount ya los incluye, sin tachados)
+            const base = Number(this.quote.total_data.total_after_discount) || 0;
             const percentage = Number(this.taxPercentage) || 0;
-            return subtotal * (percentage / 100);
+            return base * (percentage / 100);
         },
         totalWithTax() {
             const currentTotal = Number(this.quote.total_data.total_after_discount) || 0;
