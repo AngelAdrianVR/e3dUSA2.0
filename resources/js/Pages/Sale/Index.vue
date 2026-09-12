@@ -5,7 +5,7 @@
         </h2>
 
         <div class="py-7">
-            <div class="max-w-[95rem] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[100rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="flex justify-between items-center mb-6">
                         <p class="text-sm text-red-500 p-2 m-1 rounded-md bg-red-200">Por ordenes de dirección Sólo se puede crear un OV desde su respectiva cotización</p>
@@ -247,19 +247,99 @@
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Factura" width="100">
+<el-table-column label="Factura">
                                  <template #default="scope">
-                                    <a v-if="scope.row.invoice_id" @click.stop
-                                        :href="route('invoices.show', scope.row.invoice_id)" target="_blank"
-                                        class="text-blue-500 hover:underline">
-                                        {{ scope.row.invoice.folio }}
-                                    </a>
-                                    <span v-else class="text-gray-400">N/A</span>
+                                    <div v-if="scope.row.stamped_invoice_folio || scope.row.pre_invoice_folio"
+                                        class="flex flex-col items-start gap-1">
+                                        <!-- Folios de factura timbrada (final) -->
+                                        <el-tooltip v-if="scope.row.stamped_invoice_folio" placement="top">
+                                            <template #content>
+                                                <div class="text-xs">
+                                                    <p class="font-bold mb-1">Factura(s) timbrada(s)</p>
+                                                    <p v-for="folio in splitFolios(scope.row.stamped_invoice_folio)" :key="folio">{{ folio }}</p>
+                                                </div>
+                                            </template>
+                                            <span class="inline-flex items-center gap-1 max-w-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-[11px] font-medium px-2 py-0.5 rounded cursor-help">
+                                                <i class="fa-solid fa-file-invoice text-[9px]"></i>
+                                                <span class="truncate">{{ scope.row.stamped_invoice_folio }}</span>
+                                            </span>
+                                        </el-tooltip>
+                                        <!-- Folios de pre-factura (solo si no hay timbrada) -->
+                                        <el-tooltip v-else-if="scope.row.pre_invoice_folio" placement="top">
+                                            <template #content>
+                                                <div class="text-xs">
+                                                    <p class="font-bold mb-1">Folio(s) pre-factura</p>
+                                                    <p v-for="folio in splitFolios(scope.row.pre_invoice_folio)" :key="folio">{{ folio }}</p>
+                                                </div>
+                                            </template>
+                                            <span class="inline-flex items-center gap-1 max-w-full bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-gray-300 text-[11px] font-medium px-2 py-0.5 rounded cursor-help">
+                                                <i class="fa-regular fa-file-lines text-[9px]"></i>
+                                                <span class="truncate">{{ scope.row.pre_invoice_folio }}</span>
+                                            </span>
+                                        </el-tooltip>
+                                    </div>
+                                    <span v-else class="text-gray-400 text-xs">N/A</span>
                                 </template>
                             </el-table-column>
 
-                            <!-- Menú de acciones por fila -->
-                            <el-table-column align="right">
+                            <!-- COLUMNA DE LOGÍSTICA (guía, paquetería y fecha promesa en un tooltip) -->
+                            <el-table-column label="Logística" width="110" align="center">
+                                <template #default="scope">
+                                    <el-popover
+                                        v-if="scope.row.shipments?.length"
+                                        placement="right"
+                                        :width="320"
+                                        trigger="hover"
+                                        popper-class="logistics-popper"
+                                    >
+                                        <template #reference>
+                                            <div @click.stop
+                                                class="inline-flex items-center gap-1.5 cursor-help text-xs font-medium px-2 py-0.5 rounded border transition-colors"
+                                                :class="hasLogisticsInfo(scope.row)
+                                                    ? 'bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
+                                                    : 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800'">
+                                                <i class="fa-solid fa-truck-fast text-[11px]"></i>
+                                                <span>{{ scope.row.shipments.length }}</span>
+                                            </div>
+                                        </template>
+
+                                        <div class="space-y-3">
+                                            <p class="text-xs font-bold text-gray-700 dark:text-gray-200 border-b dark:border-gray-600 pb-1 flex items-center">
+                                                <i class="fa-solid fa-truck-fast mr-1.5"></i> Información de logística
+                                            </p>
+                                            <div v-for="(shipment, index) in scope.row.shipments" :key="shipment.id"
+                                                class="bg-gray-50 dark:bg-slate-700/50 rounded-md p-2 border border-gray-200 dark:border-gray-600">
+                                                <div class="flex justify-between items-center mb-1.5">
+                                                    <span class="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase">Envío #{{ index + 1 }}</span>
+                                                    <button @click.stop="openGuideModal(shipment)"
+                                                        class="text-blue-500 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900 rounded p-1 transition-colors"
+                                                        title="Editar guía y paquetería">
+                                                        <i class="fa-solid fa-pencil text-[10px]"></i>
+                                                    </button>
+                                                </div>
+                                                <ul class="space-y-1 text-xs">
+                                                    <li class="flex justify-between gap-2">
+                                                        <span class="text-gray-500 dark:text-gray-400 font-semibold">Paquetería:</span>
+                                                        <span class="text-gray-800 dark:text-gray-200 text-right">{{ shipment.shipping_company || '-' }}</span>
+                                                    </li>
+                                                    <li class="flex justify-between gap-2">
+                                                        <span class="text-gray-500 dark:text-gray-400 font-semibold">Guía:</span>
+                                                        <span class="text-gray-800 dark:text-gray-200 font-mono text-right">{{ shipment.tracking_guide || '-' }}</span>
+                                                    </li>
+                                                    <li class="flex justify-between gap-2">
+                                                        <span class="text-gray-500 dark:text-gray-400 font-semibold">Fecha promesa:</span>
+                                                        <span class="text-gray-800 dark:text-gray-200 text-right">{{ formatShortDate(shipment.promise_date || scope.row.promise_date) }}</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </el-popover>
+                                    <span v-else class="text-xs text-gray-400">N/A</span>
+                                </template>
+                            </el-table-column>
+
+                            <!-- Menú de acciones por fila (fijo a la derecha) -->
+                            <el-table-column align="center" width="70" fixed="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop
@@ -323,6 +403,55 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal: editar información de rastreo (logística) -->
+        <DialogModal :show="showGuideModal" @close="showGuideModal = false">
+            <template #title>
+                Información de Rastreo
+            </template>
+            <template #content>
+                <form @submit.prevent="submitGuide" class="space-y-7 min-h-[300px] overflow-y-auto">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fecha promesa de embarque</label>
+                        <el-date-picker
+                            v-model="guideForm.promise_date"
+                            type="date"
+                            :teleported="false"
+                            placeholder="Selecciona una fecha"
+                            format="YYYY/MM/DD"
+                            value-format="YYYY-MM-DD"
+                            class="!w-full"
+                        />
+                        <p v-if="guideForm.errors.promise_date" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.promise_date }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
+                        <input v-model="guideForm.shipping_company" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
+                        <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.shipping_company }}</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
+                        <input v-model="guideForm.tracking_guide" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ingresa el número de rastreo..." />
+                        <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.tracking_guide }}</p>
+                    </div>
+                </form>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showGuideModal = false">Cancelar</CancelButton>
+                    <PrimaryButton @click="submitGuide" :disabled="guideForm.processing">
+                        Guardar Información
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
+
+        <!-- Modal: la orden autorizada no se puede editar -->
+        <AuthorizedOrderLockedModal
+            :show="showEditBlockedModal"
+            :order-type="blockedOrderType"
+            @close="showEditBlockedModal = false"
+        />
     </AppLayout>
 </template>
 
@@ -331,10 +460,14 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import AuthorizedOrderLockedModal from '@/Components/MyComponents/AuthorizedOrderLockedModal.vue';
+import DialogModal from "@/Components/DialogModal.vue";
+import CancelButton from "@/Components/MyComponents/CancelButton.vue";
+import PrimaryButton from "@/Components/PrimaryButton.vue";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Link, router } from "@inertiajs/vue3";
+import { Link, router, useForm } from "@inertiajs/vue3";
 import axios from 'axios';
 
 export default {
@@ -343,6 +476,15 @@ export default {
             loading: false,
             search: '',
             selectedItems: [],
+            showEditBlockedModal: false,
+            blockedOrderType: 'venta',
+            showGuideModal: false,
+            guideForm: useForm({
+                shipment_id: null,
+                shipping_company: '',
+                tracking_guide: '',
+                promise_date: null,
+            }),
             tableData: this.sales.data,
             showAllSales: this.filters.view !== 'mias',
             isPendingFilter: this.filters.filter === 'pending',
@@ -356,6 +498,10 @@ export default {
         SearchInput,
         LoadingIsoLogo,
         SecondaryButton,
+        AuthorizedOrderLockedModal,
+        DialogModal,
+        CancelButton,
+        PrimaryButton,
     },
     props: {
         sales: Object,
@@ -414,6 +560,16 @@ export default {
                 this.$inertia.visit(route('invoices.create', { sale_id: id }))
             } else if ( action === 'clone' ) {
                 this.clone(id);
+            }
+            else if ( action === 'edit' ) {
+                const sale = this.tableData.find(item => String(item.id) === String(id));
+                // Una orden autorizada ya no puede editarse: se muestra retroalimentación al usuario.
+                if (sale?.authorized_at) {
+                    this.blockedOrderType = sale.type ?? 'venta';
+                    this.showEditBlockedModal = true;
+                    return;
+                }
+                router.get(route('sales.edit', id));
             }
             else {
                 router.get(route(`sales.${action}`, id));
@@ -529,6 +685,49 @@ export default {
             if (value === null || value === undefined) return '0.00';
             const num = Number(value);
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+        },
+        // Convierte la cadena de folios separada por comas en un arreglo
+        splitFolios(value) {
+            if (!value) return [];
+            return String(value).split(',').map(folio => folio.trim()).filter(Boolean);
+        },
+        // --- Helpers para la columna de logística ---
+        formatShortDate(dateString) {
+            if (!dateString) return 'Sin fecha';
+            // Parseamos como fecha local para evitar el desfase de zona horaria
+            const [datePart] = String(dateString).split('T');
+            const [y, m, d] = datePart.split('-').map(Number);
+            if (!y || !m || !d) return dateString;
+            return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+            });
+        },
+        openGuideModal(shipment) {
+            this.guideForm.shipment_id = shipment.id;
+            this.guideForm.shipping_company = shipment.shipping_company ?? '';
+            this.guideForm.tracking_guide = shipment.tracking_guide ?? '';
+            this.guideForm.promise_date = shipment.promise_date ?? null;
+            this.showGuideModal = true;
+        },
+        // Indica si TODOS los envíos ya tienen paquetería y número de guía capturados
+        hasLogisticsInfo(row) {
+            const shipments = row?.shipments ?? [];
+            if (!shipments.length) return false;
+            return shipments.every(shipment => shipment.shipping_company && shipment.tracking_guide);
+        },
+        submitGuide() {
+            this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.showGuideModal = false;
+                    ElMessage.success('Información de rastreo actualizada correctamente');
+                },
+                onError: () => {
+                    ElMessage.error('Error al actualizar la información de rastreo.');
+                },
+            });
         },
         getProfitabilityClass(margin) {
             if (margin < 20) return 'text-red-600';

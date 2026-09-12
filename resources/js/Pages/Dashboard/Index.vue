@@ -19,8 +19,8 @@
                     <!-- Panel de Órdenes de Venta Autorizadas -->
                     <div class="grid grid-cols-3 gap-5 lg:col-span-3 xl:col-span-4">
                         <OvertimeRequestPanel class="col-span-1" v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :pending-requests="pendingOvertimeRequests" />
-                        <AvailableSalesPanel class="col-span-2" :orders="availableSales" />
-                        <MyPmsTasks :tasks="myProjectTasks" @view="openTaskModal" />
+                        <AvailableSalesPanel class="col-span-3" :orders="availableSales" />
+                        <MyPmsTasks :tasks="myProjectTasks" @view="openTaskModal" class="col-span-3" />
                     </div>
 
                     <!-- Warehouse Status -->

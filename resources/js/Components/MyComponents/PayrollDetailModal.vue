@@ -101,12 +101,54 @@
                 <div class="lg:col-span-1 bg-white dark:bg-slate-900 p-3 rounded-md">
                     <h4 class="font-semibold text-md mb-2 dark:text-gray-200">Resumen Semanal</h4>
                     <div class="w-full max-w-md space-y-2 dark:text-gray-300">
-                        <div class="flex justify-between"><span>Salario base (calculado):</span> <span>{{ formatCurrency(employeeData.summary.base_salary) }}</span></div>
+                        <!-- Salario base configurado en los detalles del empleado (referencia) -->
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1">
+                                Salario base:
+                                <el-tooltip placement="top">
+                                    <template #content>
+                                        <div class="max-w-[240px] text-xs leading-relaxed">
+                                            Salario semanal configurado en los detalles del empleado. Es la referencia de una semana completa; el pago real depende de las horas trabajadas.
+                                        </div>
+                                    </template>
+                                    <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-xs"></i>
+                                </el-tooltip>
+                            </span>
+                            <span class="text-gray-500 dark:text-gray-400">{{ formatCurrency(employeeData.summary.configured_base_salary) }}</span>
+                        </div>
+                        <!-- Pago de las horas establecidas trabajadas -->
+                        <div class="flex justify-between">
+                            <span>Sueldo por horas trabajadas:</span>
+                            <span>{{ formatCurrency(employeeData.summary.worked_hours_pay) }}</span>
+                        </div>
+                        <!-- Pago del tiempo extra autorizado -->
+                        <div v-if="employeeData.summary.overtime_pay" class="flex justify-between">
+                            <span>Tiempo extra:</span>
+                            <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.overtime_pay) }}</span>
+                        </div>
                         <div v-if="employeeData.summary.extra_holiday_pay" class="flex justify-between">
                             <span>Pago Extra Festivo:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.extra_holiday_pay) }}</span>
                         </div>
                         <div v-for="bonus in employeeData.summary.bonuses" :key="bonus.name" class="flex justify-between"><span>Bono: {{ bonus.name }}</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(bonus.amount) }}</span></div>
-                        <div v-if="employeeData.summary.vacation_premium" class="flex justify-between"><span>Prima Vacacional:</span> <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.vacation_premium) }}</span></div>
+                        <!-- Sueldo de los días de vacaciones tomados en la semana -->
+                        <div v-if="employeeData.summary.vacation_days_pay" class="flex justify-between">
+                            <span>Días de vacaciones:</span>
+                            <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.vacation_days_pay) }}</span>
+                        </div>
+                        <div v-if="employeeData.summary.vacation_premium" class="flex justify-between">
+                            <span class="flex items-center gap-1">
+                                Prima Vacacional:
+                                <el-tooltip placement="top">
+                                    <template #content>
+                                        <div class="max-w-[240px] text-xs leading-relaxed">
+                                            25% sobre el sueldo diario por cada día de vacaciones tomado en la semana.
+                                        </div>
+                                    </template>
+                                    <i class="fa-solid fa-circle-question text-gray-400 cursor-help text-xs"></i>
+                                </el-tooltip>
+                            </span>
+                            <span class="text-blue-600 dark:text-blue-400">+ {{ formatCurrency(employeeData.summary.vacation_premium) }}</span>
+                        </div>
                         <div v-for="discount in employeeData.summary.discounts" :key="discount.name" class="flex justify-between"><span>Descuento: {{ discount.name }}</span> <span class="text-red-600 dark:text-red-400">- {{ formatCurrency(discount.amount) }}</span></div>
                         <div class="mt-2 pt-2 border-t dark:border-slate-700 flex justify-between items-baseline">
                             <span class="font-bold">Total a Pagar:</span>

@@ -407,6 +407,7 @@ class ShipmentController extends Controller
         $validated = $request->validate([
             'shipping_company' => 'required|string|max:255',
             'tracking_guide' => 'required|string|max:255',
+            'promise_date' => 'nullable|date',
         ]);
 
         $shipment->update($validated);

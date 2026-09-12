@@ -146,11 +146,22 @@ export default {
       });
     },
     handleNotificationClick(notification) {
-      const url = notification.data.url || '#';
+      const url = this.resolveNotificationUrl(notification.data.url);
       if (url !== '#') {
         router.visit(url);
       }
       this.closeDropdown();
+    },
+    // Las notificaciones generadas por comandos (cron) pueden traer una URL absoluta con un
+    // APP_URL distinto al host actual. Usamos solo la ruta para navegar siempre en el host actual.
+    resolveNotificationUrl(url) {
+      if (!url || url === '#') return '#';
+      try {
+        const parsed = new URL(url, window.location.origin);
+        return parsed.pathname + parsed.search + parsed.hash;
+      } catch (e) {
+        return url;
+      }
     },
     deleteNotification(notificationId) {
       router.delete(route('notifications.destroy', notificationId), {

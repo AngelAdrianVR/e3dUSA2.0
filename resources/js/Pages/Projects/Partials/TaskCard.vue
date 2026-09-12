@@ -2,7 +2,11 @@
     <div
         draggable="true"
         class="group bg-white dark:bg-slate-800 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-slate-700 border-l-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-        :class="[meta.border, canDrag ? '' : 'cursor-default']"
+        :class="[
+            meta.border,
+            canDrag ? '' : 'cursor-default',
+            isOverdue ? 'due-pulse-danger' : (isDueSoon ? 'due-pulse-warning' : '')
+        ]"
         :title="canDrag ? 'Arrastra para cambiar de estatus' : 'Colaborador'"
         @dragstart="onDragStart"
         @click="$emit('card-click', task)"
@@ -15,6 +19,27 @@
         </div>
 
         <p v-if="task.description" class="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{{ task.description }}</p>
+
+        <!-- ALERTA DE VENCIMIENTO (vence pronto / vencida) -->
+        <div v-if="isOverdue || isDueSoon"
+            class="mt-2 flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-md w-fit"
+            :class="isOverdue
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                    :class="isOverdue ? 'bg-red-400' : 'bg-amber-400'"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2"
+                    :class="isOverdue ? 'bg-red-500' : 'bg-amber-500'"></span>
+            </span>
+            <i :class="isOverdue ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-hourglass-half'"></i>
+            <template v-if="isOverdue">
+                Vencida{{ overdueDays === 1 ? ' hace 1 día' : ` hace ${overdueDays} días` }}
+            </template>
+            <template v-else>
+                {{ daysUntilDue === 0 ? 'Vence hoy' : (daysUntilDue === 1 ? 'Vence mañana' : `Vence en ${daysUntilDue} días`) }}
+            </template>
+        </div>
 
         <div class="flex items-center justify-between mt-3 text-xs text-gray-500 dark:text-gray-400">
             <span class="flex items-center gap-1" title="Fechas de la tarea">
@@ -41,9 +66,9 @@
             <span
                 v-if="task.due_date && task.status !== 'Terminada'"
                 class="text-[10px]"
-                :class="isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'"
+                :class="isOverdue ? 'text-red-500 font-semibold' : (isDueSoon ? 'text-amber-500 font-semibold' : 'text-gray-400')"
             >
-                {{ isOverdue ? 'Vencida' : 'A tiempo' }}
+                {{ isOverdue ? 'Vencida' : (isDueSoon ? 'Por vencer' : 'A tiempo') }}
             </span>
         </div>
     </div>
@@ -68,10 +93,27 @@ const STATUS_META = {
 
 const meta = computed(() => STATUS_META[props.task.status] || STATUS_META['Pendiente']);
 
-const isOverdue = computed(() => {
-    if (!props.task.due_date || props.task.status === 'Terminada') return false;
-    return new Date(props.task.due_date) < new Date();
+// Días restantes hasta el vencimiento: negativo = vencida, 0 = vence hoy, positivo = por vencer.
+// Se calcula por día natural a partir de la parte de fecha para evitar el desfase de zona horaria.
+const daysUntilDue = computed(() => {
+    if (!props.task.due_date) return null;
+    const [datePart] = String(props.task.due_date).split('T');
+    const [y, m, d] = datePart.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const due = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((due - today) / 86400000);
 });
+
+const isFinished = computed(() => props.task.status === 'Terminada');
+
+const isOverdue = computed(() => !isFinished.value && daysUntilDue.value !== null && daysUntilDue.value < 0);
+
+// Ventana de aviso: 3 días o menos para vencer (misma regla que la notificación diaria)
+const isDueSoon = computed(() => !isFinished.value && daysUntilDue.value !== null && daysUntilDue.value >= 0 && daysUntilDue.value <= 3);
+
+const overdueDays = computed(() => (isOverdue.value ? Math.abs(daysUntilDue.value) : 0));
 
 const formatDate = (d) => {
     if (!d) return '';
@@ -88,3 +130,22 @@ const onDragStart = (e) => {
     emit('drag-start', props.task);
 };
 </script>
+
+<style scoped>
+/* Pulso ámbar: tarea próxima a vencer | Pulso rojo: tarea vencida */
+@keyframes due-pulse-warning {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+    50% { box-shadow: 0 0 0 7px rgba(245, 158, 11, 0); }
+}
+@keyframes due-pulse-danger {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+    50% { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0); }
+}
+.due-pulse-warning { animation: due-pulse-warning 1.8s ease-in-out infinite; }
+.due-pulse-danger { animation: due-pulse-danger 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .due-pulse-warning,
+    .due-pulse-danger { animation: none; }
+}
+</style>

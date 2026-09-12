@@ -68,12 +68,13 @@
                     </button>
                 </el-tooltip>
 
-                <Link :href="route('sales.edit', sale.id)">
-                    <button 
-                        class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50">
-                        <i class="fa-solid fa-pencil text-sm"></i>
+                <el-tooltip :content="sale.authorized_at ? 'Órden autorizada: no editable' : 'Editar Órden'" placement="top">
+                    <button
+                        @click="goToEdit"
+                        class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
+                        <i :class="sale.authorized_at ? 'fa-solid fa-pencil text-sm' : 'fa-solid fa-pencil text-sm'"></i>
                     </button>
-                </Link>
+                </el-tooltip>
                 
                 <Dropdown align="right" width="48">
                     <template #trigger>
@@ -206,11 +207,7 @@
                                 Fecha promesa de embarque:
                             </span>
                             <span>
-                                {{ sale.promise_date ? new Date(sale.promise_date).toLocaleDateString('es-MX', {
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric'
-                                }) : '-' }}
+                                {{ formatDateOnly(sale.promise_date) }}
                             </span>
                         </li>
                          <li class="flex justify-between items-center">
@@ -340,12 +337,8 @@
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">
                                     Fecha promesa de embarque:
                                 </span>
-                                <span> 
-                                    {{ sale.promise_date ?new Date(sale.promise_date).toLocaleDateString('es-MX', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric'
-                                    }) : '-' }}
+                                <span>
+                                    {{ formatDateOnly(shipment.promise_date) }}
                                 </span>
                             </li>
                         </ul>
@@ -640,6 +633,13 @@
                 </div>
             </template>
         </ConfirmationModal>
+
+        <!-- Modal: la orden autorizada no se puede editar -->
+        <AuthorizedOrderLockedModal
+            :show="showEditBlockedModal"
+            :order-type="sale.type"
+            @close="showEditBlockedModal = false"
+        />
     </AppLayout>
 </template>
 
@@ -657,6 +657,7 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import DialogModal from "@/Components/DialogModal.vue";
 import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; // <-- NUEVO COMPONENTE
+import AuthorizedOrderLockedModal from "@/Components/MyComponents/AuthorizedOrderLockedModal.vue";
 import { useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
@@ -681,6 +682,7 @@ export default {
         ProductSaleCard,
         ConfirmationModal,
         BranchInfoTooltip, // <-- REGISTRADO
+        AuthorizedOrderLockedModal,
     },
     props: {
         sale: Object,
@@ -693,6 +695,7 @@ export default {
             salesList: [],
             loadingSales: false,
             showConfirmModal: false,
+            showEditBlockedModal: false,
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             stockSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Stock Terminado'],
 
@@ -729,6 +732,14 @@ export default {
         }
     },
     methods: {
+        goToEdit() {
+            // Una orden autorizada ya no puede editarse: se muestra retroalimentación al usuario.
+            if (this.sale.authorized_at) {
+                this.showEditBlockedModal = true;
+                return;
+            }
+            this.$inertia.visit(route('sales.edit', this.sale.id));
+        },
         handleImageError(event) {
             const img = event.target;
             const currentSrc = img.src;
@@ -773,6 +784,19 @@ export default {
         formatDateTime(dateString) {
             const date = new Date(dateString);
             return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
+        },
+        // Formatea una fecha (YYYY-MM-DD o ISO) tomando la parte de fecha tal cual,
+        // para evitar el desfase de zona horaria de new Date('YYYY-MM-DD') (UTC).
+        formatDateOnly(dateString) {
+            if (!dateString) return '-';
+            const [datePart] = String(dateString).split('T');
+            const [y, m, d] = datePart.split('-').map(Number);
+            if (!y || !m || !d) return dateString;
+            return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
         },
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);

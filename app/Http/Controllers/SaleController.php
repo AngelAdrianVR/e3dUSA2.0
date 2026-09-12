@@ -56,9 +56,10 @@ class SaleController extends Controller
                         'invoice:id,folio,sale_id',
                         'quote:id,root_quote_id', // Para obtener el root_quote_id de la cotización padre
                         'productExchanges.returnedProduct:id,name',
-                        'productExchanges.newProduct:id,name'
+                        'productExchanges.newProduct:id,name',
+                        'shipments:id,sale_id,status,shipping_company,tracking_guide,promise_date'
                     ])
-                    ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at')
+                    ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'invoice_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'pre_invoice_folio', 'stamped_invoice_folio', 'billing_status', 'promise_date')
                     ->latest() 
                     ->paginate(15) 
                     ->withQueryString();
@@ -798,7 +799,8 @@ class SaleController extends Controller
                 'quote:id,root_quote_id',
                 // Agregamos las relaciones necesarias para el tooltip de cambios
                 'productExchanges.returnedProduct:id,name',
-                'productExchanges.newProduct:id,name'
+                'productExchanges.newProduct:id,name',
+                'shipments:id,sale_id,status,shipping_company,tracking_guide,promise_date'
             ])
             ->latest()
             ->where(function ($q) use ($query) {
@@ -811,7 +813,7 @@ class SaleController extends Controller
                     $userquery->where('name', 'like', "%{$query}%");
                 });
             })
-            ->select('id', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'created_at')
+            ->select('id', 'currency', 'branch_id', 'quote_id', 'user_id', 'type', 'status', 'total_amount', 'created_at', 'is_high_priority', 'authorized_user_name', 'authorized_at', 'pre_invoice_folio', 'stamped_invoice_folio', 'billing_status', 'promise_date')
             ->get();
 
         // Misma lógica del index: root_quote_id para mostrar, active version para enlazar

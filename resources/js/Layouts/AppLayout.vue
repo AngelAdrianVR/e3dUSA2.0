@@ -103,6 +103,7 @@ const taskClasses = [
     'App\\Notifications\\ProjectAssignedNotification',
     'App\\Notifications\\ProjectTaskAssignedNotification',
     'App\\Notifications\\ProjectTaskMentionedNotification',
+    'App\\Notifications\\ProjectTaskDueSoonNotification',
 ];
 
 const taskNotifications = computed(() =>

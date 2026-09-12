@@ -14,7 +14,9 @@
         <!-- Body / List -->
         <div class="flow-root overflow-y-auto custom-scrollbar flex-1 min-h-[250px] pr-2">
             <ul role="list" class="divide-y divide-gray-200 dark:divide-gray-700">
-                <li v-for="task in tasks" :key="task.id" class="py-3 sm:py-4 group">
+                <li v-for="task in tasks" :key="task.id"
+                    class="py-3 sm:py-4 group rounded-lg transition-colors"
+                    :class="isOverdue(task) ? 'bg-red-50/70 dark:bg-red-900/10 px-2 -mx-2' : (isDueSoon(task) ? 'bg-amber-50/70 dark:bg-amber-900/10 px-2 -mx-2' : '')">
                     <div class="flex items-center space-x-4">
                         
                         <!-- Icono / Avatar de la tarea -->
@@ -32,8 +34,27 @@
                             <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5 space-x-2">
                                 <span class="font-medium truncate">{{ task.project?.name || 'Sin proyecto' }}</span>
                                 <span>&bull;</span>
-                                <span :class="{'text-red-500 font-bold': isExpired(task.due_date)}">
+                                <!-- Fecha normal (sin alerta) -->
+                                <span v-if="!isOverdue(task) && !isDueSoon(task)" class="inline-flex items-center gap-1">
                                     <i class="fa-regular fa-clock"></i> {{ formatDate(task.due_date) }}
+                                </span>
+                                <!-- Alerta: vencida o próxima a vencer -->
+                                <span v-else
+                                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold"
+                                    :class="[
+                                        isOverdue(task)
+                                            ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                                        isOverdue(task) ? 'due-pulse-danger' : 'due-pulse-warning'
+                                    ]">
+                                    <span class="relative flex h-2 w-2">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                                            :class="isOverdue(task) ? 'bg-red-400' : 'bg-amber-400'"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2"
+                                            :class="isOverdue(task) ? 'bg-red-500' : 'bg-amber-500'"></span>
+                                    </span>
+                                    <i :class="isOverdue(task) ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-hourglass-half'"></i>
+                                    {{ dueLabel(task) }}
                                 </span>
                             </div>
                         </div>
@@ -102,7 +123,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
-import { isPast, parseISO, format } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 
@@ -200,9 +221,42 @@ const statusColorSelect = (status) => {
     return map[status] || 'text-gray-700';
 };
 
-const isExpired = (dateString) => {
-    if (!dateString) return false;
-    return isPast(parseISO(dateString));
+// Días restantes hasta el vencimiento: negativo = vencida, 0 = vence hoy, positivo = por vencer.
+// Se calcula por día natural (parte de fecha) para evitar el desfase UTC de new Date('YYYY-MM-DD').
+const daysUntilDue = (task) => {
+    if (!task.due_date) return null;
+    const [datePart] = String(task.due_date).split('T');
+    const [y, m, d] = datePart.split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const due = new Date(y, m - 1, d);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((due - today) / 86400000);
+};
+
+const isFinished = (task) => task.status === 'Terminada';
+
+// Misma ventana que la notificación diaria: 3 días o menos para vencer
+const isDueSoon = (task) => {
+    const days = daysUntilDue(task);
+    return !isFinished(task) && days !== null && days >= 0 && days <= 3;
+};
+
+const isOverdue = (task) => {
+    const days = daysUntilDue(task);
+    return !isFinished(task) && days !== null && days < 0;
+};
+
+const dueLabel = (task) => {
+    const days = daysUntilDue(task);
+    if (days === null) return 'Sin fecha';
+    if (days < 0) {
+        const overdue = Math.abs(days);
+        return `Vencida hace ${overdue} ${overdue === 1 ? 'día' : 'días'}`;
+    }
+    if (days === 0) return 'Vence hoy';
+    if (days === 1) return 'Vence mañana';
+    return `Vence en ${days} días`;
 };
 
 const formatDate = (dateString) => {
@@ -224,5 +278,22 @@ const formatDate = (dateString) => {
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #4b5563; /* slate-600 */
+}
+
+/* Pulso ámbar: tarea próxima a vencer | Pulso rojo: tarea vencida */
+@keyframes due-pulse-warning {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55); }
+    50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+}
+@keyframes due-pulse-danger {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+.due-pulse-warning { animation: due-pulse-warning 1.8s ease-in-out infinite; }
+.due-pulse-danger { animation: due-pulse-danger 1.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+    .due-pulse-warning,
+    .due-pulse-danger { animation: none; }
 }
 </style>
