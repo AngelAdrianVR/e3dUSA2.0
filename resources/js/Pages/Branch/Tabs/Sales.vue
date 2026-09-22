@@ -13,12 +13,11 @@
             <el-table-column prop="id" label="Folio" width="140">
                 <template #default="scope">
                     <div class="flex items-center space-x-2">
-                        <el-tooltip :content="scope.row.type === 'venta' ? 'Orden de Venta' : 'Orden de Stock'" placement="top">
-                            <i :class="scope.row.type === 'venta' ? 'fa-solid fa-cart-shopping text-purple-500' : 'fa-solid fa-box text-rose-500'"></i>
+                        <el-tooltip :content="getTypeLabel(scope.row.type)" placement="top">
+                            <i :class="getTypeIcon(scope.row.type)"></i>
                         </el-tooltip>
                         
-                        <span v-if="scope.row.type === 'venta'" class="font-semibold">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
-                        <span v-else class="font-semibold">{{ 'OS-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                        <span class="font-semibold">{{ getTypeFolio(scope.row) }}</span>
 
                         <!-- NUEVO: Indicador de Cambio/Garantía -->
                         <div v-if="scope.row.product_exchanges?.length" class="ml-1">
@@ -245,6 +244,21 @@ export default {
         }
     },
     methods: {
+        // --- Helpers de tipo de orden (venta / stock / muestra-regalo) ---
+        getTypeLabel(type) {
+            if (type === 'stock') return 'Orden de Stock';
+            if (type === 'muestra') return 'Orden de Muestra/Regalo';
+            return 'Orden de Venta';
+        },
+        getTypeIcon(type) {
+            if (type === 'stock') return 'fa-solid fa-box text-rose-500';
+            if (type === 'muestra') return 'fa-solid fa-gift text-emerald-500';
+            return 'fa-solid fa-cart-shopping text-purple-500';
+        },
+        getTypeFolio(row) {
+            const prefix = row.type === 'stock' ? 'OS-' : 'OV-';
+            return prefix + row.id.toString().padStart(4, '0');
+        },
         handleRowClick(row) {
             router.get(route('sales.show', row.id));
         },

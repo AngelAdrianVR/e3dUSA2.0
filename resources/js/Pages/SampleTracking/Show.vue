@@ -27,6 +27,23 @@
                 </button>
             </el-tooltip>
 
+            <!-- Orden de Venta de muestra/regalo (solo si la muestra no será devuelta) -->
+            <el-tooltip v-if="!sampleTracking.sale_id && !sampleTracking.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                content="Crear Orden de Venta (Muestra/Regalo)" placement="top">
+                <button @click="createSampleSale" class="h-9 px-3 flex items-center justify-center rounded-lg bg-emerald-300 hover:bg-emerald-400 dark:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors text-sm font-medium">
+                    <i class="fa-solid fa-gift mr-2"></i> Crear Orden de Venta
+                </button>
+            </el-tooltip>
+            <!-- Si ya existe una OV vinculada, el botón se deshabilita y se indica al usuario -->
+            <el-tooltip v-else-if="sampleTracking.sale_id"
+                content="Ya existe una Orden de Venta vinculada a este seguimiento. Puedes verla en 'Más Acciones'."
+                placement="top">
+                <button disabled
+                    class="h-9 px-3 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-medium cursor-not-allowed opacity-80">
+                    <i class="fa-solid fa-lock mr-2"></i> Ya existe una OV vinculada
+                </button>
+            </el-tooltip>
+
             <el-tooltip :content="sampleTracking.authorized_at ? 'No puedes editarla una vez autorizada' : 'Editar Seguimiento'" placement="top">
                 <Link :href="sampleTracking.authorized_at ? '' : route('sample-trackings.edit', sampleTracking.id)">
                     <button :disabled="sampleTracking.authorized_at" 
@@ -45,6 +62,12 @@
                 <template #content>
                     <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear muestras')" @click="$inertia.visit(route('sample-trackings.create'))" as="button">
                         <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nuevo seguimiento
+                    </DropdownLink>
+                    <DropdownLink v-if="!sampleTracking.sale_id && !sampleTracking.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="createSampleSale" as="button">
+                        <i class="fa-solid fa-gift w-4 mr-2 text-emerald-500"></i> Crear Orden de Venta (Muestra/Regalo)
+                    </DropdownLink>
+                    <DropdownLink v-else-if="sampleTracking.sale_id" @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))" as="button">
+                        <i class="fa-solid fa-file-invoice w-4 mr-2 text-emerald-500"></i> Ver Orden de Venta OV-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
                     </DropdownLink>
                     <div class="border-t border-gray-200 dark:border-gray-600" />
                     <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar muestras')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
@@ -109,6 +132,28 @@
                         <li v-if="sampleTracking.will_be_returned" class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha esperada de devolución:</span>
                             <span>{{ formatDate(sampleTracking.expected_devolution_date) }}</span>
+                        </li>
+
+                        <!-- Orden de Venta vinculada (muestra/regalo) -->
+                        <li v-if="sampleTracking.sale_id" class="flex justify-between items-center">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                Orden de Venta:
+                                <el-tooltip placement="top" effect="dark">
+                                    <template #content>
+                                        <div class="w-64 text-xs leading-relaxed">
+                                            Las Órdenes de Venta son necesarias para conservar el
+                                            <b>historial de facturas</b> del cliente: la muestra que no se devuelve
+                                            o el producto regalado se factura a través de esta OV.
+                                        </div>
+                                    </template>
+                                    <i class="fa-regular fa-circle-question text-gray-400 cursor-help"></i>
+                                </el-tooltip>
+                            </span>
+                            <a @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))"
+                                class="text-blue-500 hover:underline font-semibold cursor-pointer flex items-center gap-1">
+                                <i class="fa-solid fa-gift text-emerald-500 text-xs"></i>
+                                OV-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
+                            </a>
                         </li>
                         
                         <!-- AGREGADO: Visualización de las fechas de estatus -->
@@ -227,7 +272,16 @@
                                     <el-tag size="small" :type="item.itemable_type.includes('NewProductProposal') ? 'warning' : 'info'">
                                         {{ item.itemable_type.includes('NewProductProposal') ? 'Nuevo Producto' : 'De Catálogo' }}
                                     </el-tag>
+                                    <el-tag v-if="item.itemable_type.includes('NewProductProposal') && item.itemable.product_id" size="small" type="success">
+                                        Registrado en Muestras y regalos
+                                    </el-tag>
                                 </div>
+                                <!-- Registrar automáticamente el producto nuevo de la muestra -->
+                                <button v-if="item.itemable_type.includes('NewProductProposal') && !item.itemable.product_id && $page.props.auth.user.permissions.includes('Crear catalogo de productos')"
+                                    @click="registerProposalProduct" type="button"
+                                    class="mt-2 text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:hover:bg-amber-900/70 transition-colors inline-flex items-center">
+                                    <i class="fa-solid fa-gift mr-1"></i> Registrar como Muestra/Regalo
+                                </button>
                                 <p v-if="item.itemable.description" class="text-sm text-gray-600 dark:text-gray-400 mt-2">
                                     <span class="font-semibold">Descripción:</span> {{ item.itemable.description }}
                                 </p>
@@ -256,6 +310,25 @@
                 </div>
             </template>
         </ConfirmationModal>
+
+        <!-- Modal: stock de los productos nuevos al registrar como Muestra/Regalo -->
+        <MuestraProductsStockModal
+            :show="showStockModal"
+            :items="pendingProposalItems"
+            :processing="isPreparingSale"
+            :confirm-text="stockModalAction === 'register' ? 'Registrar' : 'Crear Orden de Venta'"
+            @close="showStockModal = false"
+            @confirm="confirmStockModal"
+        />
+
+        <!-- Capa de carga (sin blur) mientras se registra / crea la Orden de Venta -->
+        <div v-if="isPreparingSale" class="fixed inset-0 z-[9999] bg-gray-900/60 flex items-center justify-center">
+            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center text-center max-w-sm">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+                <p class="text-lg font-bold text-gray-800 dark:text-white">{{ overlayTitle }}</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">{{ overlaySubtitle }}</p>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -267,6 +340,7 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import MuestraProductsStockModal from "@/Components/MyComponents/MuestraProductsStockModal.vue";
 import { Link, useForm } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -283,7 +357,10 @@ export default {
         return {
             statusForm,
             showConfirmModal: false,
-            sampleTrackingSteps: ['Autorizado', 'Enviado', 'Devuelto', 'Aprobado', 'Completado'],
+            // Registro de productos nuevos como Muestra/Regalo (modal de stock + capa de carga)
+            showStockModal: false,
+            stockModalAction: 'create', // 'create' = crear OV | 'register' = solo registrar productos
+            isPreparingSale: false,
         };
     },
     components: {
@@ -295,20 +372,45 @@ export default {
         CancelButton,
         SecondaryButton,
         ConfirmationModal,
+        MuestraProductsStockModal,
     },
     props: {
         sampleTracking: Object,
     },
     computed: {
-        activeStep() {
-            const statusMap = {
-                'Pendiente': 0,
-                'Aprobado': 1,
-                'Enviado': 2,
-                'Devuelto': 3,
-                'Completado': this.sampleTracking.will_be_returned ? 4 : 3
-            };
-            return statusMap[this.sampleTracking.status] ?? 0;
+        // Productos nuevos del seguimiento que aún no están registrados en "Muestras y regalos"
+        pendingProposalItems() {
+            return (this.sampleTracking.items || [])
+                .filter(item => item.itemable_type.includes('NewProductProposal') && item.itemable && !item.itemable.product_id)
+                .map(item => ({
+                    id: item.itemable_id,
+                    name: item.itemable.name,
+                    quantity: item.quantity,
+                }));
+        },
+        overlayTitle() {
+            return this.stockModalAction === 'register'
+                ? 'Registrando productos…'
+                : 'Creando Orden de Venta…';
+        },
+        overlaySubtitle() {
+            return this.stockModalAction === 'register'
+                ? 'Se agregarán a la categoría "Muestras y regalos". No cierres esta ventana.'
+                : 'Registrando los productos de la muestra. No cierres esta ventana.';
+        },
+        // Pasos del proceso del seguimiento.
+        // El paso "Devuelto" solo se muestra cuando la muestra será devuelta; si no,
+        // se omite para no dar la impresión de que el cliente la entregó.
+        sampleTrackingSteps() {
+            const steps = ['Autorizado', 'Enviado', 'Devuelto', 'Aprobado', 'Completado'];
+
+            // Si la muestra ya está marcada como devuelta se conserva el paso aunque
+            // will_be_returned sea falso (evita romper el stepper con datos inconsistentes).
+            if (this.sampleTracking.will_be_returned || this.sampleTracking.status === 'Devuelto') {
+                return steps;
+            }
+
+            return steps.filter(step => step !== 'Devuelto');
         },
         statusTagType() {
              const statusStyles = {
@@ -325,6 +427,52 @@ export default {
         }
     },
     methods: {
+        // Abre el modal para capturar el stock de los productos nuevos.
+        // action = 'create' (crear OV) | 'register' (solo registrar productos y quedarse en el seguimiento)
+        openStockModal(action = 'create') {
+            this.stockModalAction = action;
+            this.showStockModal = true;
+        },
+        confirmStockModal(stocks) {
+            const payload = { stocks };
+
+            if (this.stockModalAction === 'register') {
+                payload.redirect_source = 'show';
+            }
+
+            this.submitPrepareSale(payload);
+        },
+        // Registra los productos nuevos como "Muestras y regalos" y (si aplica) continúa a la OV.
+        submitPrepareSale(payload) {
+            this.showStockModal = false;
+            this.isPreparingSale = true;
+
+            this.$inertia.post(route('sample-trackings.prepare-sale', this.sampleTracking.id), payload, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    if (this.stockModalAction === 'register') {
+                        ElMessage.success('Productos registrados en "Muestras y regalos".');
+                    }
+                },
+                onFinish: () => { this.isPreparingSale = false; },
+                onError: () => ElMessage.error('No se pudieron registrar los productos de la muestra.'),
+            });
+        },
+        // Envía a crear la Orden de Venta de muestra/regalo con los datos del seguimiento.
+        // Si hay productos nuevos, primero se pide su stock actual.
+        createSampleSale() {
+            if (this.pendingProposalItems.length) {
+                this.openStockModal('create');
+                return;
+            }
+
+            this.submitPrepareSale({});
+        },
+        // Registra los productos nuevos del seguimiento como "Muestras y regalos"
+        // (pide el stock actual y permanece en la pantalla del seguimiento).
+        registerProposalProduct() {
+            this.openStockModal('register');
+        },
         formatPhone(number) {
             if (!number) return '';
             // Eliminamos todo lo que no sea dígito
@@ -339,7 +487,8 @@ export default {
         },
         async deleteItem() {
             try {
-                const response = await axios.post(route('sample-trackings.destroy', this.sale.id), {
+                // CORRECCIÓN: antes usaba this.sale.id (propiedad inexistente) y el borrado fallaba.
+                const response = await axios.post(route('sample-trackings.destroy', this.sampleTracking.id), {
                 _method: 'DELETE'
                 });
 

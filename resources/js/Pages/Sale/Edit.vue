@@ -1,5 +1,5 @@
 <template>
-    <AppLayout :title="form.type === 'venta' ? 'Editar Órden de Venta' : 'Editar Órden de Stock'">
+    <AppLayout :title="pageTitle">
         <!-- Panel Flotante de Notas -->
         <BranchNotes v-if="form.branch_id" :branch-id="form.branch_id" />
 
@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? `Editar órden de venta OV-${sale.id.toString().padStart(4, '0')}` : `Editar órden de stock OS-${sale.id.toString().padStart(4, '0')}` }}
+                    {{ pageTitle }}
                 </h2>
             </div>
         </div>
@@ -18,6 +18,22 @@
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-3 md:p-9 relative">
                     <form @submit.prevent="update">
+                        <!-- AVISO: ORDEN DE MUESTRA/REGALO -->
+                        <div v-if="form.type === 'muestra'" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300 flex items-start gap-3">
+                            <i class="fa-solid fa-gift text-lg mt-0.5"></i>
+                            <span>
+                                <strong>Orden de Muestra/Regalo.</strong>
+                                Se generó para facturar una muestra que no será devuelta o un producto regalado.
+                                El precio es opcional y esta orden no mueve inventario ni genera producción.
+                                <template v-if="linkedSampleTracking">
+                                    Vinculada al seguimiento
+                                    <a :href="route('sample-trackings.show', linkedSampleTracking.id)" target="_blank" class="underline font-semibold">
+                                        MUE-{{ linkedSampleTracking.id.toString().padStart(4, '0') }}
+                                    </a>.
+                                </template>
+                            </span>
+                        </div>
+
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                         <div class="flex justify-between items-center">
                             <el-divider content-position="left" class="flex-grow">
@@ -37,10 +53,11 @@
                                 <el-radio-group v-model="form.type" size="small">
                                     <el-radio-button label="venta">Orden de Venta</el-radio-button>
                                     <el-radio-button label="stock">Orden de Stock</el-radio-button>
+                                    <el-radio-button label="muestra">Orden de Muestra/Regalo</el-radio-button>
                                 </el-radio-group>
                             </div>
                             
-                            <!-- Campos exclusivos para 'venta' -->
+                            <!-- Cotización: solo para órdenes de venta normales -->
                             <template v-if="form.type === 'venta'">
                                 <div>
                                     <InputLabel value="Cotización relacionada (Opcional)" />
@@ -48,7 +65,10 @@
                                         <el-option v-for="quote in quotes" :key="quote.id" :label="`COT-${quote.id} - ${quote.branch?.name}`" :value="quote.id" />
                                     </el-select>
                                 </div>
+                            </template>
 
+                            <!-- Cliente y contacto: órdenes de venta y de muestra/regalo -->
+                            <template v-if="isSaleLike">
                                 <div>
                                     <InputLabel value="Cliente*" />
                                     <div class="flex items-center space-x-2">
@@ -99,8 +119,8 @@
                             </div>
                         </div>
                         
-                        <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
-                        <template v-if="form.type === 'venta'">
+                        <!-- SECCIÓN 3: LOGÍSTICA (VENTA Y MUESTRA/REGALO) -->
+                        <template v-if="isSaleLike">
                             <el-divider content-position="left" class="!mt-8">
                                 <span>Logística de la Orden</span>
                             </el-divider>
@@ -129,20 +149,22 @@
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
-                                <!-- Costo de Herramental: bloqueado si viene de cotización -->
-                                <div v-if="form.quote_id">
-                                    <InputLabel value="Costo de Herramental" />
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.tooling_cost || '0' }}</span>
+                                <!-- Costo de Herramental: solo para órdenes de venta (la muestra/regalo no lleva herramental) -->
+                                <template v-if="form.type === 'venta'">
+                                    <div v-if="form.quote_id">
+                                        <InputLabel value="Costo de Herramental" />
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.tooling_cost || '0' }}</span>
+                                        </div>
+                                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                            El costo de herramental se edita desde la cotización
+                                            <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
+                                        </p>
                                     </div>
-                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                        El costo de herramental se edita desde la cotización
-                                        <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
-                                    </p>
-                                </div>
-                                <TextInput v-else label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
-                                    <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-                                </TextInput>
+                                    <TextInput v-else label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
+                                        <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                    </TextInput>
+                                </template>
 
                                 <!-- ENVÍOS / PARCIALIDADES -->
                                 <div v-if="form.products.length" class="col-span-full">
@@ -266,7 +288,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante." />
+                                <TextInput :label="form.type === 'muestra' ? 'Notas adicionales de la Orden de Venta' : 'Notas generales'" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" :placeholder="form.type === 'muestra' ? 'Notas adicionales de la orden (opcional). Ej. motivo del regalo, referencia de la muestra, indicaciones para facturación...' : 'Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante.'" />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">
@@ -429,6 +451,14 @@ export default {
         branches: Array,
         quotes: Array,
         catalog_products: Array,
+        muestra_products: {
+            type: Array,
+            default: () => [],
+        },
+        linkedSampleTracking: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -506,21 +536,38 @@ export default {
         };
     },
     computed: {
+        // Título de la página según el tipo de orden
+        pageTitle() {
+            const folio = this.sale.id.toString().padStart(4, '0');
+            if (this.form.type === 'venta') return `Editar órden de venta OV-${folio}`;
+            if (this.form.type === 'muestra') return `Editar órden de muestra/regalo OV-${folio}`;
+            return `Editar órden de stock OS-${folio}`;
+        },
+        // En 'venta' y 'muestra' se requiere cliente, contacto y logística (envíos).
+        isSaleLike() {
+            return this.form.type !== 'stock';
+        },
         oceMediaFiles() {
             return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
         },
         availableBaseProducts() {
+            if (this.form.type === 'muestra') {
+                // Muestra/regalo: catálogo completo + productos de "Muestras y regalos"
+                // (no requieren estar vinculados a ningún cliente).
+                return [...this.catalog_products, ...this.muestra_products];
+            }
+
             if (this.form.type === 'stock') {
                 return this.catalog_products;
-            } else {
-                if (!this.clientProducts.length) return [];
-                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
-                return this.catalog_products.filter(parent => {
-                    const isParentAssigned = clientProductIds.has(parent.id);
-                    const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
-                    return isParentAssigned || hasAssignedVariant;
-                });
             }
+
+            if (!this.clientProducts.length) return [];
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+            return this.catalog_products.filter(parent => {
+                const isParentAssigned = clientProductIds.has(parent.id);
+                const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
+                return isParentAssigned || hasAssignedVariant;
+            });
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;
@@ -565,6 +612,9 @@ export default {
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
+            } else if (newType === 'muestra') {
+                // La orden de muestra/regalo no usa cotización, OCE, medio de petición, herramental ni banderas de precio bajo.
+                this.form.reset('quote_id', 'oce_name', 'order_via', 'tooling_cost', 'has_low_price', 'products');
             } else {
                  this.form.reset('products');
             }
@@ -583,7 +633,7 @@ export default {
         },
         'form.products': {
             handler() {
-                if (this.form.type === 'venta') {
+                if (this.isSaleLike) {
                     this.generateShipmentPartials(this.form.shipping_option);
                 }
             },
@@ -593,7 +643,7 @@ export default {
     methods: {
         update() {
             // Lógica de validación de parcialidades (si aplica)
-            if (this.form.type === 'venta' && this.form.shipping_option && this.form.products.length > 0) {
+            if (this.isSaleLike && this.form.shipping_option && this.form.products.length > 0) {
                 for (const product of this.form.products) {
                     const remaining = this.getRemainingQuantity(product.id);
                     if (remaining !== 0) {
@@ -603,7 +653,7 @@ export default {
                 }
             }
             
-            if (this.form.type === 'venta') {
+            if (this.isSaleLike) {
                 this.form.shipments.forEach(shipment => {
                     if (shipment.acknowledgement_file && typeof shipment.acknowledgement_file === 'object' && shipment.acknowledgement_file.file) {
                         shipment.acknowledgement_file = shipment.acknowledgement_file.file;
@@ -636,7 +686,7 @@ export default {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);
         },
         generateShipmentPartials(option) {
-            if (!option || !this.form.products.length || this.form.type !== 'venta') {
+            if (!option || !this.form.products.length || this.form.type === 'stock') {
                 this.form.shipments = [];
                 return;
             }
@@ -1001,14 +1051,14 @@ export default {
         this.localBranches = [...this.branches];
     },
     async mounted() {
-        if (this.form.type === 'venta' && this.form.branch_id) {
+        if (this.form.type !== 'stock' && this.form.branch_id) {
             const selectedBranch = this.branches.find(b => b.id === this.form.branch_id);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
             await this.fetchClientProducts();
         }
 
         // Asegura que las parcialidades se muestren correctamente al cargar la página
-        if (this.form.type === 'venta') {
+        if (this.form.type !== 'stock') {
            this.generateShipmentPartials(this.form.shipping_option);
         }
     }

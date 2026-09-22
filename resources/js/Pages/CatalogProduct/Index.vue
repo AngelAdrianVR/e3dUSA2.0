@@ -15,13 +15,19 @@
             <div class="max-w-[92rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="lg:flex justify-between items-center mb-6 space-y-4 lg:space-y-0">
-                        <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"
+                        <Link v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos') && !isMuestra"
                             :href="route('catalog-products.create')">
                             <SecondaryButton>
                                 <i class="fa-solid fa-plus mr-2"></i>
                                 Nuevo producto
                             </SecondaryButton>
                         </Link>
+                        <!-- En la categoría Muestras y regalos el alta es un modal simple -->
+                        <SecondaryButton v-else-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos') && isMuestra"
+                            @click="openMuestraModal()">
+                            <i class="fa-solid fa-gift mr-2"></i>
+                            Nueva muestra/regalo
+                        </SecondaryButton>
 
                         <!-- Filtros Rápidos -->
                         <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3">
@@ -34,7 +40,7 @@
                                 />
                             </el-select>
 
-                            <el-select v-model="familyId" placeholder="Filtrar por familia" clearable class="!w-48">
+                            <el-select v-if="!isMuestra" v-model="familyId" placeholder="Filtrar por familia" clearable class="!w-48">
                                 <el-option
                                     v-for="fam in product_families"
                                     :key="fam.id"
@@ -44,8 +50,8 @@
                             </el-select>
                         </div>
 
-                        <!-- Acciones y Reportes Agrupados -->
-                        <div class="flex items-center space-x-3">
+                        <!-- Acciones y Reportes Agrupados (no aplican a Muestras y regalos) -->
+                        <div v-if="!isMuestra" class="flex items-center space-x-3">
                             <el-dropdown split-button type="primary" @click="openReport" plain>
                                 Reporte de precios
                                 <template #dropdown>
@@ -81,7 +87,7 @@
                     
                     <!-- Búsqueda y Costo -->
                     <div class="flex justify-between mb-3 items-end">
-                        <el-tag v-if="$page.props.auth.user.permissions.includes('Ver cantidades de dinero')" type="success" size="large">
+                        <el-tag v-if="$page.props.auth.user.permissions.includes('Ver cantidades de dinero') && !isMuestra" type="success" size="large">
                             <p class="text-base font-semibold">Costo total inventario: {{ totalInventoryCost }}</p>
                         </el-tag>
                         <div class="w-1/3">
@@ -96,6 +102,7 @@
                         </div>
                         
                         <el-table 
+                            v-if="productType !== 'Muestra'"
                             ref="multipleTable"
                             row-key="id"
                             :row-class-name="rowClassName"
@@ -402,6 +409,57 @@
                                 </template>
                             </el-table-column>
                         </el-table>
+
+                        <!-- ====== TABLA SIMPLE PARA "MUESTRAS Y REGALOS" ====== -->
+                        <!-- Solo nombre, imagen, descripción y stock disponible. Sin vista de detalle (show). -->
+                        <el-table v-else
+                            :data="products.data"
+                            max-height="600"
+                            style="width: 100%"
+                            stripe
+                            class="dark:!bg-slate-900 dark:!text-gray-300">
+                            <el-table-column label="Imagen" width="85">
+                                <template #default="scope">
+                                    <figure class="border rounded-md size-14 flex items-center justify-center bg-white overflow-hidden shadow-sm">
+                                        <img @click.stop="openPreview($event)"
+                                            style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"
+                                            :src="scope.row.media?.[0]?.original_url"
+                                            @error="handleImageError" />
+                                    </figure>
+                                </template>
+                            </el-table-column>
+                            <el-table-column prop="name" label="Nombre" min-width="200" show-overflow-tooltip />
+                            <el-table-column label="Descripción" min-width="280">
+                                <template #default="scope">
+                                    <span class="text-sm text-gray-600 dark:text-gray-300">{{ scope.row.description || '—' }}</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Stock disponible" width="150" align="center">
+                                <template #default="scope">
+                                    <span :class="getProductStock(scope.row).quantity <= 0 ? 'text-red-500 font-bold' : 'text-green-600 font-semibold'">
+                                        {{ getProductStock(scope.row).quantity }}
+                                    </span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column align="right" width="325" fixed="right">
+                                <template #default="scope">
+                                    <el-button v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')"
+                                        size="small" type="primary" plain @click.stop="openMuestraModal(scope.row)">
+                                        <i class="fa-solid fa-pen-to-square mr-1"></i> Editar
+                                    </el-button>
+                                    <el-button v-if="$page.props.auth.user.permissions.includes('Crear catalogo de productos')"
+                                        size="small" type="success" plain @click.stop="convertMuestra(scope.row)">
+                                        <i class="fa-solid fa-right-left mr-1"></i> Convertir a producto
+                                    </el-button>
+                                    <el-tooltip v-if="$page.props.auth.user.permissions.includes('Eliminar catalogo de productos')"
+                                        content="Eliminar muestra/regalo" placement="top">
+                                        <el-button size="small" type="danger" plain @click.stop="deleteMuestra(scope.row)">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </el-button>
+                                    </el-tooltip>
+                                </template>
+                            </el-table-column>
+                        </el-table>
                     </div>
 
                     <div v-if="products.total > 0" class="flex justify-center mt-6">
@@ -412,6 +470,35 @@
                 </div>
             </div>
         </div>
+
+        <!-- ====== MODAL: MUESTRA/REGALO (crear y editar) ====== -->
+        <el-dialog v-model="showMuestraModal" :title="editingMuestraId ? 'Editar muestra/regalo' : 'Nueva muestra/regalo'" width="480px">
+            <div class="space-y-4 py-1">
+                <TextInput label="Nombre*" v-model="muestraForm.name" :error="muestraForm.errors.name" />
+                <TextInput label="Descripción" v-model="muestraForm.description" :error="muestraForm.errors.description" :isTextarea="true" />
+                <TextInput label="Stock disponible*" v-model="muestraForm.current_stock" type="number" :formatAsNumber="true" :error="muestraForm.errors.current_stock" />
+                <div>
+                    <InputLabel value="Imagen" class="mb-2" />
+                    <div v-if="editingMuestraImage" class="mb-2 flex items-center gap-3">
+                        <img :src="editingMuestraImage" class="w-16 h-16 object-contain border rounded-md bg-white" @error="handleImageError" />
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Imagen actual. Sube una nueva para reemplazarla.</span>
+                    </div>
+                    <FileUploader @files-selected="muestraForm.media = $event" acceptedFormat="image/*" :multiple="false" :maxFiles="1" />
+                    <InputError :message="muestraForm.errors.media" class="mt-1" />
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Los productos de "Muestras y regalos" solo llevan nombre, imagen, descripción y stock.
+                    Se pueden seleccionar en las órdenes de venta de tipo muestra/regalo sin estar vinculados a un cliente.
+                </p>
+            </div>
+            <template #footer>
+                <div class="flex justify-end space-x-2">
+                    <el-button @click="showMuestraModal = false" :disabled="muestraForm.processing">Cancelar</el-button>
+                    <el-button type="primary" @click="submitMuestra" :loading="muestraForm.processing">Guardar</el-button>
+                </div>
+            </template>
+        </el-dialog>
+        <!-- ======================================= -->
 
         <!-- ====== MODAL PARA EDICIÓN MASIVA ====== -->
         <MassiveEditModal 
@@ -488,10 +575,23 @@ export default {
             productTypes: [
                 { value: 'Producto', label: 'Productos' },
                 { value: 'Insumo', label: 'Insumos' },
+                { value: 'Muestra', label: 'Muestras y regalos' },
                 { value: 'Obsoleto', label: 'Obsoletos' },
             ],
             showImageViewer: false,
             previewImage: '',
+
+            // --- Modal de la categoría "Muestras y regalos" (alta/edición dentro del index) ---
+            showMuestraModal: false,
+            editingMuestraId: null,
+            editingMuestraImage: null,
+            muestraForm: useForm({
+                _method: 'post',
+                name: '',
+                description: '',
+                current_stock: 0,
+                media: [],
+            }),
 
             // --- Lógica de Variante ---
             showVariantModal: false,
@@ -555,6 +655,9 @@ export default {
         product_families: Array,
     },
     computed:{
+        isMuestra() {
+            return this.productType === 'Muestra';
+        },
         totalInventoryCost() {
             if (!this.products || !this.products.data) return 0;
             
@@ -750,7 +853,91 @@ export default {
             this.selectedItems = selection;
         },
         handleRowClick(row) {
+            // La categoría "Muestras y regalos" no tiene vista de detalle (show).
+            if (this.isMuestra) return;
             this.$inertia.get(route('catalog-products.show', row));
+        },
+        // =======================================================
+        // --- CATEGORÍA "MUESTRAS Y REGALOS" ---
+        // =======================================================
+        openMuestraModal(product = null) {
+            if (product) {
+                this.editingMuestraId = product.id;
+                this.editingMuestraImage = product.media?.[0]?.original_url || null;
+                this.muestraForm._method = 'put';
+                this.muestraForm.name = product.name;
+                this.muestraForm.description = product.description ?? '';
+                this.muestraForm.current_stock = this.getProductStock(product).quantity ?? 0;
+                this.muestraForm.media = [];
+            } else {
+                this.editingMuestraId = null;
+                this.editingMuestraImage = null;
+                this.muestraForm.reset();
+                this.muestraForm._method = 'post';
+            }
+
+            this.muestraForm.clearErrors();
+            this.showMuestraModal = true;
+        },
+        submitMuestra() {
+            const editing = !!this.editingMuestraId;
+            const routeName = editing ? 'catalog-products.update-muestra' : 'catalog-products.store-muestra';
+            const routeParams = editing ? this.editingMuestraId : undefined;
+
+            this.muestraForm.post(route(routeName, routeParams), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    ElMessage.success(editing ? 'Muestra/regalo actualizada correctamente' : 'Muestra/regalo registrada correctamente');
+                    this.showMuestraModal = false;
+                    this.editingMuestraId = null;
+                    this.editingMuestraImage = null;
+                    this.muestraForm.reset();
+                },
+                onError: () => {
+                    ElMessage.error('Revisa los campos del formulario.');
+                },
+            });
+        },
+        // Elimina una muestra/regalo del catálogo (no aplica si está incluida en una OV).
+        deleteMuestra(product) {
+            ElMessageBox.confirm(
+                `¿Estás seguro de eliminar "${product.name}"? Esta acción no se puede deshacer.`,
+                'Eliminar muestra/regalo',
+                {
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                    iconColor: '#EF4444'
+                }
+            )
+            .then(() => {
+                router.delete(route('catalog-products.destroy', product.id), {
+                    onSuccess: () => {
+                        ElMessage({ type: 'success', message: 'Muestra/regalo eliminado correctamente' });
+                    },
+                    onError: () => {
+                        ElMessage({ type: 'error', message: 'No se pudo eliminar. Verifica que no esté incluido en una Orden de Venta.' });
+                    }
+                });
+            })
+            .catch(() => {
+                ElMessage({ type: 'info', message: 'Eliminación cancelada' });
+            });
+        },
+        convertMuestra(product) {
+            ElMessageBox.confirm(
+                `Vas a convertir "${product.name}" a producto de catálogo. Se abrirá el formulario para completar su información y el producto cambiará de categoría hasta que guardes los cambios.`,
+                'Convertir a producto de catálogo',
+                {
+                    confirmButtonText: 'Continuar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                }
+            ).then(() => {
+                // La conversión se aplica al guardar el formulario (convert = 1),
+                // no al abrir esta pantalla.
+                router.visit(route('catalog-products.edit', { catalog_product: product.id, convert: 1 }));
+            }).catch(() => {});
         },
         // Agrega una clase a las filas sin variantes para ocultar el icono de desplegar
         rowClassName({ row }) {
@@ -876,7 +1063,12 @@ export default {
         search: debounce(function () {
             this.fetchData();
         }, 300),
-        productType() {
+        productType(newType) {
+            // Las muestras/regalos no pertenecen a familias: limpiamos el filtro para no dejar la lista vacía.
+            if (newType === 'Muestra' && this.familyId !== null) {
+                this.familyId = null; // Su watcher se encarga de recargar la lista
+                return;
+            }
             this.fetchData();
         },
         familyId() {

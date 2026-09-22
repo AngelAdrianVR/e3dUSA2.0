@@ -119,6 +119,12 @@
                                             Material: {{ getDisplayProduct(item).material }}
                                         </el-tag>
                                     </div>
+                                    <!-- Etiqueta para productos de la categoría "Muestras y regalos" -->
+                                    <div v-if="isMuestraProduct(item)" class="mt-1">
+                                        <el-tag size="small" type="success" effect="plain" class="!text-[10px]">
+                                            <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
+                                        </el-tag>
+                                    </div>
                                     <!-- Botón de toggle para variantes -->
                                     <div v-if="item.product?.parent_id && item.product?.parent" class="mt-1.5">
                                         <!-- <el-button 
@@ -291,6 +297,12 @@ export default {
             this.parentToggles[saleProductId] = !this.parentToggles[saleProductId];
             // Forzar reactividad de Vue 3
             this.parentToggles = { ...this.parentToggles };
+        },
+        /**
+         * Indica si el producto de la línea pertenece a la categoría "Muestras y regalos".
+         */
+        isMuestraProduct(saleProductItem) {
+            return this.getDisplayProduct(saleProductItem)?.product_type === 'Muestra';
         },
         // ---------------------------------------------
         

@@ -6,7 +6,7 @@
     <InputError :message="productsError" class="mt-2" />
 
     <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700">
-        <p v-if="saleType === 'venta' && !branchId" class="text-center text-gray-500 py-4">
+        <p v-if="saleType !== 'stock' && !branchId" class="text-center text-gray-500 py-4">
             <i class="fa-solid fa-arrow-up mr-2"></i>
             Selecciona un cliente para agregar productos.
         </p>
@@ -98,7 +98,7 @@
             </div>
             
             <div class="lg:col-span-2">
-                <!-- En orden de stock el precio es opcional, en venta es obligatorio -->
+                <!-- En orden de stock y muestra/regalo el precio es opcional, en venta es obligatorio -->
                 <!-- Si la orden viene de cotización, el precio se bloquea -->
                 <TextInput :label="saleType === 'venta' ? 'Precio Unitario (Venta)*' : 'Precio Unitario (Opcional)'" v-model="currentProduct.price" type="number" :formatAsNumber="true" :disabled="isPriceLocked">
                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
@@ -176,8 +176,8 @@
                     </div>
                 </div>
 
-                <!-- ALERTA DE MATERIA PRIMA INSUFICIENTE -->
-                <div v-if="showStockWarning" class="col-span-full mt-4 animate-fade-in-down">
+                <!-- ALERTA DE MATERIA PRIMA INSUFICIENTE (no aplica a muestra/regalo: no genera producción) -->
+                <div v-if="showStockWarning && saleType !== 'muestra'" class="col-span-full mt-4 animate-fade-in-down">
                     <div class="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm">
                         <div class="flex">
                             <div class="flex-shrink-0">
@@ -200,8 +200,8 @@
                     </div>
                 </div>
 
-                <!-- --- SECCIÓN DE COMPONENTES --- -->
-                <div v-if="currentProduct.components?.length" class="mt-4 pt-4 border-t border-gray-300 dark:border-slate-800">
+                <!-- --- SECCIÓN DE COMPONENTES (no aplica a muestra/regalo) --- -->
+                <div v-if="currentProduct.components?.length && saleType !== 'muestra'" class="mt-4 pt-4 border-t border-gray-300 dark:border-slate-800">
                     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-3 gap-2">
                         <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Componentes para Producción</h4>
                         
@@ -260,8 +260,8 @@
                  <TextInput label="Notas del producto (opcional)" v-model="currentProduct.notes" type="textarea" :isTextarea="true" />
             </div>
 
-            <!-- INICIO: SECCIÓN DE PERSONALIZACIÓN -->
-            <label class="flex items-center col-span-full mt-2">
+            <!-- INICIO: SECCIÓN DE PERSONALIZACIÓN (solo venta/stock) -->
+            <label v-if="saleType !== 'muestra'" class="flex items-center col-span-full mt-2">
                 <Checkbox v-model:checked="currentProduct.has_customization" class="bg-transparent border-gray-500" />
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Agregar personalización al producto</span>
             </label>
@@ -307,7 +307,7 @@
             </div>
             <!-- FIN: SECCIÓN DE PERSONALIZACIÓN -->
 
-            <label class="flex items-center mt-2 col-span-full">
+            <label v-if="saleType !== 'muestra'" class="flex items-center mt-2 col-span-full">
                 <Checkbox v-model:checked="currentProduct.is_new_design" class="bg-transparent border-gray-500" />
                 <span class="ml-2 text-sm text-gray-500 dark:text-gray-300">Diseño nuevo</span>
             </label>
@@ -339,8 +339,8 @@
                         <p class="font-bold text-primary">{{ product.name || getProductName(product.id) }}</p>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
                             Cantidad: {{ product.quantity }} 
-                            <template v-if="saleType === 'venta'">
-                                | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * product.price) }}
+                            <template v-if="saleType !== 'stock'">
+                                | P.U: ${{ formatNumber(product.price) }} | Subtotal: ${{ formatNumber(product.quantity * (product.price || 0)) }}
                             </template>
                         </p>
                         <p v-if="product.has_low_price" class="text-xs text-amber-600 dark:text-amber-400 mt-1 font-semibold">
@@ -487,7 +487,8 @@ export default {
             return variants;
         },
         isBaseProductAllowed() {
-            if (this.saleType === 'stock') return true;
+            // En 'stock' y 'muestra' el catálogo completo está disponible.
+            if (this.saleType !== 'venta') return true;
             return this.clientProducts.some(p => p.id === this.selectedBaseProductId);
         },
         isAddProductDisabled() {
@@ -526,6 +527,8 @@ export default {
              return finishedStock + this.maxProducibleQuantity;
         },
         showStockWarning() {
+             // Las órdenes de muestra/regalo no generan producción, no aplica la advertencia.
+             if (this.saleType === 'muestra') return false;
              if (!this.currentProduct.id || this.currentProduct.quantity <= 0) return false;
              return this.currentProduct.quantity > this.totalAvailableForOrder;
         }

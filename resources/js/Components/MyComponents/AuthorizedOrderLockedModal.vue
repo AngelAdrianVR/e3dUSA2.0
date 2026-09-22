@@ -14,10 +14,17 @@ export default {
             type: Boolean,
             default: false,
         },
-        // Tipo de orden para personalizar el mensaje (venta / stock)
+        // Tipo de orden para personalizar el mensaje (venta / stock / muestra)
         orderType: {
             type: String,
             default: 'venta',
+        },
+    },
+    computed: {
+        orderTypeLabel() {
+            if (this.orderType === 'stock') return 'Orden de Stock';
+            if (this.orderType === 'muestra') return 'Orden de Muestra/Regalo';
+            return 'Orden de Venta';
         },
     },
     emits: ['close'],
@@ -37,7 +44,7 @@ export default {
 
         <template #content>
             <p class="text-sm text-gray-600 dark:text-gray-300">
-                Esta {{ orderType === 'venta' ? 'Orden de Venta' : 'Orden de Stock' }} ya ha sido
+                Esta {{ orderTypeLabel }} ya ha sido
                 <strong class="text-gray-800 dark:text-gray-100">autorizada</strong>, por lo que
                 <strong class="text-gray-800 dark:text-gray-100">no es posible editarla</strong>.
             </p>

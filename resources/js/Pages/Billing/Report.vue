@@ -74,7 +74,11 @@
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="sale in sales" :key="sale.id" class="hover:bg-slate-50/50 transition-colors">
-                                    <td class="py-3 px-4 text-slate-800 font-bold">OV-{{ sale.id }}</td>
+                                    <td class="py-3 px-4 text-slate-800 font-bold">
+                                        OV-{{ sale.id }}
+                                        <!-- Indicador: órdenes de muestra/regalo (el resto se deja igual) -->
+                                        <i v-if="sale.type === 'muestra'" class="fa-solid fa-gift text-emerald-500 ml-1" title="Orden de Muestra/Regalo"></i>
+                                    </td>
                                     <td class="py-3 px-4 text-slate-600 text-xs">{{ formatDate(sale.created_at) }}</td>
                                     <td class="py-3 px-4">
                                         <p class="text-slate-800 font-medium uppercase text-xs">{{ sale.branch?.parent?.name || sale.branch?.name || 'N/A' }}</p>

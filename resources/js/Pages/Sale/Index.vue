@@ -103,14 +103,13 @@
                             <el-table-column prop="id" label="Folio" width="140"> <!-- Aumenté ligeramente el width para el icono extra -->
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
-                                        <!-- Icono de Tipo (Venta/Stock) -->
-                                        <el-tooltip :content="scope.row.type === 'venta' ? 'Orden de Venta' : 'Orden de Stock'" placement="top">
-                                            <i :class="scope.row.type === 'venta' ? 'fa-solid fa-cart-shopping text-purple-500' : 'fa-solid fa-box text-rose-500'"></i>
+                                        <!-- Icono de Tipo (Venta/Stock/Muestra-Regalo) -->
+                                        <el-tooltip :content="getTypeLabel(scope.row.type)" placement="top">
+                                            <i :class="getTypeIcon(scope.row.type)"></i>
                                         </el-tooltip>
                                         
                                         <!-- Folio Text -->
-                                        <span v-if="scope.row.type === 'venta'" class="font-semibold">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
-                                        <span v-else class="font-semibold">{{ 'OS-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                        <span class="font-semibold">{{ getTypeFolio(scope.row) }}</span>
 
                                         <!-- NUEVO: Indicador de Cambio/Garantía -->
                                         <div v-if="scope.row.product_exchanges?.length" class="ml-1">
@@ -237,12 +236,34 @@
                                     {{ formatCurrency(scope.row.total_amount) }}
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Cotización" width="100">
+                            <el-table-column width="115">
+                                 <template #header>
+                                    <div class="flex items-center gap-1">
+                                        <span>COT/MUE</span>
+                                        <el-tooltip placement="top" effect="dark">
+                                            <template #content>
+                                                <div class="w-64 text-xs leading-relaxed">
+                                                    Muestra el folio de la <b>cotización</b> de la que proviene la orden de venta
+                                                    (COT-xxxx).<br><br>
+                                                    Para las órdenes de tipo <b>Muestra/Regalo</b> se muestra el folio del
+                                                    <b>seguimiento de muestra</b> del que proviene la orden (MUE-xxxx).
+                                                </div>
+                                            </template>
+                                            <i class="fa-regular fa-circle-question text-gray-400 cursor-help"></i>
+                                        </el-tooltip>
+                                    </div>
+                                 </template>
                                  <template #default="scope">
                                     <a v-if="scope.row.quote_root_id" @click.stop
                                         :href="route('quotes.show', scope.row.quote_active_id)" target="_blank"
                                         class="text-blue-500 hover:underline">
                                         COT-{{ String(scope.row.quote_root_id).padStart(4, '0') }}
+                                    </a>
+                                    <a v-else-if="scope.row.type === 'muestra' && scope.row.sample_tracking_id" @click.stop
+                                        :href="route('sample-trackings.show', scope.row.sample_tracking_id)" target="_blank"
+                                        class="text-emerald-600 hover:underline font-medium inline-flex items-center gap-1">
+                                        <!-- <i class="fa-solid fa-gift text-xs"></i> -->
+                                        MUE-{{ String(scope.row.sample_tracking_id).padStart(4, '0') }}
                                     </a>
                                     <span v-else class="text-gray-400">N/A</span>
                                 </template>
@@ -548,6 +569,21 @@ export default {
         },
         handleRowClick(row) {
             router.get(route('sales.show', row.id));
+        },
+        // --- Helpers de tipo de orden (venta / stock / muestra-regalo) ---
+        getTypeLabel(type) {
+            if (type === 'stock') return 'Orden de Stock';
+            if (type === 'muestra') return 'Orden de Muestra/Regalo';
+            return 'Orden de Venta';
+        },
+        getTypeIcon(type) {
+            if (type === 'stock') return 'fa-solid fa-box text-rose-500';
+            if (type === 'muestra') return 'fa-solid fa-gift text-emerald-500';
+            return 'fa-solid fa-cart-shopping text-purple-500';
+        },
+        getTypeFolio(row) {
+            const prefix = row.type === 'stock' ? 'OS-' : 'OV-';
+            return prefix + row.id.toString().padStart(4, '0');
         },
         handleCommand(command) {
             const [action, id] = command.split('-');

@@ -137,8 +137,9 @@ class ProductionController extends Controller
         $productionCosts = ProductionCost::where('is_active', true)->orderBy('name')->get();
 
         // Obtener ventas autorizadas con paginación para carga progresiva.
-        // Eager-load de todas las relaciones para optimizar al máximo.
+        // Las órdenes de muestra/regalo se excluyen: no generan producción.
         $sales = Sale::whereIn('status', ['Autorizada', 'En Proceso'])
+            ->where('type', '!=', 'muestra')
             ->with([
                 'branch:id,name',
                 'saleProducts' => function ($query) {

@@ -1,5 +1,5 @@
 <template>
-    <AppLayout :title="form.type === 'venta' ? 'Crear Órden de Venta' : 'Crear Órden de Stock'">
+    <AppLayout :title="`Crear ${typeLabel}`">
         <!-- Panel Flotante de Notas -->
         <BranchNotes v-if="form.branch_id" :branch-id="form.branch_id" />
 
@@ -8,7 +8,7 @@
             <div class="flex items-center space-x-2">
                 <Back :href="route('sales.index')" />
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                    {{ form.type === 'venta' ? 'Crear nueva órden de venta' : 'Crear nueva órden de stock' }}
+                    Crear {{ typeLabel }}
                 </h2>
             </div>
         </div>
@@ -27,6 +27,29 @@
                     </div>
 
                     <form @submit.prevent="store">
+                        <!-- AVISO: EL SEGUIMIENTO YA TIENE UNA OV VINCULADA (solo se permite una) -->
+                        <div v-if="form.type === 'muestra' && sampleAlreadyLinked" class="mb-5 rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-start gap-3">
+                            <i class="fa-solid fa-lock text-lg mt-0.5"></i>
+                            <span>
+                                <strong>Este seguimiento ya tiene una Orden de Venta vinculada.</strong>
+                                No es posible crear otra orden desde la misma muestra. Puedes consultarla desde el seguimiento
+                                <strong>MUE-{{ sampleTrackingData.id.toString().padStart(4, '0') }}</strong> o desde el listado de órdenes.
+                            </span>
+                        </div>
+
+                        <!-- AVISO: ORDEN DE MUESTRA/REGALO -->
+                        <div v-else-if="form.type === 'muestra'" class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300 flex items-start gap-3">
+                            <i class="fa-solid fa-gift text-lg mt-0.5"></i>
+                            <span>
+                                <strong>Orden de Muestra/Regalo.</strong>
+                                Se genera para facturar muestras que no serán devueltas o productos regalados.
+                                El precio es opcional y esta orden no mueve inventario ni genera producción.
+                                <template v-if="sampleTrackingData">
+                                    Vinculada al seguimiento <strong>MUE-{{ sampleTrackingData.id.toString().padStart(4, '0') }}</strong>.
+                                </template>
+                            </span>
+                        </div>
+
                         <!-- SECCIÓN 1: INFORMACIÓN GENERAL -->
                         <div class="flex justify-between items-center">
                             <el-divider content-position="left" class="flex-grow">
@@ -47,10 +70,11 @@
                                 <el-radio-group v-model="form.type" size="small">
                                     <el-radio-button label="venta">Orden de Venta</el-radio-button>
                                     <el-radio-button label="stock">Orden de Stock</el-radio-button>
+                                    <el-radio-button label="muestra">Orden de Muestra/Regalo</el-radio-button>
                                 </el-radio-group>
                             </div>
                             
-                            <!-- Campos exclusivos para 'venta' -->
+                            <!-- Cotización: solo para órdenes de venta normales -->
                             <template v-if="form.type === 'venta'">
                                 <div>
                                     <InputLabel value="Cotización relacionada (Opcional)" />
@@ -58,7 +82,10 @@
                                         <el-option v-for="quote in quotes" :key="quote.id" :label="`COT-${quote.id} - ${quote.branch?.name}`" :value="quote.id" />
                                     </el-select>
                                 </div>
+                            </template>
 
+                            <!-- Cliente y contacto: órdenes de venta y de muestra/regalo -->
+                            <template v-if="isSaleLike">
                                 <div>
                                     <InputLabel value="Cliente*" />
                                      <div class="flex items-center space-x-2">
@@ -102,6 +129,31 @@
                             :is-price-locked="!!form.quote_id"
                         />
 
+                        <!-- PRODUCTOS NUEVOS DE LA MUESTRA QUE FALTAN POR REGISTRAR -->
+                        <div v-if="form.type === 'muestra' && pendingSampleProducts.length" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm">
+                            <div class="flex items-center text-amber-700 dark:text-amber-400 mb-2">
+                                <i class="fa-solid fa-circle-plus text-xl mr-3"></i>
+                                <p class="font-bold">Productos nuevos de la muestra sin registrar.</p>
+                            </div>
+                            <p class="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                                Se registran automáticamente en la categoría "Muestras y regalos" para poder agregarlos a la orden.
+                                Al registrarlos, la orden se recargará con ellos.
+                            </p>
+                            <ul class="space-y-2 mb-4">
+                                <li v-for="item in pendingSampleProducts" :key="item.new_product_proposal_id"
+                                    class="flex flex-wrap items-center justify-between gap-3 bg-white/80 dark:bg-slate-900/40 rounded-md px-3 py-2">
+                                    <span class="text-sm text-gray-700 dark:text-gray-200">
+                                        <i class="fa-solid fa-gift mr-2 text-amber-500"></i>
+                                        ({{ item.quantity }}) {{ item.name }}
+                                        <el-tag size="small" type="warning" class="ml-2">Nuevo</el-tag>
+                                    </span>
+                                </li>
+                            </ul>
+                            <SecondaryButton type="button" @click="registerPendingSampleProducts" :disabled="!sampleTrackingData">
+                                <i class="fa-solid fa-circle-plus mr-2"></i> Registrar automáticamente como Muestras y regalos
+                            </SecondaryButton>
+                        </div>
+
                         <!-- ALERTA GLOBAL DE PRECIO BAJO -->
                         <div v-if="hasLowPrices" class="col-span-full mt-4 p-5 bg-amber-50 border border-amber-300 rounded-lg dark:bg-amber-900/20 dark:border-amber-700 shadow-sm transition-all">
                             <div class="flex items-center text-amber-700 dark:text-amber-400 mb-3">
@@ -110,8 +162,8 @@
                             </div>
                         </div>
                         
-                        <!-- SECCIÓN 3: LOGÍSTICA (SOLO PARA VENTA) -->
-                        <template v-if="form.type === 'venta'">
+                        <!-- SECCIÓN 3: LOGÍSTICA (VENTA Y MUESTRA/REGALO) -->
+                        <template v-if="isSaleLike">
                             <el-divider content-position="left" class="!mt-8">
                                 <span>Logística de la Orden</span>
                             </el-divider>
@@ -140,20 +192,22 @@
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
-                                <!-- Costo de Herramental: bloqueado si viene de cotización -->
-                                <div v-if="form.quote_id">
-                                    <InputLabel value="Costo de Herramental" />
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.tooling_cost || '0' }}</span>
+                                <!-- Costo de Herramental: solo para órdenes de venta (la muestra/regalo no lleva herramental) -->
+                                <template v-if="form.type === 'venta'">
+                                    <div v-if="form.quote_id">
+                                        <InputLabel value="Costo de Herramental" />
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.tooling_cost || '0' }}</span>
+                                        </div>
+                                        <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                            El costo de herramental se edita desde la cotización
+                                            <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
+                                        </p>
                                     </div>
-                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                                        El costo de herramental se edita desde la cotización
-                                        <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
-                                    </p>
-                                </div>
-                                <TextInput v-else label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
-                                    <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
-                                </TextInput>
+                                    <TextInput v-else label="Costo de Herramental" :error="form.errors.tooling_cost" v-model="form.tooling_cost">
+                                        <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
+                                    </TextInput>
+                                </template>
 
                                 <!-- ENVÍOS / PARCIALIDADES -->
                                 <div v-if="form.products.length" class="col-span-full">
@@ -268,7 +322,7 @@
                             <div></div> <!-- Espaciador -->
 
                             <div class="col-span-full">
-                                <TextInput label="Notas generales" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" placeholder="Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante para su facturación." />
+                                <TextInput :label="form.type === 'muestra' ? 'Notas adicionales de la Orden de Venta' : 'Notas generales'" v-model="form.notes" :error="form.errors.notes" :isTextarea="true" :placeholder="form.type === 'muestra' ? 'Notas adicionales de la orden (opcional). Ej. motivo del regalo, referencia de la muestra, indicaciones para facturación...' : 'Orden de compra, Sucursal, Indicar si hay algun convenio especial para esta venta o cualquier detalle relevante para su facturación.'" />
                             </div>
                             
                             <label v-if="form.type === 'venta'" class="flex items-center">
@@ -279,7 +333,7 @@
 
                         <!-- Botón de envío -->
                         <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :loading="form.processing" :disabled="!form.products.length">
+                            <SecondaryButton :loading="form.processing" :disabled="!form.products.length || sampleAlreadyLinked">
                                 Crear Órden
                             </SecondaryButton>
                         </div>
@@ -398,6 +452,25 @@
                 </span>
             </template>
         </el-dialog>
+
+        <!-- Modal: stock de los productos nuevos de la muestra -->
+        <MuestraProductsStockModal
+            :show="showStockModal"
+            :items="pendingStockItems"
+            :processing="isPreparingSale"
+            confirm-text="Registrar y recargar orden"
+            @close="showStockModal = false"
+            @confirm="confirmStockModal"
+        />
+
+        <!-- Capa de carga (sin blur) mientras se registran los productos de la muestra -->
+        <div v-if="isPreparingSale" class="fixed inset-0 z-[9999] bg-gray-900/60 flex items-center justify-center">
+            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center text-center max-w-sm">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+                <p class="text-lg font-bold text-gray-800 dark:text-white">Registrando productos…</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Se agregarán a la categoría "Muestras y regalos". No cierres esta ventana.</p>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -414,6 +487,7 @@ import Back from "@/Components/MyComponents/Back.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
+import MuestraProductsStockModal from "@/Components/MyComponents/MuestraProductsStockModal.vue";
 import { ElMessage } from 'element-plus';
 import { useForm, router } from "@inertiajs/vue3"; // IMPORTANTE: Agregar router
 import axios from 'axios';
@@ -432,20 +506,35 @@ export default {
         SecondaryButton,
         SaleProductManager,
         ClientProductsDrawer,
+        MuestraProductsStockModal,
     },
     props: {
         branches: Array,
         quotes: Array,
         catalog_products: Array,
         quoteToConvertId: Number,
+        muestra_products: {
+            type: Array,
+            default: () => [],
+        },
+        sampleTrackingData: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
             isRedirecting: false, // Controla la pantalla de bloqueo
+            // Artículos 'nuevos' del seguimiento de muestra que aún no están registrados en el catálogo
+            pendingSampleProducts: [],
+            // Registro de productos nuevos desde la orden (modal de stock + capa de carga)
+            showStockModal: false,
+            isPreparingSale: false,
             prefixes: ['Ing.', 'Lic.', 'Arq.', 'Dr.', 'C.P.', 'Sin prefijo'], // Arreglo de prefijos
             form: useForm({
                 branch_id: null,
                 quote_id: null,
+                sample_tracking_id: null,
                 contact_id: null,
                 type: 'venta',
                 oce_name: '',
@@ -498,19 +587,46 @@ export default {
         };
     },
     computed: {
+        // En 'venta' y 'muestra' se requiere cliente, contacto y logística (envíos).
+        isSaleLike() {
+            return this.form.type !== 'stock';
+        },
+        typeLabel() {
+            if (this.form.type === 'venta') return 'Órden de Venta';
+            if (this.form.type === 'muestra') return 'Órden de Muestra/Regalo';
+            return 'Órden de Stock';
+        },
+        // El seguimiento de muestra ya tiene una Orden de Venta vinculada (solo se permite una).
+        sampleAlreadyLinked() {
+            return !!this.sampleTrackingData?.sale_id;
+        },
+        // Productos nuevos pendientes de registrar (para el modal de stock)
+        pendingStockItems() {
+            return (this.pendingSampleProducts || []).map(item => ({
+                id: item.new_product_proposal_id,
+                name: item.name,
+                quantity: item.quantity,
+            }));
+        },
         // En base a los productos del cliente, determinamos qué PADRES habilitar en el catálogo general
         availableBaseProducts() {
+            if (this.form.type === 'muestra') {
+                // Muestra/regalo: catálogo completo + productos de "Muestras y regalos"
+                // (no requieren estar vinculados a ningún cliente).
+                return [...this.catalog_products, ...this.muestra_products];
+            }
+
             if (this.form.type === 'stock') {
                 return this.catalog_products;
-            } else {
-                if (!this.clientProducts.length) return [];
-                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
-                return this.catalog_products.filter(parent => {
-                    const isParentAssigned = clientProductIds.has(parent.id);
-                    const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
-                    return isParentAssigned || hasAssignedVariant;
-                });
             }
+
+            if (!this.clientProducts.length) return [];
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+            return this.catalog_products.filter(parent => {
+                const isParentAssigned = clientProductIds.has(parent.id);
+                const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
+                return isParentAssigned || hasAssignedVariant;
+            });
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;
@@ -532,6 +648,10 @@ export default {
                 );
                 this.availableContacts = [];
                 this.clientProducts = [];
+            } else if (newType === 'muestra') {
+                // La orden de muestra/regalo no usa cotización, OCE, medio de petición, herramental ni banderas de precio bajo.
+                this.form.reset('quote_id', 'oce_name', 'order_via', 'tooling_cost', 'has_low_price', 'products');
+                this.pendingSampleProducts = [];
             } else {
                  this.form.reset('products');
             }
@@ -550,7 +670,7 @@ export default {
         },
         'form.products': {
             handler() {
-                if (this.form.type === 'venta') {
+                if (this.isSaleLike) {
                     this.generateShipmentPartials(this.form.shipping_option);
                 }
             },
@@ -559,7 +679,12 @@ export default {
     },
     methods: {
         store() {
-            if (this.form.type === 'venta' && this.form.shipping_option && this.form.products.length > 0) {
+            if (this.sampleAlreadyLinked) {
+                ElMessage.error('Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.');
+                return;
+            }
+
+            if (this.isSaleLike && this.form.shipping_option && this.form.products.length > 0) {
                 for (const product of this.form.products) {
                     const remaining = this.getRemainingQuantity(product.id);
                     if (remaining !== 0) {
@@ -568,8 +693,12 @@ export default {
                     }
                 }
             }
+
+            if (this.form.type === 'muestra' && this.pendingSampleProducts.length) {
+                ElMessage.warning('Hay productos nuevos de la muestra sin registrar en "Muestras y regalos"; no se incluirán en la orden.');
+            }
             
-            if (this.form.type === 'venta') {
+            if (this.isSaleLike) {
                 this.form.shipments.forEach(shipment => {
                     if (shipment.acknowledgement_file && typeof shipment.acknowledgement_file === 'object' && shipment.acknowledgement_file.file) {
                         shipment.acknowledgement_file = shipment.acknowledgement_file.file;
@@ -593,13 +722,74 @@ export default {
                 }
             });
         },
+        // ============================================================
+        // ORDEN DE MUESTRA/REGALO: prellenado desde el seguimiento de muestra
+        // ============================================================
+        async prefillFromSampleTracking(data) {
+            this.form.type = 'muestra';
+            this.form.sample_tracking_id = data.sale_id ? null : data.id;
+
+            if (data.sale_id) {
+                ElMessage.warning('Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.');
+            }
+
+            if (data.branch_id) {
+                this.form.branch_id = data.branch_id;
+                await this.handleBranchChange(data.branch_id);
+                this.form.contact_id = data.contact_id || null;
+            }
+
+            const products = [];
+            const pending = [];
+
+            for (const item of data.items || []) {
+                if (!item.product_id) {
+                    // Producto nuevo de la muestra aún no registrado en el catálogo.
+                    pending.push(item);
+                    continue;
+                }
+
+                products.push({
+                    id: item.product_id,
+                    name: item.name,
+                    media: item.image_url ? [{ original_url: item.image_url }] : [],
+                    quantity: Number(item.quantity) || 1,
+                    price: null,
+                    notes: item.notes || '',
+                    customization_details: [],
+                    is_new_design: false,
+                    has_low_price: false,
+                    low_price_reason: '',
+                    from_sample: true,
+                });
+            }
+
+            this.form.products = products;
+            this.pendingSampleProducts = pending;
+        },
+        // Abre el modal para capturar el stock de los productos nuevos de la muestra.
+        registerPendingSampleProducts() {
+            if (!this.sampleTrackingData) return;
+
+            this.showStockModal = true;
+        },
+        // Registra los productos nuevos como "Muestras y regalos" y recarga la orden con ellos.
+        confirmStockModal(stocks) {
+            this.showStockModal = false;
+            this.isPreparingSale = true;
+
+            router.post(route('sample-trackings.prepare-sale', this.sampleTrackingData.id), { stocks }, {
+                onFinish: () => { this.isPreparingSale = false; },
+                onError: () => ElMessage.error('No se pudieron registrar los productos de la muestra.'),
+            });
+        },
         handleFreightOption() {
             if (this.form.freight_option === 'El cliente manda la guia') {
                 this.form.freight_cost = 0;
             }
         },
         generateShipmentPartials(option) {
-            if (!option || !this.form.products.length || this.form.type !== 'venta') {
+            if (!option || !this.form.products.length || this.form.type === 'stock') {
                 this.form.shipments = [];
                 return;
             }
@@ -673,7 +863,9 @@ export default {
             // ==========================================
             // LÓGICA NUEVA: Validación de Datos de Facturación
             // ==========================================
-            if (branchId) {
+            // En las órdenes de muestra/regalo NO se valida la información fiscal del cliente
+            // (RFC / razón social) para no interrumpir la creación de la orden.
+            if (branchId && this.form.type !== 'muestra') {
                 try {
                     const validityRes = await axios.get(route('branches.check-validity', branchId));
                     if (!validityRes.data.valid) {
@@ -1002,6 +1194,10 @@ export default {
     mounted() {
         if (this.quoteToConvertId) {
             this.form.quote_id = Number(this.quoteToConvertId);
+        }
+
+        if (this.sampleTrackingData) {
+            this.prefillFromSampleTracking(this.sampleTrackingData);
         }
     }
 };

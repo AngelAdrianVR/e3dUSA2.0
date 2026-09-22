@@ -22,8 +22,8 @@
             <!-- Encabezado -->
             <header class="flex justify-between items-start pb-5 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ sale.type === 'venta' ? 'Orden de Venta' : 'Orden de stock'}}</h1>
-                    <p v-if="sale.type === 'venta'" class="text-lg font-semibold text-blue-600">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ sale.type === 'venta' ? 'Orden de Venta' : (sale.type === 'muestra' ? 'Orden de Venta (Muestra/Regalo)' : 'Orden de stock') }}</h1>
+                    <p v-if="sale.type !== 'stock'" class="text-lg font-semibold text-blue-600">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
                     <p v-else class="text-lg font-semibold text-blue-600">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
                     <p v-if="sale.quote_id" class="text-sm">Cotización Relacionada: COT-{{ sale.quote_id.toString().padStart(4, '0') }}</p>
                 </div>
@@ -36,7 +36,7 @@
 
             <!-- Información General -->
             <section class="grid grid-cols-3 gap-8 my-3">
-                <div v-if="sale.type === 'venta'" class="col-span-2">
+                <div v-if="sale.type !== 'stock'" class="col-span-2">
                     <h2 class="text-sm font-semibold uppercase text-gray-500 dark:text-gray-400 mb-2">CLIENTE</h2>
                     <p class="font-bold text-lg text-gray-800 dark:text-gray-200">{{ sale.branch.name }}</p>
                 </div>
@@ -102,7 +102,7 @@
              <!-- Envíos / Parcialidades Súper Compacto -->
             <section
                 class="mt-6 border-t-2 pt-4 dark:border-slate-700"
-                v-if="sale.shipments && sale.shipments.length > 1 && sale.type === 'venta'"
+                v-if="sale.shipments && sale.shipments.length > 1 && sale.type !== 'stock'"
             >
                 <h2 class="text-lg font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">

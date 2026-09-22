@@ -4,8 +4,14 @@
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
                 <div class="flex space-x-2 items-center">
-                    <h1 class="dark:text-white font-bold text-2xl my-2">
-                        <span class="text-gray-500 dark:text-gray-400">Envíos de la Órden:</span> OV-{{ sale.id.toString().padStart(4, '0') }}
+                    <h1 class="dark:text-white font-bold text-2xl my-2 flex items-center flex-wrap gap-2">
+                        <span>
+                            <span class="text-gray-500 dark:text-gray-400">Envíos de la Órden:</span> OV-{{ sale.id.toString().padStart(4, '0') }}
+                        </span>
+                        <!-- Tipo de orden: solo se marca si es Muestra/Regalo -->
+                        <el-tag v-if="sale.type === 'muestra'" type="success" size="small">
+                            <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
+                        </el-tag>
                     </h1>
                 </div>
             </div>
@@ -34,7 +40,7 @@
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
-                <Stepper :currentStatus="sale.status" :steps="saleSteps" />
+                <Stepper :currentStatus="sampleDisplayStatus" :steps="progressSteps" :treatCurrentAsCompleted="sale.type === 'muestra'" />
                 
                 <!-- Componente Refactorizado: Detalles de la Órden -->
                 <OrderDetailsCard :sale="sale" />
@@ -354,6 +360,11 @@ export default {
     },
     props: {
         sale: Object,
+        // Seguimiento de muestra del que proviene la orden (solo órdenes de muestra/regalo)
+        linkedSampleTracking: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -403,6 +414,28 @@ export default {
         }
     },
     computed: {
+        // Estatus a mostrar. En las órdenes de muestra/regalo se usa el estatus ACTUAL del
+        // seguimiento de muestra (el guardado en la orden puede quedar desfasado, p. ej. "Enviada").
+        sampleDisplayStatus() {
+            if (this.sale.type === 'muestra' && this.linkedSampleTracking?.status) {
+                return this.linkedSampleTracking.status;
+            }
+
+            return this.sale.status;
+        },
+        // Pasos del stepper. En las órdenes de muestra/regalo el estatus puede provenir del
+        // seguimiento de muestra, por lo que se muestran los pasos de ese proceso.
+        progressSteps() {
+            const sampleSteps = ['Autorizado', 'Enviado', 'Devuelto', 'Aprobado', 'Completado'];
+
+            if (this.sale.type === 'muestra' && sampleSteps.includes(this.sampleDisplayStatus)) {
+                return this.sampleDisplayStatus === 'Devuelto'
+                    ? sampleSteps
+                    : sampleSteps.filter(step => step !== 'Devuelto');
+            }
+
+            return this.saleSteps;
+        },
         assignedQuantities() {
             const totals = {};
             if (!this.labelForm.shipment) return totals;

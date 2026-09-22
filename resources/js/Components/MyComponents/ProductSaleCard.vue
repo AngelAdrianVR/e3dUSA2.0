@@ -9,7 +9,7 @@
 
         <div class="flex flex-col md:flex-row gap-5">
             <div class="flex-shrink-0 w-full md:w-40 flex flex-col items-center gap-2">
-                <div @click="$inertia.visit(route('catalog-products.show', getDisplayProduct().id))" class="w-full cursor-pointer h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group">
+                <div @click="openProductDetails(getDisplayProduct())" class="w-full h-40 bg-gray-100 dark:bg-slate-900/50 rounded-xl flex items-center justify-center relative group" :class="isMuestraProduct(getDisplayProduct()) ? 'cursor-default' : 'cursor-pointer'">
                     <img v-if="getDisplayProductMedia()?.length" :src="getDisplayProductMedia()[0].original_url" alt="Imagen del producto" class="w-full h-full object-contain rounded-xl">
                     <div v-else class="text-gray-300 dark:text-gray-600 text-center">
                         <i class="fa-regular fa-image text-5xl"></i>
@@ -38,7 +38,11 @@
 
             <div class="flex-1 relative">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ getDisplayProduct()?.name }}</h3>
+                <!-- Etiqueta de tipo: solo se muestra si NO es un producto normal -->
                 <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
+                <el-tag v-else-if="saleProduct.product.product_type === 'Muestra'" type="success">
+                    <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
+                </el-tag>
                 
                 <el-tag v-if="saleProduct.is_new_design" type="primary" size="small" effect="light" class="mt-2">
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
@@ -51,8 +55,18 @@
                             <el-tooltip v-if="branchId" placement="top">
                                 <template #content>
                                     <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
-                                    <p class="text-blue-400">Cantidad tomada de stock: <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
-                                    <p class="text-blue-400">Cantidad a producir: <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span></p>
+                                    <p class="text-blue-400">
+                                        {{ isMuestraProductLine ? 'Cantidad descontada de stock:' : 'Cantidad tomada de stock:' }}
+                                        <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                    </p>
+                                    <p v-if="isMuestraProductLine && saleProduct.quantity_to_produce > 0" class="text-amber-400">
+                                        Sin stock disponible (no descontado):
+                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                    </p>
+                                    <p v-else-if="!isMuestraProductLine" class="text-blue-400">
+                                        Cantidad a producir:
+                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                    </p>
                                 </template>
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
@@ -91,7 +105,7 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div v-if="!isSpecialProduct">
                         <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
                         <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
                     </div>
@@ -204,7 +218,7 @@
                             </div>
                         </div>
 
-                        <div>
+                        <div v-if="!isSpecialProduct">
                             <p class="text-gray-500 dark:text-gray-400">Stock mínimo</p>
                             <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                         </div>
@@ -291,7 +305,7 @@
         </div>
 
 
-        <div v-if="branchId" class="absolute top-5 right-4">
+        <div v-if="branchId && !isSpecialProduct" class="absolute top-5 right-4">
             <el-tooltip content="Actualizar precio especial para este cliente" placement="top">
                 <button @click="openPriceModal" class="flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-full size-9 transition-colors">
                     <i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-400"></i>
@@ -496,6 +510,16 @@ export default {
         canBypassPriceRule() {
             return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
         },
+        // Productos especiales: obsoletos o de la categoría "Muestras y regalos".
+        // Para ellos no se muestra precio actual, stock mínimo ni la opción de actualizar precio.
+        isSpecialProduct() {
+            const product = this.saleProduct.product;
+            return !!product && (!!product.archived_at || product.product_type === 'Muestra');
+        },
+        // Línea de un producto de "Muestras y regalos": el stock se descuenta al crear la OV
+        isMuestraProductLine() {
+            return this.saleProduct?.product?.product_type === 'Muestra';
+        },
         totalAmount() {
             return (this.saleProduct.quantity * this.saleProduct.price).toFixed(2);
         },
@@ -566,6 +590,14 @@ export default {
             if (!product) return null;
             if (this.showParent && product.parent) return product.parent;
             return product;
+        },
+        // Los productos de la categoría "Muestras y regalos" no tienen vista de detalle.
+        isMuestraProduct(product) {
+            return product?.product_type === 'Muestra';
+        },
+        openProductDetails(product) {
+            if (!product || this.isMuestraProduct(product)) return;
+            this.$inertia.visit(route('catalog-products.show', product.id));
         },
         getDisplayProductMedia() {
             const product = this.getDisplayProduct();

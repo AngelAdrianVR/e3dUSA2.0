@@ -1,6 +1,6 @@
 <template>
     <AppLayout
-        :title="`Detalles de la Órden ${sale.type === 'venta' ? 'OV-' : 'OS-'}${sale.id.toString().padStart(4, '0')}`"
+        :title="`Detalles de la Órden ${folio}`"
     >
         <!-- Panel Flotante de Notas -->
         <BranchNotes v-if="sale.branch?.id" :branch-id="sale.branch?.id" />
@@ -10,8 +10,16 @@
             <div>
                 <div class="flex space-x-2 items-center">
                     <h1 class="dark:text-white font-bold text-2xl my-2">
-                        <span class="text-gray-500 dark:text-gray-400">Órden de {{ sale.type === 'venta' ? 'Venta' : 'Stock' }}:</span> {{ sale.type === 'venta' ? 'OV-' : 'OS-' }} {{sale.id.toString().padStart(4, '0')}}
+                        <span class="text-gray-500 dark:text-gray-400">Órden de {{ typeLabel }}:</span> {{ folio }}
                     </h1>
+                </div>
+
+                <!-- Estatus de la orden de muestra/regalo (proviene del seguimiento de muestra) -->
+                <div v-if="sale.type === 'muestra'" class="mb-2 flex flex-wrap items-center gap-2">
+                    <el-tag :type="statusTagType(sampleDisplayStatus)" size="small">Estatus: {{ sampleDisplayStatus }}</el-tag>
+                    <span v-if="linkedSampleTracking" class="text-xs text-gray-500 dark:text-gray-400">
+                        Proviene del seguimiento MUE-{{ linkedSampleTracking.id.toString().padStart(4, '0') }}
+                    </span>
                 </div>
                 <el-select
                     @change="navigateToSale"
@@ -121,14 +129,14 @@
             <!-- COLUMNA IZQUIERDA -->
             <div class="lg:col-span-1 space-y-4">
                 <!-- === STEPPER DE ESTADO === -->
-                <Stepper :currentStatus="sale.status" :steps="sale.type === 'venta' ? saleSteps : stockSteps" />
+                <Stepper :currentStatus="sampleDisplayStatus" :steps="progressSteps" :treatCurrentAsCompleted="sale.type === 'muestra'" />
 
                 <!-- Card de Información de la Órden -->
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Órden</h3>
                     <ul class="space-y-3 text-sm">
-                        <!-- Campos para Venta -->
-                        <template v-if="sale.type === 'venta'">
+                        <!-- Campos para Venta y Muestra/Regalo -->
+                        <template v-if="sale.type !== 'stock'">
                             <!-- Contacto -->
                             <li class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Contacto:</span>
@@ -176,21 +184,29 @@
                             </li>
 
                             <!-- Cotización -->
-                            <li class="flex justify-between">
+                            <li v-if="sale.type === 'venta'" class="flex justify-between">
                                 <span class="font-semibold text-gray-600 dark:text-gray-400">Cotización Rel.</span>
                                 <span v-if="sale.quote_id" @click="$inertia.visit(route('quotes.show', sale.quote_id))" class="text-blue-500 hover:underline cursor-pointer">
                                     COT-{{ sale.quote_id?.toString().padStart(4, '0') }}
                                 </span>
                                 <span v-else>N/A</span>
                             </li>
+
+                            <!-- Seguimiento de muestra relacionado (solo muestra/regalo) -->
+                            <li v-if="sale.type === 'muestra' && linkedSampleTracking" class="flex justify-between">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Muestra Rel.</span>
+                                <span @click="$inertia.visit(route('sample-trackings.show', linkedSampleTracking.id))" class="text-blue-500 hover:underline cursor-pointer">
+                                    MUE-{{ linkedSampleTracking.id.toString().padStart(4, '0') }}
+                                </span>
+                            </li>
                         </template>
 
                         <!-- Campos Comunes -->
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Tipo:</span>
-                            <span>{{ sale.type === 'venta' ? 'Venta' : 'Stock' }}</span>
+                            <span>{{ typeLabel }}</span>
                         </li>
-                        <li class="flex justify-between">
+                        <li v-if="sale.type !== 'muestra'" class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>
                             <span>{{ sale.oce_name ?? 'No especificado' }}</span>
                         </li>
@@ -223,7 +239,7 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Costo de Herramental:</span>
                             <span class="text-amber-600 dark:text-amber-400 font-medium">${{ sale.tooling_cost?.toString()?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
                         </li>
-                         <li v-if="sale.type === 'venta'" class="flex justify-between text-base font-bold">
+                         <li v-if="sale.type !== 'stock'" class="flex justify-between text-base font-bold">
                             <span class="text-gray-700 dark:text-gray-300">Monto Total:</span>
                             <span>${{ parseFloat(sale.total_amount)?.toFixed(2)?.replace(/\B(?=(\d{3})+(?!\d))/g, ",") }}</span>
                         </li>
@@ -555,7 +571,7 @@
         <!-- Modal de Confirmación para Eliminar (Sin cambios) -->
         <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
             <template #title>
-                Eliminar Orden de {{ sale.type === 'venta' ? 'Venta' : 'Stock' }} {{ sale.type === 'venta' ? 'OV-' : 'OS-' }} {{ sale.id.toString().padStart(4, '0') }}
+                Eliminar Orden de {{ typeLabel }} {{ folio }}
             </template>
             <template #content>
                 ¿Estás seguro de que deseas eliminar permanentemente esta Orden? Todos los datos relacionados se perderán. Esta acción no se puede deshacer.
@@ -628,6 +644,10 @@ export default {
             type: Array,
             default: () => [],
         },
+        linkedSampleTracking: {
+            type: Object,
+            default: null,
+        },
     },
     data() {
         return {
@@ -638,6 +658,8 @@ export default {
             showEditBlockedModal: false,
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             stockSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Stock Terminado'],
+            // Estatus posibles del seguimiento de muestra (para las OV de muestra/regalo)
+            sampleStatusSteps: ['Autorizado', 'Enviado', 'Devuelto', 'Aprobado', 'Completado'],
 
             activeTab: 'products',
             showExchangeModal: false,
@@ -656,6 +678,39 @@ export default {
         };
     },
     computed: {
+        // Folio de la orden (OV- para venta y muestra/regalo, OS- para stock)
+        folio() {
+            return (this.sale.type === 'stock' ? 'OS-' : 'OV-') + this.sale.id.toString().padStart(4, '0');
+        },
+        // Estatus a mostrar. En las órdenes de muestra/regalo se usa el estatus ACTUAL del
+        // seguimiento de muestra (el guardado en la orden puede quedar desfasado, p. ej. "Enviada").
+        sampleDisplayStatus() {
+            if (this.sale.type === 'muestra' && this.linkedSampleTracking?.status) {
+                return this.linkedSampleTracking.status;
+            }
+
+            return this.sale.status;
+        },
+        // Pasos del stepper. En las órdenes de muestra/regalo el estatus puede provenir del
+        // seguimiento de muestra, por lo que se muestran los pasos de ese proceso.
+        progressSteps() {
+            if (this.sale.type === 'muestra' && this.sampleStatusSteps.includes(this.sampleDisplayStatus)) {
+                // El paso "Devuelto" solo aplica si la muestra será (o fue) devuelta
+                if (this.linkedSampleTracking?.will_be_returned || this.sampleDisplayStatus === 'Devuelto') {
+                    return this.sampleStatusSteps;
+                }
+
+                return this.sampleStatusSteps.filter(step => step !== 'Devuelto');
+            }
+
+            return this.sale.type === 'stock' ? this.stockSteps : this.saleSteps;
+        },
+        // Etiqueta del tipo de orden
+        typeLabel() {
+            if (this.sale.type === 'stock') return 'Stock';
+            if (this.sale.type === 'muestra') return 'Muestra/Regalo';
+            return 'Venta';
+        },
         // Requiere el permiso "Editar información de envío" para editar paquetería/guía
         canEditTracking() {
             return this.$page.props.auth.user?.permissions?.includes('Editar información de envío') ?? false;
@@ -670,6 +725,27 @@ export default {
         }
     },
     methods: {
+        // Color de la etiqueta de estatus (incluye los estatus del seguimiento de muestra)
+        statusTagType(status) {
+            const statusMap = {
+                'Pendiente': 'warning',
+                'Autorizado': 'primary',
+                'Aprobado': 'primary',
+                'Enviado': 'info',
+                'Devuelto': 'info',
+                'Completado': 'success',
+                'Rechazado': 'danger',
+                'Modificación': 'warning',
+                'Autorizada': 'primary',
+                'En Proceso': 'warning',
+                'En Producción': 'primary',
+                'Preparando Envío': 'success',
+                'Enviada': 'success',
+                'Stock Terminado': 'success',
+            };
+
+            return statusMap[status] ?? '';
+        },
         goToEdit() {
             // Una orden autorizada ya no puede editarse: se muestra retroalimentación al usuario.
             if (this.sale.authorized_at) {

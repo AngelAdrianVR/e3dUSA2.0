@@ -46,7 +46,14 @@ class InvoiceController extends Controller
         ->when($clientId, function ($query) use ($clientId) {
             $query->where('branch_id', $clientId);
         })
-        ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+        ->where(function ($query) {
+            $query->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+                // Las órdenes de muestra/regalo deben poder facturarse aunque su monto sea 0.
+                ->orWhere(function ($q) {
+                    $q->where('sales.type', 'muestra')
+                      ->whereRaw('NOT EXISTS (SELECT 1 FROM invoices WHERE invoices.sale_id = sales.id AND invoices.status != ?)', ['Cancelada']);
+                });
+        })
         ->latest('id')
         ->paginate(10, ['*'], 'sales_page')
         ->withQueryString();
@@ -91,9 +98,14 @@ class InvoiceController extends Controller
         ->get();
 
         // Filtrar en PHP: solo ventas cuyo monto total sea mayor al monto ya facturado.
+        // Excepción: las órdenes de muestra/regalo sin facturas se incluyen aunque su monto sea 0
+        // (se crean precisamente para poder facturarse).
         $sales = $salesWithPartialInvoices->filter(function ($sale) {
             $invoicedAmount = $sale->invoiced_amount ?? 0;
-            return (float)$sale->total_amount > (float)$invoicedAmount;
+            if ((float)$sale->total_amount > (float)$invoicedAmount) {
+                return true;
+            }
+            return $sale->type === 'muestra' && (float)$invoicedAmount === 0.0;
         })->map(function ($sale) {
             $lastInvoice = $sale->invoices->last();
             return [

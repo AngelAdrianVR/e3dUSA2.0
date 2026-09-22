@@ -146,6 +146,9 @@ Route::get('catalog-products-export-excel-abc', [ProductController::class, 'expo
 Route::get('products-fetch-products-list', [ProductController::class, 'fetchProductsList'])->name('products.fetch-products-list');
 Route::post('products/massive-update', [ProductController::class, 'massiveUpdate'])->name('products.massive-update');
 Route::post('catalog-products-search-parents', [ProductController::class, 'searchParents'])->middleware('auth')->name('catalog-products.search-parents'); // Ruta para buscar productos padres desde el modal al crear/editar un producto
+// --- Categoría "Muestras y regalos" ---
+Route::post('catalog-products/muestra', [ProductController::class, 'storeMuestra'])->middleware('auth')->name('catalog-products.store-muestra');
+Route::put('catalog-products/{catalog_product}/muestra', [ProductController::class, 'updateMuestra'])->middleware('auth')->name('catalog-products.update-muestra');
 
 
 // ------- product families Routes ---------
@@ -449,6 +452,7 @@ Route::put('sample-trackings/authorize/{sampleTracking}', [SampleTrackingControl
 Route::put('sample-trackings-update-status/{sampleTracking}', [SampleTrackingController::class, 'updateStatus'])->middleware('auth')->name('sample-trackings.update-status');
 Route::post('/sample-trackings/quick-store-branch', [SampleTrackingController::class, 'quickStoreBranch'])->name('sample-trackings.quick-store.branch');
 Route::post('/sample-trackings/{branch}/quick-store-contact', [SampleTrackingController::class, 'quickStoreContact'])->name('sample-trackings.quick-store.contact');
+Route::post('sample-trackings/{sampleTracking}/prepare-sale', [SampleTrackingController::class, 'prepareSale'])->middleware('auth')->name('sample-trackings.prepare-sale');
 
 
 // ------- Maintenances routes  -------------

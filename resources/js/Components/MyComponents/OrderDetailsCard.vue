@@ -13,8 +13,8 @@
         <el-collapse-transition>
             <div v-show="isOpen" class="p-5 border-t dark:border-gray-600">
                 <ul class="space-y-3 text-sm">
-                    <!-- Campos para Venta -->
-                    <template v-if="sale.type === 'venta'">
+                    <!-- Campos para Venta y Muestra/Regalo -->
+                    <template v-if="sale.type !== 'stock'">
                         <li class="flex justify-between items-center">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Cliente:</span>
                             <BranchInfoTooltip :branch="sale.branch" />
@@ -54,7 +54,7 @@
                     <!-- Campos Comunes -->
                     <li class="flex justify-between">
                         <span class="font-semibold text-gray-600 dark:text-gray-400">Tipo:</span>
-                        <span>{{ sale.type === 'venta' ? 'Venta' : 'Stock' }}</span>
+                        <span>{{ sale.type === 'venta' ? 'Venta' : (sale.type === 'muestra' ? 'Muestra/Regalo' : 'Stock') }}</span>
                     </li>
                     <li class="flex justify-between">
                         <span class="font-semibold text-gray-600 dark:text-gray-400">OCE:</span>

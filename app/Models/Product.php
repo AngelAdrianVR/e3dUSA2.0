@@ -21,6 +21,7 @@ class Product extends Model implements HasMedia, Auditable
         'id',
         'cost',
         'name',
+        'description',
         'code',
         'large',
         'width',

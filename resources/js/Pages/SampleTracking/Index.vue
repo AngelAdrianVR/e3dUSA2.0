@@ -87,6 +87,33 @@
                                 </template>
                             </el-table-column>
 
+                            <!-- Orden de venta vinculada (muestra/regalo) -->
+                            <el-table-column width="125">
+                                <template #header>
+                                    <div class="flex items-center gap-1">
+                                        <span>OV Vinculada</span>
+                                        <el-tooltip placement="top" effect="dark">
+                                            <template #content>
+                                                <div class="w-64 text-xs leading-relaxed">
+                                                    Las Órdenes de Venta vinculadas son necesarias para conservar el
+                                                    <b>historial de facturas</b> del cliente: la muestra que no se devuelve
+                                                    o el producto regalado se factura a través de esta OV.
+                                                </div>
+                                            </template>
+                                            <i class="fa-regular fa-circle-question text-gray-400 cursor-help"></i>
+                                        </el-tooltip>
+                                    </div>
+                                </template>
+                                <template #default="scope">
+                                    <a v-if="scope.row.sale_id" @click.stop="$inertia.visit(route('sales.show', scope.row.sale_id))"
+                                        class="text-blue-500 hover:underline font-semibold flex items-center gap-1">
+                                        <i class="fa-solid fa-gift text-emerald-500 text-xs"></i>
+                                        OV-{{ scope.row.sale_id.toString().padStart(4, '0') }}
+                                    </a>
+                                    <span v-else class="text-xs text-gray-400">—</span>
+                                </template>
+                            </el-table-column>
+
                             <!-- Menú de acciones por fila -->
                             <el-table-column align="right">
                                 <template #default="scope">
@@ -110,6 +137,18 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>Editar
                                                 </el-dropdown-item>
+                                                <!-- Órdenes de Venta de muestra/regalo (solo una por seguimiento) -->
+                                                <el-dropdown-item v-if="scope.row.sale_id" disabled>
+                                                    <i class="fa-solid fa-lock mr-2 text-gray-400 w-4"></i>Ya existe una OV vinculada
+                                                </el-dropdown-item>
+                                                <el-dropdown-item v-if="scope.row.sale_id" :command="'viewSale-' + scope.row.sale_id">
+                                                    <i class="fa-solid fa-file-invoice mr-2 text-emerald-500 w-4"></i>Ver OV-{{ scope.row.sale_id.toString().padStart(4, '0') }}
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-else-if="!scope.row.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                                                    :command="'createSale-' + scope.row.id">
+                                                    <i class="fa-solid fa-gift mr-2 text-emerald-500 w-4"></i>Crear Orden de Venta
+                                                </el-dropdown-item>
                                             </el-dropdown-menu>
                                         </template>
                                     </el-dropdown>
@@ -127,6 +166,25 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal: stock de los productos nuevos al registrar como Muestra/Regalo -->
+        <MuestraProductsStockModal
+            :show="showStockModal"
+            :items="stockModalItems"
+            :processing="isPreparingSale"
+            confirm-text="Crear Orden de Venta"
+            @close="showStockModal = false"
+            @confirm="confirmStockModal"
+        />
+
+        <!-- Capa de carga (sin blur) mientras se registra / crea la Orden de Venta -->
+        <div v-if="isPreparingSale" class="fixed inset-0 z-[9999] bg-gray-900/60 flex items-center justify-center">
+            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center text-center max-w-sm">
+                <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary mb-3"></i>
+                <p class="text-lg font-bold text-gray-800 dark:text-white">Creando Orden de Venta…</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Registrando los productos de la muestra. No cierres esta ventana.</p>
+            </div>
+        </div>
     </AppLayout>
 </template>
 
@@ -134,6 +192,7 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
+import MuestraProductsStockModal from "@/Components/MyComponents/MuestraProductsStockModal.vue";
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -147,6 +206,11 @@ export default {
             search: '',
             selectedItems: [],
             tableData: this.sampleTrackings.data,
+            // Registro de productos nuevos como Muestra/Regalo (modal de stock + capa de carga)
+            showStockModal: false,
+            stockModalItems: [],
+            stockModalRowId: null,
+            isPreparingSale: false,
             SearchProps: ['ID', 'Nombre', 'Cliente', 'Contacto', 'Estatus', 'Solicitante'], // propiedades por las que se puede buscar
         };
     },
@@ -156,6 +220,7 @@ export default {
         SearchInput,
         LoadingIsoLogo,
         SecondaryButton,
+        MuestraProductsStockModal,
     },
     props: {
         sampleTrackings: Object,
@@ -205,7 +270,43 @@ export default {
         },
         handleCommand(command) {
             const [action, id] = command.split('-');
+
+            // Acciones relacionadas con la Orden de Venta de muestra/regalo
+            if (action === 'createSale') {
+                const row = this.tableData.find(item => String(item.id) === String(id));
+                const pending = Array.isArray(row?.pending_proposals) ? row.pending_proposals : [];
+
+                // Si hay productos nuevos sin registrar, primero se pide su stock actual
+                if (pending.length) {
+                    this.stockModalItems = pending;
+                    this.stockModalRowId = id;
+                    this.showStockModal = true;
+                    return;
+                }
+
+                this.submitPrepareSale(id, {});
+                return;
+            }
+            if (action === 'viewSale') {
+                this.$inertia.visit(route('sales.show', id));
+                return;
+            }
+
             this.$inertia.get(route(`sample-trackings.${action}`, id));
+        },
+        // Registra los productos nuevos como "Muestras y regalos" y continúa a la OV
+        submitPrepareSale(id, payload = {}) {
+            this.isPreparingSale = true;
+
+            this.$inertia.post(route('sample-trackings.prepare-sale', id), payload, {
+                onFinish: () => { this.isPreparingSale = false; },
+                onError: () => ElMessage.error('No se pudieron registrar los productos de la muestra.'),
+            });
+        },
+        confirmStockModal(stocks) {
+            const id = this.stockModalRowId;
+            this.showStockModal = false;
+            this.submitPrepareSale(id, { stocks });
         },
         deleteSelections() {
             const ids = this.selectedItems.map(item => item.id);

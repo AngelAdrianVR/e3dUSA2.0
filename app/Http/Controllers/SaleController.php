@@ -3,19 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use App\Models\NewProductProposal;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\Sale;
 use App\Models\SaleProduct;
+use App\Models\SampleTracking;
 use App\Models\StockMovement;
 use App\Models\Storage;
 use App\Notifications\SaleAuthorizedNotification;
+use App\Services\MuestraProductService;
 use App\Services\ShippingRateSuggestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y notificar si está por debajo del minimo permitido
 
@@ -94,6 +98,16 @@ class SaleController extends Controller
                 }
             });
         }
+
+        // Seguimiento de muestra vinculado (para órdenes de tipo muestra/regalo: MUE-xxxx)
+        $sampleTrackingBySale = SampleTracking::whereIn('sale_id', $sales->pluck('id'))
+            ->select('id', 'sale_id')
+            ->get()
+            ->keyBy('sale_id');
+
+        $sales->each(function ($sale) use ($sampleTrackingBySale) {
+            $sale->sample_tracking_id = $sampleTrackingBySale->get($sale->id)?->id;
+        });
         
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
@@ -104,10 +118,14 @@ class SaleController extends Controller
     public function create(Request $request)
     {
         $request->validate([
-            'quote_id' => 'nullable|integer|exists:quotes,id'
+            'quote_id' => 'nullable|integer|exists:quotes,id',
+            'sample_tracking_id' => 'nullable|integer|exists:sample_trackings,id',
         ]);
 
         $quoteToConvertId = intval($request->input('quote_id'));
+
+        // --- ORDEN DE MUESTRA/REGALO: datos del seguimiento de muestra (para prellenar el form) ---
+        $sampleTrackingData = $this->getSampleTrackingDataForSale($request->input('sample_tracking_id'));
 
         $branches = Branch::select('id', 'name')->with('contacts')->get();
 
@@ -135,21 +153,82 @@ class SaleController extends Controller
                     ->select('id', 'name', 'code')
                     ->get();
 
+        // Productos de la categoría "Muestras y regalos": se pueden agregar a las órdenes
+        // de muestra/regalo sin necesidad de estar vinculados a ningún cliente.
+        $muestra_products = Product::where('product_type', 'Muestra')
+                    ->whereNull('archived_at')
+                    ->with('media')
+                    ->select('id', 'name', 'code')
+                    ->get();
+
         return Inertia::render('Sale/Create', [
             'branches' => $branches,
             'quotes' => $quotes,
             'catalog_products' => $catalog_products,
             'quoteToConvertId' => $quoteToConvertId,
+            'sampleTrackingData' => $sampleTrackingData,
+            'muestra_products' => $muestra_products,
         ]);
+    }
+
+    /**
+     * Prepara la información de un seguimiento de muestra para prellenar la Orden de
+     * Venta de Muestra/Regalo (cliente, contacto, productos y notas).
+     *
+     * Los artículos 'nuevos' (NewProductProposal) se envían con su id de propuesta; si ya
+     * fueron registrados en el catálogo (proposal->product_id) se envían como producto normal.
+     */
+    private function getSampleTrackingDataForSale($sampleTrackingId): ?array
+    {
+        if (!$sampleTrackingId) {
+            return null;
+        }
+
+        $sampleTracking = SampleTracking::with(['items.itemable.media'])->whereKey($sampleTrackingId)->first();
+
+        if (!$sampleTracking) {
+            return null;
+        }
+
+        return [
+            'id' => $sampleTracking->id,
+            'name' => $sampleTracking->name,
+            'branch_id' => $sampleTracking->branch_id,
+            'contact_id' => $sampleTracking->contact_id,
+            'will_be_returned' => (bool) $sampleTracking->will_be_returned,
+            'sale_id' => $sampleTracking->sale_id,
+            'items' => $sampleTracking->items->map(function ($item) {
+                $isProposal = $item->itemable_type === NewProductProposal::class;
+
+                return [
+                    'type' => $isProposal ? 'new' : 'catalog',
+                    'product_id' => $isProposal ? $item->itemable?->product_id : $item->itemable_id,
+                    'new_product_proposal_id' => $isProposal ? $item->itemable_id : null,
+                    'name' => $item->itemable?->name ?? 'Producto',
+                    'quantity' => $item->quantity,
+                    'notes' => $item->notes,
+                    'image_url' => $item->itemable && method_exists($item->itemable, 'getFirstMediaUrl')
+                        ? $item->itemable->getFirstMediaUrl('images')
+                        : null,
+                ];
+            })->values()->all(),
+        ];
     }
 
     public function store(Request $request)
     {
         // --- 1. DETERMINAR TIPO Y REGLAS BASE ---
-        $isSaleType = $request->input('type') === 'venta';
+        // 'muestra' = Orden de Venta para muestras que no serán devueltas o productos
+        // regalados. Comparte las reglas de 'venta' (cliente, contacto, logística y
+        // envíos), pero el precio es opcional y NO mueve inventario ni genera producción:
+        // se crea únicamente para poder facturarse.
+        $type = $request->input('type');
+        $isVentaType = $type === 'venta';
+        $isMuestraType = $type === 'muestra';
+        $isSaleType = $isVentaType || $isMuestraType;
 
         $rules = [
-            'type' => ['required', Rule::in(['venta', 'stock'])],
+            'type' => ['required', Rule::in(['venta', 'stock', 'muestra'])],
             'oce_name' => 'nullable|string|max:255|unique:sales,oce_name',
             'notes' => 'nullable|string',
             'currency' => 'nullable|string',
@@ -178,7 +257,12 @@ class SaleController extends Controller
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
             
-            $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
+            // En 'venta' el precio es obligatorio; en 'muestra' es opcional (la empresa puede absorber el costo).
+            $rules['products.*.price'] = $isVentaType ? ['required', 'numeric', 'min:0'] : ['nullable', 'numeric', 'min:0'];
+
+            if ($isMuestraType) {
+                $rules['sample_tracking_id'] = ['nullable', 'exists:sample_trackings,id'];
+            }
 
             $rules['shipments'] = ['required', 'array', 'min:1'];
             $rules['shipments.*.promise_date'] = ['nullable', 'date'];
@@ -198,6 +282,20 @@ class SaleController extends Controller
         // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
 
+        // --- VALIDAR QUE EL SEGUIMIENTO DE MUESTRA NO TENGA YA UNA ORDEN VINCULADA ---
+        // Cada seguimiento de muestra solo puede generar UNA Orden de Venta. Además, la OV de
+        // muestra/regalo hereda el estatus del seguimiento del que proviene.
+        $sampleTrackingForSale = null;
+        if ($isMuestraType && !empty($validated['sample_tracking_id'])) {
+            $sampleTrackingForSale = SampleTracking::whereKey($validated['sample_tracking_id'])->first();
+
+            if ($sampleTrackingForSale?->sale_id) {
+                throw ValidationException::withMessages([
+                    'sample_tracking_id' => 'Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.',
+                ]);
+            }
+        }
+
         DB::beginTransaction();
 
         try {
@@ -205,19 +303,20 @@ class SaleController extends Controller
             $sale = Sale::create([
                 'type' => $validated['type'],
                 'user_id' => auth()->id(),
-                'status' => 'Pendiente', // El status es pendiente por defecto (Esperando Autorización)
-                'has_low_price' => $validated['has_low_price'] ?? false,
+                'status' => $isMuestraType ? ($sampleTrackingForSale?->status ?? 'Pendiente') : 'Pendiente', // En muestra/regalo hereda el estatus del seguimiento
+                // En 'muestra' no aplican precios bajos ni costo de herramental.
+                'has_low_price' => $isMuestraType ? false : ($validated['has_low_price'] ?? false),
                 'oce_name' => $validated['oce_name'] ?? null,
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
-                'tooling_cost' => $validated['tooling_cost'] ?? null,
+                'tooling_cost' => $isMuestraType ? null : ($validated['tooling_cost'] ?? null),
                 'promise_date' => $firstPromiseDate, // Se asigna la fecha del primer envío
                 
                 // Campos que son nulos para 'stock'
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
-                'quote_id' => $validated['quote_id'] ?? null,
+                'quote_id' => $isMuestraType ? null : ($validated['quote_id'] ?? null),
                 'order_via' => $validated['order_via'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
                 'freight_cost' => $validated['freight_cost'] ?? 0,
@@ -228,11 +327,16 @@ class SaleController extends Controller
                 }, 0) : 0,
             ]);
             
-            if ($isSaleType && isset($validated['quote_id'])) {
+            if ($isVentaType && !empty($validated['quote_id'])) {
                 Quote::find($validated['quote_id'])->update([
                     'sale_id' => $sale->id,
                     'status' => 'Aceptada'
                 ]);
+            }
+
+            // --- VINCULAR EL SEGUIMIENTO DE MUESTRA CON LA ORDEN (solo muestra/regalo) ---
+            if ($isMuestraType && !empty($validated['sample_tracking_id'])) {
+                SampleTracking::where('id', $validated['sample_tracking_id'])->update(['sale_id' => $sale->id]);
             }
 
             // --- 4. GUARDAR PRODUCTOS DE LA ORDEN ---
@@ -244,11 +348,12 @@ class SaleController extends Controller
                     'price' => $productData['price'] ?? 0,
                     'notes' => $productData['notes'] ?? null,
                     'customization_details' => $productData['customization_details'] ?? null,
-                    'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
-                    'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
+                    'has_low_price' => $isMuestraType ? false : ($productData['has_low_price'] ?? false), // AGREGADO
+                    'low_price_reason' => $isMuestraType ? null : ($productData['low_price_reason'] ?? null), // AGREGADO
                     'quantity_produced' => 0,
                     'quantity_shipped' => 0,
-                    'quantity_to_produce' => $productData['quantity'],
+                    // En 'muestra' no hay nada que producir: la orden es solo para facturar.
+                    'quantity_to_produce' => $isMuestraType ? 0 : $productData['quantity'],
                 ]);
                 $saleProductsMap[$productData['id']] = $saleProduct->id;
             }
@@ -281,7 +386,13 @@ class SaleController extends Controller
                 }
             }
             // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
+            // NOTA: las órdenes de muestra/regalo NO mueven inventario ni generan
+            // producción; se crean únicamente para poder facturar la muestra/regalo.
             foreach ($validated['products'] as $productData) {
+                if ($isMuestraType) {
+                    continue;
+                }
+
                 // CORRECCIÓN: Cargar parent.components.storages para que las variantes encuentren el stock de sus componentes heredados
                 $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
                 $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
@@ -354,6 +465,13 @@ class SaleController extends Controller
                     }
                 }
             }
+
+            // --- 6b. DESCUENTO DE STOCK DE PRODUCTOS DE "MUESTRAS Y REGALOS" ---
+            // Las piezas de muestra/regalo se descuentan al crear la orden para que queden
+            // comprometidas y no se puedan tomar en otra orden (no generan producción).
+            if ($isMuestraType) {
+                $this->applyMuestraStockForSale($sale);
+            }
             
             // --- 7. MANEJAR ARCHIVOS ADJUNTOS ---
             if ($request->hasFile('oce_media')) {
@@ -368,8 +486,11 @@ class SaleController extends Controller
             // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
             // Se ejecuta después del commit para asegurar que los descuentos 
             // de inventario ya están aplicados en la base de datos.
+            // NOTA: en órdenes de muestra/regalo no hay movimientos de inventario, no aplica.
             // --------------------------------------------------------------------------
-            CheckLowStockAndNotifyJob::dispatch($sale);
+            if (!$isMuestraType) {
+                CheckLowStockAndNotifyJob::dispatch($sale);
+            }
             // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) creada por el usuario " . auth()->id());
@@ -435,6 +556,7 @@ class SaleController extends Controller
             'storages' => $storages,
             'products' => $products,
             'suggestedShippingRates' => (new ShippingRateSuggestionService())->forSale($sale),
+            'linkedSampleTracking' => SampleTracking::where('sale_id', $sale->id)->select('id', 'name', 'status', 'will_be_returned')->first(),
         ]);
     }
 
@@ -466,18 +588,32 @@ class SaleController extends Controller
                     ->select('id', 'name', 'code')
                     ->get();
 
+        // Productos de la categoría "Muestras y regalos": se pueden agregar a las órdenes
+        // de muestra/regalo sin necesidad de estar vinculados a ningún cliente.
+        $muestra_products = Product::where('product_type', 'Muestra')
+                    ->whereNull('archived_at')
+                    ->with('media')
+                    ->select('id', 'name', 'code')
+                    ->get();
+
         return Inertia::render('Sale/Edit', [
             'branches' => $branches,
             'quotes' => $quotes,
             'catalog_products' => $catalog_products,
             'sale' => $sale->load(['branch.contacts', 'saleProducts.product.media', 'shipments.shipmentProducts.saleProduct.product', 'media']),
+            'linkedSampleTracking' => SampleTracking::where('sale_id', $sale->id)->select('id', 'name', 'status', 'will_be_returned')->first(),
+            'muestra_products' => $muestra_products,
         ]);
     }
 
     public function update(Request $request, Sale $sale)
     {
         // --- 1. DETERMINAR TIPO Y REGLAS BASE ---
-        $isSaleType = $sale->type === 'venta';
+        // 'muestra' comparte las reglas de 'venta' (cliente, contacto, logística y envíos),
+        // pero el precio es opcional y NO mueve inventario ni genera producción.
+        $isVentaType = $sale->type === 'venta';
+        $isMuestraType = $sale->type === 'muestra';
+        $isSaleType = $isVentaType || $isMuestraType;
 
         $rules = [
             'oce_name' => 'nullable|string|max:255|unique:sales,oce_name,' . $sale->id,
@@ -508,7 +644,8 @@ class SaleController extends Controller
             $rules['freight_cost'] = ['nullable', 'numeric', 'min:0'];
             $rules['shipping_option'] = ['required', 'string'];
             
-            $rules['products.*.price'] = ['required', 'numeric', 'min:0'];
+            // En 'venta' el precio es obligatorio; en 'muestra' es opcional (la empresa puede absorber el costo).
+            $rules['products.*.price'] = $isVentaType ? ['required', 'numeric', 'min:0'] : ['nullable', 'numeric', 'min:0'];
 
             // Reglas para envíos
             $rules['shipments'] = ['required', 'array', 'min:1'];
@@ -534,8 +671,13 @@ class SaleController extends Controller
         try {
 
             // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
-            if ($isSaleType && method_exists($this, 'revertStockForSale')) {
+            if ($isVentaType && method_exists($this, 'revertStockForSale')) {
                 $this->revertStockForSale($sale);
+            }
+
+            // --- 3b. REVERTIR EL DESCUENTO DE PIEZAS DE "MUESTRAS Y REGALOS" ---
+            if ($isMuestraType) {
+                $this->revertMuestraStockForSale($sale);
             }
 
             // --- 4. ACTUALIZAR LA ORDEN ---
@@ -544,12 +686,13 @@ class SaleController extends Controller
                 'notes' => $validated['notes'] ?? null,
                 'currency' => $validated['currency'] ?? null,
                 'is_high_priority' => $validated['is_high_priority'],
-                'has_low_price' => $validated['has_low_price'] ?? false,
-                'tooling_cost' => $validated['tooling_cost'] ?? null,
+                // En 'muestra' no aplican precios bajos ni costo de herramental.
+                'has_low_price' => $isMuestraType ? false : ($validated['has_low_price'] ?? false),
+                'tooling_cost' => $isMuestraType ? null : ($validated['tooling_cost'] ?? null),
                 'promise_date' => $firstPromiseDate,
                 'branch_id' => $validated['branch_id'] ?? null,
                 'contact_id' => $validated['contact_id'] ?? null,
-                'quote_id' => $validated['quote_id'] ?? null,
+                'quote_id' => $isMuestraType ? null : ($validated['quote_id'] ?? null),
                 'order_via' => $validated['order_via'] ?? null,
                 'freight_option' => $validated['freight_option'] ?? null,
                 'freight_cost' => $validated['freight_cost'] ?? 0,
@@ -580,8 +723,8 @@ class SaleController extends Controller
                         'price' => $productData['price'] ?? 0,
                         'notes' => $productData['notes'] ?? null,
                         'customization_details' => $productData['customization_details'] ?? null,
-                        'has_low_price' => $productData['has_low_price'] ?? false, // AGREGADO
-                        'low_price_reason' => $productData['low_price_reason'] ?? null, // AGREGADO
+                        'has_low_price' => $isMuestraType ? false : ($productData['has_low_price'] ?? false), // AGREGADO
+                        'low_price_reason' => $isMuestraType ? null : ($productData['low_price_reason'] ?? null), // AGREGADO
                     ]
                 );
             }
@@ -637,8 +780,14 @@ class SaleController extends Controller
                 }
             }
 
+            // --- 6b. RE-APLICAR EL DESCUENTO DE PIEZAS DE "MUESTRAS Y REGALOS" ---
+            if ($isMuestraType) {
+                $this->applyMuestraStockForSale($sale);
+            }
+
             // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
-            if ($isSaleType) {
+            // Las órdenes de muestra/regalo no mueven inventario ni generan producción.
+            if ($isVentaType) {
                 foreach ($validated['products'] as $productData) {
                     // CORRECCIÓN: Cargar parent.components.storages igual que en store
                     $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
@@ -703,8 +852,11 @@ class SaleController extends Controller
             // --------------------------------------------------------------------------
             // ---> NUEVO: DESPACHAR EL JOB PARA VERIFICAR STOCK Y NOTIFICAR
             // Se vuelve a ejecutar en update porque los movimientos pudieron alterar el stock
+            // NOTA: en órdenes de muestra/regalo no hay movimientos de inventario, no aplica.
             // --------------------------------------------------------------------------
-             CheckLowStockAndNotifyJob::dispatch($sale);
+            if (!$isMuestraType) {
+                CheckLowStockAndNotifyJob::dispatch($sale);
+            }
             // <--- FIN NUEVO
 
             Log::info("Órden #{$sale->id} (tipo: {$sale->type}) actualizada por el usuario " . auth()->id());
@@ -733,6 +885,14 @@ class SaleController extends Controller
             // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
             if ($sale->quote_id) {
                 Quote::where('id', $sale->quote_id)->update(['sale_id' => null]);
+            }
+
+            // Si la orden provino de un seguimiento de muestra, liberar el vínculo
+            SampleTracking::where('sale_id', $sale->id)->update(['sale_id' => null]);
+
+            // Revertir las piezas de "Muestras y regalos" comprometidas por la orden
+            if ($sale->type === 'muestra') {
+                $this->revertMuestraStockForSale($sale);
             }
 
             // Eliminar la orden y sus relaciones
@@ -772,6 +932,12 @@ class SaleController extends Controller
                     // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
                     if ($sale->quote_id) {
                         Quote::where('id', $sale->quote_id)->update(['sale_id' => null]);
+                    }
+                    // Si la orden provino de un seguimiento de muestra, liberar el vínculo
+                    SampleTracking::where('sale_id', $sale->id)->update(['sale_id' => null]);
+                    // Revertir las piezas de "Muestras y regalos" comprometidas por la orden
+                    if ($sale->type === 'muestra') {
+                        $this->revertMuestraStockForSale($sale);
                     }
                     $sale->delete();
                 }
@@ -846,6 +1012,16 @@ class SaleController extends Controller
             });
         }
 
+        // Seguimiento de muestra vinculado (para órdenes de tipo muestra/regalo: MUE-xxxx)
+        $sampleTrackingBySale = SampleTracking::whereIn('sale_id', $sales->pluck('id'))
+            ->select('id', 'sale_id')
+            ->get()
+            ->keyBy('sale_id');
+
+        $sales->each(function ($sale) use ($sampleTrackingBySale) {
+            $sale->sample_tracking_id = $sampleTrackingBySale->get($sale->id)?->id;
+        });
+
         return response()->json(['items' => $sales], 200);
     }
 
@@ -916,7 +1092,7 @@ class SaleController extends Controller
                     ->map(function ($sale) {
                         return [
                             'id' => $sale->id,
-                            'name' => ($sale->type === 'venta' ? 'OV-' : 'OS-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT) . ' - ' . ($sale->branch ? $sale->branch->name : 'Sin cliente'),
+                            'name' => (($sale->type !== 'stock') ? 'OV-' : 'OS-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT) . ' - ' . ($sale->branch ? $sale->branch->name : 'Sin cliente'),
                         ];
                     });
         return response()->json($sales);
@@ -973,6 +1149,81 @@ class SaleController extends Controller
                             'notes' => "Reversión de material para Orden #{$sale->id}"
                         ]);
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Descuenta del stock las piezas de los productos de la categoría "Muestras y regalos"
+     * en una orden de tipo muestra/regalo. No se genera producción: solo se comprometen
+     * las piezas disponibles del inventario.
+     *
+     * quantity_to_produce guarda la parte que NO había en stock (permite revertir exacto).
+     */
+    private function applyMuestraStockForSale(Sale $sale): void
+    {
+        $sale->load('saleProducts.product.storages');
+
+        foreach ($sale->saleProducts as $saleProduct) {
+            $product = $saleProduct->product;
+
+            if (!$product || $product->product_type !== MuestraProductService::PRODUCT_TYPE) {
+                continue; // Los productos de catálogo no mueven inventario en una muestra
+            }
+
+            $storage = $product->storages->first();
+            $deducted = 0;
+
+            if ($storage && $storage->quantity > 0) {
+                $deducted = min($saleProduct->quantity, $storage->quantity);
+
+                if ($deducted > 0) {
+                    $storage->decrement('quantity', $deducted);
+
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'storage_id' => $storage->id,
+                        'quantity_change' => $deducted,
+                        'type' => 'Salida',
+                        'notes' => "Descuento por Orden de Venta (Muestra/Regalo) #{$sale->id}",
+                    ]);
+                }
+            }
+
+            $saleProduct->update(['quantity_to_produce' => $saleProduct->quantity - $deducted]);
+        }
+    }
+
+    /**
+     * Revierte el descuento de stock de las piezas de "Muestras y regalos" de una orden.
+     */
+    private function revertMuestraStockForSale(Sale $sale): void
+    {
+        $sale->load('saleProducts.product.storages');
+
+        foreach ($sale->saleProducts as $saleProduct) {
+            $product = $saleProduct->product;
+
+            if (!$product || $product->product_type !== MuestraProductService::PRODUCT_TYPE) {
+                continue;
+            }
+
+            $deducted = $saleProduct->quantity - $saleProduct->quantity_to_produce;
+
+            if ($deducted > 0) {
+                $storage = $product->storages->first();
+
+                if ($storage) {
+                    $storage->increment('quantity', $deducted);
+
+                    StockMovement::create([
+                        'product_id' => $product->id,
+                        'storage_id' => $storage->id,
+                        'quantity_change' => $deducted,
+                        'type' => 'Entrada',
+                        'notes' => "Reversión por Orden de Venta (Muestra/Regalo) #{$sale->id}",
+                    ]);
                 }
             }
         }
@@ -1061,8 +1312,9 @@ class SaleController extends Controller
                 $productToNewSaleProductId[$originalItem->product_id] = $newItem->id;
 
                 // --- LÓGICA DE STOCK (Idéntica a store) ---
-                // Determinar si es venta o stock para ajustar la lógica
+                // Determinar si es venta, stock o muestra para ajustar la lógica
                 $isSaleType = $newSale->type === 'venta';
+                $isMuestraType = $newSale->type === 'muestra';
 
                 $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($newItem->product_id);
                 $quantityInTransaction = $newItem->quantity;
@@ -1091,6 +1343,10 @@ class SaleController extends Controller
                             'notes' => "Descuento por Orden de venta (Clon) #{$newSale->id}"
                         ]);
                     }
+                } elseif ($isMuestraType) {
+                    // Las órdenes de muestra/regalo no mueven inventario ni generan producción.
+                    $quantityToProduce = 0;
+                    $newItem->update(['quantity_to_produce' => 0]);
                 } else {
                     // Si es tipo stock, todo es para producir
                     $quantityToProduce = $quantityInTransaction;
@@ -1100,7 +1356,7 @@ class SaleController extends Controller
                 // CORRECCIÓN: igual que en store(), se descuentan los componentes de la cantidad
                 // completa y se usa actual_components para soportar variantes que heredan
                 // componentes del producto padre.
-                if ($product->actual_components->isNotEmpty()) {
+                if (!$isMuestraType && $product->actual_components->isNotEmpty()) {
                     foreach ($product->actual_components as $component) {
                         $requiredQuantity = $component->pivot->quantity * $quantityInTransaction;
                         $componentStorage = $component->storages->first();
@@ -1127,6 +1383,11 @@ class SaleController extends Controller
                         }
                     }
                 }
+            }
+
+            // 2b. DESCONTAR LAS PIEZAS DE "MUESTRAS Y REGALOS" DE LA COPIA
+            if ($newSale->type === 'muestra') {
+                $this->applyMuestraStockForSale($newSale);
             }
 
             // 3. REPLICAR ENVÍOS (Solo si existen)

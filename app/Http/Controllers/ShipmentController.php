@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Sale;
 use App\Models\Shipment;
 use App\Models\SaleProduct;
+use App\Models\SampleTracking;
 use App\Models\ShipmentProduct;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
@@ -176,6 +177,10 @@ class ShipmentController extends Controller
 
         return Inertia::render('Shipment/Show', [
             'sale' => $sale,
+            // El estatus mostrado en las órdenes de muestra/regalo proviene del seguimiento de muestra.
+            'linkedSampleTracking' => $sale->type === 'muestra'
+                ? SampleTracking::where('sale_id', $sale->id)->select('id', 'status', 'will_be_returned')->first()
+                : null,
         ]);
     }
 
@@ -214,6 +219,12 @@ class ShipmentController extends Controller
                 if ($newQty <= 0) {
                     $shipmentProduct->delete();
                     continue; 
+                }
+
+                // En las órdenes de muestra/regalo el stock ya se descontó al crear la orden:
+                // marcar el envío como enviado no mueve inventario.
+                if ($shipment->sale->type === 'muestra') {
+                    continue;
                 }
 
                 $product = $shipmentProduct->saleProduct->product;
@@ -263,6 +274,20 @@ class ShipmentController extends Controller
             
             // 4. Actualiza el estatus general de la venta.
             $shipment->sale->updateStatus();
+
+            // 5. Órdenes de muestra/regalo: cuando TODOS sus envíos quedan en "Enviado", el
+            // seguimiento de muestra del que proviene la orden se marca como "Completado".
+            $sale = $shipment->sale;
+            if ($sale && $sale->type === 'muestra'
+                && $sale->shipments()->where('status', 'Enviado')->exists()
+                && !$sale->shipments()->where('status', '!=', 'Enviado')->exists()) {
+                SampleTracking::where('sale_id', $sale->id)
+                    ->where('status', '!=', 'Completado')
+                    ->update([
+                        'status' => 'Completado',
+                        'completed_at' => now(),
+                    ]);
+            }
         });
 
         return redirect()->back()->with('success', 'El envío ha sido marcado como "Enviado" y el stock ha sido calculado y actualizado correctamente.');
