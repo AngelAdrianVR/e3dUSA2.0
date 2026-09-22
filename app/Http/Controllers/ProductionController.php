@@ -9,6 +9,7 @@ use App\Models\Sale;
 use App\Models\SaleProduct;
 use App\Models\User;
 use App\Notifications\TaskAssignedNotification;
+use App\Services\ShippingRateSuggestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -204,14 +205,19 @@ class ProductionController extends Controller
                     // Check if the operator exists and is not the person creating the task
                     // if ($operator && $operator->id !== auth()->id()) {
                         $production_folio = 'PROD-' . str_pad($production->id, 4, "0", STR_PAD_LEFT);
+                        $sale = $production->saleProduct?->sale;
+                        $sale_folio = $sale
+                            ? 'OV/OS-' . str_pad($sale->id, 4, "0", STR_PAD_LEFT)
+                            : null;
 
-                        // Send the notification
+                        // Send the notification (enlaza al detalle de la producción)
                         $operator->notify(new TaskAssignedNotification(
                             'Nueva Tarea Asignada',
                             $production_folio,
                             'production_task',
-                            route('productions.index'),
-                            $productionTask->name
+                            $sale ? route('productions.show', $sale->id) : route('productions.index'),
+                            $productionTask->name,
+                            $sale_folio
                         ));
                     // }
                 }
@@ -233,6 +239,9 @@ class ProductionController extends Controller
             'contact:id,name,prefix',
             'contact.details',
             'user:id,name,profile_photo_path', // Usuario que creó la venta
+
+            // Información de envío (paquetería, guía, fecha promesa)
+            'shipments',
 
             // Productos de la venta
             'saleProducts.product:id,name,code,measure_unit,parent_id', // Asegúrate de traer 'parent_id'
@@ -261,7 +270,8 @@ class ProductionController extends Controller
         // return $sale;
         // Retornar la vista de Inertia, pasando el objeto 'sale' con todos los datos.
         return Inertia::render('Production/Show', [
-            'sale' => $sale
+            'sale' => $sale,
+            'suggestedShippingRates' => (new ShippingRateSuggestionService())->forSale($sale),
         ]);
     }
 
@@ -366,12 +376,18 @@ class ProductionController extends Controller
                         $operator = User::find($taskData['operator_id']);
                         if ($operator) {
                             $production_folio = 'PROD-' . str_pad($productionModel->id, 4, "0", STR_PAD_LEFT);
+                            $sale = $productionModel->saleProduct?->sale;
+                            $sale_folio = $sale
+                                ? 'OV/OS-' . str_pad($sale->id, 4, "0", STR_PAD_LEFT)
+                                : null;
+
                             $operator->notify(new TaskAssignedNotification(
                                 'Nueva Tarea Asignada',
                                 $production_folio,
                                 'production_task',
-                                route('productions.index'),
-                                $newTask->name
+                                $sale ? route('productions.show', $sale->id) : route('productions.index'),
+                                $newTask->name,
+                                $sale_folio
                             ));
                         }
                     }

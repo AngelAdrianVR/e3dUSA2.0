@@ -18,6 +18,7 @@ class Quote extends Model implements Auditable
         'id', 'status', 'has_low_price', 'receiver', 'department', 'currency', 'tooling_cost',
         'is_tooling_cost_stroked', 'is_freight_cost_stroked', 'freight_option',
         'freight_cost', 'first_production_days', 'notes', 'rejection_reason',
+        'validity', 'payment_terms_notice',
         'customer_responded_at', 'authorized_by_user_id', 'authorized_at',
         'is_spanish_template', 'show_breakdown', 'created_by_customer',
         'has_early_payment_discount', 'early_payment_discount_amount',

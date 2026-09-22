@@ -167,6 +167,13 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Card de Información de Envío (paquetería, guía, fecha promesa y tarifas sugeridas) -->
+                <ShippingTrackingCard
+                    :sale="sale"
+                    :suggested-rates="suggestedShippingRates"
+                    :can-edit-tracking="canEditTracking"
+                />
             </div>
 
             <!-- COLUMNA DERECHA: KANBAN DEL PRODUCTO SELECCIONADO -->
@@ -436,6 +443,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import Empty from "@/Components/MyComponents/Empty.vue";
 import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; 
+import ShippingTrackingCard from "@/Components/MyComponents/ShippingTrackingCard.vue";
 import { Link, router } from "@inertiajs/vue3";
 import { format, formatDistanceToNow, differenceInMinutes, differenceInMilliseconds } from 'date-fns';
 import { ElMessageBox, ElMessage } from 'element-plus';
@@ -446,11 +454,17 @@ export default {
         AppLayout,
         SecondaryButton,
         BranchInfoTooltip,
+        ShippingTrackingCard,
         Empty,
         Link
     },
     props: {
         sale: Object,
+        // Sugerencias de cajas (una por familia de producto de la orden)
+        suggestedShippingRates: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -470,6 +484,10 @@ export default {
         };
     },
     computed: {
+        // Requiere el permiso "Editar información de envío" para editar paquetería/guía
+        canEditTracking() {
+            return this.$page.props.auth.user?.permissions?.includes('Editar información de envío') ?? false;
+        },
         formattedDate() {
             if (!this.sale.created_at) return 'N/A';
             const date = new Date(this.sale.created_at);

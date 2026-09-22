@@ -5,6 +5,8 @@ namespace App\Http\Middleware;
 use App\Models\Attendance;
 use App\Models\AuthorizedDevice;
 use App\Models\Payroll;
+use App\Models\ProductionTask;
+use App\Models\ProjectTask;
 use App\Models\Quote;
 use App\Models\Release; // Importante: Importar el modelo Release
 use App\Models\Sale;
@@ -134,6 +136,58 @@ class HandleInertiaRequests extends Middleware
                 ->exists();
         }
 
+        // --- Tarea de proyecto EN PROCESO del usuario (indicador animado en el sideNav) ---
+        $activeProjectTask = null;
+        if ($user) {
+            $runningTasks = ProjectTask::with('project:id,name')
+                ->where('assigned_to', $user->id)
+                ->where('status', 'En proceso')
+                ->orderByDesc('updated_at')
+                ->get(['id', 'project_id', 'title', 'status', 'updated_at']);
+
+            if ($runningTasks->isNotEmpty()) {
+                $task = $runningTasks->first();
+
+                $activeProjectTask = [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'context' => $task->project?->name,
+                    'count' => $runningTasks->count(),
+                    'url' => route('projects.show', $task->project_id, false) . '?tab=tasks&task=' . $task->id,
+                ];
+            }
+        }
+
+        // --- Tarea de PRODUCCIÓN en proceso del usuario (indicador animado en el sideNav) ---
+        $activeProductionTask = null;
+        if ($user) {
+            $runningProductionTasks = ProductionTask::with(['production:id,sale_product_id,status'])
+                ->where('operator_id', $user->id)
+                // El estatus de tarea se guarda como "En Proceso" (con P mayúscula)
+                ->whereIn('status', ['En Proceso', 'En proceso'])
+                // Si la orden tiene alguna tarea "Sin material", la producción completa pasa a
+                // "Sin material": en ese caso NO se muestra el indicador.
+                ->whereHas('production', fn ($q) => $q->where('status', '!=', 'Sin material'))
+                ->orderByDesc('updated_at')
+                ->get(['id', 'production_id', 'name', 'status', 'updated_at']);
+
+            if ($runningProductionTasks->isNotEmpty()) {
+                $task = $runningProductionTasks->first();
+                $saleId = $task->production?->saleProduct?->sale_id;
+                $saleType = $saleId ? Sale::whereKey($saleId)->value('type') : null;
+
+                $activeProductionTask = [
+                    'id' => $task->id,
+                    'title' => $task->name,
+                    'context' => $saleId
+                        ? (($saleType === 'venta' ? 'OV-' : 'OS-') . str_pad($saleId, 4, '0', STR_PAD_LEFT))
+                        : null,
+                    'count' => $runningProductionTasks->count(),
+                    'url' => $saleId ? route('productions.show', $saleId, false) : null,
+                ];
+            }
+        }
+
         return array_merge(parent::share($request), [
             'auth' => [
                 'user' => $user ? [
@@ -156,6 +210,8 @@ class HandleInertiaRequests extends Middleware
             'popupRelease' => $popupRelease, // <--- AQUÍ PASAMOS LA VARIABLE AL FRONTEND
             'pending_quote_notifications' => $pendingQuoteNotifications,
             'pending_sale_notifications' => $pendingSaleNotifications,
+            'active_project_task' => $activeProjectTask,
+            'active_production_task' => $activeProductionTask,
             'flash' => function () use ($request) {
                 return [
                     'success' => $request->session()->get('success'),

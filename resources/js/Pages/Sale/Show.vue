@@ -310,50 +310,13 @@
                     </div>
                 </div>
 
-                <!-- Card de Información de Envío (NUEVA SECCIÓN) -->
-                <div v-if="sale.shipments?.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4 flex items-center">
-                        <i class="fa-solid fa-truck-fast mr-2"></i> Información de Envío
-                    </h3>
-                    <div v-for="(shipment, index) in sale.shipments" :key="shipment.id" class="mb-4 last:mb-0 border-b dark:border-gray-700 last:border-0 pb-3 last:pb-0">
-                        <p class="text-xs font-bold text-gray-500 uppercase mb-2">Envío #{{ index + 1 }} - {{ shipment.status }}</p>
-                        <ul class="space-y-3 text-sm">
-                            <li class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">Paquetería:</span>
-                                <span>{{ shipment.shipping_company ?? '-' }}</span>
-                            </li>
-                            <li class="flex justify-between items-center">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">No. Guía:</span>
-                                <div class="flex items-center space-x-2">
-                                    <span :class="shipment.tracking_guide ? 'font-mono bg-gray-100 dark:bg-gray-700 px-1 rounded' : ''">
-                                        {{ shipment.tracking_guide ?? '-' }}
-                                    </span>
-                                    <button @click="openGuideModal(shipment)" class="text-blue-500 hover:text-blue-700 text-xs p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900" title="Editar Guía">
-                                        <i class="fa-solid fa-pencil"></i>
-                                    </button>
-                                </div>
-                            </li>
-                            <li class="flex justify-between">
-                                <span class="font-semibold text-gray-600 dark:text-gray-400">
-                                    Fecha promesa de embarque:
-                                </span>
-                                <span>
-                                    {{ formatDateOnly(shipment.promise_date) }}
-                                </span>
-                            </li>
-                        </ul>
-                    </div>
-                     <!-- Botón de Seguimiento (Visible solo si hay al menos un envío) -->
-                    <div class="mt-4 pt-2 border-t dark:border-gray-600">
-                        <PrimaryButton 
-                            @click="$inertia.visit(route('shipments.show', sale.id))"
-                            :disabled="!['Preparando Envío', 'Enviada'].includes(sale.status)"
-                            class="w-full justify-center !text-xs"
-                        >
-                            Seguimiento de envío <i class="fa-solid fa-arrow-right ml-2"></i>
-                        </PrimaryButton>
-                    </div>
-                </div>
+                <!-- Card de Información de Envío (paquetería, guía, fecha promesa y tarifas sugeridas) -->
+                <ShippingTrackingCard
+                    :sale="sale"
+                    :suggested-rates="suggestedShippingRates"
+                    :can-edit-tracking="canEditTracking"
+                    show-tracking-button
+                />
 
             </div>
 
@@ -589,35 +552,6 @@
             </template>
         </DialogModal>
         
-        <!-- === MODAL PARA REGISTRAR/EDITAR GUIA DE ENVÍO === -->
-        <DialogModal :show="showGuideModal" @close="showGuideModal = false">
-            <template #title>
-                Información de Rastreo
-            </template>
-            <template #content>
-                <form @submit.prevent="submitGuide" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Paquetería</label>
-                        <input v-model="guideForm.shipping_company" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ej. DHL, FedEx, PaqueteExpress..." />
-                        <p v-if="guideForm.errors.shipping_company" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.shipping_company }}</p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Número de Guía</label>
-                        <input v-model="guideForm.tracking_guide" type="text" class="w-full rounded-md border-gray-300 dark:bg-slate-800 text-sm" placeholder="Ingresa el número de rastreo..." />
-                        <p v-if="guideForm.errors.tracking_guide" class="text-red-500 text-[11px] mt-1">{{ guideForm.errors.tracking_guide }}</p>
-                    </div>
-                </form>
-            </template>
-            <template #footer>
-                <div class="flex space-x-2">
-                    <CancelButton @click="showGuideModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="submitGuide" :disabled="guideForm.processing">
-                        Guardar Información
-                    </PrimaryButton>
-                </div>
-            </template>
-        </DialogModal>
-
         <!-- Modal de Confirmación para Eliminar (Sin cambios) -->
         <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
             <template #title>
@@ -657,6 +591,7 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import DialogModal from "@/Components/DialogModal.vue";
 import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; // <-- NUEVO COMPONENTE
+import ShippingTrackingCard from "@/Components/MyComponents/ShippingTrackingCard.vue"; // <-- Tarjeta de envío reutilizable
 import AuthorizedOrderLockedModal from "@/Components/MyComponents/AuthorizedOrderLockedModal.vue";
 import { useForm } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
@@ -682,12 +617,17 @@ export default {
         ProductSaleCard,
         ConfirmationModal,
         BranchInfoTooltip, // <-- REGISTRADO
+        ShippingTrackingCard,
         AuthorizedOrderLockedModal,
     },
     props: {
         sale: Object,
         storages: Array,
         products: Array,
+        suggestedShippingRates: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -713,15 +653,13 @@ export default {
                 evidence_images: [],
             }),
             
-            showGuideModal: false,
-            guideForm: useForm({
-                shipment_id: null,
-                shipping_company: '',
-                tracking_guide: '',
-            }),
         };
     },
     computed: {
+        // Requiere el permiso "Editar información de envío" para editar paquetería/guía
+        canEditTracking() {
+            return this.$page.props.auth.user?.permissions?.includes('Editar información de envío') ?? false;
+        },
         oceMediaFiles() {
             return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
         },
@@ -759,6 +697,17 @@ export default {
             if (!number) return '';
             const digits = number.toString().replace(/\D/g, '');
             return digits.match(/.{1,2}/g)?.join('-') || '';
+        },
+        // Formatea medidas/pesos sin ceros innecesarios (12.50 -> 12.5, 40.00 -> 40)
+        formatMeasure(value) {
+            const num = Number(value);
+            if (value === null || value === undefined || isNaN(num)) return value ?? '-';
+            if (Number.isInteger(num)) return String(num);
+            return num.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+        },
+        // Indica si esa tarifa de la familia forma parte de la sugerencia calculada
+        isSuggestedBox(suggestion, quantity) {
+            return (suggestion.boxes || []).some(box => box.quantity === quantity);
         },
         getContactDetails(contact, type) {
             if (!contact?.details) return [];
@@ -872,23 +821,6 @@ export default {
             } finally {
                 this.loadingSales = false;
             }
-        },
-        openGuideModal(shipment) {
-            this.guideForm.shipment_id = shipment.id;
-            this.guideForm.shipping_company = shipment.shipping_company;
-            this.guideForm.tracking_guide = shipment.tracking_guide;
-            this.showGuideModal = true;
-        },
-        submitGuide() {
-            this.guideForm.put(route('shipments.update-tracking', this.guideForm.shipment_id), {
-                onSuccess: () => {
-                    this.showGuideModal = false;
-                    ElMessage.success('Guía actualizada correctamente');
-                },
-                onError: () => {
-                    ElMessage.error('Error al actualizar la guía.');
-                }
-            });
         }
     },
     mounted() {

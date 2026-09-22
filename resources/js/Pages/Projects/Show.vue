@@ -4,6 +4,14 @@
             <div class="max-w-[110rem] mx-auto sm:px-6 lg:px-8">
                 <div class="overflow-hidden sm:rounded-lg min-h-[calc(100vh-120px)] flex flex-col">
 
+                    <!-- INDICADOR DE PRIORIDAD -->
+                    <div v-if="isUrgent"
+                        class="priority-urgent flex items-center gap-3 bg-gradient-to-r from-red-600 via-red-500 to-rose-500 text-white px-6 py-2.5">
+                        <i class="fa-solid fa-triangle-exclamation text-lg animate-pulse"></i>
+                        <span class="font-extrabold uppercase tracking-widest text-sm">Proyecto urgente</span>
+                        <span class="hidden sm:inline text-xs text-red-100">Requiere atención prioritaria</span>
+                    </div>
+
                     <!-- HEADER -->
                     <div class="p-6 pb-4 border-b dark:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div class="flex items-start gap-3">
@@ -13,6 +21,13 @@
                             <div class="min-w-0">
                                 <h2 class="font-bold text-2xl text-gray-800 dark:text-gray-200 leading-tight flex items-center gap-3 flex-wrap">
                                     {{ project.name }}
+                                    <span v-if="isUrgent"
+                                        class="priority-badge text-[10px] font-bold text-white bg-red-600 border border-red-700 shadow px-2 py-0.5 rounded-full">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i>URGENTE
+                                    </span>
+                                    <span v-else class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                                        <i class="fa-solid fa-flag mr-1"></i>Normal
+                                    </span>
                                     <span v-if="memberRole === 'Colaborador'" class="text-[10px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">Colaborador</span>
                                     <span v-else-if="memberRole === 'Administrador'" class="text-[10px] font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">Administrador</span>
                                 </h2>
@@ -24,6 +39,11 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
+                            <button v-if="canEdit" @click="showWorkload = true"
+                                class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 dark:hover:bg-slate-600 transition text-sm"
+                                title="Ver la carga de tareas por usuario">
+                                <i class="fa-solid fa-scale-balanced"></i> Carga de usuarios
+                            </button>
                             <button v-if="canEdit" @click="openEditProject"
                                 class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 dark:hover:bg-slate-600 transition text-sm">
                                 <i class="fa-solid fa-pen"></i> Editar proyecto
@@ -107,10 +127,32 @@
                                                         <p class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{{ member.name }}</p>
                                                         <p class="text-[10px] text-gray-400">{{ member.roleLabel }}</p>
                                                     </div>
+
+                                                    <!-- Confirmación: ¿ya abrió el proyecto? -->
+                                                    <el-tooltip v-if="member.id !== project.created_by" placement="top" effect="dark">
+                                                        <template #content>
+                                                            <span v-if="member.pivot?.first_viewed_at" class="text-xs">
+                                                                Abrió el proyecto el {{ formatDateTime(member.pivot.first_viewed_at) }}
+                                                            </span>
+                                                            <span v-else class="text-xs">Aún no ha abierto el proyecto</span>
+                                                        </template>
+                                                        <span v-if="member.pivot?.first_viewed_at" class="shrink-0 text-emerald-500 cursor-help">
+                                                            <i class="fa-solid fa-circle-check"></i>
+                                                        </span>
+                                                        <span v-else class="shrink-0 text-amber-500 cursor-help">
+                                                            <i class="fa-regular fa-circle-question"></i>
+                                                        </span>
+                                                    </el-tooltip>
+
                                                     <i v-if="member.id === project.created_by" class="fa-solid fa-crown text-amber-400" title="Creador"></i>
                                                 </div>
                                             </div>
                                             <p class="text-[11px] text-gray-400 mt-3 leading-relaxed border-t border-gray-200 dark:border-slate-700 pt-2">
+                                                <i class="fa-solid fa-envelope-circle-check text-emerald-500 mr-1"></i>
+                                                {{ viewedMembersCount }} de {{ allMembers.length }} miembros ya abrieron el proyecto
+                                                (<span class="text-emerald-500">✓</span> abierto · <span class="text-amber-500">?</span> pendiente).
+                                            </p>
+                                            <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">
                                                 <i class="fa-solid fa-circle-info text-blue-500 mr-1"></i>
                                                 <strong>Colaborador</strong>: ver y comentar · <strong>Administrador</strong>: editar datos y crear/mover tareas. Todos comentan.
                                             </p>
@@ -133,7 +175,7 @@
                                         </button>
                                     </div>
                                 </div>
-                                <KanbanBoard :tasks="tasks" :can-edit="canEdit" :member-role="memberRole" :current-user-id="currentUserId" @update-status="handleStatusUpdate" @task-click="openTask" />
+                                <KanbanBoard :tasks="tasks" :can-edit="canEdit" :member-role="memberRole" :current-user-id="currentUserId" :can-see-time="canSeeTaskTime" @update-status="handleStatusUpdate" @task-click="openTask" />
                             </el-tab-pane>
 
                             <!-- ============ TAB: GANTT ============ -->
@@ -150,7 +192,15 @@
         <ProjectFormModal :show="showProjectFormModal" :project="editingProject" :users="activeUsers" @close="showProjectFormModal = false" @saved="showProjectFormModal = false" />
 
         <!-- Modal tarea -->
-        <TaskModal :show="showTaskModal" :task="selectedTask" :project="project" :can-edit="canEdit" :is-member="isMember" @close="closeTaskModal" />
+        <TaskModal :show="showTaskModal" :task="selectedTask" :project="project" :can-edit="canEdit" :is-member="isMember"
+            :can-see-task-time="canSeeTaskTime" @close="closeTaskModal" />
+
+        <!-- Modal: finalizar tarea con evidencia obligatoria -->
+        <TaskEvidenceModal :show="showEvidenceModal" :task="finishTask" :project-id="project.id"
+            @close="showEvidenceModal = false" @finished="onTaskFinished" />
+
+        <!-- Drawer: carga de tareas por usuario (saturación) -->
+        <WorkloadDrawer v-model="showWorkload" />
     </AppLayout>
 </template>
 
@@ -165,6 +215,8 @@ import FileView from '@/Components/MyComponents/FileView.vue';
 import KanbanBoard from './Partials/KanbanBoard.vue';
 import GanttChart from './Partials/GanttChart.vue';
 import TaskModal from './Partials/TaskModal.vue';
+import TaskEvidenceModal from './Partials/TaskEvidenceModal.vue';
+import WorkloadDrawer from './Partials/WorkloadDrawer.vue';
 import ProjectFormModal from './Partials/ProjectFormModal.vue';
 
 const props = defineProps({
@@ -173,6 +225,8 @@ const props = defineProps({
     canDelete: { type: Boolean, default: false },
     memberRole: { type: String, default: null },
     isMember: { type: Boolean, default: false },
+    // Solo los Administradores del proyecto ven el tiempo invertido y la evidencia
+    canSeeTaskTime: { type: Boolean, default: false },
     activeUsers: { type: Array, default: () => [] },
 });
 
@@ -194,6 +248,21 @@ const showProjectFormModal = ref(false);
 const editingProject = ref(null);
 const showTaskModal = ref(false);
 const selectedTask = ref(null);
+
+// Finalizar con evidencia obligatoria (drag & drop a "Terminada")
+const showEvidenceModal = ref(false);
+const finishTask = ref(null);
+
+// Drawer de carga de tareas por usuario (saturación)
+const showWorkload = ref(false);
+
+// Prioridad del proyecto (indicador visual)
+const isUrgent = computed(() => props.project.priority === 'Urgente');
+
+// Miembros que ya abrieron el proyecto (confirmación de invitación vista)
+const viewedMembersCount = computed(() =>
+    allMembers.value.filter(m => m.pivot?.first_viewed_at || m.id === props.project.created_by).length
+);
 
 const tasks = computed(() => props.project.tasks || []);
 
@@ -261,7 +330,22 @@ const closeTaskModal = () => {
     selectedTask.value = null;
 };
 
+// Mantiene el modal abierto sincronizado cuando Inertia recarga los datos (ej. al calificar o finalizar)
+watch(() => props.project.tasks, (tasks) => {
+    if (!selectedTask.value) return;
+
+    const updated = (tasks || []).find(t => t.id === selectedTask.value.id);
+    if (updated) selectedTask.value = updated;
+});
+
 const handleStatusUpdate = ({ task, newStatus, position }) => {
+    // Al pasar a "Terminada" se exige evidencia (foto, documento o video)
+    if (newStatus === 'Terminada' && !taskHasEvidence(task)) {
+        finishTask.value = task;
+        showEvidenceModal.value = true;
+        return;
+    }
+
     router.post(route('projects.tasks.update-status', [props.project.id, task.id]), {
         status: newStatus,
         position,
@@ -270,6 +354,15 @@ const handleStatusUpdate = ({ task, newStatus, position }) => {
         onSuccess: () => ElMessage.success('Tarea movida a ' + newStatus),
         onError: (errors) => ElMessage.error(errors.status || errors.assigned_to || 'No se pudo mover la tarea.'),
     });
+};
+
+// ¿La tarea ya tiene evidencia de finalización?
+const taskHasEvidence = (task) => Number(task.evidence_count || 0) > 0
+    || (task.media || []).some(m => m.collection_name === 'evidence');
+
+const onTaskFinished = () => {
+    showEvidenceModal.value = false;
+    finishTask.value = null;
 };
 
 // Si llegamos con ?task={id} (desde una notificación de tarea), abrir el modal una sola vez.
@@ -295,6 +388,11 @@ const formatDate = (d) => {
     return new Date(d).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const formatDateTime = (d) => {
+    if (!d) return '—';
+    return new Date(d).toLocaleString('es-MX', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
 const formatMoney = (value) => {
     if (value === null || value === undefined) return '—';
     const num = Number(value);
@@ -313,5 +411,30 @@ const formatMoney = (value) => {
 }
 .dark .el-tabs__nav-wrap::after {
     background-color: #334155;
+}
+
+/* ===== Indicador de prioridad URGENTE (muy visible) ===== */
+@keyframes priority-strip-pulse {
+    0%, 100% { box-shadow: inset 0 -3px 0 0 rgba(255, 255, 255, .35); }
+    50%      { box-shadow: inset 0 -3px 0 0 rgba(255, 255, 255, .9); }
+}
+@keyframes priority-badge-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .55); }
+    50%      { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.priority-urgent {
+    animation: priority-strip-pulse 1.8s ease-in-out infinite;
+}
+
+.priority-badge {
+    animation: priority-badge-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .priority-urgent,
+    .priority-badge {
+        animation: none;
+    }
 }
 </style>

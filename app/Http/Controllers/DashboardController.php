@@ -371,6 +371,11 @@ class DashboardController extends Controller
                 $task->can_edit = $task->project->canEdit($authUser);
                 $task->is_member = $task->project->isMember($authUser)
                     || (int) $task->project->created_by === (int) $authUser->id;
+
+                // El tiempo invertido solo lo ven los Administradores del proyecto
+                if (!$task->project->isProjectAdmin($authUser)) {
+                    $task->makeHidden(['time_spent_seconds', 'timer_started_at', 'completion_notes']);
+                }
             });
 
         return Inertia::render('Dashboard/Index', [

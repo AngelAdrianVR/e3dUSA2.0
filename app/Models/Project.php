@@ -17,8 +17,10 @@ class Project extends Model implements HasMedia
     protected $fillable = [
         'name', 'description', 'budget', 'currency',
         'start_date', 'tentative_end_date', 'actual_end_date',
-        'created_by',
+        'created_by', 'priority',
     ];
+
+    public const PRIORITIES = ['Normal', 'Urgente'];
 
     protected $casts = [
         'budget' => 'decimal:2',
@@ -41,7 +43,7 @@ class Project extends Model implements HasMedia
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'project_user')
-            ->withPivot('role')
+            ->withPivot('role', 'first_viewed_at')
             ->withTimestamps();
     }
 
@@ -80,6 +82,33 @@ class Project extends Model implements HasMedia
     public function isCreator(User $user): bool
     {
         return (int) $this->created_by === (int) $user->id;
+    }
+
+    /**
+     * ¿Es Administrador del proyecto? (rol dentro del proyecto, creador o Super Administrador).
+     * Estos usuarios son los únicos que ven el tiempo invertido y la evidencia de las tareas.
+     */
+    public function isProjectAdmin(User $user): bool
+    {
+        return $this->isCreator($user)
+            || $this->memberRole($user) === 'Administrador'
+            || $user->hasRole('Super Administrador');
+    }
+
+    /**
+     * Marca la primera vez que un miembro abre el proyecto (confirmación visual en el detalle).
+     */
+    public function markMemberViewed(User $user): void
+    {
+        if ($this->isCreator($user)) {
+            return;
+        }
+
+        $member = $this->members()->whereKey($user->id)->first();
+
+        if ($member && $member->pivot->first_viewed_at === null) {
+            $this->members()->updateExistingPivot($user->id, ['first_viewed_at' => now()]);
+        }
     }
 
     /**

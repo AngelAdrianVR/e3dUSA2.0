@@ -23,19 +23,33 @@
                             <PrimaryButton v-if="canCreate" @click="openCreate" class="!py-2">
                                 <i class="fa-solid fa-plus mr-2"></i> Nuevo proyecto
                             </PrimaryButton>
+                            <button v-if="canCreate" @click="showWorkload = true"
+                                class="flex items-center gap-2 bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-lg shadow hover:bg-slate-700 dark:hover:bg-slate-600 transition text-sm"
+                                title="Ver la carga de tareas por usuario">
+                                <i class="fa-solid fa-scale-balanced"></i> Carga de usuarios
+                            </button>
                         </div>
                     </div>
 
                     <!-- TABLA DE PROYECTOS -->
                     <div v-if="projectList.length" class="flex-1">
-                        <el-table :data="projectList" stripe class="w-full" @row-dblclick="openShow">
+                        <el-table :data="projectList" stripe class="w-full cursor-pointer" :row-class-name="rowClassName" @row-click="openShow">
                             <!-- Proyecto -->
                             <el-table-column label="Proyecto" min-width="240">
                                 <template #default="{ row }">
-                                    <Link :href="route('projects.show', row.id)"
-                                        class="font-semibold text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition line-clamp-2">
-                                        {{ row.name }}
-                                    </Link>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <Link :href="route('projects.show', row.id)" @click.stop
+                                            class="font-semibold text-gray-800 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition line-clamp-2">
+                                            {{ row.name }}
+                                        </Link>
+                                        <span v-if="row.priority === 'Urgente'"
+                                            class="priority-badge shrink-0 text-[10px] font-bold text-white bg-red-600 px-1.5 py-0.5 rounded-full">
+                                            <i class="fa-solid fa-triangle-exclamation mr-0.5"></i>URGENTE
+                                        </span>
+                                        <span v-else class="shrink-0 text-[10px] font-semibold text-gray-500 bg-gray-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-full">
+                                            Normal
+                                        </span>
+                                    </div>
                                     <p v-if="row.description" class="text-xs text-gray-400 truncate mt-0.5 max-w-sm">{{ row.description }}</p>
                                 </template>
                             </el-table-column>
@@ -95,15 +109,15 @@
                             <el-table-column label="" width="150" align="right">
                                 <template #default="{ row }">
                                     <div class="flex items-center justify-end gap-1">
-                                        <button @click="openShow(row)" title="Ver proyecto"
+                                        <button @click.stop="openShow(row)" title="Ver proyecto"
                                             class="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition">
                                             <i class="fa-solid fa-eye"></i>
                                         </button>
-                                        <button v-if="canEditProject(row)" @click="openEdit(row)" title="Editar"
+                                        <button v-if="canEditProject(row)" @click.stop="openEdit(row)" title="Editar"
                                             class="p-2 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition">
                                             <i class="fa-solid fa-pen"></i>
                                         </button>
-                                        <button v-if="canDeleteProject(row)" @click="confirmDelete(row)" title="Eliminar"
+                                        <button v-if="canDeleteProject(row)" @click.stop="confirmDelete(row)" title="Eliminar"
                                             class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition">
                                             <i class="fa-solid fa-trash-can"></i>
                                         </button>
@@ -148,6 +162,9 @@
                 </DangerButton>
             </template>
         </el-dialog>
+
+        <!-- Drawer: carga de tareas por usuario (saturación) -->
+        <WorkloadDrawer v-model="showWorkload" />
     </AppLayout>
 </template>
 
@@ -160,6 +177,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import ProjectFormModal from './Partials/ProjectFormModal.vue';
+import WorkloadDrawer from './Partials/WorkloadDrawer.vue';
 
 const props = defineProps({
     projects: { type: Object, required: true },
@@ -173,7 +191,13 @@ const currentUser = page.props.auth.user;
 
 const projectList = computed(() => props.projects.data || []);
 
+// Resalta la fila de los proyectos urgentes
+const rowClassName = ({ row }) => (row.priority === 'Urgente' ? 'urgent-row' : '');
+
 const searchForm = ref({ search: props.filters?.search || '' });
+
+// Drawer de carga de tareas por usuario (saturación)
+const showWorkload = ref(false);
 
 const showFormModal = ref(false);
 const editingProject = ref(null);
@@ -274,3 +298,26 @@ const formatMoney = (project) => {
     return num.toLocaleString(currency === 'USD' ? 'en-US' : 'es-MX', { style: 'currency', currency });
 };
 </script>
+
+<style>
+/* ===== Proyectos urgentes: fila resaltada y badge con pulso ===== */
+.el-table .urgent-row {
+    --el-table-tr-bg-color: #fef2f2;
+}
+.dark .el-table .urgent-row {
+    --el-table-tr-bg-color: rgba(127, 29, 29, .28);
+}
+
+@keyframes priority-badge-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .5); }
+    50%      { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.priority-badge {
+    animation: priority-badge-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .priority-badge { animation: none; }
+}
+</style>

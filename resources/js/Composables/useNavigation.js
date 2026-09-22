@@ -61,12 +61,13 @@ export function useNavigation(route) {
         {
             label: 'Logistica',
             icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" /></svg>',
-            active: route().current('shipments.*'),
+            active: route().current('shipments.*') || route().current('shipping-rates.*'),
             options: [
                 { label: 'Envíos', route: 'shipments.index', show: can('Ver envios'), active: route().current('shipments.*'), },
+                { label: 'Tarifas', route: 'shipping-rates.index', show: can('Ver tarifas'), active: route().current('shipping-rates.*'), },
             ],
             dropdown: true,
-            show: can('Ver envios')
+            show: can('Ver envios') || can('Ver tarifas')
         },
         {
             label: 'Recursos Humanos',
@@ -101,30 +102,19 @@ export function useNavigation(route) {
             icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0M12 12.75h.008v.008H12v-.008Z" /></svg>',
             route: route('productions.index'),
             active: route().current('productions.*'),
-            show: true
+            show: true,
+            // Tarea de PRODUCCIÓN en proceso del usuario (indicador animado en el menú)
+            taskInProgress: page.props.active_production_task ?? null,
         },
         {
-            label: 'Tareas',
+            label: 'Proyectos',
             icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>',
+            route: route('projects.index'),
             active: route().current('projects.*'),
-            // || route().current('pms.*'),
-            options: [
-                {
-                    label: 'Proyectos',
-                    route: 'projects.index',
-                    active: route().current('projects.*'),
-                    show: can('Ver proyectos'),
-                },
-                // {
-                //     label: 'Tareas generales',
-                //     route: 'pms.index',
-                //     active: route().current('pms.*'),
-                //     show: can('Ver pms'),
-                // },
-            ],
-            dropdown: true,
-            show: can('Ver proyectos')
-            // || can('Ver pms')
+            dropdown: false,
+            show: can('Ver proyectos'),
+            // Tarea de proyecto EN PROCESO del usuario (indicador animado en el menú)
+            taskInProgress: page.props.active_project_task ?? null,
         },
         {
             label: 'Más',

@@ -65,6 +65,12 @@
                             <h3 class="text-md font-bold text-gray-900 dark:text-white">{{ production.sale_product.product.name }}</h3>
                             <p class="font-mono text-xs text-gray-500 dark:text-gray-400">{{ production.sale_product.product.code }}</p>
 
+                            <!-- Notas del producto (agregadas al crear la orden de venta) -->
+                            <div v-if="production.sale_product.notes" class="mt-2 text-xs italic bg-amber-50 dark:bg-amber-900/30 p-2 rounded-md border border-dashed border-amber-300 dark:border-amber-800">
+                                <strong class="font-semibold not-italic text-amber-800 dark:text-amber-300">Notas del producto:</strong>
+                                <span class="text-amber-700 dark:text-amber-400 whitespace-pre-line">{{ production.sale_product.notes }}</span>
+                            </div>
+
                             <div class="mt-3 grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p class="font-semibold text-gray-600 dark:text-gray-300 text-xs">Cantidad total de la venta:</p>

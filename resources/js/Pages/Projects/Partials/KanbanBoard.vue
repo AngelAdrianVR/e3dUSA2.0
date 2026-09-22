@@ -23,6 +23,8 @@
                     :key="task.id"
                     :task="task"
                     :can-drag="canDragTask(task)"
+                    :can-see-time="canSeeTime"
+                    :tick="tick"
                     @drag-start="setDraggedTask"
                     @card-click="$emit('task-click', $event)"
                 />
@@ -39,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { ElMessage } from 'element-plus';
 import TaskCard from './TaskCard.vue';
 
@@ -48,9 +50,26 @@ const props = defineProps({
     canEdit: { type: Boolean, default: false },
     memberRole: { type: String, default: null },
     currentUserId: { type: Number, default: null },
+    // Solo los Administradores del proyecto ven el tiempo invertido
+    canSeeTime: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update-status', 'task-click']);
+
+// Reloj compartido: hace avanzar en vivo los cronómetros de las tarjetas
+const tick = ref(Date.now());
+let tickInterval = null;
+
+onMounted(() => {
+    tick.value = Date.now();
+    tickInterval = setInterval(() => {
+        tick.value = Date.now();
+    }, 10000);
+});
+
+onBeforeUnmount(() => {
+    if (tickInterval) clearInterval(tickInterval);
+});
 
 const draggedTask = ref(null);
 

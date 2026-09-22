@@ -689,4 +689,25 @@ class QuoteController extends Controller
         $quoteProduct->update(['customer_approval_status' => $request->status]);
         return response()->json(['message' => 'Estatus del producto actualizado con éxito.']);
     }
+
+    /**
+     * Actualiza el aviso de condiciones de pago visible al cliente en la cotización.
+     * Valores permitidos: 'advance' (pago por anticipado), 'split_50_50' (50% anticipo / 50% contra entrega)
+     * o NULL para no mostrar ningún aviso.
+     */
+    public function updatePaymentTermsNotice(Request $request, Quote $quote)
+    {
+        $validated = $request->validate([
+            'payment_terms_notice' => 'nullable|in:advance,split_50_50',
+        ]);
+
+        $quote->update([
+            'payment_terms_notice' => $validated['payment_terms_notice'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => 'Aviso de condiciones de pago actualizado.',
+            'payment_terms_notice' => $quote->payment_terms_notice,
+        ]);
+    }
 }

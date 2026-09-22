@@ -97,9 +97,9 @@ const closeSearch = () => {
 const allNotifications = computed(() => page.props.auth.user.notifications || []);
 
 // Aquí define las clases de notificaciones que pertenecen al dropdown de Tareas
+// Notificaciones que se muestran en "Notificaciones de tareas": SOLO las de proyectos.
+// Cualquier otra (producción, ventas, etc.) cae en las notificaciones generales.
 const taskClasses = [
-    'App\\Notifications\\TaskAssignedNotification',
-    'App\\Notifications\\PmsTaskAssignedNotification',
     'App\\Notifications\\ProjectAssignedNotification',
     'App\\Notifications\\ProjectTaskAssignedNotification',
     'App\\Notifications\\ProjectTaskMentionedNotification',
@@ -555,9 +555,21 @@ onMounted(() => {
                                     :dropdown="menu.dropdown"
                                     @click="menu.dropdown ? null : (showingNavigationDropdown = false)">
                                     <template #icon>
-                                        <span v-html="menu.icon"></span>
+                                        <span class="relative inline-flex">
+                                            <span v-html="menu.icon"></span>
+                                            <!-- Tarea de proyecto en proceso -->
+                                            <span v-if="menu.taskInProgress" class="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+                                            </span>
+                                        </span>
                                     </template>
                                     {{ menu.label }}
+                                    <span v-if="menu.taskInProgress"
+                                        class="ml-2 text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                                        :title="menu.taskInProgress.title">
+                                        tarea en proceso
+                                    </span>
                                     <template v-if="menu.dropdown" #content>
                                         <Link v-for="option in menu.options.filter(opt => opt.show)" 
                                             :key="option.label" 

@@ -10,6 +10,7 @@ use App\Models\SaleProduct;
 use App\Models\StockMovement;
 use App\Models\Storage;
 use App\Notifications\SaleAuthorizedNotification;
+use App\Services\ShippingRateSuggestionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -433,6 +434,7 @@ class SaleController extends Controller
             'sale' => $sale,
             'storages' => $storages,
             'products' => $products,
+            'suggestedShippingRates' => (new ShippingRateSuggestionService())->forSale($sale),
         ]);
     }
 

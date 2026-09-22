@@ -111,6 +111,47 @@
                     {{ quote.is_spanish_template ? 'Por medio de la presente reciba un cordial saludo y a su vez le proporciono la cotización que nos solicitó, con base en la plática sostenida con ustedes y sabiendo de sus condiciones del producto a aplicar:' : 'Through this letter, receive a cordial greeting, and at the same time, I provide you with the quote you requested, based on our conversation and understanding the conditions of the product to be applied:' }}
                 </p>
 
+                <!-- SELECTOR RÁPIDO: AVISO DE CONDICIONES DE PAGO (solo en pantalla, no se imprime) -->
+                <div v-show="showAdditionalElements" class="mb-5 print:hidden">
+                    <div class="flex flex-wrap items-center justify-center gap-2 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50/70 px-4 py-3 shadow-sm">
+                        <span class="text-[11px] font-extrabold uppercase tracking-wider text-amber-700">
+                            <i class="fa-solid fa-credit-card mr-1"></i>
+                            {{ quote.is_spanish_template ? 'Aviso de pago al cliente' : 'Customer payment notice' }}:
+                        </span>
+                        <button v-for="option in paymentTermsOptions" :key="option.key" type="button"
+                            @click="setPaymentTermsNotice(option.value)"
+                            :disabled="savingPaymentTerms"
+                            class="px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            :class="(quote.payment_terms_notice || null) === option.value
+                                ? 'bg-amber-500 border-amber-500 text-white scale-105'
+                                : 'bg-white border-amber-300 text-amber-700 hover:bg-amber-100'">
+                            <i class="mr-1" :class="option.icon"></i>{{ option.label }}
+                        </button>
+                        <i v-if="savingPaymentTerms" class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+                    </div>
+                </div>
+
+                <!-- AVISO DE CONDICIONES DE PAGO (visible también en la impresión) -->
+                <section v-if="quote.payment_terms_notice" class="mb-6 print:break-inside-avoid"
+                         style="page-break-inside: avoid; break-inside: avoid;">
+                    <div class="relative overflow-hidden rounded-xl border-2 border-amber-400 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 shadow-md">
+                        <div class="absolute inset-y-0 left-0 w-2 bg-amber-500"></div>
+                        <div class="flex items-center gap-4 py-4 pl-7 pr-5">
+                            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-lg print:w-10 print:h-10">
+                                <i class="fa-solid fa-hand-holding-dollar text-2xl print:text-lg"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-extrabold uppercase tracking-widest text-amber-700">
+                                    {{ quote.is_spanish_template ? 'Aviso importante' : 'Important notice' }}
+                                </p>
+                                <p class="text-base sm:text-lg font-extrabold text-amber-900 leading-snug print:text-sm">
+                                    {{ paymentTermsNoticeText }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Promoción -->
                 <section v-if="quote.has_early_payment_discount" class="mb-6">
                     <div class="flex items-start space-x-2">
@@ -264,11 +305,40 @@ export default {
             showTaxes: false,
             taxPercentage: 16,
             showVariantToggles: false,
+            savingPaymentTerms: false,
         }
     },
     computed: {
         tabTitle() {
             return `Cot. ${this.quote.root_quote_id}-v${this.quote.version} - ${this.quote.branch.name}`;
+        },
+        // Opciones del aviso de condiciones de pago (A: anticipado, B: 50/50, C: no mostrar)
+        paymentTermsOptions() {
+            const isSpanish = this.quote.is_spanish_template;
+            return [
+                { key: 'advance', value: 'advance', label: isSpanish ? 'A) Anticipado' : 'A) Advance', icon: 'fa-solid fa-money-bill-wave' },
+                { key: 'split_50_50', value: 'split_50_50', label: isSpanish ? 'B) 50% / 50%' : 'B) 50% / 50%', icon: 'fa-solid fa-scale-balanced' },
+                { key: 'none', value: null, label: isSpanish ? 'C) Ocultar' : 'C) Hide', icon: 'fa-solid fa-eye-slash' },
+            ];
+        },
+        // Texto del aviso que verá el cliente, según la plantilla (español / inglés)
+        paymentTermsNoticeText() {
+            const notice = this.quote.payment_terms_notice;
+            const isSpanish = this.quote.is_spanish_template;
+
+            if (notice === 'advance') {
+                return isSpanish
+                    ? 'Estos precios son válidos en pagos por anticipado.'
+                    : 'These prices are valid for advance payments.';
+            }
+
+            if (notice === 'split_50_50') {
+                return isSpanish
+                    ? 'Estos precios son válidos con el 50% de anticipo y 50% en contra entrega.'
+                    : 'These prices are valid with 50% down payment and 50% on delivery.';
+            }
+
+            return '';
         },
         taxAmount() {
             if (!this.showTaxes) return 0;
@@ -301,6 +371,28 @@ export default {
                 }
             } catch (err) {
                 ElMessage({ title: 'Error al actualizar', message: err.response?.data?.message || 'No se pudo cambiar el estatus del producto.', type: 'error' });
+            }
+        },
+        async setPaymentTermsNotice(value) {
+            if (this.savingPaymentTerms) return;
+            if ((this.quote.payment_terms_notice || null) === value) return;
+
+            this.savingPaymentTerms = true;
+            try {
+                const response = await axios.put(route('quotes.payment-terms-notice', this.quote.id), { payment_terms_notice: value });
+                if (response.status === 200) {
+                    router.reload({
+                        preserveScroll: true,
+                        preserveState: true,
+                        onSuccess: () => {
+                            ElMessage({ message: response.data.message || 'Aviso actualizado.', type: 'success' });
+                        }
+                    });
+                }
+            } catch (err) {
+                ElMessage({ title: 'Error al actualizar', message: err.response?.data?.message || 'No se pudo guardar el aviso de condiciones de pago.', type: 'error' });
+            } finally {
+                this.savingPaymentTerms = false;
             }
         },
         printQuote() {

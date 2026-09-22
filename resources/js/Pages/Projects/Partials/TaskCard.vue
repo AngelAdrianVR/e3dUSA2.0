@@ -48,6 +48,21 @@
                 <template v-if="task.due_date">→ {{ formatDate(task.due_date) }}</template>
             </span>
             <div class="flex items-center gap-3">
+                <!-- Tiempo invertido: solo lo ven los Administradores del proyecto -->
+                <span v-if="canSeeTime" class="flex items-center gap-1"
+                    :class="task.is_timer_running ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''"
+                    :title="task.is_timer_running ? 'Tiempo invertido (cronómetro en marcha)' : 'Tiempo invertido'">
+                    <i :class="task.is_timer_running ? 'fa-solid fa-stopwatch' : 'fa-regular fa-clock'"></i>
+                    {{ formattedTime }}
+                </span>
+                <span v-if="task.evidence_count" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400" title="Tiene evidencia de finalización">
+                    <i class="fa-solid fa-clipboard-check"></i>
+                </span>
+                <!-- Calificación del desempeño (visible para todos) -->
+                <span v-if="task.rating" class="flex items-center gap-1 font-semibold text-amber-500"
+                    :title="`Calificación del jefe de proyecto: ${task.rating}/5`">
+                    <i class="fa-solid fa-star"></i>{{ task.rating }}
+                </span>
                 <span v-if="task.media?.length" class="flex items-center gap-1" :title="`${task.media.length} archivo(s)`">
                     <i class="fa-solid fa-paperclip"></i>{{ task.media.length }}
                 </span>
@@ -80,7 +95,43 @@ import { computed } from 'vue';
 const props = defineProps({
     task: { type: Object, required: true },
     canDrag: { type: Boolean, default: true },
+    // Solo los Administradores del proyecto ven el tiempo invertido
+    canSeeTime: { type: Boolean, default: false },
+    // Marca de tiempo del reloj compartido del tablero (para que el cronómetro avance en vivo)
+    tick: { type: Number, default: 0 },
 });
+
+const mountedAt = Date.now();
+
+// Tiempo invertido: acumulado del servidor + lo transcurrido desde que se pintó la tarjeta
+const elapsedSeconds = computed(() => {
+    const base = Number(props.task.total_time_seconds || 0);
+
+    if (!props.task.is_timer_running) {
+        return base;
+    }
+
+    const reference = props.tick || Date.now();
+    return base + Math.max(0, Math.floor((reference - mountedAt) / 1000));
+});
+
+const formattedTime = computed(() => formatSeconds(elapsedSeconds.value));
+
+// Formatea segundos como "2h 15m", "45m" o "<1m"
+const formatSeconds = (totalSeconds) => {
+    const seconds = Math.max(0, Number(totalSeconds) || 0);
+    if (seconds < 60) return '<1m';
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    if (hours < 24) return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
+
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+};
 
 const emit = defineEmits(['card-click', 'drag-start']);
 

@@ -44,6 +44,7 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\SampleTrackingController;
 use App\Http\Controllers\ShipmentController;
+use App\Http\Controllers\ShippingRateController;
 use App\Http\Controllers\SparePartController;
 use App\Http\Controllers\StockProjectionController;
 use App\Http\Controllers\StockRepositionController;
@@ -227,6 +228,7 @@ Route::post('quotes/massive-delete', [QuoteController::class, 'massiveDelete'])-
 Route::get('quotes-fetch-branch-quotes/{branch}', [QuoteController::class, 'fetchBranchQuotes'])->middleware('auth')->name('quotes.branch-quotes');
 Route::get('quotes/{quote}/details-for-sale', [QuoteController::class, 'getDetailsForSale'])->middleware(['auth'])->name('quotes.details-for-sale');
 Route::put('/quotes/products/{quoteProduct}/updateStatus', [QuoteController::class, 'updateProductStatus'])->middleware('auth')->name('quotes.products.updateStatus');
+Route::put('quotes/{quote}/payment-terms-notice', [QuoteController::class, 'updatePaymentTermsNotice'])->middleware('auth')->name('quotes.payment-terms-notice');
 
 
 // ------- CRM(Ordenes de venta Routes)  ---------
@@ -299,7 +301,13 @@ Route::post('shipments/{shipment}/evidence', [ShipmentController::class, 'storeE
 Route::put('shipments/products/{shipmentProduct}/quantity', [ShipmentController::class, 'updateProductQuantity'])->middleware('auth')->name('shipments.update-product-quantity');
 Route::put('shipments/{shipment}/date', [ShipmentController::class, 'updateDate'])->name('shipments.update-date');
 Route::put('shipments/{shipment}/notes', [ShipmentController::class, 'updateNotes'])->name('shipments.update-notes');
-
+// ------- (Rutas de tarifas de envío / fichas de especificaciones de caja)  ---------
+Route::resource('shipping-rates', ShippingRateController::class)
+    ->only(['index', 'store', 'update', 'destroy'])
+    ->middleware('auth');
+Route::put('product-families/{productFamily}/sat-code', [ShippingRateController::class, 'updateFamilySatCode'])
+    ->middleware('auth')
+    ->name('product-families.sat-code');
 // ------- (Rutas de proveedores)  ---------
 Route::resource('suppliers', SupplierController::class)->middleware('auth');
 Route::post('suppliers/massive-delete', [SupplierController::class, 'massiveDelete'])->middleware('auth')->name('suppliers.massive-delete');
@@ -526,6 +534,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [ProjectController::class, 'index'])->name('index');
         Route::post('/', [ProjectController::class, 'store'])->name('store');
 
+        // Carga de tareas por usuario (drawer de saturación). Va ANTES de /{project}
+        Route::get('/workload', [ProjectController::class, 'workload'])->name('workload');
+
         // Detalle del proyecto (pestañas: Información, Tareas, Gantt)
         Route::get('/{project}', [ProjectController::class, 'show'])->name('show');
         Route::put('/{project}', [ProjectController::class, 'update'])->name('update');
@@ -543,6 +554,12 @@ Route::middleware(['auth'])->group(function () {
 
         // Ruta optimizada para arrastrar y soltar (Drag & Drop) en el Kanban
         Route::post('/{project}/tasks/{task}/status', [ProjectTaskController::class, 'updateStatus'])->name('tasks.update-status');
+
+        // Finalizar tarea con evidencia obligatoria (máx. 3 archivos) y notas opcionales
+        Route::post('/{project}/tasks/{task}/finish', [ProjectTaskController::class, 'finish'])->name('tasks.finish');
+
+        // Calificar el desempeño de la tarea (solo el creador del proyecto)
+        Route::post('/{project}/tasks/{task}/rating', [ProjectTaskController::class, 'rateTask'])->name('tasks.rating');
 
         // Comentarios con menciones (devuelve JSON para insertar sin recargar)
         Route::post('/{project}/tasks/{task}/comments', [ProjectTaskController::class, 'storeComment'])->name('tasks.comments.store');

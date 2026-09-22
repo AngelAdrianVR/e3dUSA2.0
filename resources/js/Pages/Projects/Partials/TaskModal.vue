@@ -65,9 +65,52 @@
                         <p v-if="form.errors.files" class="text-red-500 text-xs mt-1">{{ form.errors.files }}</p>
                     </div>
 
-                    <div v-if="isEditing && task.media?.length" class="space-y-2">
+                    <!-- Tiempo invertido: solo Administradores del proyecto -->
+                    <div v-if="isEditing && canSeeTaskTime"
+                        class="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg px-3 py-2">
+                        <i class="fa-solid fa-stopwatch text-emerald-600 dark:text-emerald-400"></i>
+                        <p class="text-sm">
+                            <span class="font-semibold text-emerald-700 dark:text-emerald-300">Tiempo invertido:</span>
+                            <span class="font-bold ml-1">{{ formattedTime }}</span>
+                            <span v-if="task.is_timer_running" class="ml-2 text-[11px] text-emerald-600 dark:text-emerald-400">(cronómetro en marcha)</span>
+                        </p>
+                    </div>
+
+                    <!-- Evidencia obligatoria al finalizar (solo si aún no existe) -->
+                    <div v-if="requiresEvidence"
+                        class="space-y-2 border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3">
+                        <label class="block text-sm font-medium text-amber-800 dark:text-amber-300">
+                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                            Evidencia de finalización * <span class="font-normal">(foto, documento o video · máx. 3)</span>
+                        </label>
+                        <FileUploader :multiple="true" format="Todo" :max-files="3" :max-file-size="20" @files-selected="onEvidenceSelected" />
+                        <!-- Mensaje de validación dentro del modal (los toasts quedan detrás del dialog) -->
+                        <div v-if="evidenceFeedback"
+                            class="flex items-start gap-2 rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/30 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                            <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+                            <span>{{ evidenceFeedback }}</span>
+                        </div>
+                        <textarea v-model="form.completion_notes" rows="2"
+                            class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm resize-y"
+                            placeholder="Notas de finalización (opcional)"></textarea>
+                    </div>
+
+                    <div v-if="isEditing && filesMedia.length" class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Archivos actuales</label>
-                        <FileView v-for="file in task.media" :key="file.id" :file="file" deletable @delete-file="removeTaskFile(file.id)" />
+                        <FileView v-for="file in filesMedia" :key="file.id" :file="file" deletable @delete-file="removeTaskFile(file.id)" />
+                    </div>
+
+                    <!-- Evidencia de finalización: solo Administradores del proyecto -->
+                    <div v-if="isEditing && canSeeTaskTime && (evidenceMedia.length || task.completion_notes)"
+                        class="space-y-2 border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-900/10 rounded-lg p-3">
+                        <label class="block text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                            <i class="fa-solid fa-lock mr-1"></i> Evidencia de finalización
+                            <span class="font-normal text-[11px]">(visible solo para Administradores)</span>
+                        </label>
+                        <FileView v-for="file in evidenceMedia" :key="file.id" :file="file" />
+                        <p v-if="task.completion_notes" class="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                            <span class="font-semibold">Notas de finalización:</span> {{ task.completion_notes }}
+                        </p>
                     </div>
 
                     <div class="flex items-center gap-3 pt-1">
@@ -100,6 +143,73 @@
                         <FileView v-for="file in task.media" :key="file.id" :file="file" />
                     </div>
                 </template>
+
+                <!-- ===== CALIFICACIÓN DEL DESEMPEÑO ===== 
+                     Todos los miembros la ven; solo quien creó el proyecto puede calificar/editar. -->
+                <div v-if="isEditing" class="border-t border-gray-200 dark:border-zinc-700 pt-4">
+                    <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-star text-amber-400"></i> Calificación del desempeño
+                        <span class="text-xs text-gray-400 font-normal">(tiempo, resultados y eficiencia)</span>
+                    </h4>
+
+                    <div class="bg-amber-50/70 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/40 rounded-lg p-3 space-y-2">
+                        <!-- Estrellas -->
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <div class="flex items-center gap-1">
+                                <button v-for="star in 5" :key="star" type="button" :disabled="!canRate"
+                                    @click="setRating(star)" @mouseenter="hoverRating = star" @mouseleave="hoverRating = 0"
+                                    class="text-xl leading-none transition-transform"
+                                    :class="[
+                                        canRate ? 'hover:scale-110 cursor-pointer' : 'cursor-default',
+                                        (hoverRating || displayRating) >= star ? 'text-amber-400' : 'text-gray-300 dark:text-slate-600'
+                                    ]"
+                                    :title="canRate ? `Calificar con ${star} estrellas` : 'Solo el jefe de proyecto puede calificar'">
+                                    <i class="fa-solid fa-star"></i>
+                                </button>
+                            </div>
+                            <span class="text-sm font-bold text-gray-700 dark:text-gray-200">
+                                {{ displayRating ? displayRating + '/5' : 'Sin calificar' }}
+                            </span>
+                            <span v-if="canRate" class="text-[11px] text-amber-700 dark:text-amber-400">
+                                <i class="fa-solid fa-crown mr-1"></i>Eres el jefe de proyecto
+                            </span>
+                        </div>
+
+                        <!-- Edición (solo creador del proyecto) -->
+                        <template v-if="canRate">
+                            <textarea v-model="ratingForm.rating_note" rows="2"
+                                class="w-full px-3 py-2 bg-white dark:bg-zinc-800 border border-gray-300 dark:border-zinc-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm resize-y"
+                                placeholder="Nota opcional sobre el desempeño del colaborador"></textarea>
+                            <p v-if="ratingForm.errors.rating" class="text-red-500 text-xs">{{ ratingForm.errors.rating }}</p>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <PrimaryButton @click="submitRating" :disabled="ratingForm.processing || !ratingForm.rating"
+                                    :class="{ 'opacity-50': ratingForm.processing || !ratingForm.rating }">
+                                    <i class="fa-solid fa-star mr-2"></i>{{ task.rating ? 'Actualizar calificación' : 'Guardar calificación' }}
+                                </PrimaryButton>
+                                <!-- Confirmación dentro del modal (los toasts quedan detrás del dialog) -->
+                                <span v-if="ratingFeedback === 'ok'" class="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                    <i class="fa-solid fa-circle-check mr-1"></i>Calificación guardada
+                                </span>
+                                <span v-else-if="ratingFeedback === 'error'" class="text-[11px] font-semibold text-red-600 dark:text-red-400">
+                                    <i class="fa-solid fa-circle-exclamation mr-1"></i>No se pudo guardar la calificación
+                                </span>
+                                <span v-if="task.rating" class="text-[11px] text-gray-500">
+                                    Calificada por {{ task.rated_by?.name || 'el jefe de proyecto' }}
+                                    <template v-if="task.rated_at"> el {{ formatDateTime(task.rated_at) }}</template>
+                                </span>
+                            </div>
+                        </template>
+
+                        <!-- Vista de solo lectura para el resto de usuarios -->
+                        <template v-else>
+                            <p v-if="task.rating_note" class="text-xs text-gray-600 dark:text-gray-300 italic whitespace-pre-wrap">
+                                “{{ task.rating_note }}”
+                            </p>
+                            <p v-else class="text-xs text-gray-400">Sin nota del jefe de proyecto.</p>
+                            <p v-if="!task.rating" class="text-xs text-gray-400">El jefe de proyecto aún no ha calificado esta tarea.</p>
+                        </template>
+                    </div>
+                </div>
 
                 <!-- ===== COMENTARIOS (solo en tareas existentes; todos los miembros pueden comentar) ===== -->
                 <div v-if="isEditing" class="border-t border-gray-200 dark:border-zinc-700 pt-4">
@@ -181,6 +291,8 @@ const props = defineProps({
     project: { type: Object, required: true },
     canEdit: { type: Boolean, default: false },
     isMember: { type: Boolean, default: false },
+    // Solo los Administradores del proyecto ven el tiempo invertido y la evidencia
+    canSeeTaskTime: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close', 'task-saved']);
@@ -206,6 +318,85 @@ const statusTagType = computed(() => {
     return map[props.task?.status] || 'info';
 });
 
+// Archivos normales vs evidencia de finalización (colecciones separadas de Media Library)
+const filesMedia = computed(() => (props.task?.media || []).filter(m => m.collection_name !== 'evidence'));
+const evidenceMedia = computed(() => (props.task?.media || []).filter(m => m.collection_name === 'evidence'));
+
+const hasEvidence = computed(() => Number(props.task?.evidence_count || 0) > 0 || evidenceMedia.value.length > 0);
+
+// Se pide evidencia al finalizar solo si la tarea aún no tiene ninguna
+const requiresEvidence = computed(() => isEditing.value && props.canEdit && form.status === 'Terminada' && !hasEvidence.value);
+
+// Mensaje de validación de evidencia visible DENTRO del modal
+const evidenceError = ref('');
+
+const evidenceFeedback = computed(() => evidenceError.value
+    || form.errors.evidence
+    || form.errors['evidence.0']
+    || form.errors.status);
+
+const onEvidenceSelected = (files) => {
+    form.evidence = files;
+    evidenceError.value = '';
+};
+
+// ===== Calificación del desempeño =====
+// Solo puede calificar quien creó el proyecto (los demás solo la ven)
+const canRate = computed(() => isEditing.value
+    && !!props.project?.created_by
+    && Number(props.project.created_by) === Number(currentUser?.id));
+
+const hoverRating = ref(0);
+const ratingFeedback = ref(null); // 'ok' | 'error'
+
+const ratingForm = useForm({
+    rating: 0,
+    rating_note: '',
+});
+
+const displayRating = computed(() => hoverRating.value || ratingForm.rating || props.task?.rating || 0);
+
+const setRating = (star) => {
+    if (!canRate.value) return;
+    ratingForm.rating = star;
+    ratingFeedback.value = null;
+};
+
+const submitRating = () => {
+    if (!ratingForm.rating) {
+        ratingForm.setError('rating', 'Selecciona de 1 a 5 estrellas.');
+        return;
+    }
+
+    ratingForm.post(route('projects.tasks.rating', [props.project.id, props.task.id]), {
+        preserveScroll: true,
+        onSuccess: () => {
+            ratingFeedback.value = 'ok';
+        },
+        onError: () => {
+            ratingFeedback.value = 'error';
+        },
+    });
+};
+
+// Tiempo invertido en formato legible
+const formattedTime = computed(() => formatSeconds(props.task?.total_time_seconds || 0));
+
+const formatSeconds = (totalSeconds) => {
+    const seconds = Math.max(0, Number(totalSeconds) || 0);
+    if (seconds < 60) return '<1m';
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    if (hours < 24) return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
+
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+};
+
 // ===== Formulario de la tarea =====
 const emptyTaskForm = () => ({
     title: '',
@@ -215,6 +406,8 @@ const emptyTaskForm = () => ({
     status: 'Pendiente',
     assigned_to: null,
     files: [],
+    evidence: [],
+    completion_notes: '',
 });
 
 const form = useForm(emptyTaskForm());
@@ -223,6 +416,7 @@ const resetForm = () => {
     form.clearErrors();
     Object.assign(form, emptyTaskForm());
     form.files = [];
+    form.evidence = [];
 
     if (props.task) {
         form.title = props.task.title;
@@ -231,6 +425,11 @@ const resetForm = () => {
         form.due_date = props.task.due_date ? String(props.task.due_date).slice(0, 10) : '';
         form.status = props.task.status || 'Pendiente';
         form.assigned_to = props.task.assigned_to || null;
+        form.completion_notes = props.task.completion_notes || '';
+        ratingForm.rating = props.task.rating || 0;
+        ratingForm.rating_note = props.task.rating_note || '';
+        ratingForm.clearErrors();
+        ratingFeedback.value = null;
     }
 };
 
@@ -243,6 +442,16 @@ watch(() => props.show, (open) => {
 });
 
 const submit = () => {
+    evidenceError.value = '';
+
+    // Al finalizar una tarea se exige evidencia (foto, documento o video)
+    if (isEditing.value && form.status === 'Terminada' && !hasEvidence.value) {
+        if (!form.evidence.length) {
+            evidenceError.value = 'Debes adjuntar al menos una evidencia (foto, documento o video) para finalizar la tarea.';
+            return;
+        }
+    }
+
     const options = {
         preserveScroll: true,
         onSuccess: () => {
