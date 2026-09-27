@@ -108,7 +108,7 @@
                                     <a v-if="scope.row.sale_id" @click.stop="$inertia.visit(route('sales.show', scope.row.sale_id))"
                                         class="text-blue-500 hover:underline font-semibold flex items-center gap-1">
                                         <i class="fa-solid fa-gift text-emerald-500 text-xs"></i>
-                                        OV-{{ scope.row.sale_id.toString().padStart(4, '0') }}
+                                        OM-{{ scope.row.sale_id.toString().padStart(4, '0') }}
                                     </a>
                                     <span v-else class="text-xs text-gray-400">—</span>
                                 </template>
@@ -142,7 +142,7 @@
                                                     <i class="fa-solid fa-lock mr-2 text-gray-400 w-4"></i>Ya existe una OV vinculada
                                                 </el-dropdown-item>
                                                 <el-dropdown-item v-if="scope.row.sale_id" :command="'viewSale-' + scope.row.sale_id">
-                                                    <i class="fa-solid fa-file-invoice mr-2 text-emerald-500 w-4"></i>Ver OV-{{ scope.row.sale_id.toString().padStart(4, '0') }}
+                                                    <i class="fa-solid fa-file-invoice mr-2 text-emerald-500 w-4"></i>Ver OM-{{ scope.row.sale_id.toString().padStart(4, '0') }}
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
                                                     v-else-if="!scope.row.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"

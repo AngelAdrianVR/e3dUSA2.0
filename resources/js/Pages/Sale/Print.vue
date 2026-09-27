@@ -1,5 +1,5 @@
 <template>
-    <Head :title="'OV-' + sale.id.toString().padStart(4, '0')" />
+    <Head :title="(sale.type === 'muestra' ? 'OM-' : 'OV-') + sale.id.toString().padStart(4, '0')" />
     <div class="bg-gray-100 dark:bg-gray-800 min-h-screen font-sans">
         <!-- Controles de la página (se ocultan al imprimir) -->
         <div class="p-4 bg-white dark:bg-slate-900 shadow-md print:hidden flex justify-between items-center">
@@ -23,7 +23,7 @@
             <header class="flex justify-between items-start pb-5 border-b border-gray-200 dark:border-slate-700">
                 <div class="text-gray-800 dark:text-gray-200">
                     <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ sale.type === 'venta' ? 'Orden de Venta' : (sale.type === 'muestra' ? 'Orden de Venta (Muestra/Regalo)' : 'Orden de stock') }}</h1>
-                    <p v-if="sale.type !== 'stock'" class="text-lg font-semibold text-blue-600">OV-{{ sale.id.toString().padStart(4, '0') }}</p>
+                    <p v-if="sale.type !== 'stock'" class="text-lg font-semibold text-blue-600">{{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') }}</p>
                     <p v-else class="text-lg font-semibold text-blue-600">OS-{{ sale.id.toString().padStart(4, '0') }}</p>
                     <p v-if="sale.quote_id" class="text-sm">Cotización Relacionada: COT-{{ sale.quote_id.toString().padStart(4, '0') }}</p>
                 </div>

@@ -25,7 +25,7 @@ class InvoiceController extends Controller
         ->get();
 
     // Pestaña 1: Todas las facturas registradas.
-    $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
+    $invoices = Invoice::with(['sale:id,branch_id,type', 'sale.branch:id,name'])
         // Filtramos por cliente si el ID está presente
         ->when($clientId, function ($query) use ($clientId) {
             $query->where('branch_id', $clientId);
@@ -110,6 +110,7 @@ class InvoiceController extends Controller
             $lastInvoice = $sale->invoices->last();
             return [
                 'id' => $sale->id,
+                'type' => $sale->type, // Para mostrar el folio OM- en órdenes de muestra/regalo
                 'total_amount' => $sale->total_amount,
                 'branch_id' => $sale->branch_id,
                 'currency' => $sale->currency,
@@ -156,7 +157,7 @@ class InvoiceController extends Controller
         // Carga todas las relaciones necesarias, incluyendo las otras facturas de la misma venta.
         $invoice->load([
             'sale' => function ($query) {
-                $query->select('id', 'branch_id', 'contact_id', 'currency', 'total_amount')
+                $query->select('id', 'branch_id', 'contact_id', 'currency', 'total_amount', 'type')
                     // Cargar las facturas relacionadas directamente desde la venta
                     ->with(['invoices' => function($q) {
                         $q->select('id', 'sale_id', 'folio', 'status', 'amount', 'installment_number', 'total_installments')
@@ -209,6 +210,7 @@ class InvoiceController extends Controller
             $lastInvoice = $sale->invoices->last();
             return [
                 'id' => $sale->id,
+                'type' => $sale->type, // Para mostrar el folio OM- en órdenes de muestra/regalo
                 'total_amount' => $sale->total_amount,
                 'branch_id' => $sale->branch_id,
                 'currency' => $sale->currency,

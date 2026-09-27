@@ -4,7 +4,7 @@
             <el-table-column label="Folio OV" width="120">
                 <template #default="scope">
                     <a class="text-blue-500 hover:underline" :href="route('sales.show', scope.row.id)" target="_blank">
-                        OV-{{ scope.row.id.toString().padStart(4, '0') }}
+                        {{ scope.row.type === 'muestra' ? 'OM-' : 'OV-' }}{{ scope.row.id.toString().padStart(4, '0') }}
                     </a>
                 </template>
             </el-table-column>

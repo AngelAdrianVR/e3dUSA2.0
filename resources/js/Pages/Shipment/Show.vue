@@ -1,12 +1,12 @@
 <template>
-    <AppLayout :title="`Detalles de Envío para la Órden OV-${sale.id.toString().padStart(4, '0')}`">
+    <AppLayout :title="`Detalles de Envío para la Órden ${sale.type === 'muestra' ? 'OM-' : 'OV-'}${sale.id.toString().padStart(4, '0')}`">
         <!-- === ENCABEZADO === -->
         <header class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 pb-4 mb-1">
             <div>
                 <div class="flex space-x-2 items-center">
                     <h1 class="dark:text-white font-bold text-2xl my-2 flex items-center flex-wrap gap-2">
                         <span>
-                            <span class="text-gray-500 dark:text-gray-400">Envíos de la Órden:</span> OV-{{ sale.id.toString().padStart(4, '0') }}
+                            <span class="text-gray-500 dark:text-gray-400">Envíos de la Órden:</span> {{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') }}
                         </span>
                         <!-- Tipo de orden: solo se marca si es Muestra/Regalo -->
                         <el-tag v-if="sale.type === 'muestra'" type="success" size="small">
@@ -649,7 +649,7 @@ export default {
             // Inyectarlo en la nueva ventana
             const printWindow = window.open('', '_blank', 'width=1056,height=816');
             printWindow.document.write(`
-                <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiquetas OV-${this.sale.id}</title>
+                <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiquetas ${this.sale.type === 'muestra' ? 'OM-' : 'OV-'}${this.sale.id}</title>
                 <script src="https://cdn.tailwindcss.com"><\/script>
                 <style>
                     @media print { 

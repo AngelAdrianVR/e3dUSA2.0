@@ -57,7 +57,8 @@ class BillingNotification extends Notification
         // Esta información alimentará tu campana de notificaciones
         return [
             'title' => 'Facturación Requerida',
-            'folio' => 'OV-' . $this->sale->id,
+            // Folio: OM- para las órdenes de muestra/regalo.
+            'folio' => ($this->sale->type === 'muestra' ? 'OM-' : 'OV-') . $this->sale->id,
             'type' => 'facturacion',
             'url' => route('billing.dashboard'), // Los enviará directamente al nuevo dashboard
             'message' => $this->messageContent,

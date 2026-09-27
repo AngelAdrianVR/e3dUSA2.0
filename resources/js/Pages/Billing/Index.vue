@@ -158,7 +158,7 @@
                                     class="hover:bg-indigo-50/50 cursor-pointer dark:hover:bg-slate-800/50 transition-colors">
                                     
                                     <td class="px-2 py-3">
-                                        <span @click.stop="$inertia.visit(route('sales.show', sale.id))" class="font-semibold text-indigo-600 hover:underline hover:text-blue-600 dark:text-indigo-400">OV-{{ sale.id }}</span>
+                                        <span @click.stop="$inertia.visit(route('sales.show', sale.id))" class="font-semibold text-indigo-600 hover:underline hover:text-blue-600 dark:text-indigo-400">{{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id }}</span>
                                         <!-- Indicador: órdenes de muestra/regalo (el resto se deja igual) -->
                                         <el-tooltip v-if="sale.type === 'muestra'" content="Orden de Muestra/Regalo" placement="top">
                                             <i class="fa-solid fa-gift text-emerald-500 ml-2"></i>

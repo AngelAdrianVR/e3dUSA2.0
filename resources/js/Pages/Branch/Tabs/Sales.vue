@@ -256,7 +256,7 @@ export default {
             return 'fa-solid fa-cart-shopping text-purple-500';
         },
         getTypeFolio(row) {
-            const prefix = row.type === 'stock' ? 'OS-' : 'OV-';
+            const prefix = row.type === 'stock' ? 'OS-' : (row.type === 'muestra' ? 'OM-' : 'OV-');
             return prefix + row.id.toString().padStart(4, '0');
         },
         handleRowClick(row) {

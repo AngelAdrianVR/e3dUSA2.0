@@ -20,7 +20,7 @@
                              <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Orden de Venta (OV)*</label>
                              <el-select-v2 v-model="form.sale_id"
                                 filterable
-                                :options="sales.map(item => ({ label: `OV-${item.id.toString().padStart(4, '0')}`, value: item.id }))"
+                                :options="sales.map(item => ({ label: `${item.type === 'muestra' ? 'OM' : 'OV'}-${item.id.toString().padStart(4, '0')}`, value: item.id }))"
                                 placeholder="Seleccione una OV"
                                 class="w-full"
                                 size="large" />

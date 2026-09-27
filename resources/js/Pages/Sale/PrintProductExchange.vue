@@ -17,7 +17,7 @@
                     <div class="text-right mt-1">
                         <!-- <p class="text-base font-bold text-gray-900">FOLIO: EX-{{ exchange.id.toString().padStart(4, '0') }}</p> -->
                         <p class="text-sm text-gray-600">Fecha: {{ formatDate(exchange.created_at) }}</p>
-                        <p class="text-[12px] text-gray-500 mt-0 uppercase">Ref. Venta: {{ exchange.sale.type === 'venta' ? 'OV-' : 'OS-' }}{{ exchange.sale.id.toString().padStart(4, '0') }}</p>
+                        <p class="text-[12px] text-gray-500 mt-0 uppercase">Ref. Venta: {{ exchange.sale.type === 'venta' ? 'OV-' : (exchange.sale.type === 'muestra' ? 'OM-' : 'OS-') }}{{ exchange.sale.id.toString().padStart(4, '0') }}</p>
                     </div>
                 </section>
                 <div>

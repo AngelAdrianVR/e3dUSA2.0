@@ -45,7 +45,8 @@ class ShipmentController extends Controller
                 'shipments', 
                 'branch:id,name',
             ]) // Carga las relaciones de envíos y sucursal (cliente)
-            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
+            // 'type' es necesario para mostrar el folio OM- en las órdenes de muestra/regalo.
+            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost', 'type'])
             ->latest() // Ordena por los más recientes
             ->paginate(20) // Pagina los resultados
             ->withQueryString(); // Mantiene los parámetros de la URL en la paginación
@@ -417,7 +418,8 @@ class ShipmentController extends Controller
         $sales = $salesQuery
             ->with(['shipments', 'branch:id,name'])
             ->latest()
-            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost'])
+            // 'type' es necesario para mostrar el folio OM- en las órdenes de muestra/regalo.
+            ->select(['id', 'branch_id', 'status', 'promise_date', 'freight_cost', 'type'])
             ->get();
 
         return response()->json(['items' => $sales], 200);

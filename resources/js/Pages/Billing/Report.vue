@@ -75,7 +75,7 @@
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-for="sale in sales" :key="sale.id" class="hover:bg-slate-50/50 transition-colors">
                                     <td class="py-3 px-4 text-slate-800 font-bold">
-                                        OV-{{ sale.id }}
+                                        {{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id }}
                                         <!-- Indicador: órdenes de muestra/regalo (el resto se deja igual) -->
                                         <i v-if="sale.type === 'muestra'" class="fa-solid fa-gift text-emerald-500 ml-1" title="Orden de Muestra/Regalo"></i>
                                     </td>

@@ -1037,8 +1037,8 @@ class SaleController extends Controller
 
         // Notificar al creador de la orden si quien autoriza no es el mismo usuario
         if (auth()->id() != $sale->user->id) {
-            // Generamos un folio legible para la notificación
-            $sale_folio = 'OV-' . str_pad($sale->id, 4, "0", STR_PAD_LEFT);
+            // Generamos un folio legible para la notificación (OM- para muestra/regalo)
+            $sale_folio = ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT);
             
             // Enviamos la notificación al usuario que creó la venta
             $sale->user->notify(new SaleAuthorizedNotification(
@@ -1092,7 +1092,8 @@ class SaleController extends Controller
                     ->map(function ($sale) {
                         return [
                             'id' => $sale->id,
-                            'name' => (($sale->type !== 'stock') ? 'OV-' : 'OS-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT) . ' - ' . ($sale->branch ? $sale->branch->name : 'Sin cliente'),
+                            // Folio: OM- para muestra/regalo, OS- para stock y OV- para ventas.
+                            'name' => ($sale->type === 'stock' ? 'OS-' : ($sale->type === 'muestra' ? 'OM-' : 'OV-')) . str_pad($sale->id, 4, "0", STR_PAD_LEFT) . ' - ' . ($sale->branch ? $sale->branch->name : 'Sin cliente'),
                         ];
                     });
         return response()->json($sales);

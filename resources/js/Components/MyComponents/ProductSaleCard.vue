@@ -38,11 +38,20 @@
 
             <div class="flex-1 relative">
                 <h3 class="font-bold text-lg text-gray-800 dark:text-gray-100 pr-10">{{ getDisplayProduct()?.name }}</h3>
-                <!-- Etiqueta de tipo: solo se muestra si NO es un producto normal -->
-                <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
-                <el-tag v-else-if="saleProduct.product.product_type === 'Muestra'" type="success">
-                    <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
-                </el-tag>
+                <!-- Etiquetas del producto -->
+                <div class="flex flex-wrap items-center gap-1 mt-1">
+                    <el-tag v-if="saleProduct.product.archived_at" type="warning">Obsoleto</el-tag>
+                    <!-- Muestra/Regalo: aplica a TODOS los productos cuando la orden es de muestra/regalo,
+                         y a los productos de la categoría "Muestras y regalos" en cualquier orden. -->
+                    <el-tag v-if="isMuestraSale || isMuestraProductLine" type="success">
+                        <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
+                    </el-tag>
+                    <!-- Origen del producto: solo dentro de órdenes de muestra/regalo -->
+                    <el-tag v-if="isMuestraSale && !saleProduct.product.archived_at"
+                        :type="isMuestraProductLine ? 'warning' : 'primary'" effect="plain">
+                        {{ isMuestraProductLine ? 'No registrado en catálogo' : 'Producto de catálogo' }}
+                    </el-tag>
+                </div>
                 
                 <el-tag v-if="saleProduct.is_new_design" type="primary" size="small" effect="light" class="mt-2">
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
@@ -424,7 +433,13 @@ export default {
         isSaleAuthorized: {
             type: Boolean,
             default: false,
-        }
+        },
+        // Tipo de la orden ('venta', 'stock' o 'muestra'). En las órdenes de muestra/regalo
+        // TODOS los productos (aunque sean de catálogo) se marcan como Muestra/Regalo.
+        saleType: {
+            type: String,
+            default: 'venta',
+        },
     },
     data() {
         return {
@@ -519,6 +534,10 @@ export default {
         // Línea de un producto de "Muestras y regalos": el stock se descuenta al crear la OV
         isMuestraProductLine() {
             return this.saleProduct?.product?.product_type === 'Muestra';
+        },
+        // Orden de tipo Muestra/Regalo: todas sus líneas se etiquetan como tal.
+        isMuestraSale() {
+            return this.saleType === 'muestra';
         },
         totalAmount() {
             return (this.saleProduct.quantity * this.saleProduct.price).toFixed(2);

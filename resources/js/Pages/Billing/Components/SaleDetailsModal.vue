@@ -2,7 +2,7 @@
     <el-dialog 
         :model-value="show" 
         @update:model-value="$emit('update:show', $event)"
-        :title="'Detalles para Facturación - OV-' + (sale ? sale.id : '')" 
+        :title="'Detalles para Facturación - ' + folio" 
         width="700px"
         destroy-on-close
     >
@@ -223,6 +223,11 @@ export default {
     computed: {
         oceMediaFiles() {
             return (this.sale?.media || []).filter(m => m.collection_name === 'oce_media');
+        },
+        // Folio de la orden (OM- para las órdenes de muestra/regalo)
+        folio() {
+            if (!this.sale) return '';
+            return (this.sale.type === 'muestra' ? 'OM-' : 'OV-') + this.sale.id;
         },
     },
     data() {

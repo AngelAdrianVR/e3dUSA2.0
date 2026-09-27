@@ -60,7 +60,7 @@
 
                             <el-table-column prop="id" label="Folio Venta" width="120">
                                 <template #default="scope">
-                                    <span class="font-bold">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                    <span class="font-bold">{{ (scope.row.type === 'muestra' ? 'OM-' : 'OV-') + scope.row.id.toString().padStart(4, '0') }}</span>
                                 </template>
                             </el-table-column>
 

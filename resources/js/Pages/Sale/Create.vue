@@ -184,7 +184,7 @@
                                     <el-select @change="handleFreightOption" v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
                                         <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                         <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
-                                        <el-option label="La empresa absorbe el costo" value="La empresa absorbe el costo de flete" />
+                                        <el-option label="E3D absorbe el costo" value="E3D absorbe el costo de flete" />
                                         <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
                                     </el-select>
                                 </div>

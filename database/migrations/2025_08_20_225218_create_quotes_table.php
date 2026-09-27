@@ -25,7 +25,7 @@ return new class extends Migration
             $table->boolean('is_tooling_cost_stroked')->default(false); // costo de herramental condonado (tacha la cantidad)
             
             // Lógica de Flete
-            $table->string('freight_option')->default('Por cuenta del cliente'); // Por cuenta del cliente, Cargo de flete prorrateado en productos, La empresa absorbe el costo de flete, Cliente manda guia
+            $table->string('freight_option')->default('Por cuenta del cliente'); // Por cuenta del cliente, Cargo de flete prorrateado en productos, E3D absorbe el costo de flete, Cliente manda guia
             $table->decimal('freight_cost', 12, 2)->default(0);
             $table->boolean('is_freight_cost_stroked')->default(false); // costo de envío condonado (tacha la cantidad)
 

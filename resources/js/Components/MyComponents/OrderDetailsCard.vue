@@ -44,9 +44,9 @@
                         </li>
 
                         <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">OV:</span>
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">{{ sale.type === 'muestra' ? 'OM:' : 'OV:' }}</span>
                             <span @click="$inertia.visit(route('sales.show', sale.id))" class="text-blue-500 hover:underline cursor-pointer">
-                                OV-{{ sale.id.toString().padStart(4, '0') ?? 'N/A' }}
+                                {{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') ?? 'N/A' }}
                             </span>
                         </li>
                     </template>

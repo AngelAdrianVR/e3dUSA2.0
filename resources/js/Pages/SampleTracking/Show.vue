@@ -67,7 +67,7 @@
                         <i class="fa-solid fa-gift w-4 mr-2 text-emerald-500"></i> Crear Orden de Venta (Muestra/Regalo)
                     </DropdownLink>
                     <DropdownLink v-else-if="sampleTracking.sale_id" @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))" as="button">
-                        <i class="fa-solid fa-file-invoice w-4 mr-2 text-emerald-500"></i> Ver Orden de Venta OV-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
+                        <i class="fa-solid fa-file-invoice w-4 mr-2 text-emerald-500"></i> Ver Orden de Venta OM-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
                     </DropdownLink>
                     <div class="border-t border-gray-200 dark:border-gray-600" />
                     <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar muestras')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
@@ -152,7 +152,7 @@
                             <a @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))"
                                 class="text-blue-500 hover:underline font-semibold cursor-pointer flex items-center gap-1">
                                 <i class="fa-solid fa-gift text-emerald-500 text-xs"></i>
-                                OV-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
+                                OM-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
                             </a>
                         </li>
                         

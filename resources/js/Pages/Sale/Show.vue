@@ -368,6 +368,7 @@
                                 v-for="product in sale.sale_products" 
                                 :key="product.id"
                                 :sale-product="product"
+                                :sale-type="sale.type"
                                 :is-high-priority="sale.is_high_priority"
                                 :branch-id="sale.branch_id"
                                 :saleCurrency="sale.currency"
@@ -678,9 +679,10 @@ export default {
         };
     },
     computed: {
-        // Folio de la orden (OV- para venta y muestra/regalo, OS- para stock)
+        // Folio de la orden (OM- para muestra/regalo, OV- para venta, OS- para stock)
         folio() {
-            return (this.sale.type === 'stock' ? 'OS-' : 'OV-') + this.sale.id.toString().padStart(4, '0');
+            const prefix = this.sale.type === 'stock' ? 'OS-' : (this.sale.type === 'muestra' ? 'OM-' : 'OV-');
+            return prefix + this.sale.id.toString().padStart(4, '0');
         },
         // Estatus a mostrar. En las órdenes de muestra/regalo se usa el estatus ACTUAL del
         // seguimiento de muestra (el guardado en la orden puede quedar desfasado, p. ej. "Enviada").

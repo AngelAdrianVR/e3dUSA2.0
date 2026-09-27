@@ -40,7 +40,7 @@
             <section class="space-y-6">
                 <div v-if="sales.length > 0" v-for="sale in sales" :key="sale.id" class="border border-gray-200 rounded-lg overflow-hidden">
                     <div class="bg-gray-50 p-4 border-b border-gray-200">
-                        <h3 class="font-bold text-lg text-gray-700">OV-{{ sale.id.toString().padStart(4, '0') }}</h3>
+                        <h3 class="font-bold text-lg text-gray-700">{{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') }}</h3>
                         <p class="text-sm text-gray-500">{{ sale.branch.name }}</p>
                     </div>
 
