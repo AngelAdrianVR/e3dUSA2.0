@@ -195,7 +195,7 @@ export default {
                                     <span class="text-gray-600 dark:text-gray-400">{{ getProductStock(scope.row).location ?? '-' }}</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column align="right" width="80">
+                            <el-table-column align="right" width="80" fixed="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop class="el-dropdown-link justify-center items-center size-8 rounded-full text-secondary hover:bg-[#F2F2F2] dark:hover:bg-slate-500 transition-all duration-200 ease-in-out">

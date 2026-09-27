@@ -35,18 +35,21 @@ class NotifyBillingDepartmentJob implements ShouldQueue
         $message = '';
         
         // Cambiamos a switch para que sea más fácil agregar futuros casos
+        // Folio legible: OM- para las órdenes de muestra/regalo, OV- para el resto.
+        $folio = ($this->sale->type === 'muestra' ? 'OM-' : 'OV-') . $this->sale->id;
+
         switch ($this->type) {
             case 'pre_invoice_required':
-                $message = "La OV-{$this->sale->id} ha sido creada y requiere Pre-factura.";
+                $message = "La {$folio} ha sido creada y requiere Pre-factura.";
                 break;
             case 'stamping_required':
-                $message = "La OV-{$this->sale->id} pasó a 'En Proceso' y requiere Timbrado de Factura.";
+                $message = "La {$folio} pasó a 'En Proceso' y requiere Timbrado de Factura.";
                 break;
             case 'production_pending_stamping':
-                $message = "La OV-{$this->sale->id} entró a Producción y está pendiente de timbrado (ya cuenta con pre-factura).";
+                $message = "La {$folio} entró a Producción y está pendiente de timbrado (ya cuenta con pre-factura).";
                 break;
             case 'production_no_pre_invoice':
-                $message = "¡Atención! La OV-{$this->sale->id} ya está en Producción y NO se ha registrado un folio de pre-factura.";
+                $message = "¡Atención! La {$folio} ya está en Producción y NO se ha registrado un folio de pre-factura.";
                 break;
         }
 

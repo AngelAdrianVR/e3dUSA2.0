@@ -41,3 +41,5 @@ Schedule::command('notifications:clear-old')->daily()->at('01:00');
 // Notifica reposición de stock a usuarios clave (Super Admin, Almacén, Compras, etc.)
 // Se ejecuta una vez por semana (viernes a las 1:00 AM).
 Schedule::command('app:stock-reposition')->weeklyOn(5, '01:00');
+// Notifica diariamente a los responsables de tareas de proyectos que están a 3 días o menos de vencer (o vencidas).
+Schedule::command('app:notify-due-project-tasks')->dailyAt('07:00');

@@ -60,6 +60,28 @@
                     </div>
                 </div>
 
+                <!-- Prioridad (indicador visual) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prioridad del proyecto</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button type="button" @click="form.priority = 'Normal'"
+                            class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition text-sm font-semibold"
+                            :class="form.priority === 'Normal'
+                                ? 'border-slate-400 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400 hover:border-slate-300'">
+                            <i class="fa-solid fa-flag"></i> Normal
+                        </button>
+                        <button type="button" @click="form.priority = 'Urgente'"
+                            class="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition text-sm font-semibold"
+                            :class="form.priority === 'Urgente'
+                                ? 'border-red-500 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300'
+                                : 'border-gray-200 dark:border-zinc-700 text-gray-500 dark:text-gray-400 hover:border-red-300'">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Urgente
+                        </button>
+                    </div>
+                    <p v-if="form.errors.priority" class="text-red-500 text-xs mt-1">{{ form.errors.priority }}</p>
+                </div>
+
                 <!-- Miembros con roles -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
@@ -159,6 +181,7 @@ const permissionHelp = '🟢 <b>Colaborador:</b> puede ver el proyecto y comenta
 const emptyForm = () => ({
     name: '',
     description: '',
+    priority: 'Normal',
     budget: null,
     currency: 'MXN',
     start_date: '',
@@ -177,6 +200,7 @@ const resetForm = () => {
     if (props.project) {
         form.name = props.project.name;
         form.description = props.project.description || '';
+        form.priority = props.project.priority || 'Normal';
         form.budget = props.project.budget !== null ? Number(props.project.budget) : null;
         form.currency = props.project.currency || 'MXN';
         form.start_date = props.project.start_date ? String(props.project.start_date).slice(0, 10) : '';

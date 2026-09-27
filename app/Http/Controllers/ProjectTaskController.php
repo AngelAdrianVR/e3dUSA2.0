@@ -36,6 +36,12 @@ class ProjectTaskController extends Controller
 
         $task = ProjectTask::create($validated);
 
+        // Si la tarea nace en proceso, arranca el cronómetro
+        if ($task->status === 'En proceso') {
+            $task->startTimer();
+            $task->save();
+        }
+
         $this->saveFiles($task, $request);
 
         $this->notifyAssigneeIfChanged($task, null);
@@ -60,11 +66,19 @@ class ProjectTaskController extends Controller
         $oldAssignee = $task->assigned_to;
         $oldStatus = $task->status;
 
+        // No se puede finalizar una tarea sin evidencia
+        if (($validated['status'] ?? $oldStatus) === 'Terminada' && $oldStatus !== 'Terminada'
+            && !$request->hasFile('evidence') && !$task->hasEvidence()) {
+            return back()->withErrors(['status' => 'Para finalizar la tarea debes adjuntar al menos una evidencia (foto, documento o video).']);
+        }
+
         $this->applyStatusDates($validated, $oldStatus);
+        $this->applyTimerState($validated, $task, $oldStatus);
 
         $task->update($validated);
 
         $this->saveFiles($task, $request);
+        $this->saveEvidence($task, $request);
 
         $this->notifyAssigneeIfChanged($task, $oldAssignee);
 
@@ -104,13 +118,13 @@ class ProjectTaskController extends Controller
             }
         }
 
-        $request->validate([
+        $request->validate(array_merge([
             'status' => 'required|in:Pendiente,En proceso,Pausada,Terminada',
             'position' => 'nullable|integer|min:0',
             'assigned_to' => 'nullable|exists:users,id',
             'files' => 'nullable|array|max:10',
             'files.*' => 'file|max:10240',
-        ]);
+        ], $this->evidenceRules()));
 
         $data = ['status' => $request->status];
 
@@ -128,16 +142,90 @@ class ProjectTaskController extends Controller
         $oldStatus = $task->status;
         $oldAssignee = $task->assigned_to;
 
+        // No se puede finalizar una tarea sin evidencia
+        if ($request->status === 'Terminada' && $oldStatus !== 'Terminada'
+            && !$request->hasFile('evidence') && !$task->hasEvidence()) {
+            return back()->withErrors(['status' => 'Para finalizar la tarea debes adjuntar al menos una evidencia (foto, documento o video).']);
+        }
+
         $this->applyStatusDates($data, $oldStatus);
+        $this->applyTimerState($data, $task, $oldStatus);
 
         $task->update($data);
 
         // Subida de archivos/evidencia desde el Kanban o el Dashboard
         $this->saveFiles($task, $request);
+        $this->saveEvidence($task, $request);
 
         $this->notifyAssigneeIfChanged($task, $oldAssignee);
 
         return back()->with('success', 'Estatus actualizado.');
+    }
+
+    /**
+     * Finaliza una tarea adjuntando la evidencia obligatoria (máximo 3 archivos)
+     * y notas opcionales. La evidencia solo la ven los Administradores del proyecto.
+     */
+    public function finish(Request $request, Project $project, ProjectTask $task)
+    {
+        $user = Auth::user();
+        abort_if($task->project_id !== $project->id, 404);
+
+        // Puede finalizar: Administrador del proyecto o el responsable de la tarea
+        if (!$project->canEdit($user) && (int) $task->assigned_to !== (int) $user->id) {
+            abort(403, 'No puedes finalizar esta tarea.');
+        }
+
+        $validated = $request->validate([
+            'files' => 'required|array|min:1|max:3',
+            'files.*' => 'file|mimes:jpg,jpeg,png,gif,webp,heic,mp4,mov,avi,mkv,wmv,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip|max:20480',
+            'completion_notes' => 'nullable|string|max:2000',
+        ]);
+
+        if ($task->getMedia('evidence')->count() + count($request->file('files')) > 3) {
+            return back()->withErrors(['files' => 'Puedes adjuntar máximo 3 evidencias por tarea.']);
+        }
+
+        foreach ($request->file('files') as $file) {
+            $task->addMedia($file)->toMediaCollection('evidence');
+        }
+
+        // Detiene el cronómetro y marca la tarea como terminada
+        $task->stopTimer();
+        $task->completion_notes = $validated['completion_notes'] ?? null;
+        $task->status = 'Terminada';
+        $task->finished_at = now();
+        $task->save();
+
+        return back()->with('success', 'Tarea finalizada con evidencia.');
+    }
+
+    /**
+     * Califica el desempeño del responsable de la tarea (tiempo, resultados y eficiencia).
+     * Solo puede calificar quien creó el proyecto; puede editar su calificación.
+     */
+    public function rateTask(Request $request, Project $project, ProjectTask $task)
+    {
+        $user = Auth::user();
+        abort_if($task->project_id !== $project->id, 404);
+
+        if (!$project->isCreator($user)) {
+            abort(403, 'Solo quien creó el proyecto puede calificar el desempeño.');
+        }
+
+        $validated = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'rating_note' => 'nullable|string|max:1000',
+        ]);
+
+        $task->update([
+            'rating' => $validated['rating'],
+            'rating_note' => $validated['rating_note'] ?? null,
+            'rated_by' => $user->id,
+            'rated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Calificación guardada.');
     }
 
     /**
@@ -232,7 +320,7 @@ class ProjectTaskController extends Controller
 
     private function validateTask(Request $request): array
     {
-        return $request->validate([
+        return $request->validate(array_merge([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'start_date' => 'required|date',
@@ -241,7 +329,61 @@ class ProjectTaskController extends Controller
             'assigned_to' => 'nullable|exists:users,id',
             'files' => 'nullable|array|max:10',
             'files.*' => 'file|max:10240',
-        ]);
+        ], $this->evidenceRules()));
+    }
+
+    /**
+     * Reglas de la evidencia de finalización (fotos, documentos y videos).
+     */
+    private function evidenceRules(): array
+    {
+        return [
+            'evidence' => 'nullable|array|max:3',
+            'evidence.*' => 'file|mimes:jpg,jpeg,png,gif,webp,heic,mp4,mov,avi,mkv,wmv,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip|max:20480',
+            'completion_notes' => 'nullable|string|max:2000',
+        ];
+    }
+
+    /**
+     * Guarda la evidencia enviada (máximo 3 por tarea).
+     */
+    private function saveEvidence(ProjectTask $task, Request $request): void
+    {
+        if (!$request->hasFile('evidence')) {
+            return;
+        }
+
+        $available = max(0, 3 - $task->getMedia('evidence')->count());
+
+        foreach (array_slice($request->file('evidence'), 0, $available) as $file) {
+            $task->addMedia($file)->toMediaCollection('evidence');
+        }
+    }
+
+    /**
+     * Controla el cronómetro del tiempo invertido:
+     * arranca al pasar a 'En proceso' y se pausa al salir de él (Pendiente, Pausada, Terminada).
+     */
+    private function applyTimerState(array &$data, ProjectTask $task, ?string $oldStatus): void
+    {
+        $newStatus = $data['status'] ?? $oldStatus;
+
+        if ($newStatus === $oldStatus) {
+            return;
+        }
+
+        if ($newStatus === 'En proceso') {
+            $data['timer_started_at'] = $task->timer_started_at ?? now();
+
+            return;
+        }
+
+        if ($task->timer_started_at !== null) {
+            // diffInSeconds con $absolute = true (Carbon 3 devuelve valores firmados)
+            $data['time_spent_seconds'] = (int) $task->time_spent_seconds
+                + max(0, (int) $task->timer_started_at->diffInSeconds(now(), true));
+            $data['timer_started_at'] = null;
+        }
     }
 
     /**

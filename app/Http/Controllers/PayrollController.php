@@ -99,7 +99,9 @@ class PayrollController extends Controller
             $period = CarbonPeriod::create($payroll->start_date, $payroll->end_date);
             $totalWorkedSeconds = 0;
             $vacationPremium = 0;
+            $vacationDaysPay = 0;
             $extraHolidayPay = 0;
+            $approvedOvertimePay = 0;
             $daysData = [];
 
             // Pre-cargar datos para optimizar
@@ -111,6 +113,9 @@ class PayrollController extends Controller
                 ->whereBetween('date', [$payroll->start_date, $payroll->end_date])
                 ->get()->keyBy(fn($request) => $request->date->format('Y-m-d'));
             $totalApprovedOvertimeSeconds = $approvedOvertime->sum('requested_minutes') * 60;
+
+            // Tarifa por hora del empleado (se calcula una sola vez para todo el periodo)
+            $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
 
             foreach ($period as $date) {
                 Carbon::setLocale('es');
@@ -202,8 +207,6 @@ class PayrollController extends Controller
                     $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
                 }
 
-                $salaryPerHour = $employee->hours_per_week > 0 ? $employee->week_salary / $employee->hours_per_week : 0;
-
                 if ($dayData['incident']) {
                     if ($dayData['incident']->incidentType->name === 'Día festivo') {
                         $workDayConfig = collect($employee->work_days)->firstWhere('day', $dayName);
@@ -272,6 +275,10 @@ class PayrollController extends Controller
                             $dayData['unauthorized_overtime_seconds'] = max(0, $actualWorkedSeconds - ($scheduledSeconds + $approvedOvertimeDaySeconds));
                         }
 
+                        // Parte pagada que corresponde a horas extra autorizadas (se desglosa aparte en el resumen)
+                        $paidOvertimeSeconds = min($approvedOvertimeDaySeconds, max(0, $payableSeconds - $scheduledSeconds));
+                        $approvedOvertimePay += ($paidOvertimeSeconds / 3600) * $salaryPerHour;
+
                         $totalWorkedSeconds += $payableSeconds;
                         // Descanso realmente registrado
                         $dayData['total_break_time'] = gmdate('G\h i\m', $breakSeconds);
@@ -317,6 +324,7 @@ class PayrollController extends Controller
                             break;
                         case 'Vacaciones':
                             $totalToPay += $dailySalary;
+                            $vacationDaysPay += $dailySalary;
                             $vacationPremium += $dailySalary * 0.25;
                             break;
                     }
@@ -340,10 +348,19 @@ class PayrollController extends Controller
                 'summary' => [
                     'total_worked_seconds' => $totalWorkedSeconds,
                     'total_approved_overtime_seconds' => $totalApprovedOvertimeSeconds,
+                    // Salario semanal configurado en los detalles del empleado (referencia de jornada completa)
+                    'configured_base_salary' => $baseSalary,
+                    // (Legado) pago total por horas trabajadas; se conserva para otras vistas
                     'base_salary' => $workedTimeSalary,
+                    // Pago de las horas establecidas realmente trabajadas (sin tiempo extra)
+                    'worked_hours_pay' => $workedTimeSalary - $approvedOvertimePay,
+                    // Pago del tiempo extra autorizado
+                    'overtime_pay' => $approvedOvertimePay > 0 ? $approvedOvertimePay : null,
                     'extra_holiday_pay' => $extraHolidayPay > 0 ? $extraHolidayPay : null,
                     'bonuses' => $earnedBonuses,
                     'discounts' => $discounts,
+                    // Sueldo de los días de vacaciones tomados en la semana
+                    'vacation_days_pay' => $vacationDaysPay > 0 ? $vacationDaysPay : null,
                     'vacation_premium' => $vacationPremium > 0 ? $vacationPremium : null,
                     'total_to_pay' => max(0, $totalToPay),
                 ],

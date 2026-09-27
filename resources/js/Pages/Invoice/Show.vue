@@ -82,7 +82,7 @@
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">OV Relacionada:</span>
                              <Link :href="route('sales.show', invoice.sale.id)" class="text-blue-500 hover:underline cursor-pointer">
-                                OV-{{ invoice.sale.id.toString().padStart(4, '0') }}
+                                {{ invoice.sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ invoice.sale.id.toString().padStart(4, '0') }}
                             </Link>
                         </li>
                         <li class="flex justify-between items-center">

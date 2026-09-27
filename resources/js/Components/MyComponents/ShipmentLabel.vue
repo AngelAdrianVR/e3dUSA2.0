@@ -33,7 +33,7 @@
                             </tr>
                             <tr>
                                 <td class="border-[3px] border-black p-3 font-bold text-center">Orden de Compra</td>
-                                <td class="border-[3px] border-black p-3 font-semibold text-center text-gray-800">{{ sale.type === 'stock' ? 'OS-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') }}</td>
+                                <td class="border-[3px] border-black p-3 font-semibold text-center text-gray-800">{{ sale.type === 'stock' ? 'OS-' : (sale.type === 'muestra' ? 'OM-' : 'OV-') }}{{ sale.id.toString().padStart(4, '0') }}</td>
                             </tr>
                             <tr>
                                 <td class="border-[3px] border-black p-3 font-bold text-center">Orden de Producción</td>

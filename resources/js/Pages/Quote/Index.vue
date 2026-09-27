@@ -299,7 +299,7 @@
                             </el-table-column>
 
                             <!-- Menú de acciones -->
-                            <el-table-column align="right" width="80">
+                            <el-table-column align="right" width="80" fixed="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop

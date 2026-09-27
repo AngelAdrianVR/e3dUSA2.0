@@ -25,7 +25,7 @@ class InvoiceController extends Controller
         ->get();
 
     // Pestaña 1: Todas las facturas registradas.
-    $invoices = Invoice::with(['sale:id,branch_id', 'sale.branch:id,name'])
+    $invoices = Invoice::with(['sale:id,branch_id,type', 'sale.branch:id,name'])
         // Filtramos por cliente si el ID está presente
         ->when($clientId, function ($query) use ($clientId) {
             $query->where('branch_id', $clientId);
@@ -46,7 +46,14 @@ class InvoiceController extends Controller
         ->when($clientId, function ($query) use ($clientId) {
             $query->where('branch_id', $clientId);
         })
-        ->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+        ->where(function ($query) {
+            $query->whereRaw('total_amount > (SELECT COALESCE(SUM(amount), 0) FROM invoices WHERE invoices.sale_id = sales.id AND status != ?)', ['Cancelada'])
+                // Las órdenes de muestra/regalo deben poder facturarse aunque su monto sea 0.
+                ->orWhere(function ($q) {
+                    $q->where('sales.type', 'muestra')
+                      ->whereRaw('NOT EXISTS (SELECT 1 FROM invoices WHERE invoices.sale_id = sales.id AND invoices.status != ?)', ['Cancelada']);
+                });
+        })
         ->latest('id')
         ->paginate(10, ['*'], 'sales_page')
         ->withQueryString();
@@ -91,13 +98,19 @@ class InvoiceController extends Controller
         ->get();
 
         // Filtrar en PHP: solo ventas cuyo monto total sea mayor al monto ya facturado.
+        // Excepción: las órdenes de muestra/regalo sin facturas se incluyen aunque su monto sea 0
+        // (se crean precisamente para poder facturarse).
         $sales = $salesWithPartialInvoices->filter(function ($sale) {
             $invoicedAmount = $sale->invoiced_amount ?? 0;
-            return (float)$sale->total_amount > (float)$invoicedAmount;
+            if ((float)$sale->total_amount > (float)$invoicedAmount) {
+                return true;
+            }
+            return $sale->type === 'muestra' && (float)$invoicedAmount === 0.0;
         })->map(function ($sale) {
             $lastInvoice = $sale->invoices->last();
             return [
                 'id' => $sale->id,
+                'type' => $sale->type, // Para mostrar el folio OM- en órdenes de muestra/regalo
                 'total_amount' => $sale->total_amount,
                 'branch_id' => $sale->branch_id,
                 'currency' => $sale->currency,
@@ -144,7 +157,7 @@ class InvoiceController extends Controller
         // Carga todas las relaciones necesarias, incluyendo las otras facturas de la misma venta.
         $invoice->load([
             'sale' => function ($query) {
-                $query->select('id', 'branch_id', 'contact_id', 'currency', 'total_amount')
+                $query->select('id', 'branch_id', 'contact_id', 'currency', 'total_amount', 'type')
                     // Cargar las facturas relacionadas directamente desde la venta
                     ->with(['invoices' => function($q) {
                         $q->select('id', 'sale_id', 'folio', 'status', 'amount', 'installment_number', 'total_installments')
@@ -197,6 +210,7 @@ class InvoiceController extends Controller
             $lastInvoice = $sale->invoices->last();
             return [
                 'id' => $sale->id,
+                'type' => $sale->type, // Para mostrar el folio OM- en órdenes de muestra/regalo
                 'total_amount' => $sale->total_amount,
                 'branch_id' => $sale->branch_id,
                 'currency' => $sale->currency,

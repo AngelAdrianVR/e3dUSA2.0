@@ -151,8 +151,8 @@
                                         :label="form.is_spanish_template ? 'Cargo prorrateado en productos' : 'Freight cost prorated across products'"
                                         :value="form.is_spanish_template ? 'Cargo de flete prorrateado en productos' : 'Freight cost prorated across products'" />
                                     <el-option
-                                        :label="form.is_spanish_template ? 'La empresa absorbe el costo' : 'Company absorbs the cost'"
-                                        :value="form.is_spanish_template ? 'La empresa absorbe el costo de flete' : 'Company absorbs the freight cost'" />
+                                        :label="form.is_spanish_template ? 'E3D absorbe el costo' : 'Company absorbs the cost'"
+                                        :value="form.is_spanish_template ? 'E3D absorbe el costo de flete' : 'Company absorbs the freight cost'" />
                                     <el-option
                                         :label="form.is_spanish_template ? 'El cliente manda la guia' : 'Client sends the shipping label'"
                                         :value="form.is_spanish_template ? 'El cliente manda la guía' : 'Client sends the shipping label'" />

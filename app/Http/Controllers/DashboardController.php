@@ -194,12 +194,13 @@ class DashboardController extends Controller
         ->whereIn('status', ['Pendiente', 'Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío'])
         ->latest()
         ->limit(10)
-        ->get(['id', 'created_at', 'is_high_priority', 'status'])
+        ->get(['id', 'created_at', 'is_high_priority', 'status', 'type'])
         ->map(function ($sale) {
             return [
                 'id' => $sale->id,
                 'status' => $sale->status,
-                'folio' => 'OV-' . $sale->id, // Folio generado dinámicamente
+                // Folio generado dinámicamente (OM- para órdenes de muestra/regalo)
+                'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . $sale->id,
                 'created_at' => $sale->created_at,
                 'requires_follow_up' => $sale->is_high_priority, // Usando el campo correcto
             ];
@@ -305,7 +306,8 @@ class DashboardController extends Controller
             ->map(function ($sale) {
                 return [
                     'id' => $sale->id,
-                    'folio' => 'OV-' . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
+                    // Folio: OM- para las órdenes de muestra/regalo.
+                    'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
                     'contact_name' => $sale->contact?->name,
                     'user_name' => $sale->user->name,
                     'total' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
@@ -371,6 +373,11 @@ class DashboardController extends Controller
                 $task->can_edit = $task->project->canEdit($authUser);
                 $task->is_member = $task->project->isMember($authUser)
                     || (int) $task->project->created_by === (int) $authUser->id;
+
+                // El tiempo invertido solo lo ven los Administradores del proyecto
+                if (!$task->project->isProjectAdmin($authUser)) {
+                    $task->makeHidden(['time_spent_seconds', 'timer_started_at', 'completion_notes']);
+                }
             });
 
         return Inertia::render('Dashboard/Index', [
@@ -407,7 +414,7 @@ class DashboardController extends Controller
         if ($roleName === 'Vendedor') {
             $weeklySales = Sale::whereNotNull('authorized_at')
                 ->whereBetween('authorized_at', [$startOfWeek, $endOfWeek])
-                ->select('id', 'user_id', 'authorized_at', 'total_amount', 'currency')
+                ->select('id', 'user_id', 'authorized_at', 'total_amount', 'currency', 'type')
                 ->get();
             $salesByUser = $weeklySales->groupBy('user_id');
 
@@ -428,7 +435,7 @@ class DashboardController extends Controller
                 }
 
                 $formattedSales = $userSales->map(fn($sale) => [
-                    'folio' => 'OV-' . $sale->id,
+                    'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . $sale->id,
                     'date' => Carbon::parse($sale->authorized_at)->isoFormat('ddd, D MMM HH:mm'),
                     'amount' => '$' . number_format($sale->total_amount, 2) . ' ' . $sale->currency,
                 ])->all();

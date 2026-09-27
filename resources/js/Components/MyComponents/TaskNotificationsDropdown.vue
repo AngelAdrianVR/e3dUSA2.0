@@ -1,6 +1,6 @@
 <template>
   <div class="relative">
-    <el-tooltip content="Notificaciones de Tareas" placement="bottom">
+    <el-tooltip content="Tareas de Proyectos" placement="bottom">
       <button @click.stop="toggleDropdown"
         class="relative flex justify-center items-center size-14 p-3 rounded-lg transition-colors duration-300 hover:bg-gray-100 dark:hover:bg-slate-700">
         
@@ -24,7 +24,7 @@
         class="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-xl shadow-2xl overflow-hidden z-50 border dark:border-slate-700 flex flex-col">
         
         <div class="flex justify-between items-center p-4 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
-          <h3 class="font-bold text-gray-800 dark:text-gray-200">Tareas y Pendientes</h3>
+          <h3 class="font-bold text-gray-800 dark:text-gray-200">Tareas de Proyectos</h3>
         </div>
 
         <div class="max-h-96 overflow-y-auto flex-grow">
@@ -64,8 +64,8 @@
           
           <div v-else class="p-8 text-center">
             <i class="fa-solid fa-clipboard-check text-4xl text-gray-300 dark:text-gray-600 mb-2"></i>
-            <h3 class="mt-2 text-sm font-medium text-gray-800 dark:text-gray-300">Sin tareas pendientes</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No tienes notificaciones de tareas.</p>
+            <h3 class="mt-2 text-sm font-medium text-gray-800 dark:text-gray-300">Sin tareas de proyectos</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No tienes notificaciones de tareas de proyectos.</p>
           </div>
         </div>
 
@@ -146,11 +146,22 @@ export default {
       });
     },
     handleNotificationClick(notification) {
-      const url = notification.data.url || '#';
+      const url = this.resolveNotificationUrl(notification.data.url);
       if (url !== '#') {
         router.visit(url);
       }
       this.closeDropdown();
+    },
+    // Las notificaciones generadas por comandos (cron) pueden traer una URL absoluta con un
+    // APP_URL distinto al host actual. Usamos solo la ruta para navegar siempre en el host actual.
+    resolveNotificationUrl(url) {
+      if (!url || url === '#') return '#';
+      try {
+        const parsed = new URL(url, window.location.origin);
+        return parsed.pathname + parsed.search + parsed.hash;
+      } catch (e) {
+        return url;
+      }
     },
     deleteNotification(notificationId) {
       router.delete(route('notifications.destroy', notificationId), {

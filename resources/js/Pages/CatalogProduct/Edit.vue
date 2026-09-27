@@ -1,10 +1,12 @@
 <template>
     <AppLayout title="Editar Producto">
         <div class="flex justify-between items-center">
-            <!-- El botón de regreso ahora apunta a la vista del producto -->
-            <Back :href="route('catalog-products.show', catalog_product.id)" />
+            <!-- El botón de regreso apunta a la vista del producto (o al listado de muestras si se está convirtiendo) -->
+            <Back :href="isConvertingMuestra
+                ? route('catalog-products.index', { product_type: 'Muestra' })
+                : route('catalog-products.show', catalog_product.id)" />
             <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
-                Editar producto: {{ form.name }}
+                {{ isConvertingMuestra ? 'Convertir muestra/regalo a producto de catálogo: ' : 'Editar producto: ' }}{{ form.name }}
             </h2>
         </div>
 
@@ -12,6 +14,17 @@
             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6">
                 <!-- El formulario ahora llama al método 'update' -->
                 <form @submit.prevent="update">
+                    <!-- AVISO: CONVERSIÓN DE MUESTRA/REGALO A PRODUCTO DE CATÁLOGO -->
+                    <div v-if="isConvertingMuestra" class="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-300 flex items-start gap-3 mb-4">
+                        <i class="fa-solid fa-right-left text-lg mt-0.5"></i>
+                        <span>
+                            <strong>Conversión a producto de catálogo.</strong>
+                            Completa la información (marca, familia, material, costo y precio) y guarda para mover este producto
+                            de "Muestras y regalos" a la categoría <strong>Productos</strong>.
+                            Si regresas sin guardar, el producto permanecerá en su categoría actual.
+                        </span>
+                    </div>
+
                     <div ref="formContainer" class="space-y-3">
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-white text-right border-b border-gray-200 dark:border-slate-700 pb-2 mb-4">
                             Información del producto
@@ -20,7 +33,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <InputLabel value="Tipo de producto*" />
-                                <el-select v-model="form.product_type_key" placeholder="Selecciona" class="w-full">
+                                <el-select v-model="form.product_type_key" placeholder="Selecciona" class="w-full" :disabled="isConvertingMuestra">
                                     <el-option v-for="item in productTypeOptions" :key="item.key" :label="item.label" :value="item.key" />
                                 </el-select>
                                 <InputError :message="form.errors.product_type_key" class="mt-1" />
@@ -517,6 +530,12 @@ export default {
         // Se usa el mapa para forzar los tipos a 'P' o 'I'
         const productTypeKey = typeMap[this.catalog_product.product_type] || 'P';
 
+        // Conversión de "Muestras y regalos" a producto de catálogo.
+        // La categoría NO cambia al abrir este formulario: se aplica hasta que se guarda
+        // (la bandera convert_to_catalog se envía en el payload).
+        const isConvertingMuestra = new URLSearchParams(window.location.search).get('convert') === '1'
+            && this.catalog_product.product_type === 'Muestra';
+
         return {
             form: useForm({
                 _method: 'PUT', // Clave para que Laravel trate el POST como PUT
@@ -539,7 +558,7 @@ export default {
                 // --- Banderas Universales ---
                 parent_id: this.catalog_product.parent_id,
                 is_sellable: this.catalog_product.is_sellable == 1,
-                is_purchasable: this.catalog_product.is_purchasable == 1,
+                is_purchasable: isConvertingMuestra ? true : (this.catalog_product.is_purchasable == 1),
                 is_used_as_component: this.catalog_product.is_used_as_component == 1,
                 requires_director_approval: this.catalog_product.requires_director_approval == 1,
                 // -----------------------------
@@ -555,7 +574,10 @@ export default {
                 // Mapea los componentes y procesos existentes al formato del formulario
                 components: this.catalog_product.components.map(c => ({ product_id: c.id, quantity: c.pivot.quantity, cost: c.cost})),
                 production_processes: this.catalog_product.production_costs.map(p => ({ process_id: p.id, time: p.estimated_time_seconds + ' seg', cost: p.cost })),
+                // Bandera de conversión: al guardar, el producto pasa a la categoría Productos
+                convert_to_catalog: isConvertingMuestra,
             }),
+            isConvertingMuestra,
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
 

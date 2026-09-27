@@ -565,6 +565,8 @@ export default {
                 // NUEVO: Variables para atrapar datos de la cotización
                 quote_product_id: null,
                 copy_quote_image: true,
+                // NUEVO: Propuesta de producto nuevo (seguimiento de muestras)
+                new_product_proposal_id: null,
             }),
             familyForm: useForm({ name: null, key: null }),
             brandForm: useForm({ name: null }),
@@ -930,6 +932,11 @@ export default {
         // --- NUEVO: Capturar el ID y la imagen de la cotización ---
         if (urlParams.has('quote_product_id')) {
             this.form.quote_product_id = urlParams.get('quote_product_id');
+        }
+
+        // --- NUEVO: Capturar la propuesta de producto nuevo del seguimiento de muestras ---
+        if (urlParams.has('new_product_proposal_id')) {
+            this.form.new_product_proposal_id = urlParams.get('new_product_proposal_id');
         }
 
         if (urlParams.has('image_url')) {

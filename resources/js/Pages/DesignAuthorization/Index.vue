@@ -65,7 +65,7 @@
                                     </span>
                                 </template>
                             </el-table-column>
-                            <el-table-column align="right">
+                            <el-table-column align="right" width="80" fixed="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click" @command="handleCommand">
                                         <button @click.stop

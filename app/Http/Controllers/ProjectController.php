@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectTask;
 use App\Models\User;
 use App\Notifications\ProjectAssignedNotification;
 use Illuminate\Http\Request;
@@ -68,6 +69,7 @@ class ProjectController extends Controller
         $validated = $this->validateProject($request);
 
         $validated['created_by'] = Auth::id();
+        $validated['priority'] = $validated['priority'] ?? 'Normal';
 
         $project = Project::create($validated);
 
@@ -90,6 +92,8 @@ class ProjectController extends Controller
         $this->authorizeEdit($project);
 
         $validated = $this->validateProject($request);
+
+        $validated['priority'] = $validated['priority'] ?? 'Normal';
 
         $project->update($validated);
 
@@ -116,17 +120,33 @@ class ProjectController extends Controller
             abort(403, 'No tienes acceso a este proyecto.');
         }
 
+        // Confirmación de que el miembro ya abrió el proyecto (primera visita)
+        $project->markMemberViewed($user);
+
+        // Solo los Administradores del proyecto ven el tiempo invertido y la evidencia
+        $canSeeTaskTime = $project->isProjectAdmin($user);
+
         $project->load([
             'members:id,name,email,profile_photo_path',
             'creator:id,name',
-            'tasks' => fn ($q) => $q->orderBy('position')->orderBy('id'),
+            'tasks' => fn ($q) => $q->withCount(['media as evidence_count' => fn ($m) => $m->where('collection_name', 'evidence')])
+                                       ->orderBy('position')->orderBy('id'),
             'tasks.assignee:id,name,email,profile_photo_path',
             'tasks.creator:id,name',
-            'tasks.media',
+            'tasks.ratedBy:id,name',
+            // La evidencia de finalización no se envía a los Colaboradores
+            'tasks.media' => fn ($q) => $canSeeTaskTime ? $q : $q->where('collection_name', '!=', 'evidence'),
             'tasks.comments' => fn ($q) => $q->orderBy('created_at'),
             'tasks.comments.author:id,name,email,profile_photo_path',
             'media',
         ]);
+
+        if ($canSeeTaskTime) {
+            // Solo los Administradores del proyecto ven el tiempo invertido y las notas de finalización
+            $project->tasks->each->append(['is_timer_running', 'total_time_seconds']);
+        } else {
+            $project->tasks->each->makeHidden(['time_spent_seconds', 'timer_started_at', 'completion_notes']);
+        }
 
         $project->loadCount([
             'tasks',
@@ -147,8 +167,72 @@ class ProjectController extends Controller
             'canDelete' => $user->hasPermissionTo('Eliminar proyectos') || $project->isCreator($user),
             'memberRole' => $project->memberRole($user),
             'isMember' => $project->isMember($user) || $project->isCreator($user),
+            // Ver tiempo invertido y evidencia de tareas (Administrador del proyecto)
+            'canSeeTaskTime' => $canSeeTaskTime,
             'activeUsers' => $activeUsers,
         ]);
+    }
+
+    /**
+     * Carga de tareas por usuario (para evaluar saturación) en los proyectos visibles.
+     * Devuelve JSON para pintarlo en un drawer sin recargar la página.
+     */
+    public function workload()
+    {
+        $user = Auth::user();
+
+        // Mismos proyectos que puede ver en el índice
+        $projectQuery = Project::query();
+        if (!$user->hasRole('Super Administrador')) {
+            $projectQuery->where(function ($q) use ($user) {
+                $q->whereHas('members', fn ($m) => $m->whereKey($user->id))
+                  ->orWhere('created_by', $user->id);
+            });
+        }
+
+        $projectIds = $projectQuery->pluck('id');
+
+        $tasks = ProjectTask::query()
+            ->whereIn('project_id', $projectIds)
+            ->whereNotNull('assigned_to')
+            ->with('assignee:id,name,profile_photo_path')
+            ->get(['id', 'project_id', 'assigned_to', 'status', 'due_date', 'rating']);
+
+        $today = now()->startOfDay();
+        $soonLimit = now()->addDays(3)->endOfDay();
+
+        $users = $tasks->groupBy('assigned_to')->map(function ($userTasks) use ($today, $soonLimit) {
+            $assignee = $userTasks->first()->assignee;
+
+            $pending = $userTasks->where('status', 'Pendiente')->count();
+            $inProgress = $userTasks->where('status', 'En proceso')->count();
+            $paused = $userTasks->where('status', 'Pausada')->count();
+            $finished = $userTasks->where('status', 'Terminada')->count();
+
+            $open = $userTasks->where('status', '!=', 'Terminada');
+
+            $overdue = $open->filter(fn ($task) => $task->due_date && $task->due_date->lt($today))->count();
+            $dueSoon = $open->filter(fn ($task) => $task->due_date && $task->due_date->gte($today) && $task->due_date->lte($soonLimit))->count();
+
+            $rated = $userTasks->whereNotNull('rating');
+
+            return [
+                'user_id' => $assignee?->id,
+                'name' => $assignee?->name ?? 'Usuario eliminado',
+                'profile_photo_url' => $assignee?->profile_photo_url,
+                'pending' => $pending,
+                'in_progress' => $inProgress,
+                'paused' => $paused,
+                'finished' => $finished,
+                'active' => $pending + $inProgress + $paused,
+                'overdue' => $overdue,
+                'due_soon' => $dueSoon,
+                'rating_average' => $rated->count() ? round((float) $rated->avg('rating'), 1) : null,
+                'rating_count' => $rated->count(),
+            ];
+        })->values()->sortByDesc('active')->values();
+
+        return response()->json(['users' => $users]);
     }
 
     /**
@@ -196,6 +280,7 @@ class ProjectController extends Controller
         return $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'priority' => 'nullable|in:Normal,Urgente',
             'budget' => 'nullable|numeric|min:0',
             'currency' => 'required|in:MXN,USD',
             'start_date' => 'required|date',

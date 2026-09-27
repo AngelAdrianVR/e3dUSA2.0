@@ -18,6 +18,8 @@ use App\Exports\CatalogProductPricesExport;
 use App\Exports\CatalogProductPricesExportABC;
 use App\Exports\CatalogProductPricesExportPriceABC;
 use App\Models\Branch;
+use App\Models\SaleProduct;
+use App\Services\MuestraProductService;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
@@ -265,6 +267,25 @@ class ProductController extends Controller
                 }
             }
 
+            // --- VINCULAR PRODUCTO REGISTRADO A LA PROPUESTA DE NUEVO PRODUCTO (seguimiento de muestras) ---
+            if ($request->filled('new_product_proposal_id')) {
+                $proposal = \App\Models\NewProductProposal::find($request->new_product_proposal_id);
+
+                if ($proposal) {
+                    // Copiar la imagen capturada en el seguimiento de muestra (si aplica).
+                    if ($request->boolean('copy_quote_image') && $proposal->hasMedia('images')) {
+                        $mediaItem = $proposal->getFirstMedia('images');
+                        $mediaItem->copy($product, 'images');
+                    }
+
+                    $proposal->update([
+                        'product_id' => $product->id,
+                        'status' => 'Aprobado',
+                        'approved_at' => now(),
+                    ]);
+                }
+            }
+
             DB::commit();
 
         } catch (\Exception $e) {
@@ -380,6 +401,8 @@ class ProductController extends Controller
             'production_processes' => 'nullable|array',
             'production_processes.*.process_id' => 'required_with:production_processes|exists:production_costs,id',
             'location' => 'nullable|string|max:255',
+            // Bandera que confirma la conversión de un producto de muestra/regalo a producto de catálogo
+            'convert_to_catalog' => 'nullable|boolean',
         ]);
 
         if ($validatedData['product_type_key'] === 'I') {
@@ -404,6 +427,21 @@ class ProductController extends Controller
         if (isset($validatedData['material'])) {
             $validatedData['material'] = $materials[$validatedData['material']];
         }
+
+        // --- MUESTRAS Y REGALOS ---
+        // Un producto de muestra/regalo SOLO cambia a la categoría 'Producto' cuando el usuario
+        // confirma la conversión (convert_to_catalog) al guardar el formulario completo.
+        // Si se edita sin esa bandera, conserva su categoría original.
+        if ($catalog_product->product_type === MuestraProductService::PRODUCT_TYPE) {
+            if ($request->boolean('convert_to_catalog')) {
+                $validatedData['product_type'] = 'Producto';
+            } else {
+                $validatedData['product_type'] = MuestraProductService::PRODUCT_TYPE;
+                $validatedData['product_family_id'] = null;
+                $validatedData['material'] = null;
+            }
+        }
+        unset($validatedData['convert_to_catalog']);
 
         $totalCost = $validatedData['cost'] ?? 0;
 
@@ -483,7 +521,18 @@ class ProductController extends Controller
 
     public function destroy(Product $catalog_product)
     {
+        // Las muestras/regalos que ya forman parte de alguna Orden de Venta no se pueden
+        // eliminar: la FK de sale_products borra en cascada y se perderían sus líneas.
+        if ($catalog_product->product_type === MuestraProductService::PRODUCT_TYPE
+            && SaleProduct::where('product_id', $catalog_product->id)->exists()) {
+            return back()->withErrors([
+                'delete' => 'No se puede eliminar "' . $catalog_product->name . '" porque está incluido en una Orden de Venta.',
+            ]);
+        }
+
         $catalog_product->delete();
+
+        return back();
     }
 
     public function massiveDelete(Request $request)
@@ -603,6 +652,80 @@ class ProductController extends Controller
         }
     }
 
+    // =======================================================
+    // --- CATEGORÍA "MUESTRAS Y REGALOS" ---
+    // Productos simples (nombre, imagen, descripción y stock) que se usan en las
+    // órdenes de venta de tipo muestra/regalo y no requieren cliente asignado.
+    // =======================================================
+
+    /**
+     * Crea un producto de la categoría "Muestras y regalos".
+     */
+    public function storeMuestra(Request $request, MuestraProductService $muestraProductService)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'current_stock' => 'nullable|numeric|min:0',
+            'media' => 'nullable|array|max:1',
+            'media.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        $product = $muestraProductService->create(
+            $validated['name'],
+            $validated['description'] ?? null,
+            $validated['current_stock'] ?? 0
+        );
+
+        if ($request->hasFile('media')) {
+            foreach ($request->file('media') as $file) {
+                $product->addMedia($file)->toMediaCollection('images');
+            }
+        }
+
+        return back()->with('success.flash', 'Muestra/regalo registrado correctamente.');
+    }
+
+    /**
+     * Actualiza nombre, descripción, imagen y stock de un producto de muestra/regalo.
+     */
+    public function updateMuestra(Request $request, Product $catalog_product)
+    {
+        abort_unless($catalog_product->product_type === MuestraProductService::PRODUCT_TYPE, 404);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'current_stock' => 'nullable|numeric|min:0',
+            'media' => 'nullable|array|max:1',
+            'media.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        $catalog_product->update([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+        ]);
+
+        // Stock disponible (primer almacén del producto)
+        $stockStorage = $catalog_product->storages()->first();
+        if ($stockStorage) {
+            $stockStorage->update(['quantity' => $validated['current_stock'] ?? 0]);
+        } else {
+            $catalog_product->storages()->create(['quantity' => $validated['current_stock'] ?? 0]);
+        }
+
+        // La imagen nueva reemplaza a la anterior
+        if ($request->hasFile('media')) {
+            $catalog_product->clearMediaCollection('images');
+
+            foreach ($request->file('media') as $file) {
+                $catalog_product->addMedia($file)->toMediaCollection('images');
+            }
+        }
+
+        return back()->with('success.flash', 'Muestra/regalo actualizado correctamente.');
+    }
+
     public function massiveObsolet(Request $request)
     {
         $request->validate(['ids' => 'required|array']);
@@ -611,9 +734,9 @@ class ProductController extends Controller
 
         foreach ($products as $product) {
             if ($product->archived_at) {
-                $product->archived_at = null; 
+                $product->archived_at = null;
             } else {
-                $product->archived_at = now(); 
+                $product->archived_at = now();
             }
             $product->save();
         }
@@ -694,6 +817,7 @@ class ProductController extends Controller
             $products = Product::query()
                 ->whereNull('parent_id') // Solo productos "padre"
                 ->whereNull('archived_at') // Corrección: Ocultar obsoletos
+                ->where('product_type', '!=', MuestraProductService::PRODUCT_TYPE) // Las muestras/regalos no son productos padre
                 ->select('id', 'name')
                 ->orderBy('name')
                 ->get();
@@ -796,6 +920,7 @@ class ProductController extends Controller
             ->select(['id', 'name', 'code'])
             ->whereNull('archived_at') // Corrección: Excluir padres obsoletos de las búsquedas en vivo
             ->where('product_type', '!=', 'Insumo') // Evitamos que traiga insumos
+            ->where('product_type', '!=', MuestraProductService::PRODUCT_TYPE) // Ni muestras/regalos
             ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
                   ->orWhere('code', 'like', "%{$query}%");

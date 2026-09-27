@@ -45,7 +45,7 @@
                         <p><span class="font-bold">{{ t.purchaseOrder }}</span> {{ sale.oce_name ?? 'N/A' }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="font-bold">{{ t.folio }}: <span class="font-mono bg-gray-100 px-2 py-1 rounded">OV-{{ sale.id.toString().padStart(4, '0') }}</span></p>
+                        <p class="font-bold">{{ t.folio }}: <span class="font-mono bg-gray-100 px-2 py-1 rounded">{{ sale.type === 'muestra' ? 'OM-' : 'OV-' }}{{ sale.id.toString().padStart(4, '0') }}</span></p>
                         <p class="font-bold mt-1">{{ t.date }}: <span class="font-normal">{{ formattedDate }}</span></p>
                     </div>
                 </div>

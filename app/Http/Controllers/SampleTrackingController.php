@@ -14,15 +14,21 @@ use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Models\Contact; // Importar el modelo Contact
 use App\Notifications\NewSampleTrackingNotification;
+use App\Services\MuestraProductService;
 use Illuminate\Support\Facades\Notification as FacadesNotification;
 
 class SampleTrackingController extends Controller
 {
     public function index()
     {
-        $sampleTrackings = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name'])
+        $sampleTrackings = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'sale:id', 'items.itemable'])
             ->latest()
-            ->paginate(20);
+            ->paginate(20)
+            ->through(function ($sampleTracking) {
+                // Productos nuevos que todavía no están en la categoría "Muestras y regalos"
+                $sampleTracking->pending_proposals = $this->pendingProposalsList($sampleTracking);
+                return $sampleTracking;
+            });
 
         return Inertia::render('SampleTracking/Index', compact('sampleTrackings'));
     }
@@ -126,7 +132,7 @@ class SampleTrackingController extends Controller
     public function show(SampleTracking $sampleTracking)
     {
         // 1. Cargamos 'items.itemable.media' para optimizar la consulta y traer las imagenes
-        $sampleTracking->load(['branch', 'contact.details', 'requester', 'items.itemable.media']);
+        $sampleTracking->load(['branch', 'contact.details', 'requester', 'sale:id', 'items.itemable.media']);
 
         $sampleTracking->items->each(function ($item) {
             $imageUrl = null;
@@ -262,7 +268,7 @@ class SampleTrackingController extends Controller
     {
         $query = $request->input('query');
 
-        $sampleTracking = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name'])
+        $sampleTracking = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'sale:id', 'items.itemable'])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
@@ -276,6 +282,11 @@ class SampleTrackingController extends Controller
                 });
             })
             ->get();
+
+        // Productos nuevos que todavía no están en la categoría "Muestras y regalos"
+        $sampleTracking->each(function ($item) {
+            $item->pending_proposals = $this->pendingProposalsList($item);
+        });
 
         return response()->json(['items' => $sampleTracking], 200);
     }
@@ -338,4 +349,82 @@ class SampleTrackingController extends Controller
         return back()->with('success.flash', 'Estatus actualizado correctamente.');
     }
 
+    /**
+     * Prepara la Orden de Venta de muestra/regalo del seguimiento:
+     * registra automáticamente los productos nuevos (NewProductProposal) como productos
+     * de la categoría "Muestras y regalos" para que puedan agregarse a la orden sin problema.
+     *
+     * Con 'redirect_source' = 'show' regresa al detalle del seguimiento; de lo contrario
+     * redirige al formulario de creación de la Orden de Venta prellenado.
+     */
+    public function prepareSale(Request $request, SampleTracking $sampleTracking, MuestraProductService $muestraProductService)
+    {
+        // Un seguimiento de muestra solo puede tener UNA Orden de Venta vinculada.
+        // (con redirect_source = 'show' solo se registran productos, no se crea la OV)
+        if ($request->input('redirect_source') !== 'show' && $sampleTracking->sale_id) {
+            return back()->withErrors('Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.');
+        }
+
+        // Stock actual capturado por el usuario para los productos nuevos que se registran
+        $validated = $request->validate([
+            'stocks' => 'nullable|array',
+            'stocks.*.new_product_proposal_id' => 'required_with:stocks|exists:new_product_proposals,id',
+            'stocks.*.stock' => 'nullable|numeric|min:0',
+        ]);
+
+        $stocksByProposal = collect($validated['stocks'] ?? [])
+            ->filter(fn ($row) => !empty($row['new_product_proposal_id']))
+            ->mapWithKeys(fn ($row) => [$row['new_product_proposal_id'] => (float) ($row['stock'] ?? 0)]);
+
+        $sampleTracking->load('items.itemable');
+
+        try {
+            DB::transaction(function () use ($sampleTracking, $muestraProductService, $stocksByProposal) {
+                foreach ($sampleTracking->items as $item) {
+                    if ($item->itemable_type !== NewProductProposal::class) {
+                        continue;
+                    }
+
+                    $proposal = $item->itemable;
+
+                    // Solo se registran las propuestas que aún no tienen producto en catálogo.
+                    if ($proposal && !$proposal->product_id) {
+                        $muestraProductService->createFromProposal($proposal, $stocksByProposal->get($proposal->id, 0));
+                    }
+                }
+            });
+        } catch (\Exception $e) {
+            return back()->withErrors('Ocurrió un error al registrar los productos de la muestra: ' . $e->getMessage());
+        }
+
+        if ($request->input('redirect_source') === 'show') {
+            return redirect()->route('sample-trackings.show', $sampleTracking->id)
+                ->with('success.flash', 'Productos nuevos registrados como "Muestras y regalos".');
+        }
+
+        return redirect()->route('sales.create', ['sample_tracking_id' => $sampleTracking->id]);
+    }
+
+    /**
+     * Productos nuevos (propuestas) del seguimiento que aún no están registrados
+     * en la categoría "Muestras y regalos".
+     */
+    private function pendingProposalsList(SampleTracking $sampleTracking): array
+    {
+        return $sampleTracking->items
+            ->filter(function ($item) {
+                return $item->itemable_type === NewProductProposal::class
+                    && $item->itemable
+                    && !$item->itemable->product_id;
+            })
+            ->map(function ($item) {
+                return [
+                    'id' => $item->itemable_id,
+                    'name' => $item->itemable->name,
+                    'quantity' => $item->quantity,
+                ];
+            })
+            ->values()
+            ->all();
+    }
 }

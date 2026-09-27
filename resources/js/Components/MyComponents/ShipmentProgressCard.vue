@@ -22,9 +22,20 @@
 
                             <!-- Detalles del producto -->
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" :title="item.product.name">
-                                    {{ item.product.name }}
-                                </p>
+                                <div class="flex items-center gap-1 flex-wrap">
+                                    <p class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" :title="item.product.name">
+                                        {{ item.product.name }}
+                                    </p>
+                                    <!-- Etiquetas de origen/tipo del producto -->
+                                    <el-tag v-if="item.product.archived_at" type="warning" size="small">Obsoleto</el-tag>
+                                    <el-tag v-if="isMuestraSale || isMuestraProductLine(item.product)" type="success" size="small">
+                                        <i class="fa-solid fa-gift mr-1"></i> Muestra/Regalo
+                                    </el-tag>
+                                    <el-tag v-if="isMuestraSale && !item.product.archived_at"
+                                        :type="isMuestraProductLine(item.product) ? 'warning' : 'primary'" effect="plain" size="small">
+                                        {{ isMuestraProductLine(item.product) ? 'No registrado en catálogo' : 'Producto de catálogo' }}
+                                    </el-tag>
+                                </div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">
                                     Cód: {{ item.product.code || 'N/A' }}
                                 </p>
@@ -69,14 +80,27 @@
 export default {
     name: 'ShipmentProgressCard',
     props: {
-        uniqueSaleProducts: { type: Array, required: true }
+        uniqueSaleProducts: { type: Array, required: true },
+        // Tipo de la orden ('venta', 'stock' o 'muestra'). En las órdenes de
+        // muestra/regalo TODOS los productos se marcan como Muestra/Regalo.
+        saleType: { type: String, default: 'venta' }
     },
     data() {
         return {
             isOpen: true // Cerrado por defecto
         }
     },
+    computed: {
+        // Orden de tipo Muestra/Regalo: todas sus líneas se etiquetan como tal.
+        isMuestraSale() {
+            return this.saleType === 'muestra';
+        },
+    },
     methods: {
+        // Producto de la categoría "Muestras y regalos".
+        isMuestraProductLine(product) {
+            return product?.product_type === 'Muestra';
+        },
         handleImageError(event) {
             const img = event.target;
             const currentSrc = img.src;

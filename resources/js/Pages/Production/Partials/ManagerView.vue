@@ -238,7 +238,7 @@
                             </div>
                         </template>
                     </el-table-column>
-                    <el-table-column label="Acciones" width="160" align="right">
+                    <el-table-column label="Acciones" width="160" align="right" fixed="right">
                         <template #default="scope">
                             <div class="flex justify-end space-x-1 pr-2">
                                 <Link :href="route('productions.show', scope.row.id)" title="Ver detalles">

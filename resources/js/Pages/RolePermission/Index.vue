@@ -39,10 +39,16 @@
                         <!-- Columna de Permisos -->
                         <div class="md:col-span-2 p-5">
                             <div v-if="selectedRole">
-                                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4">
-                                    Permisos para: <span class="text-blue-600 dark:text-blue-400">{{ selectedRole.name
-                                        }}</span>
-                                </h3>
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">
+                                        Permisos para: <span class="text-blue-600 dark:text-blue-400">{{ selectedRole.name
+                                            }}</span>
+                                    </h3>
+                                    <SecondaryButton v-if="hasPermission('Crear roles y permisos')"
+                                        @click="openCreateGroupModal">
+                                        <i class="fa-solid fa-folder-plus mr-1"></i> Nuevo Grupo
+                                    </SecondaryButton>
+                                </div>
                                 <div class="space-y-5 max-h-[65vh] overflow-auto pr-2">
                                     <div v-for="(permissionGroup, module) in permissions" :key="module">
                                         <div
@@ -122,7 +128,7 @@
 
         <!-- Modal para Crear/Editar Permiso -->
         <DialogModal :show="showPermissionModal" @close="closePermissionModal">
-            <template #title>{{ isEditingPermission ? 'Editar Permiso' : 'Crear Nuevo Permiso' }}</template>
+            <template #title>{{ permissionModalTitle }}</template>
             <template #content>
                 <form @submit.prevent="submitPermission" class="space-y-4">
                     <div>
@@ -131,8 +137,16 @@
                         <InputError :message="permissionForm.errors.name" class="mt-2" />
                     </div>
                     <div>
-                        <InputLabel for="permissionModule" value="Módulo" />
-                        <TextInput id="permissionModule" v-model="permissionForm.module" required class="w-full mt-1" />
+                        <InputLabel for="permissionModule" value="Módulo / Grupo" />
+                        <el-select id="permissionModule" v-model="permissionForm.module" filterable allow-create
+                            default-first-option placeholder="Selecciona un grupo o escribe uno nuevo"
+                            class="w-full mt-1" :teleported="false">
+                            <el-option v-for="moduleName in existingModules" :key="moduleName" :label="moduleName"
+                                :value="moduleName" />
+                        </el-select>
+                        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+                            Escribe un nombre nuevo para crear un grupo adicional de permisos.
+                        </p>
                         <InputError :message="permissionForm.errors.module" class="mt-2" />
                     </div>
                 </form>
@@ -177,6 +191,16 @@ export default {
 
         return { hasPermission };
     },
+    computed: {
+        // Grupos (módulos) existentes, usados para el selector del modal de permisos
+        existingModules() {
+            return Object.keys(this.permissions || {});
+        },
+        permissionModalTitle() {
+            if (this.isEditingPermission) return 'Editar Permiso';
+            return this.isCreatingGroup ? 'Crear Nuevo Grupo de Permisos' : 'Crear Nuevo Permiso';
+        },
+    },
     data() {
         return {
             // State for Roles
@@ -191,6 +215,7 @@ export default {
             permissionForm: useForm({ id: null, name: '', module: '' }),
             showPermissionModal: false,
             isEditingPermission: false,
+            isCreatingGroup: false,
         };
     },
     methods: {
@@ -240,12 +265,22 @@ export default {
         // --- Permission Methods ---
         openCreatePermissionModal(moduleName) {
             this.isEditingPermission = false;
+            this.isCreatingGroup = false;
             this.permissionForm.reset();
             this.permissionForm.module = moduleName;
             this.showPermissionModal = true;
         },
+        openCreateGroupModal() {
+            // Abre el modal vacío: el usuario define el nombre del nuevo grupo (módulo)
+            this.isEditingPermission = false;
+            this.isCreatingGroup = true;
+            this.permissionForm.reset();
+            this.permissionForm.module = '';
+            this.showPermissionModal = true;
+        },
         openEditPermissionModal(permission) {
             this.isEditingPermission = true;
+            this.isCreatingGroup = false;
             this.permissionForm.id = permission.id;
             this.permissionForm.name = permission.name;
             this.permissionForm.module = permission.module;
@@ -253,6 +288,7 @@ export default {
         },
         closePermissionModal() {
             this.showPermissionModal = false;
+            this.isCreatingGroup = false;
         },
         submitPermission() {
             const options = {

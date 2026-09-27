@@ -4,7 +4,7 @@
             <el-table-column label="Folio OV" width="120">
                 <template #default="scope">
                     <a class="text-blue-500 hover:underline" :href="route('sales.show', scope.row.id)" target="_blank">
-                        OV-{{ scope.row.id.toString().padStart(4, '0') }}
+                        {{ scope.row.type === 'muestra' ? 'OM-' : 'OV-' }}{{ scope.row.id.toString().padStart(4, '0') }}
                     </a>
                 </template>
             </el-table-column>
@@ -22,7 +22,7 @@
                 </template>
             </el-table-column>
             <el-table-column prop="invoices_count" label="Facturas" width="100" align="center" />
-            <el-table-column label="Acciones" align="right" width="150">
+            <el-table-column label="Acciones" align="right" width="150" fixed="right">
                 <template #default="scope">
                     <Link :href="route('invoices.create', { sale_id: scope.row.id })">
                         <el-button type="primary" plain size="small">Crear Factura</el-button>

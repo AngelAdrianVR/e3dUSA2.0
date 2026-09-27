@@ -58,9 +58,16 @@
                             @row-click="handleRowClick"
                             class="dark:!bg-slate-900 cursor-pointer dark:!text-gray-300">
 
-                            <el-table-column prop="id" label="Folio Venta" width="120">
+                            <el-table-column prop="id" label="Folio Venta" width="140">
                                 <template #default="scope">
-                                    <span class="font-bold">{{ 'OV-' + scope.row.id.toString().padStart(4, '0') }}</span>
+                                    <div class="flex items-center space-x-2">
+                                        <!-- Icono de Tipo (Venta / Muestra-Regalo / Stock) -->
+                                        <el-tooltip :content="getTypeLabel(scope.row.type)" placement="top">
+                                            <i :class="getTypeIcon(scope.row.type)"></i>
+                                        </el-tooltip>
+                                        <!-- Folio Text -->
+                                        <span class="font-bold">{{ getTypeFolio(scope.row) }}</span>
+                                    </div>
                                 </template>
                             </el-table-column>
 
@@ -131,7 +138,7 @@
                             </el-table-column>
 
                             <!-- Menú de acciones por fila -->
-                            <el-table-column align="right" width="100">
+                            <el-table-column align="right" width="100" fixed="right">
                                 <template #default="scope">
                                     <el-dropdown trigger="click">
                                         <button @click.stop
@@ -267,6 +274,21 @@ export default {
             const cleanDateString = dateString.split(' ')[0].replace(/-/g, '/');
             const date = new Date(cleanDateString);
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
+        },
+        // --- Helpers de tipo de orden (venta / muestra-regalo / stock) ---
+        getTypeLabel(type) {
+            if (type === 'stock') return 'Orden de Stock';
+            if (type === 'muestra') return 'Orden de Muestra/Regalo';
+            return 'Orden de Venta';
+        },
+        getTypeIcon(type) {
+            if (type === 'stock') return 'fa-solid fa-box text-rose-500';
+            if (type === 'muestra') return 'fa-solid fa-gift text-emerald-500';
+            return 'fa-solid fa-cart-shopping text-purple-500';
+        },
+        getTypeFolio(row) {
+            const prefix = row.type === 'stock' ? 'OS-' : (row.type === 'muestra' ? 'OM-' : 'OV-');
+            return prefix + row.id.toString().padStart(4, '0');
         },
         getStatusTagType(status) {
             const statusMap = {

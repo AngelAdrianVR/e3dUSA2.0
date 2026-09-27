@@ -86,7 +86,9 @@ const classes = computed(() => {
         <div v-if="!open"
              class="absolute left-full top-2 ml-4 px-4 py-2 bg-zinc-800 dark:bg-slate-900 text-white text-xs rounded-md whitespace-nowrap
                     invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-opacity duration-200 z-50">
-            {{ props.label }}
+            <span>{{ props.label }}</span>
+            <!-- Información extra dentro del mismo tooltip (ej. tarea en proceso) -->
+            <slot name="tooltip" />
         </div>
     </div>
 </template>
