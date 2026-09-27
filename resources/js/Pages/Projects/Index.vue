@@ -106,7 +106,7 @@
                             </el-table-column>
 
                             <!-- Acciones -->
-                            <el-table-column label="" width="150" align="right">
+                            <el-table-column label="" width="150" align="right" fixed="right">
                                 <template #default="{ row }">
                                     <div class="flex items-center justify-end gap-1">
                                         <button @click.stop="openShow(row)" title="Ver proyecto"

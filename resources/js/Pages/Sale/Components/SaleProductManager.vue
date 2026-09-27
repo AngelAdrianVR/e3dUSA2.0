@@ -5,7 +5,14 @@
     </el-divider>
     <InputError :message="productsError" class="mt-2" />
 
-    <div ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700">
+    <!-- AVISO: en las órdenes de muestra/regalo los productos provienen del seguimiento de muestra -->
+    <p v-if="saleType === 'muestra'" class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        <i class="fa-solid fa-gift mr-1 text-emerald-500"></i>
+        Los productos de esta orden provienen del seguimiento de muestra/regalo; no se pueden agregar productos del catálogo.
+    </p>
+
+    <!-- Selector y alta de productos del catálogo (no aplica a muestra/regalo) -->
+    <div v-if="saleType !== 'muestra'" ref="formProducts" class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700">
         <p v-if="saleType !== 'stock' && !branchId" class="text-center text-gray-500 py-4">
             <i class="fa-solid fa-arrow-up mr-2"></i>
             Selecciona un cliente para agregar productos.
@@ -358,7 +365,8 @@
                         </div>
                     </span>
                 </div>
-                <div class="flex items-center space-x-3 shrink-0">
+                <!-- Acciones de la línea: no aplican a órdenes de muestra/regalo (los productos provienen del seguimiento) -->
+                <div v-if="saleType !== 'muestra'" class="flex items-center space-x-3 shrink-0">
                     <el-tooltip content="Cancelar edición" placement="top">
                         <button @click="resetCurrentProduct" v-if="editIndex === index" type="button" class="flex items-center justify-center text-gray-500 hover:text-red-500 transition-colors">
                             <i class="fa-solid fa-xmark"></i>

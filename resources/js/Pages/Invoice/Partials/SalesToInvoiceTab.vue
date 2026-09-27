@@ -22,7 +22,7 @@
                 </template>
             </el-table-column>
             <el-table-column prop="invoices_count" label="Facturas" width="100" align="center" />
-            <el-table-column label="Acciones" align="right" width="150">
+            <el-table-column label="Acciones" align="right" width="150" fixed="right">
                 <template #default="scope">
                     <Link :href="route('invoices.create', { sale_id: scope.row.id })">
                         <el-button type="primary" plain size="small">Crear Factura</el-button>

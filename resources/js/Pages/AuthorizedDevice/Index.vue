@@ -21,7 +21,7 @@
                         <el-table-column prop="created_at" label="Fecha de Autorización">
                             <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
                         </el-table-column>
-                        <el-table-column label="Acciones" align="right">
+                        <el-table-column label="Acciones" align="right" width="120" fixed="right">
                             <template #default="{ row }">
                                 <el-popconfirm title="¿Desautorizar este dispositivo?" @confirm="removeDevice(row)">
                                     <template #reference>

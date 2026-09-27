@@ -168,7 +168,7 @@ class ShipmentController extends Controller
             'user:id,name', 
             'shipments' => function ($query) {
                 $query->with([
-                    'shipmentProducts.saleProduct.product:id,name,code,measure_unit',
+                    'shipmentProducts.saleProduct.product:id,name,code,measure_unit,product_type,archived_at',
                     'shipmentProducts.saleProduct.product.media',
                     'shipmentProducts.saleProduct.product.storages', 
                     'media',

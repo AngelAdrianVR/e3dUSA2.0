@@ -32,7 +32,7 @@
                     <el-tag :type="getStatusTag(scope.row.status)">{{ scope.row.status }}</el-tag>
                 </template>
             </el-table-column>
-            <el-table-column label="Acciones" width="80" align="center">
+            <el-table-column label="Acciones" width="80" align="center" fixed="right">
                 <template #default="scope">
                     <el-dropdown trigger="click" @command="handleCommand">
                         <span @click.stop="" class="el-dropdown-link flex items-center justify-center size-7 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full">

@@ -18,7 +18,7 @@
                     </span>
                 </template>
             </el-table-column>
-            <el-table-column align="right" width="160">
+            <el-table-column align="right" width="160" fixed="right">
                 <template #default="scope">
                     <el-button @click.stop="$emit('register-payment', scope.row)" type="success" plain size="small">
                         Pagar

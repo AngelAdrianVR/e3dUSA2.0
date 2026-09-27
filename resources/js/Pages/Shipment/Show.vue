@@ -46,7 +46,7 @@
                 <OrderDetailsCard :sale="sale" />
 
                 <!-- Componente Refactorizado: Progreso de Envíos por Producto -->
-                <ShipmentProgressCard v-if="uniqueSaleProducts.length > 0" :uniqueSaleProducts="uniqueSaleProducts" />
+                <ShipmentProgressCard v-if="uniqueSaleProducts.length > 0" :uniqueSaleProducts="uniqueSaleProducts" :saleType="sale.type" />
 
                 <!-- Componente Refactorizado: Resumen de Producción -->
                 <ProductionSummaryCard :summary="sale.production_summary" />
