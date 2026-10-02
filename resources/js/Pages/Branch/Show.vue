@@ -153,7 +153,11 @@
                                 </el-tooltip>
                             </div>
 
-                            <p class="font-semibold">{{ contact.prefix }} {{ contact.name }}</p>
+                            <p class="font-semibold">
+                                <el-tag v-if="contact.area" size="small" class="mr-2">{{ contact.area }}</el-tag>
+                                <el-tag v-else size="small" type="info" class="mr-2">Por definir</el-tag>
+                                {{ contact.prefix }} {{ contact.name }}
+                            </p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
                             <div class="text-sm mt-1 space-y-1">
                                 <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
@@ -181,12 +185,56 @@
             <div class="lg:col-span-2">
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg max-h-[70vh]">
                         <el-tabs v-model="activeTab" class="p-5">
-                        <el-tab-pane label="Información General" name="general">
+                        <el-tab-pane label="Info. General" name="general">
                             <ul class="space-y-4 text-sm mt-2">
                                 <li><strong class="font-semibold w-40 inline-block">Cuenta Bancaria:</strong> {{ branch.bank_account ?? 'No especificada' }}</li>
                                 <li><strong class="font-semibold w-40 inline-block">Dirección:</strong> {{ branch.address ?? 'No especificada' }}</li>
                                 <li><strong class="font-semibold w-40 inline-block">Código Postal:</strong> {{ branch.post_code ?? 'N/A' }}</li>
                                 <li><strong class="font-semibold w-40 inline-block">Nos conoció por:</strong> {{ branch.meet_way ?? 'No especificado' }}</li>
+                                <li>
+                                    <strong class="font-semibold w-40 inline-block">Método de Pago:</strong>
+                                    {{ branch.payment_method ?? 'No especificado' }}
+                                    <span v-if="branch.payment_submethod" class="text-gray-500 dark:text-gray-400">({{ branch.payment_submethod }})</span>
+                                </li>
+                                <li>
+                                    <strong class="font-semibold w-40 inline-block">Uso de CFDI:</strong> {{ branch.cfdi_use ?? 'No especificado' }}
+                                </li>
+                                <li>
+                                    <strong class="font-semibold w-40 inline-block">CSF:</strong>
+                                    <template v-if="csfMedia">
+                                        <el-image
+                                            v-if="isCsfImage"
+                                            :src="csfMedia.original_url"
+                                            :preview-src-list="[csfMedia.original_url]"
+                                            :preview-teleported="true"
+                                            fit="cover"
+                                            class="size-24 rounded-md border border-gray-200 dark:border-slate-700 align-middle cursor-pointer"
+                                        >
+                                            <template #error>
+                                                <div class="flex items-center justify-center size-24 text-gray-400">
+                                                    <i class="fa-solid fa-file-lines text-2xl"></i>
+                                                </div>
+                                            </template>
+                                        </el-image>
+                                        <a v-else :href="csfMedia.original_url" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                            <i class="fa-regular fa-file-pdf mr-1"></i> Ver documento
+                                        </a>
+                                        <button @click="deleteCsf" type="button" class="ml-3 text-red-500 hover:text-red-700 text-sm" title="Eliminar CSF">
+                                            <i class="fa-regular fa-trash-can"></i> Eliminar
+                                        </button>
+                                    </template>
+                                    <template v-else>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">No cargada. Sube la CSF actualizada (PDF o imagen).</p>
+                                        <FileUploader
+                                            @files-selected="uploadCsf"
+                                            :multiple="false"
+                                            format="Documento"
+                                            :max-files="1"
+                                            :max-file-size="10"
+                                            class="max-w-xs"
+                                        />
+                                    </template>
+                                </li>
                                 <li>
                                     <strong class="font-semibold inline-block mb-1">Notas:</strong>
                                     <p class="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-900/50 p-3 rounded-md border border-gray-100 dark:border-slate-700 mt-1">
@@ -200,7 +248,7 @@
                              <template #label>
                                 <div class="flex items-center">
                                     <i class="fa-solid fa-tags mr-2"></i>
-                                    <span>Productos Asignados</span>
+                                    <span>Prod. Asignados</span>
                                 </div>
                             </template>
                             <div v-if="branch.products.length" class="space-y-4 mt-2 max-h-[60vh] overflow-y-auto pr-2">
@@ -308,8 +356,9 @@ import Dropdown from "@/Components/Dropdown.vue";
 import DropdownLink from "@/Components/DropdownLink.vue";
 import TextInput from "@/Components/TextInput.vue";
 import InputError from "@/Components/InputError.vue";
+import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -362,6 +411,7 @@ export default {
         DialogModal,
         TextInput,
         InputError,
+        FileUploader,
         Products,
         Quotes,
         Sales,
@@ -380,6 +430,17 @@ export default {
         availableProducts() {
             const assignedProductIds = this.branch.products.map(p => p.id);
             return this.catalog_products.filter(p => !assignedProductIds.includes(p.id));
+        },
+        csfMedia() {
+            return (this.branch.media || []).find(m => m.collection_name === 'csf') || null;
+        },
+        isCsfImage() {
+            const media = this.csfMedia;
+            if (!media) return false;
+            if (media.mime_type) return String(media.mime_type).startsWith('image/');
+            const name = media.file_name || '';
+            const ext = name.split('.').pop().toLowerCase();
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
         },
     },
     methods: {
@@ -520,15 +581,46 @@ export default {
         async deleteItem() {
             try {
                 const response = await axios.delete(route('branches.destroy', this.branch.id));
-                if (response.status === 200) {
-                    ElMessage.success(response.data.message || 'Cliente eliminado con éxito.');
-                    this.$inertia.visit(route('branches.index'));
-                }
-            } catch (err) {
-                ElMessage.error('Ocurrió un error al eliminar el cliente.');
-                console.error(err);
-            } finally {
+                ElMessage.success(response.data?.message || 'Cliente eliminado con éxito.');
                 this.showConfirmModal = false;
+                this.$inertia.visit(route('branches.index'));
+            } catch (err) {
+                ElMessage.error(err.response?.data?.message || 'Ocurrió un error al eliminar el cliente.');
+                console.error(err);
+                this.showConfirmModal = false;
+            }
+        },
+        async uploadCsf(files) {
+            if (!files || !files.length) return;
+            const formData = new FormData();
+            formData.append('csf', files[0]);
+            try {
+                const response = await axios.post(route('branches.csf.store', this.branch.id), formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                ElMessage.success(response.data?.message || 'CSF actualizada correctamente.');
+                this.$inertia.reload({ only: ['branch'], preserveScroll: true });
+            } catch (err) {
+                ElMessage.error(err.response?.data?.message || 'No se pudo subir la CSF.');
+            }
+        },
+        async deleteCsf() {
+            if (!this.csfMedia) return;
+            try {
+                await ElMessageBox.confirm('¿Deseas eliminar la CSF actual? Esta acción no se puede deshacer.', 'Eliminar CSF', {
+                    confirmButtonText: 'Eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                });
+            } catch {
+                return;
+            }
+            try {
+                await axios.delete(route('media.delete-file', this.csfMedia.id));
+                ElMessage.success('CSF eliminada correctamente.');
+                this.$inertia.reload({ only: ['branch'], preserveScroll: true });
+            } catch (err) {
+                ElMessage.error('No se pudo eliminar la CSF.');
             }
         },
         async fetchQuotes() {

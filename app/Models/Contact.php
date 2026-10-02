@@ -17,6 +17,7 @@ class Contact extends Model
         'name',
         'prefix', // ing. Lic. Admin.
         'charge',
+        'area', // Comercial, Finanzas o Pagos
         'birthdate',
         'is_primary',
         'contactable_id',

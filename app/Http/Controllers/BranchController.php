@@ -12,6 +12,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
 {
@@ -107,7 +108,8 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
+            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
@@ -132,11 +134,20 @@ class BranchController extends Controller
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
 
+            // Método de pago y uso de CFDI (obligatorios solo para sucursales matriz nuevas)
+            'payment_method' => 'required_without:parent_branch_id|nullable|string|in:PPD,PUE',
+            'payment_submethod' => 'nullable|string|in:99 X DEFINIR,TRANSFERENCIA,CHEQUES',
+            'cfdi_use' => 'required_without:parent_branch_id|nullable|string|in:GASTOS EN GENERAL,ADQUISICION DE MERCANCIAS',
+
+            // Documento CSF (obligatorio solo para sucursales matriz nuevas)
+            'csf' => 'required_without:parent_branch_id|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
             // Validación para los contactos
             'contacts' => 'present|array',
             'contacts.*.name' => 'required|string|max:255',
+            'contacts.*.area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
             'contacts.*.charge' => 'nullable|string|max:255',
-            'contacts.*.phone' => 'required|string|max:10',
+            'contacts.*.phone' => 'required|string|max:20',
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
@@ -153,7 +164,10 @@ class BranchController extends Controller
             'suggested_products.*' => 'exists:products,id',
         ]);
 
-        DB::transaction(function () use ($validated) {
+        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
+        $this->validateContactRules($validated['contacts'] ?? []);
+
+        DB::transaction(function () use ($validated, $request) {
             // 1. Crear la sucursal (Branch)
             $branch = Branch::create([
                 'name' => $validated['name'],
@@ -171,6 +185,12 @@ class BranchController extends Controller
                 'parent_branch_id' => $validated['parent_branch_id'],
                 'account_manager_id' => $validated['account_manager_id'],
                 'meet_way' => $validated['meet_way'],
+
+                // Datos fiscales (CFDI)
+                'payment_method' => $validated['payment_method'] ?? null,
+                'payment_submethod' => $validated['payment_submethod'] ?? null,
+                'cfdi_use' => $validated['cfdi_use'] ?? null,
+
                 'password' => bcrypt('e3d'),
             ]);
 
@@ -187,23 +207,30 @@ class BranchController extends Controller
 
                     $contact = $branch->contacts()->create([
                         'prefix' => $contactData['prefix'] ?? 'Ing.', // Toma el valor o por defecto Ing.
+                        'area' => $contactData['area'] ?? null,
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]);
 
-                    $contact->details()->create([
-                        'type' => 'Teléfono',
-                        'value' => $contactData['phone'],
-                        'is_primary' => true,
-                    ]);
+                    // Teléfono opcional: basta con tener al menos un medio de contacto
+                    if (!empty($contactData['phone'])) {
+                        $contact->details()->create([
+                            'type' => 'Teléfono',
+                            'value' => $contactData['phone'],
+                            'is_primary' => true,
+                        ]);
+                    }
 
-                    $contact->details()->create([
-                        'type' => 'Correo',
-                        'value' => $contactData['email'],
-                        'is_primary' => true,
-                    ]);
+                    // Correo opcional: basta con tener al menos un medio de contacto
+                    if (!empty($contactData['email'])) {
+                        $contact->details()->create([
+                            'type' => 'Correo',
+                            'value' => $contactData['email'],
+                            'is_primary' => true,
+                        ]);
+                    }
                 }
             }
 
@@ -239,6 +266,11 @@ class BranchController extends Controller
                 $branch->suggestedProducts()->sync($validated['suggested_products']);
             }
 
+            // 5. Guardar el documento CSF (Constancia de Situación Fiscal)
+            if ($request->hasFile('csf')) {
+                $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+            }
+
         });
         
         return to_route('branches.index');
@@ -252,6 +284,7 @@ class BranchController extends Controller
             'accountManager:id,name', 
             'parent:id,name', 
             'contacts.details',
+            'media',
             'suggestedProducts.media',
         ]);
 
@@ -396,7 +429,7 @@ class BranchController extends Controller
     public function edit(Branch $branch)
     {
         // Cargar las relaciones que no dependen de la matriz
-        $branch->load(['contacts.details', 'suggestedProducts', 'parent']);
+        $branch->load(['contacts.details', 'suggestedProducts', 'parent', 'media']);
 
         if ($branch->parent_branch_id) {
             $branch->business_name = $branch->business_name ?? $branch->parent?->business_name;
@@ -405,9 +438,9 @@ class BranchController extends Controller
 
         $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
-        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
+        // MODIFICADO: Obtenemos los productos (con imagen y stock) desde la sucursal matriz
         $productSourceBranch = $this->getProductTargetBranch($branch);
-        $products = $productSourceBranch->products;
+        $products = $this->formatBranchProducts($productSourceBranch);
 
         // Formatear los datos de contactos para que coincidan con la estructura del formulario
         $formattedContacts = $branch->contacts->map(function ($contact) {
@@ -425,6 +458,7 @@ class BranchController extends Controller
                 'prefix' => $contact->prefix,
                 'name' => $contact->name,
                 'charge' => $contact->charge,
+                'area' => $contact->area,
                 'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
                 'email' => $contact->details->firstWhere('type', 'Correo')->value ?? null,
                 'birth_month' => $birth_month,
@@ -432,27 +466,15 @@ class BranchController extends Controller
             ];
         });
 
-        // MODIFICADO: Formatear productos basados en la sucursal matriz
-        $formattedProducts = $products->map(function ($product) use ($productSourceBranch) {
-            $specialPrice = DB::table('branch_price_history')
-                ->where('branch_id', $productSourceBranch->id) // Usar el ID de la matriz
-                ->where('product_id', $product->id)
-                ->whereNull('valid_to')
-                ->orderBy('valid_from', 'desc')
-                ->first();
-
-            return [
-                'product_id' => $product->id,
-                'price' => $specialPrice->price ?? null,
-                'currency' => $specialPrice->currency ?? 'MXN',
-            ];
-        });
+        // Los productos ya vienen formateados con precio especial, imagen, stock y ubicación
+        $formattedProducts = $products;
 
         return Inertia::render('Branch/Edit', [
             'branch' => $branch,
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
-            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
+            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
@@ -483,12 +505,21 @@ class BranchController extends Controller
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
 
+            // Método de pago y uso de CFDI (opcionales en edición)
+            'payment_method' => 'nullable|string|in:PPD,PUE',
+            'payment_submethod' => 'nullable|string|in:99 X DEFINIR,TRANSFERENCIA,CHEQUES',
+            'cfdi_use' => 'nullable|string|in:GASTOS EN GENERAL,ADQUISICION DE MERCANCIAS',
+
+            // Documento CSF (opcional: reemplaza el existente si se sube)
+            'csf' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
             // Validación para contactos
             'contacts' => 'present|array',
             'contacts.*.id' => 'nullable|exists:contacts,id',
             'contacts.*.name' => 'required|string|max:255',
+            'contacts.*.area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
             'contacts.*.charge' => 'nullable|string|max:255',
-            'contacts.*.phone' => 'required|string|max:10',
+            'contacts.*.phone' => 'required|string|max:20',
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
@@ -505,9 +536,12 @@ class BranchController extends Controller
             'suggested_products.*' => 'exists:products,id',
         ]);
 
-        DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar datos de la sucursal (al usar collect except automáticamente recoge las nuevas si fueron validadas)
-            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
+        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
+        $this->validateContactRules($validated['contacts'] ?? []);
+
+        DB::transaction(function () use ($validated, $branch, $request) {
+            // 1. Actualizar datos de la sucursal (excluimos relaciones y el archivo CSF)
+            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products', 'csf'])->all());
 
             // 2. Sincronizar contactos
             $contactIdsToKeep = [];
@@ -523,14 +557,27 @@ class BranchController extends Controller
                     ['id' => $contactData['id'] ?? null],
                     [
                         'prefix' => $contactData['prefix'] ?? 'Ing.', // <--- NUEVO
+                        'area' => $contactData['area'] ?? null,
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]
                 );
-                $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
-                $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
+
+                // Teléfono opcional (basta con tener al menos un medio de contacto)
+                if (!empty($contactData['phone'])) {
+                    $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
+                } else {
+                    $contact->details()->where('type', 'Teléfono')->delete();
+                }
+
+                // Correo opcional (basta con tener al menos un medio de contacto)
+                if (!empty($contactData['email'])) {
+                    $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
+                } else {
+                    $contact->details()->where('type', 'Correo')->delete();
+                }
                 $contactIdsToKeep[] = $contact->id;
             }
             $branch->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
@@ -583,17 +630,83 @@ class BranchController extends Controller
 
             // 4. Sincronizar productos sugeridos (se mantiene individual)
             $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
+
+            // 5. Reemplazar el documento CSF si se subió uno nuevo
+            if ($request->hasFile('csf')) {
+                $branch->clearMediaCollection('csf');
+                $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+            }
         });
 
         if ($request->has('redirect_to')) {
-            return to_route($request->query('redirect_to'));
+            $redirectRoute = $request->query('redirect_to');
+
+            // Al volver a la creación de la OV, conservamos la cotización que se estaba convirtiendo
+            $redirectParams = [];
+            $redirectQuoteId = $request->input('redirect_quote_id');
+            if ($redirectQuoteId) {
+                $redirectParams['quote_id'] = $redirectQuoteId;
+            }
+
+            return to_route($redirectRoute, $redirectParams);
         }
 
         return to_route('branches.show', $branch->id);
     }
 
     
-    public function destroy(Branch $branch)
+    /**
+     * Reglas adicionales para los contactos:
+     * - Cada contacto debe tener al menos un medio de contacto (teléfono o correo).
+     * - No se permite repetir el mismo teléfono ni el mismo correo entre contactos.
+     */
+    private function validateContactRules(array $contacts): void
+    {
+        $errors = [];
+        $phones = [];
+        $emails = [];
+
+        foreach ($contacts as $index => $contact) {
+            $phone = trim((string) ($contact['phone'] ?? ''));
+            $email = trim((string) ($contact['email'] ?? ''));
+
+            if ($phone === '' && $email === '') {
+                $errors["contacts.$index.phone"] = 'Cada contacto debe tener al menos un medio de contacto (teléfono o correo).';
+            }
+
+            if ($phone !== '') {
+                if (isset($phones[$phone])) {
+                    $errors["contacts.$index.phone"] = 'Este teléfono ya está registrado en otro contacto.';
+                }
+                $phones[$phone] = true;
+            }
+
+            if ($email !== '') {
+                $key = strtolower($email);
+                if (isset($emails[$key])) {
+                    $errors["contacts.$index.email"] = 'Este correo ya está registrado en otro contacto.';
+                }
+                $emails[$key] = true;
+            }
+        }
+
+        // El contacto Comercial y el de Pagos son obligatorios; el de Finanzas es opcional.
+        $areas = collect($contacts)->pluck('area')->filter()->all();
+
+        if (!in_array('Comercial', $areas, true)) {
+            $errors['contacts.comercial'] = 'Debes registrar al menos un contacto del área Comercial.';
+        }
+
+        if (!in_array('Pagos', $areas, true)) {
+            $errors['contacts.pagos'] = 'Debes registrar al menos un contacto del área Pagos.';
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    public function destroy(Request $request, Branch $branch)
     {
         try {
             // Usamos una transacción para garantizar la integridad de los datos.
@@ -610,12 +723,40 @@ class BranchController extends Controller
             });
 
         } catch (\Exception $e) {
-            // (Opcional) Si algo sale mal, redirige con un mensaje de error.
-            // return back()->withErrors(['error' => 'Ocurrió un error al eliminar la sucursal: ' . $e->getMessage()]);
+            Log::error('Error al eliminar cliente: ' . $e->getMessage());
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Ocurrió un error al eliminar el cliente.'], 500);
+            }
+
+            return back()->withErrors(['error' => 'Ocurrió un error al eliminar el cliente.']);
         }
-        
-        // Si no usas los retornos con mensajes, puedes simplemente redirigir.
+
+        // Respuesta JSON para peticiones AJAX (vista Show) y redirección para el resto.
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Cliente eliminado con éxito.']);
+        }
+
         return to_route('branches.index');
+    }
+
+    /**
+     * Sube (o reemplaza) la CSF del cliente desde la vista Show.
+     */
+    public function uploadCsf(Request $request, Branch $branch)
+    {
+        $request->validate([
+            'csf' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $branch->clearMediaCollection('csf');
+        $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'CSF actualizada correctamente.']);
+        }
+
+        return back()->with('success', 'CSF actualizada correctamente.');
     }
 
     public function removeProduct(Branch $branch, Product $product)
@@ -783,6 +924,26 @@ class BranchController extends Controller
         return response()->json($products);
     }
 
+    /**
+     * Devuelve los datos de una sucursal matriz (razón social, RFC, grupo)
+     * junto con sus productos, para autorrellenar el formulario de sucursales hijas.
+     */
+    public function getMatrixData(Branch $branch)
+    {
+        $sourceBranch = $branch->parent_branch_id ? $branch->parent : $branch;
+
+        return response()->json([
+            'branch' => [
+                'id' => $sourceBranch->id,
+                'name' => $sourceBranch->name,
+                'business_name' => $sourceBranch->business_name,
+                'rfc' => $sourceBranch->rfc,
+                'group_name' => $sourceBranch->group_name,
+            ],
+            'products' => $this->formatBranchProducts($sourceBranch),
+        ]);
+    }
+
     // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
 
     public function quickStoreBranch(Request $request)
@@ -808,11 +969,45 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'charge' => 'nullable|string|max:255',
+            'area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
         ]);
 
         $contact = $branch->contacts()->create($validated);
 
         return response()->json($contact);
+    }
+
+    /**
+     * Formatea los productos de una sucursal con la información necesaria
+     * para los formularios (precio especial vigente, imagen, stock y ubicación).
+     */
+    private function formatBranchProducts(Branch $sourceBranch)
+    {
+        return $sourceBranch->products()
+            ->with(['media', 'storages'])
+            ->whereNull('archived_at')
+            ->get()
+            ->map(function ($product) use ($sourceBranch) {
+                $specialPrice = DB::table('branch_price_history')
+                    ->where('branch_id', $sourceBranch->id)
+                    ->where('product_id', $product->id)
+                    ->whereNull('valid_to')
+                    ->orderBy('valid_from', 'desc')
+                    ->first();
+
+                return [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'price' => $specialPrice->price ?? null,
+                    'currency' => $specialPrice->currency ?? 'MXN',
+                    'base_price' => $product->base_price,
+                    'image_url' => $product->media->first()?->original_url,
+                    'current_stock' => $product->storages->sum('quantity'),
+                    'location' => $product->storages->first()?->location,
+                ];
+            })
+            ->values();
     }
 
     /**

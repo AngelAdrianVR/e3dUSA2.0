@@ -14,6 +14,20 @@
                         <InputError :message="form.errors.name" />
                     </div>
                     <div>
+                        <InputLabel value="Prefijo" />
+                        <el-select v-model="form.prefix" placeholder="Prefijo" :teleported="false" class="!w-full" clearable>
+                            <el-option v-for="p in prefixes" :key="p" :label="p" :value="p" />
+                        </el-select>
+                        <InputError :message="form.errors.prefix" />
+                    </div>
+                    <div>
+                        <InputLabel value="Área*" />
+                        <el-select v-model="form.area" placeholder="Selecciona un área" :teleported="false" class="!w-full">
+                            <el-option v-for="area in contactAreas" :key="area" :label="area" :value="area" />
+                        </el-select>
+                        <InputError :message="form.errors.area" />
+                    </div>
+                    <div>
                         <InputLabel value="Cargo*" />
                         <TextInput v-model="form.charge" required class="w-full" />
                         <InputError :message="form.errors.charge" />
@@ -34,7 +48,10 @@
 
                     <!-- Detalles de Contacto -->
                     <div class="col-span-2 mt-4">
-                        <h3 class="text-md font-semibold mb-4">Detalles de Contacto</h3>
+                        <h3 class="text-md font-semibold mb-2">Detalles de Contacto</h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Debe incluir al menos un <strong>Teléfono</strong> y un <strong>Correo</strong>.
+                        </p>
                         <div v-for="(detail, index) in form.details" :key="index" class="flex items-center space-x-2 mb-2">
                              <el-select v-model="detail.type" placeholder="Tipo" :teleported="false" class="!w-1/4">
                                 <el-option label="Teléfono" value="Teléfono" />
@@ -97,6 +114,8 @@ export default {
     },
     data() {
         return {
+            prefixes: ['Ing.', 'Lic.', 'Dr.', 'Arq.', 'Mtro.', 'Sr.', 'Sra.', 'Srita.'],
+            contactAreas: ['Comercial', 'Finanzas', 'Pagos'],
             form: useForm({
                 id: null,
                 // ANTES: branch_id: this.branchId,
@@ -104,6 +123,8 @@ export default {
                 contactable_id: this.contactableId,
                 contactable_type: this.contactableType,
                 name: '',
+                prefix: 'Ing.',
+                area: '',
                 charge: '',
                 birthdate: '',
                 details: [],
@@ -112,6 +133,8 @@ export default {
     },
     methods: {
         submit() {
+            if (!this.validateForm()) return;
+
             if (this.form.id) {
                 // La actualización funciona igual, ya que Inertia enviará todos los datos del formulario.
                 this.form.put(route('contacts.update', this.form.id), {
@@ -137,6 +160,35 @@ export default {
                     }
                 });
             }
+        },
+        validateForm() {
+            if (!this.form.name || !String(this.form.name).trim()) {
+                ElMessage.warning('El Nombre Completo es obligatorio.');
+                return false;
+            }
+            if (!this.form.area) {
+                ElMessage.warning('Selecciona un Área para el contacto.');
+                return false;
+            }
+            if (!this.form.charge || !String(this.form.charge).trim()) {
+                ElMessage.warning('El Cargo es obligatorio.');
+                return false;
+            }
+
+            const details = this.form.details || [];
+            const hasPhone = details.some(d => d.type === 'Teléfono' && d.value && String(d.value).trim() !== '');
+            const hasEmail = details.some(d => d.type === 'Correo' && d.value && String(d.value).trim() !== '');
+
+            if (!hasPhone) {
+                ElMessage.warning('Agrega al menos un Teléfono en los detalles.');
+                return false;
+            }
+            if (!hasEmail) {
+                ElMessage.warning('Agrega al menos un Correo en los detalles.');
+                return false;
+            }
+
+            return true;
         },
         addDetail() {
             this.form.details.push({ type: 'Teléfono', value: '', is_primary: false });
@@ -168,6 +220,8 @@ export default {
                     // Lógica para editar un contacto existente.
                     this.form.id = this.contact.id;
                     this.form.name = this.contact.name;
+                    this.form.prefix = this.contact.prefix || 'Ing.';
+                    this.form.area = this.contact.area || '';
                     this.form.charge = this.contact.charge;
                     this.form.birthdate = this.contact.birthdate;
                     this.form.details = JSON.parse(JSON.stringify(this.contact.details || []));
@@ -176,10 +230,12 @@ export default {
                     this.form.reset();
                     this.form.contactable_id = this.contactableId;
                     this.form.contactable_type = this.contactableType;
-
-                    if (this.form.details.length === 0) {
-                        this.addDetail();
-                    }
+                    this.form.prefix = 'Ing.';
+                    // Sugerimos un teléfono y un correo por defecto
+                    this.form.details = [
+                        { type: 'Teléfono', value: '', is_primary: true },
+                        { type: 'Correo', value: '', is_primary: true },
+                    ];
                 }
             }
         }

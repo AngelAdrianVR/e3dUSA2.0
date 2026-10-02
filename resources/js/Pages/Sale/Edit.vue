@@ -339,6 +339,12 @@
         <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
             <form @submit.prevent="storeQuickContact">
                 <div class="space-y-4">
+                    <div>
+                        <InputLabel value="Área" />
+                        <el-select v-model="quickContactForm.area" placeholder="Por definir" class="!w-full" clearable>
+                            <el-option v-for="area in contactAreas" :key="area" :label="area" :value="area" />
+                        </el-select>
+                    </div>
                     <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
                     <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
                 </div>
@@ -510,7 +516,8 @@ export default {
             branchModalVisible: false,
             contactModalVisible: false,
             quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
-            quickContactForm: { name: '', charge: '', processing: false, errors: {} },
+            quickContactForm: { area: '', name: '', charge: '', processing: false, errors: {} },
+            contactAreas: ['Comercial', 'Finanzas', 'Pagos'],
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
@@ -1032,6 +1039,7 @@ export default {
                     this.contactModalVisible = false;
                     this.quickContactForm.name = '';
                     this.quickContactForm.charge = '';
+                    this.quickContactForm.area = '';
                     ElMessage.success('Contacto creado exitosamente');
                 }
             } catch (error)

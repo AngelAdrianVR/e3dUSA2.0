@@ -171,6 +171,8 @@ Route::get('branches-export', [BranchController::class, 'export'])->middleware('
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
+Route::get('branches/{branch}/matrix-data', [BranchController::class, 'getMatrixData'])->middleware('auth')->name('branches.matrix-data');
+Route::post('branches/{branch}/csf', [BranchController::class, 'uploadCsf'])->middleware('auth')->name('branches.csf.store');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
@@ -575,7 +577,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// eliminacion de archivo desde componente FileView
+// eliminacion de archivos 
 Route::delete('/media/{media}', function (Media $media) {
     try {
         $media->delete(); // Elimina el archivo y su registro

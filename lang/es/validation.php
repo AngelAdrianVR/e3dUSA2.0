@@ -255,5 +255,7 @@ return [
         'birthdate' => 'fecha de cumpleaños',
         'join_date' => 'fecha de ingreso',
         'oce_name' => 'orden de compra externa',
+        'payment_method' => 'método de pago',
+        'cfdi_use' => 'uso de CFDI',
     ],
 ];
