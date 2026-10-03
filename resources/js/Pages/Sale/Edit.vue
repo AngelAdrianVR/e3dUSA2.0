@@ -570,11 +570,28 @@ export default {
 
             if (!this.clientProducts.length) return [];
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
-            return this.catalog_products.filter(parent => {
+
+            // Padres del catálogo activo que el cliente (o su grupo) tiene asignados,
+            // ya sea el propio padre o alguna de sus variantes.
+            const fromCatalog = this.catalog_products.filter(parent => {
                 const isParentAssigned = clientProductIds.has(parent.id);
                 const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
                 return isParentAssigned || hasAssignedVariant;
             });
+
+            // Productos del cliente/grupo que no están en el catálogo activo (p. ej. obsoletos):
+            // se agregan como productos base para poder seleccionarlos.
+            const catalogIds = new Set();
+            this.catalog_products.forEach(parent => {
+                catalogIds.add(parent.id);
+                (parent.variants || []).forEach(v => catalogIds.add(v.id));
+            });
+
+            const extras = this.clientProducts
+                .filter(p => !catalogIds.has(p.id))
+                .map(p => ({ id: p.id, name: p.name, code: p.code, media: p.media, variants: [] }));
+
+            return [...fromCatalog, ...extras];
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;

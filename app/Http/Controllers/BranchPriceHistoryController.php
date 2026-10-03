@@ -5,12 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\Branch;
 use App\Models\Product;
 use App\Models\BranchPriceHistory;
+use App\Services\BranchGroupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 class BranchPriceHistoryController extends Controller
 {
+    public function __construct(private BranchGroupService $branchGroups)
+    {
+    }
+
     public function store(Request $request, Branch $branch, Product $product)
     {
         $validated = $request->validate([
@@ -20,10 +25,10 @@ class BranchPriceHistoryController extends Controller
         ]);
 
         // --- Validación de la regla de negocio del 4% en el backend ---
-        // La app lee el historial de precios desde la sucursal matriz
-        // (igual que en BranchController::fetchBranchProducts), por lo que el
+        // La app lee el historial de precios desde la sucursal matriz o el líder del
+        // grupo (igual que en BranchController::fetchBranchProducts), por lo que el
         // nuevo precio también debe registrarse en esa misma sucursal.
-        $targetBranch = $branch->parent_branch_id ? $branch->parent : $branch;
+        $targetBranch = $this->branchGroups->getProductTargetBranch($branch);
 
         $lastPriceRecord = BranchPriceHistory::where('branch_id', $targetBranch->id)
             ->where('product_id', $product->id)

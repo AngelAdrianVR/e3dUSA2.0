@@ -2,7 +2,7 @@
     <el-drawer 
         :model-value="show" 
         @update:modelValue="$emit('update:show', $event)"
-        title="Productos del Cliente" 
+        :title="'Productos del Cliente (' + clientProducts.length + ')'" 
         direction="rtl" 
         :size="drawerSize"
         >
@@ -34,9 +34,26 @@
                     </div>
                 </div>
 
+                <!-- Filtro/buscador de productos -->
+                <div v-if="clientProducts.length" class="pb-1">
+                    <el-input v-model="productSearch" placeholder="Buscar producto por nombre o código..." clearable>
+                        <template #prefix>
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </template>
+                    </el-input>
+                    <p v-if="productSearch" class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Mostrando {{ filteredClientProducts.length }} de {{ clientProducts.length }} productos.
+                    </p>
+                </div>
+
+                <!-- Sin resultados para el filtro -->
+                <p v-if="clientProducts.length && !filteredClientProducts.length" class="text-center text-sm text-gray-500 dark:text-gray-400 py-6">
+                    No se encontraron productos que coincidan con «{{ productSearch }}».
+                </p>
+
                 <!-- Lista de productos -->
                 <div 
-                    v-for="product in clientProducts" 
+                    v-for="product in filteredClientProducts" 
                     :key="product.id" 
                     class="relative bg-gray-100 dark:bg-slate-900 shadow-md rounded-2xl p-4 transition hover:shadow-xl duration-300"
                 >
@@ -373,6 +390,7 @@ export default {
             loading: false,
             loadingAddModal: false, 
             clientProducts: [],
+            productSearch: '',
             drawerSize: "35%", 
             showAddProductsModal: false,
 
@@ -403,6 +421,16 @@ export default {
         };
     },
     computed: {
+        // Productos del cliente filtrados por el buscador (nombre o código).
+        filteredClientProducts() {
+            const q = (this.productSearch || '').trim().toLowerCase();
+            if (!q) return this.clientProducts;
+
+            return this.clientProducts.filter((product) =>
+                (product.name || '').toLowerCase().includes(q) ||
+                (product.code || '').toLowerCase().includes(q)
+            );
+        },
         canBypassPriceRule() {
             // El backend valida este permiso para permitir cualquier precio
             return this.$page.props.auth?.user?.permissions?.includes('Crear clientes') || false;
@@ -684,6 +712,7 @@ export default {
     watch: {
         show(newVal) {
             if (newVal) {
+                this.productSearch = '';
                 this.fetchClientProducts();
             }
         }

@@ -28,7 +28,7 @@
                         Selecciona el producto base
                     </p>
                     <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
-                        <el-option class="!w-96" v-for="product in availableProducts" 
+                        <el-option class="!w-[500px]" v-for="product in availableProducts" 
                             :key="product.id" 
                             :label="`${product.name} (${product.code || 'S/C'})`" 
                             :value="product.id"

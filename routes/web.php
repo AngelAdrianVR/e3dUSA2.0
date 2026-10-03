@@ -180,6 +180,19 @@ Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 
 Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
 Route::get('/branches/{branch}/check-validity', [BranchController::class, 'checkSaleValidity'])->name('branches.check-validity');
 
+// --- Grupos de clientes/sucursales ---
+Route::get('branches-groups', [BranchController::class, 'groupsIndex'])->middleware('auth')->name('branches.groups.index');
+Route::get('branches-search-group', [BranchController::class, 'searchForGroup'])->middleware('auth')->name('branches.groups.search');
+Route::post('branches/{branch}/group', [BranchController::class, 'addToGroup'])->middleware('auth')->name('branches.groups.add');
+Route::delete('branches/{branch}/group', [BranchController::class, 'removeFromGroup'])->middleware('auth')->name('branches.groups.remove');
+
+// --- Sucursales hijas (matriz) ---
+Route::get('branches/{branch}/child-candidates', [BranchController::class, 'searchChildCandidates'])->middleware('auth')->name('branches.children.candidates');
+Route::post('branches/{branch}/children', [BranchController::class, 'addChildren'])->middleware('auth')->name('branches.children.add');
+
+// --- Datos fiscales propios del cliente ---
+Route::patch('branches/{branch}/fiscal', [BranchController::class, 'updateFiscalData'])->middleware('auth')->name('branches.fiscal.update');
+
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
 Route::get('/branches/{branch}/notes', [BranchNoteController::class, 'index'])->name('branch-notes.index');
