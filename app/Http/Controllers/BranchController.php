@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Branch;
 use App\Models\BranchPriceHistory;
+use App\Models\BranchVolumePrice;
 use App\Models\Contact;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\BranchGroupService;
+use App\Services\BranchVolumePriceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,8 +20,10 @@ use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
 {
-    public function __construct(private BranchGroupService $branchGroups)
-    {
+    public function __construct(
+        private BranchGroupService $branchGroups,
+        private BranchVolumePriceService $volumePrices
+    ) {
     }
 
     public function index(Request $request)
@@ -366,6 +370,12 @@ class BranchController extends Controller
             'parent:id,name', // <--- NUEVO: Cargar producto padre para identificar si es variante
             'storages',
             'media',
+            // Los precios por volumen también se consultan con el ID de la matriz
+            'volumePrices' => function ($query) use ($productSourceBranch) {
+                $query->where('branch_id', $productSourceBranch->id)
+                      ->with('user:id,name')
+                      ->orderBy('min_quantity');
+            },
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
@@ -889,7 +899,10 @@ class BranchController extends Controller
                     ->where('product_id', $product->id)
                     ->delete();
 
-                // 2. Eliminar la relación en la tabla pivote (de la matriz)
+                // 2. Eliminar los precios por volumen para esta relación
+                BranchVolumePriceService::deleteFor($productTargetBranch, $product->id);
+
+                // 3. Eliminar la relación en la tabla pivote (de la matriz)
                 $productTargetBranch->products()->detach($product->id);
             });
 
@@ -1059,15 +1072,22 @@ class BranchController extends Controller
     */ 
     public function addProducts(Request $request, Branch $branch)
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'products' => 'required|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
             'products.*.currency' => 'nullable|string',
-        ]);
+        ], BranchVolumePriceService::rules('products.*.volume_prices')));
 
         // MODIFICADO: Obtenemos la sucursal matriz para asignarle los productos.
         $productTargetBranch = $this->getProductTargetBranch($branch);
+
+        // Validamos los rangos de volumen antes de abrir la transacción.
+        foreach ($validated['products'] as $productData) {
+            if (array_key_exists('volume_prices', $productData)) {
+                BranchVolumePriceService::validateRanges($productData['volume_prices'] ?? []);
+            }
+        }
 
         DB::transaction(function () use ($validated, $productTargetBranch) {
             $now = now();
@@ -1099,6 +1119,16 @@ class BranchController extends Controller
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
+                }
+
+                // Sincronizamos los rangos de precio por volumen cuando vienen en la petición.
+                if (array_key_exists('volume_prices', $productData)) {
+                    $this->volumePrices->sync(
+                        $productTargetBranch,
+                        $productData['product_id'],
+                        $productData['volume_prices'] ?? [],
+                        auth()->id()
+                    );
                 }
             }
 
@@ -1158,7 +1188,15 @@ class BranchController extends Controller
             ->get()
             ->groupBy('product_id');
 
-        $products->each(function ($product) use ($allHistory, $productSourceBranch) {
+        // Precios por volumen: mismo criterio de lectura que el historial.
+        $allVolumePrices = BranchVolumePrice::whereIn('product_id', $productIds)
+            ->whereIn('branch_id', $branchIds)
+            ->with('user:id,name')
+            ->orderBy('min_quantity')
+            ->get()
+            ->groupBy('product_id');
+
+        $products->each(function ($product) use ($allHistory, $allVolumePrices, $productSourceBranch) {
             $rows = $allHistory->get($product->id, collect());
             $leaderRows = $rows->where('branch_id', $productSourceBranch->id)->values();
 
@@ -1172,6 +1210,20 @@ class BranchController extends Controller
             }
 
             $product->setRelation('priceHistory', $history);
+
+            $volumeRows = $allVolumePrices->get($product->id, collect());
+            $leaderVolumeRows = $volumeRows->where('branch_id', $productSourceBranch->id)->values();
+
+            if ($leaderVolumeRows->isNotEmpty()) {
+                $volumePrices = $leaderVolumeRows;
+            } else {
+                $firstVolumeBranchId = optional($volumeRows->first())->branch_id;
+                $volumePrices = $firstVolumeBranchId
+                    ? $volumeRows->where('branch_id', $firstVolumeBranchId)->values()
+                    : collect();
+            }
+
+            $product->setRelation('volumePrices', $volumePrices);
         });
 
         return response()->json($products);
@@ -1293,6 +1345,12 @@ class BranchController extends Controller
             $productIdsToRemovePrice = $currentActivePrices->keys()->diff($productDataFromRequest->keys());
             if ($productIdsToRemovePrice->isNotEmpty()) {
                 $target->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
+
+                // Los precios por volumen no tienen vigencia: se eliminan al quitar el producto.
+                DB::table('branch_volume_prices')
+                    ->where('branch_id', $target->id)
+                    ->whereIn('product_id', $productIdsToRemovePrice)
+                    ->delete();
             }
         }
     }

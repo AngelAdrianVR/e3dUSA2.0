@@ -131,6 +131,14 @@ class Product extends Model implements HasMedia, Auditable
     }
 
     /**
+     * Obtiene los precios especiales por volumen registrados para este producto en los clientes.
+     */
+    public function volumePrices()
+    {
+        return $this->hasMany(BranchVolumePrice::class);
+    }
+
+    /**
      * Obtiene las sucursales para las que este producto es sugerido.
      */
     public function suggestedForBranches()

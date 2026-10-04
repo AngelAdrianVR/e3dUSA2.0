@@ -109,6 +109,42 @@
     <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
         No hay precios especiales registrados para este producto.
     </p>
+
+    <!-- Precios Especiales por Volumen (plegable) -->
+    <div v-if="product.volume_prices?.length" class="mt-4">
+        <el-collapse>
+            <el-collapse-item name="volume_prices">
+                <template #title>
+                    <span class="font-semibold text-sm text-indigo-500">
+                        <i class="fa-solid fa-layer-group mr-2"></i> Ver Precios Especiales por Volumen ({{ product.volume_prices.length }})
+                    </span>
+                </template>
+                <div class="p-2 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+                    <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400 min-w-[500px]">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
+                            <tr>
+                                <th scope="col" class="px-4 py-2">Rango de cantidad</th>
+                                <th scope="col" class="px-4 py-2">Precio</th>
+                                <th scope="col" class="px-4 py-2">Usuario</th>
+                                <th scope="col" class="px-4 py-2">Última actualización</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="tier in product.volume_prices" :key="tier.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
+                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ formatVolumeRange(tier) }}</td>
+                                <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ tier.price }} {{ tier.currency }}</td>
+                                <td class="px-4 py-2">
+                                    <span v-if="tier.user">{{ tier.user.name }}</span>
+                                    <span v-else class="text-gray-400 italic text-xs">Sistema</span>
+                                </td>
+                                <td class="px-4 py-2">{{ formatDate(tier.updated_at) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </el-collapse-item>
+        </el-collapse>
+    </div>
 </div>
 
 <!-- MODAL PARA ACTUALIZAR PRECIO -->
@@ -122,7 +158,7 @@
             <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                 <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
             </p>
-            <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+            <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%. Si solo deseas gestionar los precios por volumen, puedes dejar el precio nuevo vacío.</p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                 <div>
@@ -156,12 +192,16 @@
                 <i class="fa-solid fa-circle-exclamation mr-1"></i>
                 El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
             </div>
+
+            <!-- PRECIOS ESPECIALES POR VOLUMEN -->
+            <VolumePricesEditor :key="priceModalKey" ref="volumePriceEditor" v-model="priceForm.volume_prices"
+                :currency="priceForm.currency" @change="volumePricesDirty = $event.dirty" />
         </div>
     </template>
     <template #footer>
         <div class="flex space-x-2">
             <CancelButton @click="showPriceModal = false">Cancelar</CancelButton>
-            <PrimaryButton @click="submitNewPrice" :disabled="isPriceInvalid" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">Actualizar precio</PrimaryButton>
+            <PrimaryButton @click="submitNewPrice" :disabled="!canSubmitPriceForm" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">Actualizar precio</PrimaryButton>
         </div>
     </template>
 </ConfirmationModal>
@@ -206,6 +246,7 @@
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
+import VolumePricesEditor from "@/Components/MyComponents/VolumePricesEditor.vue";
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -224,7 +265,12 @@ data() {
             valid_from: new Date(),
             current_base_price: 0,
             min_allowed_price: 0,
+            volume_prices: [],
         },
+        // Indica si el usuario modificó los rangos de volumen en el modal.
+        volumePricesDirty: false,
+        // Fuerza remontar el editor de rangos cada vez que se abre el modal.
+        priceModalKey: 0,
 
         showClosePriceConfirmModal: false,
         priceHistoryToClose: null,
@@ -238,6 +284,7 @@ components:{
     CancelButton,
     PrimaryButton,
     ConfirmationModal,
+    VolumePricesEditor,
 },
 props:{
     products: Array,
@@ -251,6 +298,14 @@ computed: {
         if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
         if (this.canBypassPriceRule) return false;
         return this.priceForm.amount < this.priceForm.min_allowed_price;
+    },
+    hasNewAmount() {
+        return this.priceForm.amount !== null && this.priceForm.amount !== '';
+    },
+    // Se puede guardar si el precio nuevo es válido o si se modificaron los rangos de volumen.
+    canSubmitPriceForm() {
+        if (this.hasNewAmount) return !this.isPriceInvalid;
+        return this.volumePricesDirty;
     }
 },
 methods:{
@@ -280,7 +335,15 @@ methods:{
             valid_from: new Date(),
             current_base_price: basePrice,
             min_allowed_price: basePrice * 1.04, // Regla de aumento del 4%
+            volume_prices: (product.volume_prices ?? []).map((tier) => ({
+                min_quantity: tier.min_quantity,
+                max_quantity: tier.max_quantity,
+                price: tier.price,
+                currency: tier.currency,
+            })),
         };
+        this.volumePricesDirty = false;
+        this.priceModalKey++;
         this.showPriceModal = true;
     },
     timeSince(dateString) {
@@ -328,8 +391,31 @@ methods:{
         const date = new Date(dateString);
         return format(date, "d 'de' MMMM, yyyy", { locale: es });
     },
+    formatQuantity(value) {
+        const number = Number(value);
+        if (isNaN(number)) return value;
+        return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+    },
+    formatVolumeRange(tier) {
+        const min = this.formatQuantity(tier.min_quantity);
+        if (tier.max_quantity === null || tier.max_quantity === undefined) {
+            return `${min} en adelante`;
+        }
+        return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
+    },
     async submitNewPrice() {
-        if (this.isPriceInvalid) {
+        const volumePricesError = this.$refs.volumePriceEditor?.validate();
+        if (volumePricesError) {
+            ElMessage.error('Revisa los precios por volumen. ' + volumePricesError);
+            return;
+        }
+
+        if (!this.hasNewAmount && !this.volumePricesDirty) {
+            ElMessage.error('Ingresa un precio nuevo o modifica los precios especiales por volumen.');
+            return;
+        }
+
+        if (this.hasNewAmount && this.isPriceInvalid) {
             ElMessage.error('El precio ingresado no es válido o es menor al permitido.');
             return;
         }
@@ -338,18 +424,29 @@ methods:{
             // Definimos la ruta y los parámetros para la petición
             const routeName = 'branches.products.price.store';
             const routeParams = { branch: this.branchId, product: this.productForUpdate.id };
+
+            const payload = {
+                ...this.priceForm,
+                amount: this.hasNewAmount ? this.priceForm.amount : null,
+                sync_volume_prices: this.volumePricesDirty,
+                volume_prices: this.volumePricesDirty ? this.priceForm.volume_prices : [],
+            };
             
-            const response = await axios.post(route(routeName, routeParams), this.priceForm);
+            const response = await axios.post(route(routeName, routeParams), payload);
 
             if (response.status === 200) {
-                ElMessage.success('Precio actualizado correctamente.');
+                ElMessage.success(this.hasNewAmount
+                    ? 'Precio actualizado correctamente.'
+                    : 'Precios por volumen actualizados correctamente.');
                 this.showPriceModal = false;
                 // Recarga los datos de la página para reflejar el cambio
                 this.$inertia.reload({ preserveScroll: true });
             }
         } catch (error) {
             console.error("Error al actualizar el precio:", error);
-            ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
+            const errors = error.response?.data?.errors;
+            const firstError = errors ? Object.values(errors)[0]?.[0] : null;
+            ElMessage.error(firstError || error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
         }
     },
 

@@ -100,6 +100,14 @@ class Branch extends Model implements Auditable, HasMedia
     }
 
     /**
+     * Obtiene los precios especiales por volumen registrados para este cliente.
+     */
+    public function volumePrices(): HasMany
+    {
+        return $this->hasMany(BranchVolumePrice::class);
+    }
+
+    /**
      * Obtiene la sucursal matriz a la que pertenece esta sucursal.
      */
     public function parent()
