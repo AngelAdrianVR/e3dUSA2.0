@@ -41,6 +41,7 @@ class UserController extends Controller
                     }
                 });
             })
+            ->with('roles:id,name')
             ->where('id', '>', 3)
             ->latest() // Opcional: ordenar por los más recientes
             ->paginate(30)

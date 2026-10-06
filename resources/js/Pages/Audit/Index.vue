@@ -13,6 +13,7 @@
                         <el-tab-pane label="Todas" name="all"></el-tab-pane>
                         <el-tab-pane label="Creaciones" name="created"></el-tab-pane>
                         <el-tab-pane label="Actualizaciones" name="updated"></el-tab-pane>
+                        <el-tab-pane label="Autorizaciones" name="authorized"></el-tab-pane>
                         <el-tab-pane label="Eliminaciones" name="deleted"></el-tab-pane>
                     </el-tabs>
 
@@ -136,7 +137,7 @@ export default {
             this.selectedAudit = null;
         },
         isClickable(audit) {
-            return ['updated', 'deleted'].includes(audit.event);
+            return ['updated', 'deleted', 'authorized'].includes(audit.event);
         },
         formatKey(key) {
             // Reemplaza guiones bajos por espacios y capitaliza la primera letra
@@ -200,6 +201,8 @@ export default {
                     return { iconClass: 'fa-plus text-green-500', bgClass: 'bg-green-100 dark:bg-green-900', actionText: 'creó' };
                 case 'updated':
                     return { iconClass: 'fa-pencil text-blue-500', bgClass: 'bg-blue-100 dark:bg-blue-900', actionText: 'actualizó' };
+                case 'authorized':
+                    return { iconClass: 'fa-check-double text-emerald-500', bgClass: 'bg-emerald-100 dark:bg-emerald-900', actionText: 'autorizó' };
                 case 'deleted':
                     return { iconClass: 'fa-trash-can text-red-500', bgClass: 'bg-red-100 dark:bg-red-900', actionText: 'eliminó' };
                 default:

@@ -63,14 +63,40 @@
 
                          <!-- Caso: Hay historial de precios -->
                          <ul v-else class="max-h-32 overflow-y-auto space-y-1 mb-3 pr-1">
-                            <li v-for="history in item.product?.price_history" :key="history.id" class="flex justify-between items-center bg-gray-50 p-1.5 rounded border border-gray-100">
-                                <span class="text-gray-500 text-[10px]">{{ formatDate(history.valid_from) }}</span>
-                                <div class="text-right">
-                                    <span class="font-bold block text-gray-800">${{ formatNumber(history.price) }} {{ history.currency }}</span>
-                                    <span v-if="!history.valid_to" class="text-[9px] text-green-600 font-bold bg-green-50 px-1 rounded">ACTUAL</span>
+                            <li v-for="history in item.product?.price_history" :key="history.id" class="bg-gray-50 p-1.5 rounded border border-gray-100">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-500 text-[10px]">{{ formatDate(history.valid_from) }}</span>
+                                    <div class="text-right">
+                                        <span class="font-bold block text-gray-800">${{ formatNumber(history.price) }} {{ history.currency }}</span>
+                                        <span v-if="!history.valid_to" class="text-[9px] text-green-600 font-bold bg-green-50 px-1 rounded">ACTUAL</span>
+                                    </div>
+                                </div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">
+                                    Registrado por: <span v-if="history.user" class="font-medium text-gray-500 dark:text-gray-300">{{ history.user.name }}</span><span v-else class="italic">Sistema</span>
                                 </div>
                             </li>
                          </ul>
+
+                         <!-- Precios especiales por volumen del cliente -->
+                         <div v-if="item.product?.volume_prices?.length" class="mt-3 border-t pt-2">
+                            <p class="font-bold text-[10px] text-indigo-600 dark:text-indigo-400 mb-1">
+                                <i class="fa-solid fa-layer-group mr-1"></i> Precios por volumen
+                            </p>
+                            <table class="w-full text-[10px] text-left text-gray-600 dark:text-gray-400">
+                                <thead class="text-[9px] uppercase text-gray-500 dark:text-gray-400 border-b">
+                                    <tr>
+                                        <th class="py-1 pr-1 font-semibold">Rango</th>
+                                        <th class="py-1 font-semibold text-right">Precio</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(tier, index) in item.product.volume_prices" :key="tier.id ?? index" class="border-b border-gray-100 last:border-0">
+                                        <td class="py-1 pr-1">{{ formatVolumeRange(tier) }}</td>
+                                        <td class="py-1 text-right font-bold text-gray-800 dark:text-gray-200">${{ formatNumber(tier.price) }} {{ tier.currency }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                         </div>
 
                          <!-- BOTONES DINÁMICOS SEGÚN EL REGISTRO -->
                          <button v-if="!item.product?.price_history?.length" @click="goToBranchProducts" class="w-full mt-3 bg-indigo-500 hover:bg-indigo-600 text-white py-1.5 rounded transition shadow-sm text-center font-bold flex items-center justify-center">
@@ -191,7 +217,7 @@
                             {{ !quote.authorized_by_user_id ? 'Precio por debajo de lo establecido' : 'Precio especial autorizado' }}
                         </p>
                         <div class="flex justify-between text-[10px] mt-1">
-                            <span class="text-gray-500">Precio actual: <strong class="text-gray-700">${{ formatNumber(getEstablishedPrice(item)) }}</strong></span>
+                            <span class="text-gray-500">Precio a este cliente: <strong class="text-gray-700">${{ formatNumber(getEstablishedPrice(item)) }}</strong></span>
                             <span class="text-gray-500">Ofrecido: <strong :class="!quote.authorized_by_user_id ? 'text-red-600' : 'text-green-700'">${{ formatNumber(item.unit_price) }}</strong></span>
                         </div>
                         <p class="text-[10px] text-gray-600 italic mt-1 leading-tight"><span class="font-semibold not-italic">Justificación:</span> {{ item.low_price_reason }}</p>
@@ -234,7 +260,7 @@
                     <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                         <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
                     </p>
-                    <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                    <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%. Si solo deseas gestionar los precios por volumen, puedes dejar el precio nuevo vacío.</p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                         <div>
@@ -268,12 +294,16 @@
                         <i class="fa-solid fa-circle-exclamation mr-1"></i>
                         El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price.toFixed(2) }} (aumento mínimo del 4%).
                     </div>
+
+                    <!-- PRECIOS ESPECIALES POR VOLUMEN -->
+                    <VolumePricesEditor :key="priceModalKey" ref="volumePriceEditor" v-model="priceForm.volume_prices"
+                        :currency="priceForm.currency" @change="volumePricesDirty = $event.dirty" />
                 </div>
             </template>
             <template #footer>
                 <div class="flex space-x-2">
                     <CancelButton @click="showPriceModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="submitNewPrice" :disabled="isPriceInvalid" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">Actualizar precio</PrimaryButton>
+                    <PrimaryButton @click="submitNewPrice" :disabled="!canSubmitPriceForm" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">Actualizar precio</PrimaryButton>
                 </div>
             </template>
         </ConfirmationModal>
@@ -288,6 +318,7 @@ import { router } from '@inertiajs/vue3';
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import VolumePricesEditor from "@/Components/MyComponents/VolumePricesEditor.vue";
 import axios from 'axios';
 import { ElMessage } from 'element-plus';
 
@@ -296,7 +327,8 @@ export default {
     components: {
         ConfirmationModal,
         CancelButton,
-        PrimaryButton
+        PrimaryButton,
+        VolumePricesEditor
     },
     props: {
         item: { type: Object, required: true },
@@ -318,7 +350,12 @@ export default {
                 valid_from: new Date(),
                 current_base_price: 0,
                 min_allowed_price: 0,
+                volume_prices: [],
             },
+            // Indica si el usuario modificó los rangos de volumen en el modal.
+            volumePricesDirty: false,
+            // Fuerza remontar el editor de rangos cada vez que se abre el modal.
+            priceModalKey: 0,
             // Toggles independientes: true = mostrando variante
             imageToggles: {},
             nameToggles: {},
@@ -335,6 +372,14 @@ export default {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
             if (this.canBypassPriceRule) return false;
             return this.priceForm.amount < this.priceForm.min_allowed_price;
+        },
+        hasNewAmount() {
+            return this.priceForm.amount !== null && this.priceForm.amount !== '';
+        },
+        // Se puede guardar si el precio nuevo es válido o si se modificaron los rangos de volumen.
+        canSubmitPriceForm() {
+            if (this.hasNewAmount) return !this.isPriceInvalid;
+            return this.volumePricesDirty;
         },
         lastUpdateInfo() {
             const product = this.item.product;
@@ -421,6 +466,18 @@ export default {
             const num = Number(value);
             return isNaN(num) ? value : new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
         },
+        formatQuantity(value) {
+            const number = Number(value);
+            if (isNaN(number)) return value;
+            return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        },
+        formatVolumeRange(tier) {
+            const min = this.formatQuantity(tier.min_quantity);
+            if (tier.max_quantity === null || tier.max_quantity === undefined) {
+                return `${min} en adelante`;
+            }
+            return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
+        },
         getEstablishedPrice(item) {
             if (!item.product_id) return item.custom_cost || 0;
             
@@ -443,7 +500,15 @@ export default {
                 valid_from: new Date(),
                 current_base_price: basePrice,
                 min_allowed_price: basePrice * 1.04, 
+                volume_prices: (product.volume_prices ?? []).map((tier) => ({
+                    min_quantity: tier.min_quantity,
+                    max_quantity: tier.max_quantity,
+                    price: tier.price,
+                    currency: tier.currency,
+                })),
             };
+            this.volumePricesDirty = false;
+            this.priceModalKey++;
             this.showPriceModal = true;
         },
         updatePriceFromAmount() {
@@ -463,7 +528,18 @@ export default {
             }
         },
         async submitNewPrice() {
-            if (this.isPriceInvalid) {
+            const volumePricesError = this.$refs.volumePriceEditor?.validate();
+            if (volumePricesError) {
+                ElMessage.error('Revisa los precios por volumen. ' + volumePricesError);
+                return;
+            }
+
+            if (!this.hasNewAmount && !this.volumePricesDirty) {
+                ElMessage.error('Ingresa un precio nuevo o modifica los precios especiales por volumen.');
+                return;
+            }
+
+            if (this.hasNewAmount && this.isPriceInvalid) {
                 ElMessage.error('El precio ingresado no es válido o es menor al permitido.');
                 return;
             }
@@ -471,18 +547,29 @@ export default {
             try {
                 const routeName = 'branches.products.price.store';
                 const routeParams = { branch: this.quote.branch_id, product: this.item.product.id };
+
+                const payload = {
+                    ...this.priceForm,
+                    amount: this.hasNewAmount ? this.priceForm.amount : null,
+                    sync_volume_prices: this.volumePricesDirty,
+                    volume_prices: this.volumePricesDirty ? this.priceForm.volume_prices : [],
+                };
                 
-                const response = await axios.post(route(routeName, routeParams), this.priceForm);
+                const response = await axios.post(route(routeName, routeParams), payload);
 
                 if (response.status === 200) {
-                    ElMessage.success('Precio actualizado correctamente.');
+                    ElMessage.success(this.hasNewAmount
+                        ? 'Precio actualizado correctamente.'
+                        : 'Precios por volumen actualizados correctamente.');
                     this.showPriceModal = false;
                     // Recargamos el componente principal para que se refresque el historial
                     router.reload({ preserveScroll: true });
                 }
             } catch (error) {
                 console.error("Error al actualizar el precio:", error);
-                ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
+                const errors = error.response?.data?.errors;
+                const firstError = errors ? Object.values(errors)[0]?.[0] : null;
+                ElMessage.error(firstError || error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
         },
     }

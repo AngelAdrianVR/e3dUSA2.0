@@ -9,6 +9,7 @@ use App\Models\QuoteProduct;
 use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
 use App\Notifications\NewQuoteForApprovalNotification;
+use App\Services\BranchGroupService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,12 +21,19 @@ use Illuminate\Support\Facades\Notification;
 
 class QuoteController extends Controller
 {
+    public function __construct(private BranchGroupService $branchGroups)
+    {
+    }
     public function index(Request $request)
     {
-        $view = $request->query('view');
         $user = Auth::user();
 
-        // Por defecto se muestran TODAS las cotizaciones (si el usuario tiene permiso).
+        // Por defecto el toggle "Mías/Todas" inicia en "Todas" solo para Super
+        // Administradores; para el resto inicia en "Mías". Un valor explícito en
+        // la URL (view=all|mias) siempre tiene prioridad.
+        $defaultView = $user->hasRole('Super Administrador') ? 'all' : 'mias';
+        $view = $request->query('view', $defaultView);
+
         // El parámetro 'mias' fuerza a mostrar solo las del usuario.
         $showAll = $view !== 'mias' && $user->hasPermissionTo('Ver todas las cotizaciones');
         $filterPending = $request->query('filter') === 'pending'; // Pendiente de seguimiento (autorizada sin respuesta del cliente)
@@ -83,7 +91,10 @@ class QuoteController extends Controller
 
         return Inertia::render('Quote/Index', [
             'quotes' => $quotes,
-            'filters' => $request->only(['view', 'filter']),
+            'filters' => [
+                'view' => $view,
+                'filter' => $request->query('filter'),
+            ],
         ]);
     }
 
@@ -230,7 +241,8 @@ class QuoteController extends Controller
     public function show(Quote $quote)
     {
         $quote->load('branch');
-        $productSourceBranch = $this->getProductTargetBranch($quote->branch);
+        // Misma sucursal (matriz o líder de grupo) donde se escriben los precios.
+        $productSourceBranch = $this->branchGroups->getProductTargetBranch($quote->branch);
 
         $quote->load([
             'user', 
@@ -240,7 +252,12 @@ class QuoteController extends Controller
             'quoteProducts.product.parent.media',
             'quoteProducts.product.priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
+                      ->with('user:id,name')
                       ->orderBy('valid_from', 'desc');
+            },
+            'quoteProducts.product.volumePrices' => function ($query) use ($productSourceBranch) {
+                $query->where('branch_id', $productSourceBranch->id)
+                      ->orderBy('min_quantity');
             }
         ]);
         
@@ -271,11 +288,6 @@ class QuoteController extends Controller
             'next_quote' => $nextQuote->id,
             'prev_quote' => $prevQuote->id,
         ]);
-    }
-
-    private function getProductTargetBranch($branch)
-    {
-        return $branch->parent ?? $branch;
     }
 
     public function edit(Quote $quote)
@@ -349,8 +361,9 @@ class QuoteController extends Controller
         ]);
 
         $newQuote = null;
+        $requiresReauthorization = false;
 
-        DB::transaction(function () use ($request, $quote, &$newQuote) {
+        DB::transaction(function () use ($request, $quote, &$newQuote, &$requiresReauthorization) {
             
             $rootId = $quote->root_quote_id ?? $quote->id;
             $latestVersionNum = Quote::where('root_quote_id', $rootId)->max('version');
@@ -358,6 +371,11 @@ class QuoteController extends Controller
             Quote::where('root_quote_id', $rootId)->update(['is_active' => false]);
 
             $newQuote = $quote->replicate();
+
+            // Si la edición la realiza un usuario que no es Super Administrador, la nueva
+            // versión debe volver a autorizarse.
+            $isSuperAdmin = $request->user()?->hasRole('Super Administrador') ?? false;
+            $requiresReauthorization = !$isSuperAdmin;
 
             $newQuote->branch_id = $request->branch_id;
             $newQuote->receiver = $request->receiver;
@@ -386,7 +404,14 @@ class QuoteController extends Controller
             $newQuote->customer_responded_at = null;
             $newQuote->rejection_reason = null;
             $newQuote->created_at = now();
-            
+
+            // La edición de un usuario sin rol Super Administrador invalida la
+            // autorización anterior: la nueva versión queda pendiente de autorizar.
+            if ($requiresReauthorization) {
+                $newQuote->authorized_at = null;
+                $newQuote->authorized_by_user_id = null;
+            }
+
             $newQuote->save();
 
             foreach ($request->products as $product) {
@@ -428,21 +453,62 @@ class QuoteController extends Controller
             }
         });
 
-        return Redirect::route('quotes.index')->with('success', 'Cotización actualizada. Se ha creado la versión ' . $newQuote->version);
+        $successMessage = 'Cotización actualizada. Se ha creado la versión ' . $newQuote->version;
+
+        if ($requiresReauthorization) {
+            $successMessage .= ' y requiere autorización nuevamente.';
+        }
+
+        return Redirect::route('quotes.index')->with('success', $successMessage);
     }
 
     public function destroy(Quote $quote) { /* ... */ }
 
+    /**
+     * Garantiza que una familia de cotizaciones conserve una versión activa.
+     * Se usa al eliminar versiones: el index y el buscador solo muestran la versión
+     * activa, por lo que una familia sin ella quedaría "oculta" (solo accesible por URL).
+     */
+    private function ensureActiveVersionForFamily(?int $rootId): void
+    {
+        if (!$rootId) {
+            return;
+        }
+
+        $family = Quote::where('root_quote_id', $rootId);
+
+        if ((clone $family)->where('is_active', true)->exists()) {
+            return;
+        }
+
+        $fallback = (clone $family)
+            ->orderBy('version', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        if ($fallback) {
+            $fallback->update(['is_active' => true]);
+        }
+    }
+
     public function massiveDelete(Request $request)
     {
         $affectedUserIds = [];
+        $affectedRootIds = [];
 
         foreach ($request->ids as $id) {
             $quote = Quote::find($id);
             if ($quote) {
                 $affectedUserIds[] = $quote->user_id;
+                $affectedRootIds[] = $quote->root_quote_id ?? $quote->id;
                 $quote->delete();
             }
+        }
+
+        // Si se eliminó la versión activa, promovemos la última versión restante de la
+        // familia para que la cotización siga visible (el index solo muestra la activa).
+        foreach (array_unique($affectedRootIds) as $rootId) {
+            $this->ensureActiveVersionForFamily($rootId);
         }
 
         $uniqueUserIds = array_unique($affectedUserIds);
@@ -507,6 +573,13 @@ class QuoteController extends Controller
             $newQuote->rejection_reason = null;
             $newQuote->created_by_customer = false;
             $newQuote->user_id = auth()->id();
+            // El clon es una cotización nueva e independiente: debe iniciar su propia
+            // familia de versiones y quedar como versión activa para ser visible en el index.
+            $newQuote->version = 1;
+            $newQuote->is_active = true;
+            $newQuote->save();
+
+            $newQuote->root_quote_id = $newQuote->id;
             $newQuote->save();
 
             // CLONACIÓN MODIFICADA PARA SOPORTAR PRODUCTOS CUSTOM Y SUS IMÁGENES
