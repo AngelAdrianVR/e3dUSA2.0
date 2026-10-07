@@ -15,11 +15,13 @@ use App\Models\User;
 use App\Models\Contact; // Importar el modelo Contact
 use App\Notifications\NewSampleTrackingNotification;
 use App\Services\MuestraProductService;
+use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Support\Facades\Notification as FacadesNotification;
-use OwenIt\Auditing\Events\AuditCustom;
 
 class SampleTrackingController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -324,7 +326,8 @@ class SampleTrackingController extends Controller
 
     public function authorizeSample(SampleTracking $sampleTracking)
     {
-        $previousStatus = $sampleTracking->status;
+        $fields = ['status', 'authorized_by_user_id', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($sampleTracking, $fields);
 
         // Se desactiva la auditoría automática del update para registrar una única acción "authorized"
         SampleTracking::withoutAuditing(function () use ($sampleTracking) {
@@ -336,17 +339,7 @@ class SampleTrackingController extends Controller
         });
 
         // Se registra la autorización como una acción propia en el historial de acciones
-        $sampleTracking->auditEvent = 'authorized';
-        $sampleTracking->isCustomEvent = true;
-        $sampleTracking->auditCustomOld = [
-            'status' => $previousStatus,
-            'authorized_at' => null,
-        ];
-        $sampleTracking->auditCustomNew = [
-            'status' => $sampleTracking->status,
-            'authorized_at' => optional($sampleTracking->authorized_at)->toDateTimeString(),
-        ];
-        event(new AuditCustom($sampleTracking));
+        $this->recordAuthorizationAudit($sampleTracking, $oldValues, $this->authorizationSnapshot($sampleTracking, $fields));
 
         $sampleTracking->load(['requester', 'authorizer:id,name']);
 

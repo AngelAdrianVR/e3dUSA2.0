@@ -7,12 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class DesignOrder extends Model implements HasMedia
+class DesignOrder extends Model implements HasMedia, Auditable
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory, InteractsWithMedia, AuditableTrait;
+
+    /**
+     * Solo se registran las autorizaciones (evento personalizado "authorized");
+     * se desactivan los eventos automáticos.
+     */
+    protected $auditEvents = [];
 
     protected $fillable = [
         'id',

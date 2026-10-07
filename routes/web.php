@@ -616,3 +616,18 @@ Route::get('/cerrar-nominas', function () {
     Artisan::call('app:manage-weekly-payroll');
     return 'Comando ejecutado correctamente.';
 });
+
+// Migra las autorizaciones antiguas (guardadas como "updated") al evento "authorized"
+// para que aparezcan en la pestaña de Autorizaciones del historial de acciones.
+//   /migrar-autorizaciones             -> ejecuta la migración
+//   /migrar-autorizaciones?dry_run=1   -> solo cuenta los registros afectados, sin modificar nada
+// Solo puede ejecutarlo el usuario con id 1 (debe haber iniciado sesión).
+Route::get('/migrar-autorizaciones', function () {
+    abort_unless(auth()->check() && auth()->id() === 1, 403);
+
+    Artisan::call('audits:migrate-authorizations', [
+        '--dry-run' => request()->boolean('dry_run'),
+    ]);
+
+    return response(Artisan::output(), 200)->header('Content-Type', 'text/plain');
+})->middleware('auth')->name('audits.migrate-authorizations');

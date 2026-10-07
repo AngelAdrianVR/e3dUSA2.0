@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
 use App\Notifications\NewQuoteForApprovalNotification;
 use App\Services\BranchGroupService;
+use App\Traits\RecordsAuthorizationAudit;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,6 +22,8 @@ use Illuminate\Support\Facades\Notification;
 
 class QuoteController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function __construct(private BranchGroupService $branchGroups)
     {
     }
@@ -541,10 +544,18 @@ class QuoteController extends Controller
 
     public function authorizeQuote(Quote $quote)
     {
-        $quote->update([
-            'authorized_by_user_id' => auth()->id(),
-            'authorized_at' => now(),
-        ]);
+        $fields = ['authorized_by_user_id', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($quote, $fields);
+
+        // La auditoría automática se desactiva para registrar una única acción "authorized"
+        Quote::withoutAuditing(function () use ($quote) {
+            $quote->update([
+                'authorized_by_user_id' => auth()->id(),
+                'authorized_at' => now(),
+            ]);
+        });
+
+        $this->recordAuthorizationAudit($quote, $oldValues, $this->authorizationSnapshot($quote, $fields));
 
         if (auth()->id() != $quote->user->id) {
             $quote_folio = 'COT-' . str_pad($quote->id, 4, "0", STR_PAD_LEFT);

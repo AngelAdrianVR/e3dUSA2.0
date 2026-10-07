@@ -5,12 +5,20 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
-class DesignAuthorization extends Model implements HasMedia
+class DesignAuthorization extends Model implements HasMedia, Auditable
 {
-    use HasFactory, InteractsWithMedia;
+    use HasFactory, InteractsWithMedia, AuditableTrait;
+
+    /**
+     * Solo se registran las autorizaciones (evento personalizado "authorized");
+     * se desactivan los eventos automáticos.
+     */
+    protected $auditEvents = [];
 
     /**
      * The attributes that are mass assignable.

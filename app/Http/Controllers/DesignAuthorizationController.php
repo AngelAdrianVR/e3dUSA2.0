@@ -8,12 +8,15 @@ use App\Models\Design;
 use App\Models\DesignAuthorization;
 use App\Models\DesignOrder;
 use App\Models\User;
+use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 class DesignAuthorizationController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function index(Request $request)
     {
         $filters = $request->only(['search']);
@@ -301,10 +304,15 @@ class DesignAuthorizationController extends Controller
      */
     public function authorizeInternal(DesignAuthorization $designAuthorization)
     {
+        $fields = ['authorizer_name', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($designAuthorization, $fields);
+
         $designAuthorization->update([
             'authorizer_name' => auth()->user()->name,
             'authorized_at' => now(),
         ]);
+
+        $this->recordAuthorizationAudit($designAuthorization, $oldValues, $this->authorizationSnapshot($designAuthorization, $fields));
 
         return back()->with('message', 'El formato ha sido autorizado internamente.');
     }

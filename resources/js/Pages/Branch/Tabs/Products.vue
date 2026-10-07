@@ -63,20 +63,20 @@
         Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}
     </div>
     
-    <!-- Historial de Precios Especiales -->
+    <!-- Historial de Precios de este cliente -->
     <div v-if="product.price_history?.length" class="mt-4">
         <el-collapse>
             <el-collapse-item>
                 <template #title>
                     <span class="font-semibold text-sm text-blue-500">
-                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> Ver Historial de Precios Especiales ({{ product.price_history.length }})
+                        <i class="fa-solid fa-clock-rotate-left mr-2"></i> Ver Historial de Precios para este cliente ({{ product.price_history.length }})
                     </span>
                 </template>
                 <div class="p-2 overflow-x-auto">
                     <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400 min-w-[500px]">
                         <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                             <tr>
-                                <th scope="col" class="px-4 py-2">Precio Especial</th>
+                                <th scope="col" class="px-4 py-2">Precio</th>
                                 <th scope="col" class="px-4 py-2">Usuario</th>
                                 <th scope="col" class="px-4 py-2">Vigente Desde</th>
                                 <th scope="col" class="px-4 py-2">Vigente Hasta</th>
@@ -107,7 +107,7 @@
         </el-collapse>
     </div>
     <p v-else class="text-xs text-center text-gray-400 dark:text-gray-500 mt-4 border-t dark:border-gray-700 pt-2">
-        No hay precios especiales registrados para este producto.
+        No hay precios registrados para este producto.
     </p>
 
     <!-- Precios Especiales por Volumen (plegable) -->
@@ -230,7 +230,7 @@
     <template #content>
         ¿Estás seguro de remover <span class="font-bold text-red-500">{{ productToRemove?.name }}</span> de este cliente?
         <br><br>
-        Esta acción eliminará permanentemente la relación y todo el <strong>historial de precios especiales</strong> asociados. Esta acción no se puede deshacer.
+        Esta acción eliminará permanentemente la relación y todo el <strong>historial de precios</strong> asociados. Esta acción no se puede deshacer.
     </template>
     <template #footer>
         <div class="flex space-x-2">

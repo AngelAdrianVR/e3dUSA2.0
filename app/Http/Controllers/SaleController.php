@@ -15,6 +15,7 @@ use App\Notifications\SaleAuthorizedNotification;
 use App\Services\BranchGroupService;
 use App\Services\MuestraProductService;
 use App\Services\ShippingRateSuggestionService;
+use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,8 @@ use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y no
 
 class SaleController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function __construct(private BranchGroupService $branchGroups)
     {
     }
@@ -1050,11 +1053,19 @@ class SaleController extends Controller
 
     public function authorizeSale(Sale $sale)
     {
-        $sale->update([
-            'authorized_user_name' => auth()->user()->name,
-            'authorized_at' => now(),
-            'status' => 'Autorizada',
-        ]);
+        $fields = ['status', 'authorized_user_name', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($sale, $fields);
+
+        // La auditoría automática se desactiva para registrar una única acción "authorized"
+        Sale::withoutAuditing(function () use ($sale) {
+            $sale->update([
+                'authorized_user_name' => auth()->user()->name,
+                'authorized_at' => now(),
+                'status' => 'Autorizada',
+            ]);
+        });
+
+        $this->recordAuthorizationAudit($sale, $oldValues, $this->authorizationSnapshot($sale, $fields));
 
         $sale->load('user');
 

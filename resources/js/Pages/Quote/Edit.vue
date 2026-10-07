@@ -390,9 +390,9 @@
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Ubicación: <strong>{{ currentProduct.storages?.[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
-                                            <p class="text-gray-500 dark:text-gray-300">
+                                            <!-- <p class="text-gray-500 dark:text-gray-300">
                                                 Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
-                                            </p>
+                                            </p> -->
                                             <!-- Precio actual del cliente -->
                                             <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
                                                 Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>

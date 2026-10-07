@@ -106,7 +106,7 @@
                                     <template v-if="item.type === 'catalog'">
                                         <div class="col-span-full">
                                             <el-select @change="getProductData(item)" v-model="item.itemable_id" filterable placeholder="Selecciona un producto" class="!w-full">
-                                                <el-option class="!w-96" v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
+                                                <el-option class="!w-[550px]" v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
                                             </el-select>
                                             <InputError :message="form.errors[`items.${index}.itemable_id`]" />
                                         </div>
