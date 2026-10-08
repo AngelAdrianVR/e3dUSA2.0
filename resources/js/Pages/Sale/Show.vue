@@ -76,6 +76,18 @@
                     </button>
                 </el-tooltip>
 
+                <!--
+                    Autorizar edición: solo se muestra con el permiso "Autorizar edición de ordenes de
+                    venta" y cuando la órden ya está autorizada. Abre un modal de confirmación; al
+                    aceptar se retira la autorización (la órden queda editable) y, una vez editada,
+                    debe revisarse y autorizarse de nuevo.
+                -->
+                <el-tooltip v-if="$page.props.auth.user.permissions.includes('Autorizar edición de ordenes de venta') && sale.authorized_at !== null" content="Autorizar edición" placement="top">
+                    <button @click="showUnauthorizeModal = true" class="size-9 flex items-center justify-center rounded-lg bg-amber-300 hover:bg-amber-400 dark:bg-amber-800 dark:hover:bg-amber-700 transition-colors">
+                        <i class="fa-solid fa-unlock"></i>
+                    </button>
+                </el-tooltip>
+
                 <el-tooltip :content="sale.authorized_at ? 'Órden autorizada: no editable' : 'Editar Órden'" placement="top">
                     <button
                         @click="goToEdit"
@@ -585,6 +597,38 @@
             </template>
         </ConfirmationModal>
 
+        <!-- Modal: retirar la autorización para habilitar la edición -->
+        <ConfirmationModal :show="showUnauthorizeModal" @close="showUnauthorizeModal = false">
+            <template #title>
+                Autorizar edición de la Órden {{ folio }}
+            </template>
+            <template #content>
+                <p>Autorizar la edición de esta Órden funciona así:</p>
+                <ul class="mt-2 space-y-1 list-disc list-inside">
+                    <li>Se retira la autorización y la Órden queda habilitada para editarse.</li>
+                    <li>Una vez editada, debe revisarse y autorizarse de nuevo.</li>
+                    <li v-if="sale.status === 'Autorizada'">
+                        Su estatus pasará a <strong>Pendiente</strong> hasta que se autorice otra vez.
+                    </li>
+                    <li v-else>
+                        La Órden ya avanzó, así que <strong>conservará su estatus actual
+                        ({{ sale.status }})</strong>: solo se retira la autorización.
+                    </li>
+                </ul>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="showUnauthorizeModal = false">Cancelar</CancelButton>
+                    <PrimaryButton
+                        @click="unauthorize"
+                        :disabled="processingUnauthorize"
+                        class="!bg-amber-600 hover:!bg-amber-700">
+                        {{ processingUnauthorize ? 'Retirando...' : 'Retirar autorización' }}
+                    </PrimaryButton>
+                </div>
+            </template>
+        </ConfirmationModal>
+
         <!-- Modal: la orden autorizada no se puede editar -->
         <AuthorizedOrderLockedModal
             :show="showEditBlockedModal"
@@ -657,6 +701,8 @@ export default {
             loadingSales: false,
             showConfirmModal: false,
             showEditBlockedModal: false,
+            showUnauthorizeModal: false,
+            processingUnauthorize: false,
             saleSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío', 'Enviada'],
             stockSteps: ['Autorizada', 'En Proceso', 'En Producción', 'Stock Terminado'],
             // Estatus posibles del seguimiento de muestra (para las OV de muestra/regalo)
@@ -863,13 +909,42 @@ export default {
             try {
                 const response = await axios.put(route('sales.authorize', this.sale.id));
                 if (response.status === 200) {
-                    this.sale.authorized_at = response.data.authorized_at;
-                    this.sale.status = 'Autorizada';
+                    // El backend responde con la orden actualizada en "item"
+                    this.sale.authorized_at = response.data.item?.authorized_at ?? new Date().toISOString();
+                    this.sale.authorized_user_name = response.data.item?.authorized_user_name ?? this.sale.authorized_user_name;
+                    this.sale.status = response.data.item?.status ?? 'Autorizada';
                     ElMessage.success(response.data.message);
                 }
             } catch (err) {
                 ElMessage.error('Ocurrió un error al autorizar la venta');
                 console.error(err);
+            }
+        },
+        // Retira la autorización para habilitar la edición de la órden (permiso "Autorizar edición de
+        // ordenes de venta"). Flujo: autorizada -> se retira la autorización -> se edita -> se revisa
+        // -> se autoriza de nuevo.
+        // Estatus (comportamiento híbrido, definido en el backend):
+        //   - Si estaba "Autorizada" pasa a "Pendiente" (pendiente de nueva revisión).
+        //   - Si ya avanzó (En Proceso, En Producción, Enviada, etc.) conserva su estatus, y al
+        //     reautorizar tampoco se pierde el avance.
+        async unauthorize() {
+            this.processingUnauthorize = true;
+
+            try {
+                const response = await axios.put(route('sales.unauthorize', this.sale.id));
+                if (response.status === 200) {
+                    this.sale.authorized_at = null;
+                    this.sale.authorized_user_name = null;
+                    // Si la órden ya avanzó (producción, envío) el backend conserva su estatus
+                    this.sale.status = response.data.item?.status ?? this.sale.status;
+                    ElMessage.success(response.data.message);
+                    this.showUnauthorizeModal = false;
+                }
+            } catch (err) {
+                ElMessage.error(err.response?.data?.message || 'Ocurrió un error al retirar la autorización');
+                console.error(err);
+            } finally {
+                this.processingUnauthorize = false;
             }
         },
         async deleteItem() {
