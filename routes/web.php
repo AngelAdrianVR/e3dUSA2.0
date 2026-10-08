@@ -253,6 +253,7 @@ Route::put('quotes/{quote}/payment-terms-notice', [QuoteController::class, 'upda
 Route::resource('sales', SaleController::class)->middleware('auth');
 Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
+Route::put('sales/unauthorize/{sale}', [SaleController::class, 'unauthorizeSale'])->middleware('auth')->name('sales.unauthorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
 Route::post('sales/massive-delete', [SaleController::class, 'massiveDelete'])->middleware('auth')->name('sales.massive-delete');
 Route::get('sales/print/{sale}', [SaleController::class, 'print'])->middleware('auth')->name('sales.print');

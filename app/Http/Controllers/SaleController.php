@@ -1061,7 +1061,9 @@ class SaleController extends Controller
             $sale->update([
                 'authorized_user_name' => auth()->user()->name,
                 'authorized_at' => now(),
-                'status' => 'Autorizada',
+                // Al reautorizar una órden que ya avanzó (producción, envío) se conserva su estatus;
+                // las órdenes de muestra/regalo mantienen su comportamiento original.
+                'status' => ($sale->status === 'Pendiente' || $sale->type === 'muestra') ? 'Autorizada' : $sale->status,
             ]);
         });
 
@@ -1085,6 +1087,36 @@ class SaleController extends Controller
         // --- FIN: LÓGICA DE NOTIFICACIÓN ACTUALIZADA ---
 
         return response()->json(['message' => 'Orden autorizada', 'item' => $sale]);
+    }
+
+    /**
+     * Retira la autorización de la órden para habilitar su edición (permiso "Autorizar edición de
+     * ordenes de venta"). Después de editarla deberá revisarse y autorizarse de nuevo.
+     *
+     * Estatus (comportamiento híbrido):
+     *  - "Autorizada" pasa a "Pendiente" (queda pendiente de autorización).
+     *  - Si la órden ya avanzó (En Proceso, En Producción, Enviada, etc.) conserva su estatus, y
+     *    authorizeSale() tampoco lo sobrescribe al reautorizarla.
+     */
+    public function unauthorizeSale(Request $request, Sale $sale)
+    {
+        if (!$request->user()->can('Autorizar edición de ordenes de venta')) {
+            abort(403, 'No tienes permiso para autorizar la edición de órdenes de venta.');
+        }
+
+        if ($sale->authorized_at === null) {
+            return response()->json(['message' => 'La orden no está autorizada.'], 409);
+        }
+
+        $sale->update([
+            'authorized_user_name' => null,
+            'authorized_at' => null,
+            'status' => $sale->status === 'Autorizada' ? 'Pendiente' : $sale->status,
+        ]);
+
+        Log::info("Autorización retirada de la órden #{$sale->id} por el usuario " . auth()->id());
+
+        return response()->json(['message' => 'Autorización retirada: la órden ya puede editarse', 'item' => $sale]);
     }
 
     /**
