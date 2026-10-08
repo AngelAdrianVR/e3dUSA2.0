@@ -45,7 +45,7 @@
                         </figure>
                         <div>
                             <p class="text-gray-500 dark:text-gray-300">
-                                Precio Base: <strong>${{ currentProduct.base_price?.toFixed(2) ?? '0.00' }}</strong>
+                                Precio Base (precio homologado para todos los clientes): <strong>${{ currentProduct.base_price?.toFixed(2) ?? '0.00' }}</strong>
                             </p>
                             <p class="text-gray-500 dark:text-gray-300">
                                 Stock: <strong>{{ currentProduct.current_stock ?? '0' }}</strong> unidades

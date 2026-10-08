@@ -51,84 +51,94 @@
                     No se encontraron productos que coincidan con «{{ productSearch }}».
                 </p>
 
-                <!-- Lista de productos -->
+                <!-- Lista de productos (rejilla de 2 columnas) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div 
                     v-for="product in filteredClientProducts" 
                     :key="product.id" 
-                    class="relative bg-gray-100 dark:bg-slate-900 shadow-md rounded-2xl p-4 transition hover:shadow-xl duration-300"
+                    class="relative flex flex-col bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden pb-3 shadow-sm transition-all duration-300 hover:shadow-lg hover:border-indigo-300 dark:hover:border-indigo-500/50"
                 >
-                    <!-- BOTONES DE ACCIÓN -->
-                    <div class="absolute top-2 right-2 flex items-center space-x-1">
-                        <el-tooltip content="Actualizar precio especial" placement="top">
-                            <button @click="openPriceModal(product)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
-                                <i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-600"></i>
-                            </button>
-                        </el-tooltip>
-                        <el-tooltip content="Ver producto" placement="top">
-                            <button @click="openProduct(product.id)" class="flex items-center justify-center hover:bg-gray-200 dark:bg-slate-800 rounded-full size-8 transition-colors">
-                                <i class="fa-solid fa-eye text-gray-500 dark:text-gray-600"></i>
-                            </button>
-                        </el-tooltip>
-                    </div>
-
-                    <!-- Imagen -->
-                    <div class="flex items-center gap-4">
+                    <!-- IMAGEN DESTACADA -->
+                    <div class="relative w-full h-36 shrink-0 overflow-hidden bg-gray-100 dark:bg-slate-800 group">
                         <img 
                             v-if="product.media?.length" 
                             :src="product.media[0].original_url" 
                             alt="Imagen del producto" 
-                            class="w-20 h-20 object-cover rounded-xl border dark:border-gray-700"
+                            class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
-                        <div class="flex-1">
-                            <p class="text-lg font-semibold text-gray-800 dark:text-gray-200">
-                            {{ product.name }}
-                            </p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">
-                            Código: {{ product.code }}
-                            </p>
-                            <el-tag v-if="product.parent_id" type="info" size="small" class="mt-1">Variante</el-tag>
-                            <el-tag v-if="product.archived_at" type="warning" size="small" class="mt-1 ml-1">Obsoleto</el-tag>
+                        <div v-else class="w-full h-full flex items-center justify-center text-gray-300 dark:text-slate-600">
+                            <i class="fa-solid fa-image text-4xl"></i>
+                        </div>
+
+                        <!-- BOTONES DE ACCIÓN -->
+                        <div class="absolute top-2 right-2 flex items-center space-x-1">
+                            <el-tooltip content="Actualizar precio especial" placement="top">
+                                <button @click="openPriceModal(product)" class="flex items-center justify-center size-7 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                    <i class="fa-solid fa-dollar-sign text-[11px]"></i>
+                                </button>
+                            </el-tooltip>
+                            <el-tooltip content="Ver producto" placement="top">
+                                <button @click="openProduct(product.id)" class="flex items-center justify-center size-7 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                                    <i class="fa-solid fa-eye text-[11px]"></i>
+                                </button>
+                            </el-tooltip>
+                        </div>
+
+                        <!-- ETIQUETAS DE ESTADO -->
+                        <div v-if="product.parent_id || product.archived_at" class="absolute bottom-2 left-2 flex items-center gap-1">
+                            <el-tag v-if="product.parent_id" type="info" size="small" effect="dark" round>Variante</el-tag>
+                            <el-tag v-if="product.archived_at" type="warning" size="small" effect="dark" round>Obsoleto</el-tag>
                         </div>
                     </div>
 
+                    <!-- NOMBRE Y CÓDIGO -->
+                    <p class="px-3 pt-3 text-sm font-semibold text-gray-800 dark:text-gray-100 leading-snug line-clamp-2" :title="product.name">
+                        {{ product.name }}
+                    </p>
+                    <p class="px-3 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Código: {{ product.code }}
+                    </p>
+
                     <!-- Precios -->
-                    <div class="mt-4 flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio base <small>(Para clientes que no tienen precio asignado)</small></p>
-                        <p class="font-medium text-blue-400">${{ product.base_price }} {{ product.currency }}</p>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Precio actual <small>(Precio al que se vende actualmente a este cliente)</small></p>
-                        <p class="font-semibold text-green-600 dark:text-green-400">
-                        ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
-                                ? product.price_history[0].price + ' ' + product.price_history[0].currency
-                                : product.base_price + ' ' + product.currency }}
-                        </p>
+                    <div class="mx-3 mt-2.5 pt-2.5 border-t border-dashed border-gray-200 dark:border-slate-700 space-y-1">
+                        <!-- <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500" title="Para clientes que no tienen precio asignado">Base</span>
+                            <span class="text-xs font-medium text-blue-500 dark:text-sky-400 whitespace-nowrap">${{ product.base_price }} {{ product.currency }}</span>
+                        </div> -->
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500" title="Precio al que se vende actualmente a este cliente">Precio actual para este cliente/grupo</span>
+                            <span class="text-xs font-semibold text-green-600 dark:text-green-400 whitespace-nowrap">
+                                ${{ !product.price_history?.[0]?.valid_to && product.price_history?.[0]?.price 
+                                        ? product.price_history[0].price + ' ' + product.price_history[0].currency
+                                        : product.base_price + ' ' + product.currency }}
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Último cambio de precio -->
                     <div 
                         v-if="product.price_history?.length" 
-                        class="mt-2 text-sm rounded-sm py-1 px-2"
+                        class="mx-3 mt-2 text-[11px] font-medium rounded-md py-1 px-2 text-gray-700"
                         :class="getPriceChangeClass(product.price_history[0].valid_from)"
                         >
-                        <span class="text-gray-700">Último cambio de precio: {{ timeSince(product.price_history[0].valid_from) }}</span>
+                        <i class="fa-solid fa-clock-rotate-left mr-1 opacity-70"></i>Último cambio: {{ timeSince(product.price_history[0].valid_from) }}
                     </div>
 
                     <!-- Historial de precios -->
-                    <el-collapse v-if="product.price_history?.length" class="mt-4">
+                    <el-collapse v-if="product.price_history?.length" class="mt-1 px-1 compact-collapse">
                         <el-collapse-item :title="'Historial de precios'" name="history">
-                            <ul class="space-y-3 max-h-40 overflow-y-auto pr-2 text-sm">
+                            <ul class="space-y-2.5 max-h-40 overflow-y-auto pr-2 text-xs">
                             <li 
                                 v-for="(history, idx) in product.price_history" 
                                 :key="idx" 
                                 class="flex flex-col border-b dark:border-gray-700 pb-2 last:border-0 last:pb-0"
                             >
-                                <div class="flex justify-between items-center text-gray-600 dark:text-gray-400">
-                                    <div class="flex items-center space-x-2">
+                                <div class="flex justify-between items-center flex-wrap gap-1 text-gray-600 dark:text-gray-400">
+                                    <div class="flex items-center flex-wrap gap-1">
                                         <span>{{ formatDate(history.valid_from) }}</span>
                                         <!-- ETIQUETAS DE ESTADO -->
-                                        <span v-if="!history.valid_to" class="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
-                                        <span v-else class="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
+                                        <span v-if="!history.valid_to" class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Actual</span>
+                                        <span v-else class="px-2 py-0.5 text-[10px] font-medium rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Cerrado</span>
                                     </div>
                                     <div class="flex items-center space-x-1">
                                         <span class="font-medium">${{ history.price }} {{ history.currency }}</span>
@@ -149,19 +159,19 @@
                         </el-collapse-item>
                     </el-collapse>
 
-                    <p class="text-sm text-gray-600 dark:text-gray-500 italic mt-3" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
+                    <p class="px-3 text-sm text-gray-600 dark:text-gray-500 italic mt-2" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
 
                     <!-- Precios especiales por volumen (plegable) -->
-                    <div v-if="product.volume_prices?.length" class="mt-3">
-                        <el-collapse>
+                    <div v-if="product.volume_prices?.length" class="mt-1 px-1">
+                        <el-collapse class="compact-collapse">
                             <el-collapse-item name="volume_prices">
                                 <template #title>
-                                    <span class="font-semibold text-xs text-indigo-500">
-                                        <i class="fa-solid fa-layer-group mr-2"></i> Ver Precios Especiales por Volumen ({{ product.volume_prices.length }})
+                                    <span class="font-semibold text-[11px] text-indigo-500 leading-tight">
+                                        <i class="fa-solid fa-layer-group mr-1"></i> Precios Especiales por Volumen ({{ product.volume_prices.length }})
                                     </span>
                                 </template>
                                 <div class="p-2 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
-                                    <table class="w-full text-xs text-left text-gray-500 dark:text-gray-400">
+                                    <table class="w-full text-xs text-left text-gray-500 dark:text-gray-400 min-w-[260px]">
                                         <thead class="text-[10px] text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                                             <tr>
                                                 <th scope="col" class="px-2 py-1.5">Rango de cantidad</th>
@@ -184,6 +194,7 @@
                             </el-collapse-item>
                         </el-collapse>
                     </div>
+                </div>
                 </div>
                 
                 <!-- BOTÓN PARA AGREGAR PRODUCTOS -->
@@ -431,7 +442,7 @@ export default {
             loadingAddModal: false, 
             clientProducts: [],
             productSearch: '',
-            drawerSize: "35%", 
+            drawerSize: "40%", 
             showAddProductsModal: false,
 
             showClosePriceConfirmModal: false,
@@ -799,9 +810,9 @@ export default {
             if (width < 640) {
                 this.drawerSize = "90%";
             } else if (width < 1024) {
-                this.drawerSize = "60%";
+                this.drawerSize = "70%";
             } else {
-                this.drawerSize = "35%";
+                this.drawerSize = "40%";
             }
         },
     },
@@ -822,3 +833,24 @@ export default {
     },
 }
 </script>
+
+<style scoped>
+/* Compacta los acordeones dentro de las tarjetas de producto del drawer. */
+.compact-collapse :deep(.el-collapse-item__header) {
+    height: 32px;
+    line-height: 32px;
+    font-size: 12px;
+    background-color: transparent;
+    border-bottom: none;
+}
+
+.compact-collapse :deep(.el-collapse-item__wrap) {
+    background-color: transparent;
+    border-bottom: none;
+}
+
+.compact-collapse :deep(.el-collapse-item__content) {
+    padding-bottom: 4px;
+    font-size: 12px;
+}
+</style>

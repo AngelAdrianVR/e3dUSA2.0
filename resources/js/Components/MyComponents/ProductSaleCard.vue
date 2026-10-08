@@ -57,77 +57,96 @@
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
                 </el-tag>
 
-                <div class="grid grid-cols-2 gap-x-6 gap-y-4 mt-4 text-sm">
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <p class="text-gray-500 dark:text-gray-400">Cantidad ordenada</p>
-                            <el-tooltip v-if="branchId" placement="top">
-                                <template #content>
-                                    <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
-                                    <p class="text-blue-400">
-                                        {{ isMuestraProductLine ? 'Cantidad descontada de stock:' : 'Cantidad tomada de stock:' }}
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                    <p v-if="isMuestraProductLine && saleProduct.quantity_to_produce > 0" class="text-amber-400">
-                                        Sin stock disponible (no descontado):
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                    <p v-else-if="!isMuestraProductLine" class="text-blue-400">
-                                        Cantidad a producir:
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                </template>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-                                </svg>
-                            </el-tooltip>
-                        </div>
-                        <p class="font-semibold text-lg">{{ saleProduct.quantity?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
-                    </div>
-                    
-                    <!-- PRECIO DE VENTA Y TOOLTIP -->
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Vendido a:</p>
-                        <div class="flex items-center space-x-2 mt-0.5">
-                            <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
-                                {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
-                            </p>
-                            
-                            <el-tooltip v-if="saleProduct.has_low_price && !isSaleAuthorized" placement="top" effect="dark">
-                                <template #content>
-                                    <div class="w-64 text-xs leading-relaxed">
-                                        El precio de venta es menor al establecido para el cliente.<br><br>
-                                        Si no autoriza este precio, <b>comuníquese con el vendedor</b> para que lo edite.<br>
-                                        Si autoriza el precio, solo tiene que <b>Autorizar la orden de venta</b> desde el botón principal.
-                                    </div>
-                                </template>
-                                <div class="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full size-6 flex items-center justify-center animate-pulse cursor-help">
-                                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
-                                </div>
-                            </el-tooltip>
+                <!-- ==== RESUMEN DE VENTA ==== -->
+                <div class="mt-4">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 flex items-center">
+                        <i class="fa-solid fa-receipt mr-1.5"></i> Resumen de venta
+                    </p>
 
-                            <el-tooltip v-else-if="saleProduct.has_low_price && isSaleAuthorized" content="Precio Bajo Autorizado" placement="top" effect="dark">
-                                <div class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full size-6 flex items-center justify-center cursor-help">
-                                    <i class="fa-solid fa-check-double text-xs"></i>
-                                </div>
-                            </el-tooltip>
-                        </div>
-                    </div>
+                    <div class="bg-white dark:bg-slate-900/40 border border-gray-200 dark:border-slate-700 rounded-xl p-4 shadow-sm text-sm">
+                        <!-- Precios agrupados: precio vendido vs precio de referencia del cliente -->
+                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden divide-y divide-gray-200 dark:divide-slate-700">
+                            <div class="flex items-center justify-between gap-3 px-3 py-2">
+                                <span class="text-gray-500 dark:text-gray-400">Vendido a:</span>
+                                <div class="flex items-center space-x-2">
+                                    <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
+                                        {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
+                                    </p>
 
-                    <div v-if="!isSpecialProduct">
-                        <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
-                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
-                    </div>
-                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
-                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
+                                    <el-tooltip v-if="saleProduct.has_low_price && !isSaleAuthorized" placement="top" effect="dark">
+                                        <template #content>
+                                            <div class="w-64 text-xs leading-relaxed">
+                                                El precio de venta es menor al establecido para el cliente.<br><br>
+                                                Si no autoriza este precio, <b>comuníquese con el vendedor</b> para que lo edite.<br>
+                                                Si autoriza el precio, solo tiene que <b>Autorizar la orden de venta</b> desde el botón principal.
+                                            </div>
+                                        </template>
+                                        <div class="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full size-6 flex items-center justify-center animate-pulse cursor-help">
+                                            <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                                        </div>
+                                    </el-tooltip>
+
+                                    <el-tooltip v-else-if="saleProduct.has_low_price && isSaleAuthorized" content="Precio Bajo Autorizado" placement="top" effect="dark">
+                                        <div class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full size-6 flex items-center justify-center cursor-help">
+                                            <i class="fa-solid fa-check-double text-xs"></i>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+                            </div>
+
+                            <div v-if="!isSpecialProduct" class="flex items-center justify-between gap-3 px-3 py-2">
+                                <span class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}:</span>
+                                <span class="font-semibold text-base text-gray-700 dark:text-gray-200">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Cantidad ordenada e importe total -->
+                        <div class="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Cantidad ordenada</p>
+                                    <el-tooltip v-if="branchId" placement="top">
+                                        <template #content>
+                                            <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
+                                            <p class="text-blue-400">
+                                                {{ isMuestraProductLine ? 'Cantidad descontada de stock:' : 'Cantidad tomada de stock:' }}
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                            <p v-if="isMuestraProductLine && saleProduct.quantity_to_produce > 0" class="text-amber-400">
+                                                Sin stock disponible (no descontado):
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                            <p v-else-if="!isMuestraProductLine" class="text-blue-400">
+                                                Cantidad a producir:
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                        </template>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                                        </svg>
+                                    </el-tooltip>
+                                </div>
+                                <p class="font-semibold text-xl dark:text-gray-100">{{ saleProduct.quantity?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
+                            </div>
+
+                            <div class="text-right">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Importe total</p>
+                                <p class="font-extrabold text-2xl sm:text-3xl leading-none text-primary dark:text-sky-400 mt-1">
+                                    {{ formatCurrency(totalAmount) }}
+                                    <span class="text-sm font-bold align-middle">{{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- SECCIÓN DE STOCK (CONDICIONAL: COMPUESTO VS SIMPLE) -->
-                <div class="mt-4 border-t dark:border-slate-700/50 pt-4">
+                <div class="mt-5">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 flex items-center">
+                        <i class="fa-solid fa-warehouse mr-1.5"></i> Información de almacén
+                    </p>
                     <!-- VISTA PARA PRODUCTOS COMPUESTOS (COLAPSABLE) -->
-                    <div v-if="isComposite" class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-all duration-300">
+                    <div v-if="isComposite" class="bg-white dark:bg-slate-900/40 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-all duration-300">
                         <div @click="showComponents = !showComponents" class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 cursor-pointer group">
                             <div class="flex items-center space-x-2">
                                 <h2 class="font-bold text-lg group-hover:text-primary transition-colors">
@@ -204,16 +223,16 @@
                     </div>
 
                     <!-- VISTA PARA PRODUCTOS SIMPLES (SIN COMPONENTES) -->
-                    <div v-else class="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div v-else class="bg-white dark:bg-slate-900/40 border border-gray-200 dark:border-slate-700 rounded-xl p-4 grid grid-cols-2 gap-x-6 gap-y-4 shadow-sm">
                         <div>
                             <div class="flex items-center space-x-2">
-                                <p class="text-gray-500 dark:text-gray-400">Stock actual</p>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Stock actual</p>
                                 <el-tooltip v-if="stockStatus !== 'green'" placement="top" :content="stockStatus === 'red' ? 'Sin stock o inventario negativo' : 'El stock está por debajo del mínimo permitido'" effect="dark">
                                     <i class="fa-solid fa-circle-exclamation cursor-help" :class="stockStatus === 'red' ? 'text-red-500' : 'text-amber-500'"></i>
                                 </el-tooltip>
                             </div>
                             <div class="flex items-center space-x-2 mt-0.5">
-                                <p class="font-bold text-lg" :class="{'text-red-600 dark:text-red-400': stockStatus === 'red', 'text-amber-600 dark:text-amber-400': stockStatus === 'amber', 'text-green-600 dark:text-green-400': stockStatus === 'green'}">
+                                <p class="font-bold text-xl" :class="{'text-red-600 dark:text-red-400': stockStatus === 'red', 'text-amber-600 dark:text-amber-400': stockStatus === 'amber', 'text-green-600 dark:text-green-400': stockStatus === 'green'}">
                                     {{ currentStock.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span>
                                 </p>
                                 <!-- Semáforo de Colores -->
@@ -228,8 +247,8 @@
                         </div>
 
                         <div v-if="!isSpecialProduct">
-                            <p class="text-gray-500 dark:text-gray-400">Stock mínimo</p>
-                            <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Stock mínimo</p>
+                            <p class="font-bold text-xl dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                         </div>
                         <!-- <div>
                             <p class="text-gray-500 dark:text-gray-400">Stock máximo</p>
@@ -286,7 +305,7 @@
             </p>
             
             <el-collapse v-if="saleProduct.product.price_history?.length">
-                <el-collapse-item title="Historial de precios especiales del cliente" name="history">
+                <el-collapse-item title="Historial de precios para este cliente" name="history">
                     <ul class="max-h-32 overflow-y-auto pr-2 text-sm">
                         <li v-for="history in saleProduct.product.price_history" :key="history.id" class="flex flex-col text-gray-600 dark:text-gray-400 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700/50 border-b dark:border-slate-700/50 last:border-0">
                             <div class="flex justify-between items-center w-full">
@@ -464,6 +483,7 @@ export default {
             type: Boolean,
             default: false,
         },
+        
         branchId: {
             type: Number,
             required: true,
@@ -623,7 +643,7 @@ export default {
         },
         currentPriceLabel() {
             return this.activeSpecialPrice
-                ? 'Precio Establecido Actual (Especial)'
+                ? 'Precio referencia para este cliente'
                 : 'Precio Actual (Base)';
         },
         lastUpdateInfo() {

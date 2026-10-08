@@ -91,9 +91,9 @@
                         </button>
                     </template>
                     <template #content>
-                        <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
+                        <!-- <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="$inertia.visit(route('sales.create'))" as="button">
                            <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nueva Órden
-                        </DropdownLink>
+                        </DropdownLink> -->
                         <DropdownLink v-if="sale?.sale_products?.some(item => item.product?.code.includes('EM') || item.product?.code.includes('ET'))" as="button">
                             <a class="inline-block" :href="route('sales.quality-certificate', sale.id)" target="_blank">
                                 <p>Ver certificado de calidad</p>
