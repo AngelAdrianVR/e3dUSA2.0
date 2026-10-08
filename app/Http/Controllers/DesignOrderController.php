@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\designOrderAuthorizedNotification;
 use App\Notifications\DesignOrderFinishedNotification;
 use App\Notifications\NewDesignOrderAssignedNotification;
+use App\Traits\RecordsAuthorizationAudit;
 use Carbon\Carbon;
 use Carbon\CarbonInterval;
 use Illuminate\Http\Request;
@@ -21,6 +22,8 @@ use Illuminate\Support\Str;
 
 class DesignOrderController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -501,11 +504,16 @@ class DesignOrderController extends Controller
 
     public function authorizeDesignOrder(DesignOrder $designOrder)
     {
+        $fields = ['status', 'authorized_user_name', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($designOrder, $fields);
+
         $designOrder->update([
             'authorized_user_name' => auth()->user()->name,
             'authorized_at' => now(),
             'status' => 'Autorizada',
         ]);
+
+        $this->recordAuthorizationAudit($designOrder, $oldValues, $this->authorizationSnapshot($designOrder, $fields));
 
         $designOrder->load('requester');
 

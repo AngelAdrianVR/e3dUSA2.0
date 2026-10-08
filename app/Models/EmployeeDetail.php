@@ -4,10 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Auditable as AuditableTrait;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class EmployeeDetail extends Model
+class EmployeeDetail extends Model implements Auditable
 {
-    use HasFactory;
+    use HasFactory, AuditableTrait;
+
+    /**
+     * Solo se registran las modificaciones de horas hechas desde nómina
+     * (evento personalizado "hours_updated"); se desactivan los eventos automáticos.
+     */
+    protected $auditEvents = [];
 
     protected $fillable = [
         'user_id',

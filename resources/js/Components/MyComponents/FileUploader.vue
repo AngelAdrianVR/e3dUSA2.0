@@ -130,6 +130,7 @@ const formatMap = {
   Video: { mime: 'video/*', label: 'Videos (MP4, AVI, etc.)' },
   PDF: { mime: 'application/pdf', label: 'Archivos PDF' },
   Imagen: { mime: 'image/*', label: 'Imágenes (JPG, PNG, etc.)' },
+  Documento: { mime: 'application/pdf,image/*', label: 'Documentos (PDF o Imagen)' },
   Todo: { mime: '*/*', label: 'Cualquier tipo de archivo' },
 };
 const acceptedMimeType = computed(() => formatMap[props.format]?.mime || '*/*');

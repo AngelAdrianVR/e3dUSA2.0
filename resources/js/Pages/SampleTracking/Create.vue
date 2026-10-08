@@ -107,7 +107,7 @@
                                     <template v-if="item.type === 'catalog'">
                                         <div class="col-span-full">
                                             <el-select @change="getProductData(item)" v-model="item.itemable_id" filterable placeholder="Selecciona un producto" class="!w-full">
-                                                <el-option class="!w-96" v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
+                                                <el-option class="!w-[550px]" v-for="product in products" :key="product.id" :label="product.name" :value="product.id" />
                                             </el-select>
                                             <InputError :message="form.errors[`items.${index}.itemable_id`]" />
                                         </div>
@@ -134,7 +134,7 @@
                                                 <p class="text-sm text-gray-500 dark:text-gray-400">{{ item.product_data.code }}</p>
                                                 <div class="mt-2 text-xs">
                                                     <span class="font-semibold text-gray-700 dark:text-gray-300">Stock total:</span>
-                                                    <span class="ml-1 text-green-600 dark:text-green-400 font-medium">{{ calculateTotalStock(item.product_data.storages) }} unidades</span>
+                                                    <span class="ml-1 text-green-600 dark:text-green-400 font-medium">{{ formatStock(calculateTotalStock(item.product_data.storages)) }} unidades</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -355,7 +355,10 @@ export default {
         },
         calculateTotalStock(storages) {
             if (!storages || !storages.length) return 0;
-            return storages.reduce((total, storage) => total + (storage.quantity || 0), 0);
+            return storages.reduce((total, storage) => total + Number(storage.quantity || 0), 0);
+        },
+        formatStock(value) {
+            return Number(value || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         },
         // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
         async storeQuickBranch() {

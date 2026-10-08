@@ -12,8 +12,10 @@ use App\Models\SampleTracking;
 use App\Models\StockMovement;
 use App\Models\Storage;
 use App\Notifications\SaleAuthorizedNotification;
+use App\Services\BranchGroupService;
 use App\Services\MuestraProductService;
 use App\Services\ShippingRateSuggestionService;
+use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -25,12 +27,22 @@ use App\Jobs\CheckLowStockAndNotifyJob; // AGREGADO: Job para revisar stock y no
 
 class SaleController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
+    public function __construct(private BranchGroupService $branchGroups)
+    {
+    }
+
     public function index(Request $request)
     {
-        $view = $request->query('view');
         $user = Auth::user();
 
-        // Por defecto se muestran TODAS las ventas (si el usuario tiene permiso).
+        // Por defecto el toggle "Mías/Todas" inicia en "Todas" solo para Super
+        // Administradores; para el resto inicia en "Mías". Un valor explícito en
+        // la URL (view=all|mias) siempre tiene prioridad.
+        $defaultView = $user->hasRole('Super Administrador') ? 'all' : 'mias';
+        $view = $request->query('view', $defaultView);
+
         // El parámetro 'mias' fuerza a mostrar solo las del usuario.
         $showAll = $view !== 'mias' && $user->hasPermissionTo('Ver todas las ventas');
         $filterPending = $request->query('filter') === 'pending'; // Pendiente de seguimiento (autorizadas)
@@ -111,7 +123,10 @@ class SaleController extends Controller
         
         return Inertia::render('Sale/Index', [
             'sales' => $sales,
-            'filters' => $request->only(['view', 'filter']),
+            'filters' => [
+                'view' => $view,
+                'filter' => $request->query('filter'),
+            ],
         ]);
     }
 
@@ -507,6 +522,10 @@ class SaleController extends Controller
 
     public function show(Sale $sale)
     {
+        // Sucursal desde donde se leen los precios (matriz o líder del grupo).
+        $sale->loadMissing('branch');
+        $priceSourceBranch = $this->branchGroups->getProductTargetBranch($sale->branch);
+
         $sale->load([
             'branch:id,name,rfc,address,post_code,status',
             'media',
@@ -517,6 +536,13 @@ class SaleController extends Controller
             
             'saleProducts.product.priceHistory' => function ($q) {
                 $q->with('user')->orderBy('created_at', 'desc'); 
+            },
+
+            // Precios especiales por volumen del cliente (de la matriz o líder del grupo).
+            'saleProducts.product.volumePrices' => function ($q) use ($priceSourceBranch) {
+                $q->where('branch_id', $priceSourceBranch->id)
+                  ->with('user:id,name')
+                  ->orderBy('min_quantity');
             },
             
             // --- AQUÍ ESTÁN LOS CAMBIOS PARA EL STOCK COMPUESTO ---
@@ -1027,11 +1053,19 @@ class SaleController extends Controller
 
     public function authorizeSale(Sale $sale)
     {
-        $sale->update([
-            'authorized_user_name' => auth()->user()->name,
-            'authorized_at' => now(),
-            'status' => 'Autorizada',
-        ]);
+        $fields = ['status', 'authorized_user_name', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($sale, $fields);
+
+        // La auditoría automática se desactiva para registrar una única acción "authorized"
+        Sale::withoutAuditing(function () use ($sale) {
+            $sale->update([
+                'authorized_user_name' => auth()->user()->name,
+                'authorized_at' => now(),
+                'status' => 'Autorizada',
+            ]);
+        });
+
+        $this->recordAuthorizationAudit($sale, $oldValues, $this->authorizationSnapshot($sale, $fields));
 
         $sale->load('user');
 

@@ -46,6 +46,21 @@
                                 </template>
                             </el-table-column>
 
+                            <!-- Columna Rol -->
+                            <el-table-column label="Rol" width="220">
+                                <template #default="scope">
+                                    <div class="flex flex-wrap gap-1">
+                                        <el-tag v-for="role in scope.row.roles" :key="role.id" type="info" size="small"
+                                            disable-transitions>
+                                            {{ role.name }}
+                                        </el-tag>
+                                        <span v-if="!scope.row.roles?.length" class="text-gray-400 italic text-xs">
+                                            Sin rol
+                                        </span>
+                                    </div>
+                                </template>
+                            </el-table-column>
+
                             <!-- Columna Estatus con tag de color -->
                             <el-table-column prop="is_active" label="Estatus" width="150" align="center">
                                 <template #default="scope">

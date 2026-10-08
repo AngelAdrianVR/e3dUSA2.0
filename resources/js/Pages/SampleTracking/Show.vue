@@ -21,7 +21,7 @@
                 </el-button-group>
             </div>
 
-            <el-tooltip v-if="sampleTracking.authorized_at === null" content="Autorizar Seguimiento" placement="top">
+            <el-tooltip v-if="sampleTracking.authorized_at === null && $page.props.auth.user.permissions.includes('Autorizar muestras')" content="Autorizar Seguimiento" placement="top">
                 <button @click="authorize" class="size-9 flex items-center justify-center rounded-lg bg-green-300 hover:bg-green-400 dark:bg-green-800 dark:hover:bg-green-700 transition-colors">
                     <i class="fa-solid fa-check-double"></i>
                 </button>

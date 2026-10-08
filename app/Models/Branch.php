@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany; // Importar MorphMany
 use OwenIt\Auditing\Contracts\Auditable;
 use OwenIt\Auditing\Auditable as AuditableTrait;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Branch extends Model implements Auditable
+class Branch extends Model implements Auditable, HasMedia
 {
-    use AuditableTrait;
+    use AuditableTrait, InteractsWithMedia;
 
     protected $fillable = [
         'id',
@@ -32,8 +34,21 @@ class Branch extends Model implements Auditable
         'group_name',    // GRUPO
         'business_name', // RAZON SOCIAL
         'bank_account',  // CUENTA BANCO
-        'client_number'  // NUMERO DE CLIENTE
+        'client_number', // NUMERO DE CLIENTE
+        // --- DATOS FISCALES (CFDI) ---
+        'payment_method',    // Método de pago: PPD o PUE
+        'payment_submethod', // Sub-método: 99 X DEFINIR, TRANSFERENCIA o CHEQUES
+        'cfdi_use'           // Uso del CFDI
     ];
+
+    /**
+     * Registra las colecciones de medios del cliente.
+     */
+    public function registerMediaCollections(): void
+    {
+        // Documento de Constancia de Situación Fiscal (CSF)
+        $this->addMediaCollection('csf')->useDisk('public');
+    }
 
     /**
      * The accessors to append to the model's array form.
@@ -82,6 +97,14 @@ class Branch extends Model implements Auditable
     public function priceHistory(): HasMany
     {
         return $this->hasMany(BranchPriceHistory::class);
+    }
+
+    /**
+     * Obtiene los precios especiales por volumen registrados para este cliente.
+     */
+    public function volumePrices(): HasMany
+    {
+        return $this->hasMany(BranchVolumePrice::class);
     }
 
     /**

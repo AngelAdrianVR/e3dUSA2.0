@@ -6,9 +6,12 @@
         width="700px"
         destroy-on-close
     >
-        <div v-if="sale">
-            <!-- Información Requerida para Facturación -->
-            <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg text-sm border border-gray-200 dark:border-gray-700 mb-6 space-y-3">
+        <div v-if="sale" class="max-h-[70vh] overflow-y-auto pr-2">
+            <!-- ================= INFORMACIÓN FISCAL ================= -->
+            <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg text-sm border border-gray-200 dark:border-gray-700 mb-6">
+                <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3 border-b border-gray-200 dark:border-gray-700 pb-1">
+                    <i class="fa-solid fa-file-invoice mr-2"></i>Información Fiscal
+                </h4>
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Nuevos campos integrando la función de herencia Razón social/RFC -->
                     <div class="col-span-2 sm:col-span-1">
@@ -23,6 +26,57 @@
                             {{ getRfc(sale) }}
                         </span>
                     </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Método de Pago</span>
+                        <span class="text-gray-800 dark:text-gray-100">
+                            {{ sale.branch?.payment_method || 'No especificado' }}
+                            <span v-if="sale.branch?.payment_submethod" class="text-gray-500 dark:text-gray-400">({{ sale.branch.payment_submethod }})</span>
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Uso de CFDI</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.cfdi_use || 'No especificado' }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Cuenta Bancaria</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.bank_account || 'No especificada' }}</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Grupo</span>
+                        <span class="text-gray-800 dark:text-gray-100">{{ sale.branch?.group_name || 'No especificado' }}</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold mb-1">Constancia de Situación Fiscal (CSF)</span>
+                        <template v-if="csfMedia">
+                            <el-image
+                                v-if="isCsfImage"
+                                :src="csfMedia.original_url"
+                                :preview-src-list="[csfMedia.original_url]"
+                                :preview-teleported="true"
+                                fit="cover"
+                                class="size-24 rounded-md border border-gray-200 dark:border-slate-700 cursor-pointer"
+                            >
+                                <template #error>
+                                    <div class="flex items-center justify-center size-24 text-gray-400">
+                                        <i class="fa-solid fa-file-lines text-2xl"></i>
+                                    </div>
+                                </template>
+                            </el-image>
+                            <a v-else :href="csfMedia.original_url" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">
+                                <i class="fa-regular fa-file-pdf mr-1"></i> Ver documento
+                            </a>
+                        </template>
+                        <span v-else class="text-gray-500 dark:text-gray-400">No cargada</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= INFORMACIÓN DE LA VENTA ================= -->
+            <div class="bg-gray-50 dark:bg-slate-800 p-4 rounded-lg text-sm border border-gray-200 dark:border-gray-700 mb-6 space-y-3">
+                <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 pb-1">
+                    <i class="fa-solid fa-cart-shopping mr-2"></i>Información de la Venta
+                </h4>
+                <div class="grid grid-cols-2 gap-4">
                     
                     <div>
                         <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold">Costo de logística</span>
@@ -223,6 +277,17 @@ export default {
     computed: {
         oceMediaFiles() {
             return (this.sale?.media || []).filter(m => m.collection_name === 'oce_media');
+        },
+        csfMedia() {
+            return (this.sale?.branch?.media || []).find(m => m.collection_name === 'csf') || null;
+        },
+        isCsfImage() {
+            const media = this.csfMedia;
+            if (!media) return false;
+            if (media.mime_type) return String(media.mime_type).startsWith('image/');
+            const name = media.file_name || '';
+            const ext = name.split('.').pop().toLowerCase();
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
         },
         // Folio de la orden (OM- para las órdenes de muestra/regalo)
         folio() {

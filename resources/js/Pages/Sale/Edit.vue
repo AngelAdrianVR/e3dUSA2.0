@@ -339,6 +339,12 @@
         <el-dialog v-model="contactModalVisible" title="Crear Contacto Rápido" width="30%">
             <form @submit.prevent="storeQuickContact">
                 <div class="space-y-4">
+                    <div>
+                        <InputLabel value="Área" />
+                        <el-select v-model="quickContactForm.area" placeholder="Por definir" class="!w-full" clearable>
+                            <el-option v-for="area in contactAreas" :key="area" :label="area" :value="area" />
+                        </el-select>
+                    </div>
                     <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
                     <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
                 </div>
@@ -510,7 +516,8 @@ export default {
             branchModalVisible: false,
             contactModalVisible: false,
             quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
-            quickContactForm: { name: '', charge: '', processing: false, errors: {} },
+            quickContactForm: { area: '', name: '', charge: '', processing: false, errors: {} },
+            contactAreas: ['Comercial', 'Finanzas', 'Pagos'],
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
@@ -563,11 +570,28 @@ export default {
 
             if (!this.clientProducts.length) return [];
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
-            return this.catalog_products.filter(parent => {
+
+            // Padres del catálogo activo que el cliente (o su grupo) tiene asignados,
+            // ya sea el propio padre o alguna de sus variantes.
+            const fromCatalog = this.catalog_products.filter(parent => {
                 const isParentAssigned = clientProductIds.has(parent.id);
                 const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
                 return isParentAssigned || hasAssignedVariant;
             });
+
+            // Productos del cliente/grupo que no están en el catálogo activo (p. ej. obsoletos):
+            // se agregan como productos base para poder seleccionarlos.
+            const catalogIds = new Set();
+            this.catalog_products.forEach(parent => {
+                catalogIds.add(parent.id);
+                (parent.variants || []).forEach(v => catalogIds.add(v.id));
+            });
+
+            const extras = this.clientProducts
+                .filter(p => !catalogIds.has(p.id))
+                .map(p => ({ id: p.id, name: p.name, code: p.code, media: p.media, variants: [] }));
+
+            return [...fromCatalog, ...extras];
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;
@@ -1032,6 +1056,7 @@ export default {
                     this.contactModalVisible = false;
                     this.quickContactForm.name = '';
                     this.quickContactForm.charge = '';
+                    this.quickContactForm.area = '';
                     ElMessage.success('Contacto creado exitosamente');
                 }
             } catch (error)

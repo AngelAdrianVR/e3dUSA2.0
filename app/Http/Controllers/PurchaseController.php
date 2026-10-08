@@ -18,11 +18,14 @@ use App\Mail\EmailSupplierTemplateMarkdownMail;
 use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Exports\PurchaseReportExport; // Asegúrate de que la ruta sea correcta
+use App\Traits\RecordsAuthorizationAudit;
 use Maatwebsite\Excel\Facades\Excel;
 
 
 class PurchaseController extends Controller
 {
+    use RecordsAuthorizationAudit;
+
     public function index(Request $request)
     {
         // Obtener el usuario autenticado
@@ -352,11 +355,19 @@ class PurchaseController extends Controller
 
     public function authorizePurchase(Purchase $purchase)
     {
-        $purchase->update([
-            'authorizer_id' => auth()->id(),
-            'authorized_at' => now(),
-            'status' => 'Autorizada',
-        ]);
+        $fields = ['status', 'authorizer_id', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($purchase, $fields);
+
+        // La auditoría automática se desactiva para registrar una única acción "authorized"
+        Purchase::withoutAuditing(function () use ($purchase) {
+            $purchase->update([
+                'authorizer_id' => auth()->id(),
+                'authorized_at' => now(),
+                'status' => 'Autorizada',
+            ]);
+        });
+
+        $this->recordAuthorizationAudit($purchase, $oldValues, $this->authorizationSnapshot($purchase, $fields));
 
         $purchase->load(['user', 'authorizer']);
 
@@ -568,13 +579,28 @@ class PurchaseController extends Controller
 
         // 1. Actualizar la orden de compra con la información del formulario
         // y marcarla como autorizada.
-        $purchase->update([
-            'contact_id' => $request->contact_id,
-            'supplier_bank_account_id' => $request->supplier_bank_account_id,
-            'authorizer_id' => auth()->id(),
-            'authorized_at' => now(),
-            'status' => 'Autorizada', // Actualizamos el estado
-        ]);
+        $fields = ['contact_id', 'supplier_bank_account_id', 'status', 'authorizer_id', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($purchase, $fields);
+        $wasAuthorized = $purchase->authorized_at !== null;
+
+        $updatePurchase = function () use ($purchase, $request) {
+            $purchase->update([
+                'contact_id' => $request->contact_id,
+                'supplier_bank_account_id' => $request->supplier_bank_account_id,
+                'authorizer_id' => auth()->id(),
+                'authorized_at' => now(),
+                'status' => 'Autorizada', // Actualizamos el estado
+            ]);
+        };
+
+        if ($wasAuthorized) {
+            // Ya estaba autorizada: se conserva el registro de actualización normal
+            $updatePurchase();
+        } else {
+            // La orden se autoriza al enviarse: se registra como una acción "authorized"
+            Purchase::withoutAuditing($updatePurchase);
+            $this->recordAuthorizationAudit($purchase, $oldValues, $this->authorizationSnapshot($purchase, $fields));
+        }
 
         // 2. Cargar las relaciones necesarias para generar el PDF
         $purchase->load(['supplier', 'items.product.media', 'bankAccount']);

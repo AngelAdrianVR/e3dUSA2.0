@@ -379,6 +379,12 @@
                             <el-option v-for="p in prefixes" :key="p" :label="p" :value="p === 'Sin prefijo' ? '' : p" />
                         </el-select>
                     </div>
+                    <div>
+                        <InputLabel value="Área" />
+                        <el-select v-model="quickContactForm.area" placeholder="Por definir" class="!w-full" clearable>
+                            <el-option v-for="area in contactAreas" :key="area" :label="area" :value="area" />
+                        </el-select>
+                    </div>
                     <TextInput label="Nombre*" v-model="quickContactForm.name" type="text" :error="quickContactForm.errors.name" />
                     <TextInput label="Cargo" v-model="quickContactForm.charge" type="text" :error="quickContactForm.errors.charge" />
                 </div>
@@ -531,6 +537,7 @@ export default {
             showStockModal: false,
             isPreparingSale: false,
             prefixes: ['Ing.', 'Lic.', 'Arq.', 'Dr.', 'C.P.', 'Sin prefijo'], // Arreglo de prefijos
+            contactAreas: ['Comercial', 'Finanzas', 'Pagos'],
             form: useForm({
                 branch_id: null,
                 quote_id: null,
@@ -557,7 +564,7 @@ export default {
             branchModalVisible: false,
             contactModalVisible: false,
             quickBranchForm: { name: '', rfc: '', processing: false, errors: {} },
-            quickContactForm: { prefix: 'Ing.', name: '', charge: '', processing: false, errors: {} },
+            quickContactForm: { prefix: 'Ing.', area: '', name: '', charge: '', processing: false, errors: {} },
             availableContacts: [],
             clientProducts: [],
             showClientProductsDrawer: false,
@@ -622,11 +629,28 @@ export default {
 
             if (!this.clientProducts.length) return [];
             const clientProductIds = new Set(this.clientProducts.map(p => p.id));
-            return this.catalog_products.filter(parent => {
+
+            // Padres del catálogo activo que el cliente (o su grupo) tiene asignados,
+            // ya sea el propio padre o alguna de sus variantes.
+            const fromCatalog = this.catalog_products.filter(parent => {
                 const isParentAssigned = clientProductIds.has(parent.id);
                 const hasAssignedVariant = parent.variants && parent.variants.some(v => clientProductIds.has(v.id));
                 return isParentAssigned || hasAssignedVariant;
             });
+
+            // Productos del cliente/grupo que no están en el catálogo activo (p. ej. obsoletos):
+            // se agregan como productos base para poder seleccionarlos.
+            const catalogIds = new Set();
+            this.catalog_products.forEach(parent => {
+                catalogIds.add(parent.id);
+                (parent.variants || []).forEach(v => catalogIds.add(v.id));
+            });
+
+            const extras = this.clientProducts
+                .filter(p => !catalogIds.has(p.id))
+                .map(p => ({ id: p.id, name: p.name, code: p.code, media: p.media, variants: [] }));
+
+            return [...fromCatalog, ...extras];
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;
@@ -880,17 +904,27 @@ export default {
 
                         this.form.branch_id = null; // Deseleccionamos para no avanzar
 
+                        // Conservamos la cotización seleccionada (si existe) para volver a la OV al terminar
+                        const editParams = { branch: branchId, redirect_to: 'sales.create' };
+                        if (this.form.quote_id) {
+                            editParams.redirect_quote_id = this.form.quote_id;
+                            // Respaldo: guardamos la cotización pendiente para recuperarla al volver
+                            sessionStorage.setItem('pending_sale_quote', JSON.stringify({ id: this.form.quote_id, ts: Date.now() }));
+                        }
+
                         // Esperamos 3.5 segundos y mandamos al EDIT
                         setTimeout(() => {
-                            router.visit(route('branches.edit', { branch: branchId, redirect_to: 'sales.create' }));
+                            router.visit(route('branches.edit', editParams));
                         }, 3500);
 
-                        return; // Rompemos el ciclo aquí para no continuar con la orden
+                        // Devolvemos false para que quien llamó NO continúe
+                        // (sin procesar productos ni abrir modales mientras se analiza/redirige)
+                        return false;
                     }
                 } catch (error) {
                     console.error("Error al validar cliente:", error);
                     ElMessage.error('Hubo un error al validar los datos del cliente.');
-                    return;
+                    return false;
                 }
             }
             // ==========================================
@@ -899,6 +933,8 @@ export default {
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
             await this.fetchClientProducts();
+
+            return true;
         },
         async fetchClientProducts() {
             if (!this.form.branch_id) return;
@@ -926,7 +962,11 @@ export default {
                 this.form.currency = quoteData.currency;
                 this.form.notes = quoteData.notes;
 
-                await this.handleBranchChange(quoteData.branch_id);
+                // Primero se valida al cliente; si está incompleto NO se procesan
+                // productos ni se abre ningún modal hasta terminar el análisis.
+                const clientIsValid = await this.handleBranchChange(quoteData.branch_id);
+                if (!clientIsValid) return;
+
                 this.form.contact_id = quoteData.contact_id;
                 
                 // Empezar a procesar de forma controlada los productos de la cotización
@@ -1133,11 +1173,13 @@ export default {
                     const newBranch = response.data;
                     this.localBranches.push(newBranch);
                     this.form.branch_id = newBranch.id;
-                    await this.handleBranchChange(newBranch.id); // Aquí interceptará y mandará a editar si faltan datos
+                    const clientIsValid = await this.handleBranchChange(newBranch.id); // Aquí interceptará y mandará a editar si faltan datos
                     this.branchModalVisible = false;
                     this.quickBranchForm.name = '';
                     this.quickBranchForm.rfc = '';
-                    ElMessage.success('Cliente/Prospecto creado exitosamente');
+                    if (clientIsValid) {
+                        ElMessage.success('Cliente/Prospecto creado exitosamente');
+                    }
                 }
             } catch (error) {
                 if (error.response && error.response.status === 422) {
@@ -1173,6 +1215,7 @@ export default {
                     this.quickContactForm.name = '';
                     this.quickContactForm.charge = '';
                     this.quickContactForm.prefix = 'Ing.'; // Reseteamos al por defecto
+                    this.quickContactForm.area = '';
                     ElMessage.success('Contacto creado exitosamente');
                 }
             } catch (error)
@@ -1192,6 +1235,21 @@ export default {
         this.localBranches = [...this.branches];
     },
     mounted() {
+        // Al volver de corregir al cliente, recuperamos la cotización pendiente (respaldo)
+        try {
+            const rawPendingQuote = sessionStorage.getItem('pending_sale_quote');
+            if (rawPendingQuote) {
+                sessionStorage.removeItem('pending_sale_quote');
+                const pendingQuote = JSON.parse(rawPendingQuote);
+                const isRecent = (Date.now() - (pendingQuote?.ts || 0)) < 30 * 60 * 1000;
+                if (pendingQuote?.id && isRecent) {
+                    this.form.quote_id = Number(pendingQuote.id);
+                }
+            }
+        } catch (e) {
+            console.error('No se pudo recuperar la cotización pendiente:', e);
+        }
+
         if (this.quoteToConvertId) {
             this.form.quote_id = Number(this.quoteToConvertId);
         }

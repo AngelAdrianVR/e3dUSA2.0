@@ -28,7 +28,7 @@
                         Selecciona el producto base
                     </p>
                     <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
-                        <el-option class="!w-96" v-for="product in availableProducts" 
+                        <el-option class="!w-[500px]" v-for="product in availableProducts" 
                             :key="product.id" 
                             :label="`${product.name} (${product.code || 'S/C'})`" 
                             :value="product.id"
@@ -174,12 +174,28 @@
                             Stock mínimo: <strong>{{ currentProduct.min_quantity?.toLocaleString() + ' unidades' ?? 'No definido' }}</strong>
                         </p>
                         
-                        <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300 mt-1">
+                        <!-- <p v-if="saleType === 'venta'" class="text-gray-500 dark:text-gray-300 mt-1">
                             Precio base del catálogo: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
-                        </p>
+                        </p> -->
                         <p v-if="saleType === 'venta' && currentProduct.isClientProduct && currentProduct.current_price" class="text-green-600 dark:text-green-400 font-semibold mt-1">
-                            Precio actual (para este cliente): <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
+                            Precio actual referencia para este cliente/grupo: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                         </p>
+
+                        <!-- Precios especiales por volumen del cliente -->
+                        <el-tooltip v-if="saleType === 'venta' && currentProduct.isClientProduct && currentProduct.volume_prices?.length" placement="right" :teleported="false">
+                            <template #content>
+                                <div class="text-xs max-h-56 overflow-y-auto">
+                                    <p class="font-semibold mb-1">Precios especiales por volumen</p>
+                                    <div v-for="(tier, index) in currentProduct.volume_prices" :key="tier.id ?? index" class="flex justify-between gap-4">
+                                        <span>{{ formatVolumeRange(tier) }}</span>
+                                        <span class="font-semibold">${{ tier.price }} {{ tier.currency }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                            <span class="inline-flex items-center mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 underline decoration-dotted cursor-help">
+                                <i class="fa-solid fa-layer-group mr-1"></i> Ver precios especiales por volumen
+                            </span>
+                        </el-tooltip>
                     </div>
                 </div>
 
@@ -447,6 +463,7 @@ export default {
                 price: null,
                 base_price: null,
                 current_price: null,
+                volume_prices: [],
                 isClientProduct: false,
                 has_low_price: false,
                 low_price_reason: '',
@@ -620,6 +637,7 @@ export default {
         resetCurrentProduct() {
             this.currentProduct = { 
                 id: null, name: '', media: null, quantity: 1, price: null, base_price: null, current_price: null, 
+                volume_prices: [], isClientProduct: false,
                 has_low_price: false, low_price_reason: '', notes: '', is_new_design: false, storages: [], 
                 has_customization: false, customization_details: [], components: [], min_quantity: null, max_quantity: null
             };
@@ -655,6 +673,18 @@ export default {
             const num = Number(value);
             if (isNaN(num)) return '0.00';
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num);
+        },
+        formatVolumeRange(tier) {
+            const min = this.formatQuantity(tier.min_quantity);
+            if (tier.max_quantity === null || tier.max_quantity === undefined) {
+                return `${min} en adelante`;
+            }
+            return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
+        },
+        formatQuantity(value) {
+            const number = Number(value);
+            if (isNaN(number)) return value;
+            return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
         },
         async getProductData() {
             if (!this.currentProduct.id) return;
@@ -698,6 +728,7 @@ export default {
                             (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
                                 ? clientProduct.price_history[0].price 
                                 : clientProduct.base_price;
+                            this.currentProduct.volume_prices = clientProduct.volume_prices ?? [];
 
                             if (this.editIndex === null) {
                                 this.currentProduct.price = this.currentProduct.current_price;
@@ -705,6 +736,7 @@ export default {
                         } else {
                             this.currentProduct.isClientProduct = false;
                             this.currentProduct.current_price = null;
+                            this.currentProduct.volume_prices = [];
                         }
                     }
                 }

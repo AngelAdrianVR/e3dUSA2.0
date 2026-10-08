@@ -20,21 +20,76 @@
                                 </SecondaryButton>
                             </Link>
     
-                            <!-- Botón para Generar Reporte PDF -->
-                            <a :href="route('branches.report')" target="_blank">
-                                <el-button type="primary" plain>
-                                    <i class="fa-solid fa-file-pdf mr-2"></i>
-                                    Reporte PDF
-                                </el-button>
-                            </a>
-
-                            <!-- NUEVO: Botón para Exportar a Excel -->
-                            <a :href="route('branches.export')">
+                            <!-- Exportar (PDF / Excel) -->
+                            <el-dropdown @command="handleExport" trigger="click">
                                 <el-button type="success" plain>
-                                    <i class="fa-solid fa-file-excel mr-2"></i>
-                                    Exportar Excel
+                                    <i class="fa-solid fa-file-export mr-2"></i>
+                                    Exportar
+                                    <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
                                 </el-button>
-                            </a>
+                                <template #dropdown>
+                                    <el-dropdown-menu>
+                                        <el-dropdown-item command="pdf">
+                                            <i class="fa-solid fa-file-pdf mr-2 text-red-500"></i>
+                                            Reporte PDF
+                                        </el-dropdown-item>
+                                        <el-dropdown-item command="excel">
+                                            <i class="fa-solid fa-file-excel mr-2 text-green-600"></i>
+                                            Exportar Excel
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
+
+                            <!-- Botón para Gestionar Grupos -->
+                            <el-button
+                                v-if="$page.props.auth.user.permissions.includes('Editar clientes')"
+                                type="warning"
+                                plain
+                                @click="showGroupsModal = true">
+                                <i class="fa-solid fa-layer-group mr-2"></i>
+                                Gestionar Grupos
+                            </el-button>
+
+                            <!-- Filtros agrupados -->
+                            <el-popover placement="bottom-start" :width="320" trigger="click" :teleported="false">
+                                <template #reference>
+                                    <el-button :type="activeFiltersCount ? 'primary' : 'default'" plain>
+                                        <i class="fa-solid fa-filter mr-2"></i>
+                                        Filtros{{ activeFiltersCount ? ` (${activeFiltersCount})` : '' }}
+                                    </el-button>
+                                </template>
+
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Grupo</label>
+                                        <el-select v-model="groupFilter" @change="applyFilters" clearable
+                                            placeholder="Todos los grupos" class="!w-full" :teleported="false">
+                                            <el-option v-for="group in groups" :key="group" :label="group" :value="group" />
+                                        </el-select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Estatus</label>
+                                        <el-select v-model="statusFilter" @change="applyFilters" clearable
+                                            placeholder="Todos" class="!w-full" :teleported="false">
+                                            <el-option label="Cliente" value="Cliente" />
+                                            <el-option label="Prospecto" value="Prospecto" />
+                                        </el-select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Vendedor</label>
+                                        <el-select v-model="sellerFilter" @change="applyFilters" clearable filterable
+                                            placeholder="Todos los vendedores" class="!w-full" :teleported="false">
+                                            <el-option v-for="seller in sellers" :key="seller.id" :label="seller.name" :value="seller.id" />
+                                        </el-select>
+                                    </div>
+                                    <div class="flex justify-end pt-1">
+                                        <el-button text size="small" :disabled="!activeFiltersCount" @click="clearFilters">
+                                            Limpiar filtros
+                                        </el-button>
+                                    </div>
+                                </div>
+                            </el-popover>
                         </div>
 
                         <!-- BOTONES DERECHA -->
@@ -68,6 +123,7 @@
                             :data="tableData"
                             style="width: 100%" 
                             stripe
+                            :row-class-name="rowClassName"
                             @selection-change="handleSelectionChange" 
                             @row-click="handleRowClick"
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
@@ -75,7 +131,7 @@
                             <el-table-column type="selection" width="30" />
                             
                             <!-- NUEVA COLUMNA EXPANDIBLE PARA SUCURSALES HIJAS -->
-                            <el-table-column type="expand">
+                            <el-table-column type="expand" width="56" class-name="branch-expand-col">
                                 <template #default="props">
                                     <div class="p-4 bg-gray-50 dark:bg-slate-800 rounded-md m-2 border border-gray-200 dark:border-slate-700">
                                         <h4 class="font-semibold text-gray-700 dark:text-gray-300 mb-3">Sucursales Hijas</h4>
@@ -95,6 +151,11 @@
                                             <el-table-column label="Vendedor Asignado">
                                                 <template #default="scope">
                                                     {{ scope.row.account_manager?.name ?? 'No asignado' }}
+                                                </template>
+                                            </el-table-column>
+                                            <el-table-column label="Grupo" width="160">
+                                                <template #default="scope">
+                                                    {{ scope.row.group_name || props.row.group_name || 'Sin grupo' }}
                                                 </template>
                                             </el-table-column>
                                             <el-table-column align="right" width="100">
@@ -133,6 +194,16 @@
                             <el-table-column label="Vendedor Asignado" width="200">
                                 <template #default="scope">
                                     {{ scope.row.account_manager?.name ?? 'No asignado' }}
+                                </template>
+                            </el-table-column>
+
+                            <!-- NUEVA COLUMNA: Grupo -->
+                            <el-table-column prop="group_name" label="Grupo" width="180">
+                                <template #default="scope">
+                                    <el-tag v-if="scope.row.group_name" type="warning" effect="plain" disable-transitions>
+                                        {{ scope.row.group_name }}
+                                    </el-tag>
+                                    <span v-else class="text-gray-400 dark:text-slate-500">Sin grupo</span>
                                 </template>
                             </el-table-column>
                             
@@ -185,6 +256,13 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal para gestionar grupos de clientes -->
+        <ManageGroupsModal
+            :show="showGroupsModal"
+            :groups="groups"
+            @close="showGroupsModal = false"
+            @refresh="refreshAfterGroups" />
     </AppLayout>
 </template>
 
@@ -193,6 +271,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import ManageGroupsModal from './Modals/ManageGroupsModal.vue';
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 
@@ -201,9 +280,13 @@ export default {
         return {
             loading: false,
             search: '',
+            groupFilter: this.filters?.group ?? null,
+            statusFilter: this.filters?.status ?? null,
+            sellerFilter: this.filters?.account_manager_id ?? null,
             selectedItems: [],
             tableData: this.branches.data,
-            SearchProps: ['Nombre', 'Estatus', 'Razón Social', 'Vendedor asignado'], // Actualizado en las opciones de búsqueda
+            showGroupsModal: false,
+            SearchProps: ['Nombre', 'Estatus', 'Razón Social', 'Vendedor asignado', 'Grupo'], // Actualizado en las opciones de búsqueda
         };
     },
     components: {
@@ -212,9 +295,30 @@ export default {
         SearchInput,
         LoadingIsoLogo,
         SecondaryButton,
+        ManageGroupsModal,
     },
     props: {
         branches: Object,
+        groups: {
+            type: Array,
+            default: () => [],
+        },
+        sellers: {
+            type: Array,
+            default: () => [],
+        },
+        filters: {
+            type: Object,
+            default: () => ({}),
+        },
+    },
+    computed: {
+        // Cuenta de filtros activos (para el badge del botón y el botón Limpiar).
+        activeFiltersCount() {
+            return [this.groupFilter, this.statusFilter, this.sellerFilter]
+                .filter((value) => value !== null && value !== undefined && value !== '')
+                .length;
+        },
     },
     methods: {
         async handleSearch() {
@@ -224,7 +328,7 @@ export default {
                 if (!this.search) {
                     this.tableData = this.branches.data;
                     // Forzamos un recharge con inertia para restaurar el estado original con paginación
-                    this.$inertia.get(this.route('branches.index'), {}, {
+                    this.$inertia.get(this.route('branches.index'), this.buildParams(), {
                         preserveState: true,
                         replace: true,
                         onFinish: () => { this.loading = false; },
@@ -247,6 +351,10 @@ export default {
         handleSelectionChange(selection) {
             this.selectedItems = selection;
         },
+        // Marca las filas sin sucursales hijas para ocultar su botón de expandir.
+        rowClassName({ row }) {
+            return (!row.children || row.children.length === 0) ? 'branch-no-children' : '';
+        },
         handleRowClick(row) {
             this.$inertia.get(route('branches.show', row.id));
         },
@@ -266,8 +374,46 @@ export default {
             });
         },
         handlePageChange(page) {
-            this.$inertia.get(route('branches.index', { page: page }), {
+            this.$inertia.get(route('branches.index', this.buildParams({ page })), {
                 preserveState: true,
+                replace: true,
+            });
+        },
+        // Construye los parámetros de consulta con los filtros activos.
+        buildParams(extra = {}) {
+            const params = { ...extra };
+
+            if (this.groupFilter) params.group = this.groupFilter;
+            if (this.statusFilter) params.status = this.statusFilter;
+            if (this.sellerFilter) params.account_manager_id = this.sellerFilter;
+
+            return params;
+        },
+        applyFilters() {
+            this.$inertia.get(route('branches.index'), this.buildParams(), {
+                preserveState: true,
+                replace: true,
+            });
+        },
+        clearFilters() {
+            this.groupFilter = null;
+            this.statusFilter = null;
+            this.sellerFilter = null;
+            this.applyFilters();
+        },
+        handleExport(command) {
+            if (command === 'pdf') {
+                window.open(route('branches.report'), '_blank');
+            } else if (command === 'excel') {
+                window.location.href = route('branches.export');
+            }
+        },
+        refreshAfterGroups() {
+            // Recargamos el listado y los grupos tras agregar/remover miembros.
+            this.$inertia.get(route('branches.index'), this.buildParams(), {
+                only: ['branches', 'groups'],
+                preserveState: true,
+                preserveScroll: true,
                 replace: true,
             });
         },
@@ -297,5 +443,52 @@ export default {
 .dark .el-pager li.is-active {
     color: #ffffff !important;
     background-color: #3b82f6 !important;
+}
+
+/* --- Columna expandible (sucursales hijas) --- */
+/* Quitamos el padding de la celda para que el icono cubra toda el área. */
+.el-table td.branch-expand-col {
+    padding: 0 !important;
+}
+.branch-expand-col .cell {
+    padding: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* El icono ocupa todo el alto/ancho de la celda y muestra su área con hover. */
+.branch-expand-col .el-table__expand-icon {
+    width: 100%;
+    height: 100%;
+    padding: 8px 0;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    color: #6b7280;
+    /* Anulamos la rotación del contenedor para que el hover no gire el fondo. */
+    transform: none !important;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+.branch-expand-col .el-table__expand-icon svg {
+    transition: transform 0.2s ease;
+}
+.branch-expand-col .el-table__expand-icon--expanded svg {
+    transform: rotate(90deg);
+}
+.branch-expand-col .el-table__expand-icon:hover {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+.dark .branch-expand-col .el-table__expand-icon:hover {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: #bfdbfe;
+}
+
+/* Matrices sin sucursales: no mostrar el botón de expandir. */
+.el-table__row.branch-no-children .branch-expand-col .el-table__expand-icon {
+    visibility: hidden;
 }
 </style>

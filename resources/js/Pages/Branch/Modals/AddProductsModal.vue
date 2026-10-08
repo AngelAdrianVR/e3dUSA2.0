@@ -20,7 +20,7 @@
                                 />
                             </el-select>
                         </div>
-                        <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
+                        <TextInput label="Precio para este cliente (Opcional)" v-model="currentProduct.price"
                             :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
 
                         <div>
@@ -45,7 +45,7 @@
                         </figure>
                         <div>
                             <p class="text-gray-500 dark:text-gray-300">
-                                Precio Base: <strong>${{ currentProduct.base_price?.toFixed(2) ?? '0.00' }}</strong>
+                                Precio Base (precio homologado para todos los clientes): <strong>${{ currentProduct.base_price?.toFixed(2) ?? '0.00' }}</strong>
                             </p>
                             <p class="text-gray-500 dark:text-gray-300">
                                 Stock: <strong>{{ currentProduct.current_stock ?? '0' }}</strong> unidades
@@ -56,6 +56,11 @@
                         </div>
                     </div>
                     
+                    <div v-if="currentProduct.product_id" class="mt-4">
+                        <VolumePricesEditor ref="volumePriceEditor" v-model="currentProduct.volume_prices"
+                            :currency="currentProduct.currency" />
+                    </div>
+
                     <div class="flex justify-end mt-4">
                         <SecondaryButton @click="addProduct" type="button" :disabled="!currentProduct.product_id">
                             <i class="fa-solid fa-plus mr-2"></i> Agregar a la lista
@@ -70,6 +75,10 @@
                         <li v-for="(product, index) in form.products" :key="index" class="flex justify-between items-center p-2 rounded-md">
                             <span class="text-sm text-gray-800 dark:text-gray-200">
                                 <span class="font-bold text-primary">{{ getProductName(product.product_id) }}</span>
+                                <span v-if="product.volume_prices?.length"
+                                    class="ml-2 text-[11px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300 rounded-full px-2 py-0.5">
+                                    {{ product.volume_prices.length }} rango{{ product.volume_prices.length === 1 ? '' : 's' }} por volumen
+                                </span>
                             </span>
                             <div class="flex items-center space-x-3 text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">
@@ -105,6 +114,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import CancelButton from '@/Components/MyComponents/CancelButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
+import VolumePricesEditor from '@/Components/MyComponents/VolumePricesEditor.vue';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 
@@ -116,6 +126,7 @@ export default {
         CancelButton,
         TextInput,
         InputError,
+        VolumePricesEditor,
     },
     props: {
         show: Boolean,
@@ -134,7 +145,8 @@ export default {
                 base_price: null,
                 current_stock: null,
                 currency: 'MXN',
-                location: null
+                location: null,
+                volume_prices: []
             },
             loadingProductMedia: false,
         };
@@ -153,14 +165,20 @@ export default {
                     ElMessage.success('Productos asignados correctamente.');
                     this.closeModal();
                 },
-                onError: () => {
-                     ElMessage.error('Ocurrió un error al asignar los productos.');
+                onError: (errors) => {
+                     const firstError = Object.values(errors)[0];
+                     ElMessage.error(typeof firstError === 'string' && firstError
+                        ? firstError
+                        : 'Ocurrió un error al asignar los productos.');
                 }
             });
         },
         async getProductMedia() {
             if (!this.currentProduct.product_id) return;
-            
+
+            // Los rangos de volumen pertenecen al producto que estaba seleccionado antes.
+            this.currentProduct.volume_prices = [];
+
             this.loadingProductMedia = true;
             try {
                 const response = await axios.get(route('products.get-media', this.currentProduct.product_id));
@@ -186,7 +204,15 @@ export default {
                 ElMessage.warning('Este producto ya está en la lista.');
                 return;
             }
-            this.form.products.push({ ...this.currentProduct });
+            const volumePricesError = this.$refs.volumePriceEditor?.validate();
+            if (volumePricesError) {
+                ElMessage.warning('Revisa los precios por volumen. ' + volumePricesError);
+                return;
+            }
+            this.form.products.push({
+                ...this.currentProduct,
+                volume_prices: this.currentProduct.volume_prices.map((tier) => ({ ...tier })),
+            });
             this.resetCurrentProduct();
         },
         removeProduct(index) {
@@ -200,7 +226,8 @@ export default {
                 currency: 'MXN',
                 base_price: null,
                 current_stock: null,
-                location: null
+                location: null,
+                volume_prices: []
             };
         },
         getProductName(productId) {

@@ -15,22 +15,55 @@ use App\Models\User;
 use App\Models\Contact; // Importar el modelo Contact
 use App\Notifications\NewSampleTrackingNotification;
 use App\Services\MuestraProductService;
+use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Support\Facades\Notification as FacadesNotification;
 
 class SampleTrackingController extends Controller
 {
-    public function index()
+    use RecordsAuthorizationAudit;
+
+    public function index(Request $request)
     {
-        $sampleTrackings = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'sale:id', 'items.itemable'])
+        $user = auth()->user();
+
+        // Por defecto el toggle "Mías/Todas" inicia en "Todas" solo para Super
+        // Administradores; para el resto inicia en "Mías". Un valor explícito en
+        // la URL (view=all|mias) siempre tiene prioridad.
+        $defaultView = $user->hasRole('Super Administrador') ? 'all' : 'mias';
+        $view = $request->query('view', $defaultView);
+
+        // El parámetro 'mias' fuerza a mostrar solo las del usuario.
+        $showAll = $view !== 'mias' && $user->hasPermissionTo('Ver todas las muestras');
+        $filterPendingAuth = $request->query('filter') === 'pending_authorization'; // Pendiente por autorizar
+
+        $query = SampleTracking::query();
+
+        if (!$showAll) {
+            $query->where('requester_user_id', $user->id);
+        }
+
+        // Filtro: Pendiente por autorizar
+        if ($filterPendingAuth) {
+            $query->whereNull('authorized_at');
+        }
+
+        $sampleTrackings = $query->with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'authorizer:id,name', 'sale:id', 'items.itemable'])
             ->latest()
             ->paginate(20)
+            ->withQueryString()
             ->through(function ($sampleTracking) {
                 // Productos nuevos que todavía no están en la categoría "Muestras y regalos"
                 $sampleTracking->pending_proposals = $this->pendingProposalsList($sampleTracking);
                 return $sampleTracking;
             });
 
-        return Inertia::render('SampleTracking/Index', compact('sampleTrackings'));
+        return Inertia::render('SampleTracking/Index', [
+            'sampleTrackings' => $sampleTrackings,
+            'filters' => [
+                'view' => $view,
+                'filter' => $request->query('filter'),
+            ],
+        ]);
     }
 
     public function create()
@@ -268,7 +301,7 @@ class SampleTrackingController extends Controller
     {
         $query = $request->input('query');
 
-        $sampleTracking = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'sale:id', 'items.itemable'])
+        $sampleTracking = SampleTracking::with(['branch:id,name', 'contact:id,name', 'requester:id,name', 'authorizer:id,name', 'sale:id', 'items.itemable'])
             ->latest()
             ->where(function ($q) use ($query) {
                 $q->where('id', 'like', "%{$query}%")
@@ -293,13 +326,22 @@ class SampleTrackingController extends Controller
 
     public function authorizeSample(SampleTracking $sampleTracking)
     {
-        $sampleTracking->update([
-            'authorized_by_user_id' => auth()->id(),
-            'authorized_at' => now(),
-            'status' => 'Autorizado',
-        ]);
+        $fields = ['status', 'authorized_by_user_id', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($sampleTracking, $fields);
 
-        $sampleTracking->load('requester');
+        // Se desactiva la auditoría automática del update para registrar una única acción "authorized"
+        SampleTracking::withoutAuditing(function () use ($sampleTracking) {
+            $sampleTracking->update([
+                'authorized_by_user_id' => auth()->id(),
+                'authorized_at' => now(),
+                'status' => 'Autorizado',
+            ]);
+        });
+
+        // Se registra la autorización como una acción propia en el historial de acciones
+        $this->recordAuthorizationAudit($sampleTracking, $oldValues, $this->authorizationSnapshot($sampleTracking, $fields));
+
+        $sampleTracking->load(['requester', 'authorizer:id,name']);
 
         $sampleTracking_folio = 'MUE-' . str_pad($sampleTracking->id, 4, "0", STR_PAD_LEFT);
         

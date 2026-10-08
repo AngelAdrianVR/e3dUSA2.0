@@ -3,28 +3,95 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use App\Models\BranchPriceHistory;
+use App\Models\BranchVolumePrice;
 use App\Models\Contact;
 use App\Models\Product;
 use App\Models\User;
+use App\Services\BranchGroupService;
+use App\Services\BranchVolumePriceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BranchController extends Controller
 {
-    public function index()
+    public function __construct(
+        private BranchGroupService $branchGroups,
+        private BranchVolumePriceService $volumePrices
+    ) {
+    }
+
+    public function index(Request $request)
     {
+        $group = $request->input('group');
+        $status = $request->input('status');
+        $accountManagerId = $request->input('account_manager_id');
+
         // Cargamos solo las matrices (parent_branch_id = null) y sus sucursales hijas
         $branches = Branch::whereNull('parent_branch_id')
+            ->when($group, function ($query) use ($group) {
+                // Se incluyen las matrices del grupo y también aquellas que tengan
+                // sucursales hijas asignadas al grupo.
+                $query->where(function ($q) use ($group) {
+                    $q->where('group_name', $group)
+                      ->orWhereHas('children', function ($childQuery) use ($group) {
+                          $childQuery->where('group_name', $group);
+                      });
+                });
+            })
+            ->when($status, function ($query) use ($status) {
+                // Coincide la matriz o alguna de sus sucursales hijas.
+                $query->where(function ($q) use ($status) {
+                    $q->where('status', $status)
+                      ->orWhereHas('children', function ($childQuery) use ($status) {
+                          $childQuery->where('status', $status);
+                      });
+                });
+            })
+            ->when($accountManagerId, function ($query) use ($accountManagerId) {
+                // Coincide la matriz o alguna de sus sucursales hijas.
+                $query->where(function ($q) use ($accountManagerId) {
+                    $q->where('account_manager_id', $accountManagerId)
+                      ->orWhereHas('children', function ($childQuery) use ($accountManagerId) {
+                          $childQuery->where('account_manager_id', $accountManagerId);
+                      });
+                });
+            })
             ->with(['accountManager:id,name', 'children.accountManager:id,name'])
             ->latest() // Ordena por los más recientes primero
-            ->paginate(30); // Pagina los resultados
+            ->paginate(30) // Pagina los resultados
+            ->withQueryString();
+
+        // Listado de grupos existentes para el filtro del index
+        $groups = Branch::whereNotNull('group_name')
+            ->where('group_name', '!=', '')
+            ->distinct()
+            ->orderBy('group_name')
+            ->pluck('group_name')
+            ->values();
+
+        // Vendedores disponibles para el filtro
+        $sellers = User::where('is_active', true)
+            ->where('id', '!=', 1)
+            ->role(['Vendedor', 'Super Administrador'])
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
 
         return Inertia::render('Branch/Index', [
             'branches' => $branches,
+            'groups' => $groups,
+            'sellers' => $sellers,
+            'filters' => [
+                'group' => $group,
+                'status' => $status,
+                'account_manager_id' => $accountManagerId,
+            ],
         ]);
     }
 
@@ -107,7 +174,8 @@ class BranchController extends Controller
     {
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
-            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
+            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
@@ -132,11 +200,20 @@ class BranchController extends Controller
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
 
+            // Método de pago y uso de CFDI (obligatorios solo para sucursales matriz nuevas)
+            'payment_method' => 'required_without:parent_branch_id|nullable|string|in:PPD,PUE',
+            'payment_submethod' => 'nullable|string|in:99 X DEFINIR,TRANSFERENCIA,CHEQUES',
+            'cfdi_use' => 'required_without:parent_branch_id|nullable|string|in:GASTOS EN GENERAL,ADQUISICION DE MERCANCIAS',
+
+            // Documento CSF (obligatorio solo para sucursales matriz nuevas)
+            'csf' => 'required_without:parent_branch_id|nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
             // Validación para los contactos
             'contacts' => 'present|array',
             'contacts.*.name' => 'required|string|max:255',
+            'contacts.*.area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
             'contacts.*.charge' => 'nullable|string|max:255',
-            'contacts.*.phone' => 'required|string|max:10',
+            'contacts.*.phone' => 'required|string|max:20',
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
@@ -153,14 +230,17 @@ class BranchController extends Controller
             'suggested_products.*' => 'exists:products,id',
         ]);
 
-        DB::transaction(function () use ($validated) {
+        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
+        $this->validateContactRules($validated['contacts'] ?? []);
+
+        DB::transaction(function () use ($validated, $request) {
             // 1. Crear la sucursal (Branch)
             $branch = Branch::create([
                 'name' => $validated['name'],
                 'rfc' => $validated['rfc'],
                 
                 // Nuevas columnas mapeadas para inserción
-                'group_name' => $validated['group_name'] ?? null,
+                'group_name' => !empty($validated['group_name']) ? trim($validated['group_name']) : null,
                 'business_name' => $validated['business_name'] ?? null,
                 'bank_account' => $validated['bank_account'] ?? null,
                 'client_number' => $validated['client_number'] ?? null,
@@ -171,6 +251,12 @@ class BranchController extends Controller
                 'parent_branch_id' => $validated['parent_branch_id'],
                 'account_manager_id' => $validated['account_manager_id'],
                 'meet_way' => $validated['meet_way'],
+
+                // Datos fiscales (CFDI)
+                'payment_method' => $validated['payment_method'] ?? null,
+                'payment_submethod' => $validated['payment_submethod'] ?? null,
+                'cfdi_use' => $validated['cfdi_use'] ?? null,
+
                 'password' => bcrypt('e3d'),
             ]);
 
@@ -187,50 +273,62 @@ class BranchController extends Controller
 
                     $contact = $branch->contacts()->create([
                         'prefix' => $contactData['prefix'] ?? 'Ing.', // Toma el valor o por defecto Ing.
+                        'area' => $contactData['area'] ?? null,
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]);
 
-                    $contact->details()->create([
-                        'type' => 'Teléfono',
-                        'value' => $contactData['phone'],
-                        'is_primary' => true,
-                    ]);
+                    // Teléfono opcional: basta con tener al menos un medio de contacto
+                    if (!empty($contactData['phone'])) {
+                        $contact->details()->create([
+                            'type' => 'Teléfono',
+                            'value' => $contactData['phone'],
+                            'is_primary' => true,
+                        ]);
+                    }
 
-                    $contact->details()->create([
-                        'type' => 'Correo',
-                        'value' => $contactData['email'],
-                        'is_primary' => true,
-                    ]);
+                    // Correo opcional: basta con tener al menos un medio de contacto
+                    if (!empty($contactData['email'])) {
+                        $contact->details()->create([
+                            'type' => 'Correo',
+                            'value' => $contactData['email'],
+                            'is_primary' => true,
+                        ]);
+                    }
                 }
             }
 
             // 3. Relacionar productos y guardar precios especiales (MODIFICADO)
             if (!empty($validated['products'])) {
-                // Obtenemos la sucursal matriz para asignarle los productos.
+                // Obtenemos la sucursal matriz / líder de grupo desde donde se leerán los productos.
                 // Si es una nueva sucursal hija, necesitamos cargar la relación 'parent'.
                 $branch->load('parent'); 
                 $productTargetBranch = $this->getProductTargetBranch($branch);
 
-                // Extraemos solo los IDs de los productos para sincronizar la relación principal.
+                // Extraemos solo los IDs de los productos.
                 $productIds = collect($validated['products'])->pluck('product_id')->toArray();
-                
-                // Sincronizamos la tabla pivote 'branch_product' con la sucursal matriz.
-                $productTargetBranch->products()->sync($productIds);
 
-                // Ahora, recorremos los productos para guardar los precios especiales en su tabla de historial.
+                // El cliente conserva sus propios productos (por si se separa de la matriz).
+                $branch->products()->sync($productIds);
+
+                // Guardamos los precios especiales en el propio cliente.
                 foreach ($validated['products'] as $productData) {
                     if (isset($productData['price']) && $productData['price'] !== null) {
-                        // Creamos el registro en la tabla de historial de precios asociado a la matriz.
-                        $productTargetBranch->priceHistory()->create([
+                        $branch->priceHistory()->create([
                             'product_id' => $productData['product_id'],
                             'price' => $productData['price'],
                             'valid_from' => now(),
                             'currency' => $productData['currency'],
                         ]);
                     }
+                }
+
+                // Si pertenece a una matriz o grupo, se COMBINAN (unión, sin duplicar) sus
+                // productos con los del destino, sin reemplazar los que ya tenía.
+                if ($productTargetBranch->id !== $branch->id) {
+                    $this->branchGroups->mergeProductsInto($branch, $productTargetBranch);
                 }
             }
 
@@ -239,8 +337,16 @@ class BranchController extends Controller
                 $branch->suggestedProducts()->sync($validated['suggested_products']);
             }
 
+            // 5. Guardar el documento CSF (Constancia de Situación Fiscal)
+            if ($request->hasFile('csf')) {
+                $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+            }
+
+            // 6. Consolida los productos del grupo al que pertenece la nueva sucursal.
+            $this->branchGroups->rebalance($branch->group_name);
+
         });
-        
+
         return to_route('branches.index');
     }
 
@@ -250,8 +356,9 @@ class BranchController extends Controller
         $branch->load([
             'children', 
             'accountManager:id,name', 
-            'parent:id,name', 
+            'parent:id,name,group_name,business_name,rfc', 
             'contacts.details',
+            'media',
             'suggestedProducts.media',
         ]);
 
@@ -263,6 +370,12 @@ class BranchController extends Controller
             'parent:id,name', // <--- NUEVO: Cargar producto padre para identificar si es variante
             'storages',
             'media',
+            // Los precios por volumen también se consultan con el ID de la matriz
+            'volumePrices' => function ($query) use ($productSourceBranch) {
+                $query->where('branch_id', $productSourceBranch->id)
+                      ->with('user:id,name')
+                      ->orderBy('min_quantity');
+            },
             // El historial de precios también se consulta con el ID de la matriz
             'priceHistory' => function ($query) use ($productSourceBranch) {
                 $query->where('branch_id', $productSourceBranch->id)
@@ -279,11 +392,35 @@ class BranchController extends Controller
         // Mandamos llamar a nuestro nuevo método refactorizado
         $consumptionData = $this->calculateSalesAnalytics($branch);
 
+        // --- Datos de grupo (la membresía se gestiona a nivel de cliente raíz) ---
+        $groupBranch = $branch->parent_branch_id ? $branch->parent : $branch;
+
+        $groups = Branch::whereNotNull('group_name')
+            ->where('group_name', '!=', '')
+            ->distinct()
+            ->orderBy('group_name')
+            ->pluck('group_name')
+            ->values();
+
+        $groupMembers = $groupBranch->group_name
+            ? Branch::whereNull('parent_branch_id')
+                ->where('group_name', $groupBranch->group_name)
+                ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+                ->orderBy('name')
+                ->get(['id', 'name', 'rfc', 'business_name', 'group_name', 'parent_branch_id', 'account_manager_id'])
+            : collect();
+
         return Inertia::render('Branch/Show', [
             'branch' => $branch,
             'branches' => $allBranches,
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'consumptionData' => $consumptionData, 
+            'groups' => $groups,
+            'groupName' => $groupBranch->group_name,
+            'groupBranchId' => $groupBranch->id,
+            'groupBranchName' => $groupBranch->name,
+            'groupBranchIsChild' => (bool) $branch->parent_branch_id,
+            'groupMembers' => $groupMembers,
         ]);
     }
 
@@ -396,7 +533,7 @@ class BranchController extends Controller
     public function edit(Branch $branch)
     {
         // Cargar las relaciones que no dependen de la matriz
-        $branch->load(['contacts.details', 'suggestedProducts', 'parent']);
+        $branch->load(['contacts.details', 'suggestedProducts', 'parent', 'media']);
 
         if ($branch->parent_branch_id) {
             $branch->business_name = $branch->business_name ?? $branch->parent?->business_name;
@@ -405,9 +542,9 @@ class BranchController extends Controller
 
         $suggestedProductIds = $branch->suggestedProducts()->pluck('products.id')->toArray();
 
-        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
+        // MODIFICADO: Obtenemos los productos (con imagen y stock) desde la sucursal matriz
         $productSourceBranch = $this->getProductTargetBranch($branch);
-        $products = $productSourceBranch->products;
+        $products = $this->formatBranchProducts($productSourceBranch);
 
         // Formatear los datos de contactos para que coincidan con la estructura del formulario
         $formattedContacts = $branch->contacts->map(function ($contact) {
@@ -425,6 +562,7 @@ class BranchController extends Controller
                 'prefix' => $contact->prefix,
                 'name' => $contact->name,
                 'charge' => $contact->charge,
+                'area' => $contact->area,
                 'phone' => $contact->details->firstWhere('type', 'Teléfono')->value ?? null,
                 'email' => $contact->details->firstWhere('type', 'Correo')->value ?? null,
                 'birth_month' => $birth_month,
@@ -432,27 +570,15 @@ class BranchController extends Controller
             ];
         });
 
-        // MODIFICADO: Formatear productos basados en la sucursal matriz
-        $formattedProducts = $products->map(function ($product) use ($productSourceBranch) {
-            $specialPrice = DB::table('branch_price_history')
-                ->where('branch_id', $productSourceBranch->id) // Usar el ID de la matriz
-                ->where('product_id', $product->id)
-                ->whereNull('valid_to')
-                ->orderBy('valid_from', 'desc')
-                ->first();
-
-            return [
-                'product_id' => $product->id,
-                'price' => $specialPrice->price ?? null,
-                'currency' => $specialPrice->currency ?? 'MXN',
-            ];
-        });
+        // Los productos ya vienen formateados con precio especial, imagen, stock y ubicación
+        $formattedProducts = $products;
 
         return Inertia::render('Branch/Edit', [
             'branch' => $branch,
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
-            'users' => User::where('is_active', true)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
+            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
@@ -483,12 +609,21 @@ class BranchController extends Controller
             'account_manager_id' => 'nullable|exists:users,id',
             'meet_way' => 'nullable|string|max:255',
 
+            // Método de pago y uso de CFDI (opcionales en edición)
+            'payment_method' => 'nullable|string|in:PPD,PUE',
+            'payment_submethod' => 'nullable|string|in:99 X DEFINIR,TRANSFERENCIA,CHEQUES',
+            'cfdi_use' => 'nullable|string|in:GASTOS EN GENERAL,ADQUISICION DE MERCANCIAS',
+
+            // Documento CSF (opcional: reemplaza el existente si se sube)
+            'csf' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:10240',
+
             // Validación para contactos
             'contacts' => 'present|array',
             'contacts.*.id' => 'nullable|exists:contacts,id',
             'contacts.*.name' => 'required|string|max:255',
+            'contacts.*.area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
             'contacts.*.charge' => 'nullable|string|max:255',
-            'contacts.*.phone' => 'required|string|max:10',
+            'contacts.*.phone' => 'required|string|max:20',
             'contacts.*.email' => 'required|email|max:255',
             'contacts.*.birth_month' => 'nullable|integer|between:1,12',
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
@@ -505,9 +640,25 @@ class BranchController extends Controller
             'suggested_products.*' => 'exists:products,id',
         ]);
 
-        DB::transaction(function () use ($validated, $branch) {
-            // 1. Actualizar datos de la sucursal (al usar collect except automáticamente recoge las nuevas si fueron validadas)
-            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products'])->all());
+        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
+        $this->validateContactRules($validated['contacts'] ?? []);
+
+        // Matriz/grupo del que dependían los productos ANTES de la edición, para detectar
+        // si el cliente cambia de destino y, en ese caso, combinar en lugar de reemplazar.
+        $branch->loadMissing('parent');
+        $oldProductTargetBranch = $this->getProductTargetBranch($branch);
+
+        DB::transaction(function () use ($validated, $branch, $request, $oldProductTargetBranch) {
+            // Guardamos el grupo anterior para reconsolidarlo si la sucursal cambia de grupo.
+            $oldGroup = $branch->group_name;
+
+            // Normalizamos el nombre del grupo (se manejan cadenas vacías como null).
+            if (array_key_exists('group_name', $validated)) {
+                $validated['group_name'] = !empty($validated['group_name']) ? trim($validated['group_name']) : null;
+            }
+
+            // 1. Actualizar datos de la sucursal (excluimos relaciones y el archivo CSF)
+            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products', 'csf'])->all());
 
             // 2. Sincronizar contactos
             $contactIdsToKeep = [];
@@ -523,77 +674,143 @@ class BranchController extends Controller
                     ['id' => $contactData['id'] ?? null],
                     [
                         'prefix' => $contactData['prefix'] ?? 'Ing.', // <--- NUEVO
+                        'area' => $contactData['area'] ?? null,
                         'name' => $contactData['name'],
                         'charge' => $contactData['charge'],
                         'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]
                 );
-                $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
-                $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
+
+                // Teléfono opcional (basta con tener al menos un medio de contacto)
+                if (!empty($contactData['phone'])) {
+                    $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
+                } else {
+                    $contact->details()->where('type', 'Teléfono')->delete();
+                }
+
+                // Correo opcional (basta con tener al menos un medio de contacto)
+                if (!empty($contactData['email'])) {
+                    $contact->details()->updateOrCreate(['type' => 'Correo'], ['value' => $contactData['email'], 'is_primary' => true]);
+                } else {
+                    $contact->details()->where('type', 'Correo')->delete();
+                }
                 $contactIdsToKeep[] = $contact->id;
             }
             $branch->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
             
-            // MODIFICADO: Determinar la sucursal matriz para la gestión de productos
+            // MODIFICADO: Determinar la sucursal matriz / líder de grupo para la gestión de productos
             $branch->load('parent');
             $productTargetBranch = $this->getProductTargetBranch($branch);
 
-            // 3. Sincronizar productos y precios especiales en la sucursal matriz
+            // 3. Sincronizar productos y precios especiales.
             $productDataFromRequest = collect($validated['products'] ?? [])->keyBy('product_id');
-            $productIdsFromRequest = $productDataFromRequest->keys();
 
-            $productTargetBranch->products()->sync($productIdsFromRequest);
+            // Si el cliente cambió de matriz o de grupo, sus productos se COMBINAN con
+            // los del nuevo destino (unión, sin duplicar) y conserva los suyos propios.
+            $targetChanged = $oldProductTargetBranch && $oldProductTargetBranch->id !== $productTargetBranch->id;
 
-            $currentActivePrices = $productTargetBranch->priceHistory()->whereNull('valid_to')->get()->keyBy('product_id');
+            if ($targetChanged) {
+                // El cliente conserva su propio catálogo sincronizado con el formulario.
+                $this->applyProductsToBranch($branch, $productDataFromRequest, true);
 
-            foreach ($productDataFromRequest as $productId => $data) {
-                $newPrice = $data['price'] ?? null;
-                $newCurrency = $data['currency'] ?? 'MXN';
-                $currentPriceRecord = $currentActivePrices->get($productId);
-
-                $hasPriceChanged = false;
-                if (!$currentPriceRecord && $newPrice !== null) {
-                    $hasPriceChanged = true;
-                } elseif ($currentPriceRecord) {
-                    if ($newPrice === null || (float)$newPrice !== (float)$currentPriceRecord->price || $newCurrency !== $currentPriceRecord->currency) {
-                        $hasPriceChanged = true;
-                    }
+                // Unión de productos con el nuevo destino (no se elimina nada del destino).
+                if ($productTargetBranch->id !== $branch->id) {
+                    $this->applyProductsToBranch($productTargetBranch, $productDataFromRequest, false);
                 }
-                
-                if ($hasPriceChanged) {
-                    if ($currentPriceRecord) {
-                        $currentPriceRecord->update(['valid_to' => now()]);
-                    }
-                    if ($newPrice !== null) {
-                        $productTargetBranch->priceHistory()->create([
-                            'product_id' => $productId,
-                            'price' => $newPrice,
-                            'currency' => $newCurrency,
-                            'valid_from' => now(),
-                        ]);
-                    }
-                }
-            }
-
-            $productIdsToRemovePrice = $currentActivePrices->keys()->diff($productIdsFromRequest);
-            if ($productIdsToRemovePrice->isNotEmpty()) {
-                $productTargetBranch->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
+            } else {
+                // Mismo destino: se permite agregar, editar y quitar productos como antes.
+                $this->applyProductsToBranch($productTargetBranch, $productDataFromRequest, true);
             }
 
             // 4. Sincronizar productos sugeridos (se mantiene individual)
             $branch->suggestedProducts()->sync($validated['suggested_products'] ?? []);
+
+            // 5. Reemplazar el documento CSF si se subió uno nuevo
+            if ($request->hasFile('csf')) {
+                $branch->clearMediaCollection('csf');
+                $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+            }
+
+            // 6. Reconsolidar los grupos afectados por el cambio de grupo
+            if ($branch->group_name) {
+                $this->branchGroups->rebalance($branch->group_name);
+            }
+
+            if ($oldGroup && $oldGroup !== $branch->group_name) {
+                $this->branchGroups->rebalance($oldGroup);
+            }
         });
 
         if ($request->has('redirect_to')) {
-            return to_route($request->query('redirect_to'));
+            $redirectRoute = $request->query('redirect_to');
+
+            // Al volver a la creación de la OV, conservamos la cotización que se estaba convirtiendo
+            $redirectParams = [];
+            $redirectQuoteId = $request->input('redirect_quote_id');
+            if ($redirectQuoteId) {
+                $redirectParams['quote_id'] = $redirectQuoteId;
+            }
+
+            return to_route($redirectRoute, $redirectParams);
         }
 
         return to_route('branches.show', $branch->id);
     }
 
     
-    public function destroy(Branch $branch)
+    /**
+     * Reglas adicionales para los contactos:
+     * - Cada contacto debe tener al menos un medio de contacto (teléfono o correo).
+     * - No se permite repetir el mismo teléfono ni el mismo correo entre contactos.
+     */
+    private function validateContactRules(array $contacts): void
+    {
+        $errors = [];
+        $phones = [];
+        $emails = [];
+
+        foreach ($contacts as $index => $contact) {
+            $phone = trim((string) ($contact['phone'] ?? ''));
+            $email = trim((string) ($contact['email'] ?? ''));
+
+            if ($phone === '' && $email === '') {
+                $errors["contacts.$index.phone"] = 'Cada contacto debe tener al menos un medio de contacto (teléfono o correo).';
+            }
+
+            if ($phone !== '') {
+                if (isset($phones[$phone])) {
+                    $errors["contacts.$index.phone"] = 'Este teléfono ya está registrado en otro contacto.';
+                }
+                $phones[$phone] = true;
+            }
+
+            if ($email !== '') {
+                $key = strtolower($email);
+                if (isset($emails[$key])) {
+                    $errors["contacts.$index.email"] = 'Este correo ya está registrado en otro contacto.';
+                }
+                $emails[$key] = true;
+            }
+        }
+
+        // El contacto Comercial y el de Pagos son obligatorios; el de Finanzas es opcional.
+        $areas = collect($contacts)->pluck('area')->filter()->all();
+
+        if (!in_array('Comercial', $areas, true)) {
+            $errors['contacts.comercial'] = 'Debes registrar al menos un contacto del área Comercial.';
+        }
+
+        if (!in_array('Pagos', $areas, true)) {
+            $errors['contacts.pagos'] = 'Debes registrar al menos un contacto del área Pagos.';
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    public function destroy(Request $request, Branch $branch)
     {
         try {
             // Usamos una transacción para garantizar la integridad de los datos.
@@ -610,12 +827,63 @@ class BranchController extends Controller
             });
 
         } catch (\Exception $e) {
-            // (Opcional) Si algo sale mal, redirige con un mensaje de error.
-            // return back()->withErrors(['error' => 'Ocurrió un error al eliminar la sucursal: ' . $e->getMessage()]);
+            Log::error('Error al eliminar cliente: ' . $e->getMessage());
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Ocurrió un error al eliminar el cliente.'], 500);
+            }
+
+            return back()->withErrors(['error' => 'Ocurrió un error al eliminar el cliente.']);
         }
-        
-        // Si no usas los retornos con mensajes, puedes simplemente redirigir.
+
+        // Respuesta JSON para peticiones AJAX (vista Show) y redirección para el resto.
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Cliente eliminado con éxito.']);
+        }
+
         return to_route('branches.index');
+    }
+
+    /**
+     * Sube (o reemplaza) la CSF del cliente desde la vista Show.
+     */
+    public function uploadCsf(Request $request, Branch $branch)
+    {
+        $request->validate([
+            'csf' => 'required|file|mimes:pdf,jpg,jpeg,png|max:10240',
+        ]);
+
+        $branch->clearMediaCollection('csf');
+        $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'CSF actualizada correctamente.']);
+        }
+
+        return back()->with('success', 'CSF actualizada correctamente.');
+    }
+
+    /**
+     * Actualiza únicamente los datos fiscales propios del cliente (razón social y RFC).
+     * Si se envían vacíos, el cliente heredará los de su sucursal matriz.
+     */
+    public function updateFiscalData(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'business_name' => 'nullable|string|min:3|max:255',
+            'rfc' => 'nullable|string|min:10|max:20',
+        ]);
+
+        $branch->update([
+            'business_name' => !empty($validated['business_name']) ? trim($validated['business_name']) : null,
+            'rfc' => !empty($validated['rfc']) ? trim($validated['rfc']) : null,
+        ]);
+
+        if ($request->header('X-Inertia')) {
+            return back();
+        }
+
+        return response()->json(['message' => 'Datos fiscales actualizados correctamente.']);
     }
 
     public function removeProduct(Branch $branch, Product $product)
@@ -631,7 +899,10 @@ class BranchController extends Controller
                     ->where('product_id', $product->id)
                     ->delete();
 
-                // 2. Eliminar la relación en la tabla pivote (de la matriz)
+                // 2. Eliminar los precios por volumen para esta relación
+                BranchVolumePriceService::deleteFor($productTargetBranch, $product->id);
+
+                // 3. Eliminar la relación en la tabla pivote (de la matriz)
                 $productTargetBranch->products()->detach($product->id);
             });
 
@@ -641,6 +912,97 @@ class BranchController extends Controller
             Log::error('Error al remover producto de cliente: ' . $e->getMessage());
             return response()->json(['message' => 'Ocurrió un error en el servidor al intentar remover el producto.'], 500);
         }
+    }
+
+    /**
+     * Busca clientes/matrices candidatos para agregarlos como sucursales hijas de $branch.
+     * Solo se ofrecen clientes que NO pertenezcan ya a otra matriz.
+     */
+    public function searchChildCandidates(Request $request, Branch $branch)
+    {
+        $query = trim((string) $request->input('query', ''));
+
+        // Excluimos la propia matriz y a sus sucursales actuales.
+        $excludedIds = $branch->children()->pluck('id')->push($branch->id)->all();
+
+        $candidates = Branch::whereNull('parent_branch_id')
+            ->whereNotIn('id', $excludedIds)
+            ->when($query !== '', function ($q) use ($query) {
+                $q->where(function ($w) use ($query) {
+                    $w->where('name', 'like', "%{$query}%")
+                      ->orWhere('rfc', 'like', "%{$query}%")
+                      ->orWhere('business_name', 'like', "%{$query}%")
+                      ->orWhere('id', 'like', "%{$query}%");
+                });
+            })
+            ->withCount('children')
+            ->orderBy('name')
+            ->limit(25)
+            ->get(['id', 'name', 'rfc', 'business_name', 'parent_branch_id']);
+
+        return response()->json(['items' => $candidates]);
+    }
+
+    /**
+     * Agrega uno o varios clientes como sucursales hijas de una matriz.
+     *
+     * Reglas:
+     * - El destino debe ser una matriz (sin padre).
+     * - No se pueden agregar clientes que ya pertenezcan a otra matriz.
+     * - Si el cliente agregado es una matriz con sucursales, todas sus sucursales
+     *   pasan también a formar parte de la nueva matriz.
+     * - Los productos se combinan (unión, sin duplicar) y cada cliente conserva los suyos.
+     */
+    public function addChildren(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'child_ids' => 'required|array|min:1',
+            'child_ids.*' => 'exists:branches,id',
+        ]);
+
+        if ($branch->parent_branch_id) {
+            return response()->json(['message' => 'Solo una sucursal matriz puede recibir sucursales hijas.'], 422);
+        }
+
+        $moved = 0;
+
+        DB::transaction(function () use ($validated, $branch, &$moved) {
+            foreach ($validated['child_ids'] as $childId) {
+                if ((int) $childId === (int) $branch->id) {
+                    continue;
+                }
+
+                $child = Branch::with('children')->find($childId);
+
+                // No existe o ya pertenece a otra matriz.
+                if (!$child || $child->parent_branch_id) {
+                    continue;
+                }
+
+                // El cliente seleccionado y todas sus sucursales hijas pasan a la nueva matriz.
+                $idsToMove = collect([$child->id])->merge($child->children->pluck('id'));
+
+                foreach ($idsToMove as $id) {
+                    $moving = Branch::find($id);
+                    if (!$moving || (int) $moving->id === (int) $branch->id) {
+                        continue;
+                    }
+
+                    $moving->update(['parent_branch_id' => $branch->id]);
+                    $moved++;
+
+                    // Combinar (unión, sin duplicar) los productos del cliente con los del destino.
+                    $target = $this->getProductTargetBranch($moving);
+                    $this->branchGroups->mergeProductsInto($moving, $target);
+                }
+            }
+        });
+
+        if ($moved === 0) {
+            return response()->json(['message' => 'No se agregó ninguna sucursal. Verifica que no pertenezcan ya a otra matriz.'], 422);
+        }
+
+        return response()->json(['message' => 'Sucursal(es) agregada(s) correctamente.', 'moved' => $moved]);
     }
 
     public function massiveDelete(Request $request)
@@ -684,6 +1046,7 @@ class BranchController extends Controller
                 $q->where('id', 'like', "%{$query}%")
                 ->orWhere('name', 'like', "%{$query}%")
                 ->orWhere('business_name', 'like', "%{$query}%") // Búsqueda por Razón Social
+                ->orWhere('group_name', 'like', "%{$query}%") // Búsqueda por Grupo
                 ->orWhere('status', 'like', "%{$query}%")
                 // Busca dentro de su propio account manager
                 ->orWhereHas('accountManager', function ($userquery) use ($query) {
@@ -709,15 +1072,22 @@ class BranchController extends Controller
     */ 
     public function addProducts(Request $request, Branch $branch)
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'products' => 'required|array',
             'products.*.product_id' => 'required|exists:products,id',
             'products.*.price' => 'nullable|numeric|min:0',
             'products.*.currency' => 'nullable|string',
-        ]);
+        ], BranchVolumePriceService::rules('products.*.volume_prices')));
 
         // MODIFICADO: Obtenemos la sucursal matriz para asignarle los productos.
         $productTargetBranch = $this->getProductTargetBranch($branch);
+
+        // Validamos los rangos de volumen antes de abrir la transacción.
+        foreach ($validated['products'] as $productData) {
+            if (array_key_exists('volume_prices', $productData)) {
+                BranchVolumePriceService::validateRanges($productData['volume_prices'] ?? []);
+            }
+        }
 
         DB::transaction(function () use ($validated, $productTargetBranch) {
             $now = now();
@@ -750,6 +1120,16 @@ class BranchController extends Controller
                         'updated_at' => $now,
                     ];
                 }
+
+                // Sincronizamos los rangos de precio por volumen cuando vienen en la petición.
+                if (array_key_exists('volume_prices', $productData)) {
+                    $this->volumePrices->sync(
+                        $productTargetBranch,
+                        $productData['product_id'],
+                        $productData['volume_prices'] ?? [],
+                        auth()->id()
+                    );
+                }
             }
 
             // Usamos syncWithoutDetaching para añadir los nuevos productos a la matriz
@@ -765,22 +1145,110 @@ class BranchController extends Controller
 
     public function fetchBranchProducts(Branch $branch)
     {
-        // MODIFICADO: Obtenemos la sucursal desde donde se leerán los productos
+        // Sucursal destino (matriz o líder del grupo) donde se consolidan los productos.
         $productSourceBranch = $this->getProductTargetBranch($branch);
 
-        $products = $productSourceBranch->products()
-            ->with([
-                'media',
-                // El historial de precios también se consulta con el ID de la matriz
-                'priceHistory' => function ($query) use ($productSourceBranch) {
-                    $query->where('branch_id', $productSourceBranch->id)
-                        ->with('user:id,name') // <--- NUEVO: Cargamos la relación del usuario
-                        ->orderBy('valid_from', 'desc');
-                }
-            ])->whereNull('archived_at')
+        // Sucursales cuyos productos forman parte del catálogo visible: el destino,
+        // todos los miembros del grupo (si pertenece a uno) y las sucursales hijas.
+        $branchIds = collect([$productSourceBranch->id]);
+
+        $groupName = $this->branchGroups->resolveGroupName($branch);
+
+        if ($groupName) {
+            $groupBranchIds = Branch::where('group_name', $groupName)->pluck('id');
+
+            $branchIds = $branchIds
+                ->merge($groupBranchIds)
+                ->merge(Branch::whereIn('parent_branch_id', $groupBranchIds)->pluck('id'));
+        }
+
+        // Incluimos también las sucursales hijas del destino (por si conservan productos propios).
+        $branchIds = $branchIds
+            ->merge(Branch::where('parent_branch_id', $productSourceBranch->id)->pluck('id'))
+            ->unique()
+            ->values();
+
+        // Unión de los IDs de producto de todas esas sucursales, sin duplicar.
+        $productIds = DB::table('branch_product')
+            ->whereIn('branch_id', $branchIds)
+            ->distinct()
+            ->pluck('product_id');
+
+        $products = Product::whereIn('id', $productIds)
+            ->whereNull('archived_at')
+            ->with('media')
             ->get();
 
+        // Historial de precios: preferimos el del destino (matriz/líder) y, si no tiene
+        // registros para el producto, mostramos el del miembro que sí los tenga.
+        $allHistory = BranchPriceHistory::whereIn('product_id', $productIds)
+            ->whereIn('branch_id', $branchIds)
+            ->with('user:id,name')
+            ->orderByDesc('valid_from')
+            ->get()
+            ->groupBy('product_id');
+
+        // Precios por volumen: mismo criterio de lectura que el historial.
+        $allVolumePrices = BranchVolumePrice::whereIn('product_id', $productIds)
+            ->whereIn('branch_id', $branchIds)
+            ->with('user:id,name')
+            ->orderBy('min_quantity')
+            ->get()
+            ->groupBy('product_id');
+
+        $products->each(function ($product) use ($allHistory, $allVolumePrices, $productSourceBranch) {
+            $rows = $allHistory->get($product->id, collect());
+            $leaderRows = $rows->where('branch_id', $productSourceBranch->id)->values();
+
+            if ($leaderRows->isNotEmpty()) {
+                $history = $leaderRows;
+            } else {
+                $firstBranchId = optional($rows->first())->branch_id;
+                $history = $firstBranchId
+                    ? $rows->where('branch_id', $firstBranchId)->values()
+                    : collect();
+            }
+
+            $product->setRelation('priceHistory', $history);
+
+            $volumeRows = $allVolumePrices->get($product->id, collect());
+            $leaderVolumeRows = $volumeRows->where('branch_id', $productSourceBranch->id)->values();
+
+            if ($leaderVolumeRows->isNotEmpty()) {
+                $volumePrices = $leaderVolumeRows;
+            } else {
+                $firstVolumeBranchId = optional($volumeRows->first())->branch_id;
+                $volumePrices = $firstVolumeBranchId
+                    ? $volumeRows->where('branch_id', $firstVolumeBranchId)->values()
+                    : collect();
+            }
+
+            $product->setRelation('volumePrices', $volumePrices);
+        });
+
         return response()->json($products);
+    }
+
+    /**
+     * Devuelve los datos de una sucursal matriz (razón social, RFC, grupo)
+     * junto con sus productos, para autorrellenar el formulario de sucursales hijas.
+     */
+    public function getMatrixData(Branch $branch)
+    {
+        $sourceBranch = $branch->parent_branch_id ? $branch->parent : $branch;
+
+        return response()->json([
+            'branch' => [
+                'id' => $sourceBranch->id,
+                'name' => $sourceBranch->name,
+                'business_name' => $sourceBranch->business_name,
+                'rfc' => $sourceBranch->rfc,
+                'group_name' => $sourceBranch->group_name,
+            ],
+            // Los productos se leen desde la matriz o, si pertenece a un grupo,
+            // desde el líder del grupo (donde se consolidan).
+            'products' => $this->formatBranchProducts($this->getProductTargetBranch($sourceBranch)),
+        ]);
     }
 
     // --- MÉTODOS NUEVOS PARA CREACIÓN RÁPIDA ---
@@ -800,6 +1268,9 @@ class BranchController extends Controller
         $branch = Branch::create($validated + ['password' => bcrypt('e3d')]);
         $branch->load('contacts'); // Cargar relación para que coincida con la data inicial
 
+        // Si se agregó a un grupo, consolidamos los productos del grupo.
+        $this->branchGroups->rebalance($branch->group_name);
+
         return response()->json($branch);
     }
 
@@ -808,11 +1279,113 @@ class BranchController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'charge' => 'nullable|string|max:255',
+            'area' => 'nullable|string|in:Comercial,Finanzas,Pagos',
         ]);
 
         $contact = $branch->contacts()->create($validated);
 
         return response()->json($contact);
+    }
+
+    /**
+     * Sincroniza los productos de un formulario en una sucursal destino.
+     *
+     * @param bool $allowRemovals Si es true, el catálogo del destino se reemplaza con el del
+     *                            formulario (permite quitar productos). Si es false, solo se
+     *                            agregan/complementan productos (unión sin duplicar)
+     *                            conservando los que ya tenía el destino.
+     */
+    private function applyProductsToBranch(Branch $target, $productDataFromRequest, bool $allowRemovals): void
+    {
+        if ($allowRemovals) {
+            $target->products()->sync($productDataFromRequest->keys());
+        } else {
+            $target->products()->syncWithoutDetaching($productDataFromRequest->keys());
+        }
+
+        $currentActivePrices = $target->priceHistory()->whereNull('valid_to')->get()->keyBy('product_id');
+
+        foreach ($productDataFromRequest as $productId => $data) {
+            $newPrice = $data['price'] ?? null;
+            $newCurrency = $data['currency'] ?? 'MXN';
+            $currentPriceRecord = $currentActivePrices->get($productId);
+
+            if (!$currentPriceRecord) {
+                // Sin precio vigente en el destino: se registra el del formulario.
+                if ($newPrice !== null) {
+                    $target->priceHistory()->create([
+                        'product_id' => $productId,
+                        'price' => $newPrice,
+                        'currency' => $newCurrency,
+                        'valid_from' => now(),
+                    ]);
+                }
+                continue;
+            }
+
+            // En modo unión conservamos el precio vigente que ya tenía el destino.
+            if (!$allowRemovals) {
+                continue;
+            }
+
+            if ($newPrice === null || (float)$newPrice !== (float)$currentPriceRecord->price || $newCurrency !== $currentPriceRecord->currency) {
+                $currentPriceRecord->update(['valid_to' => now()]);
+                if ($newPrice !== null) {
+                    $target->priceHistory()->create([
+                        'product_id' => $productId,
+                        'price' => $newPrice,
+                        'currency' => $newCurrency,
+                        'valid_from' => now(),
+                    ]);
+                }
+            }
+        }
+
+        if ($allowRemovals) {
+            $productIdsToRemovePrice = $currentActivePrices->keys()->diff($productDataFromRequest->keys());
+            if ($productIdsToRemovePrice->isNotEmpty()) {
+                $target->priceHistory()->whereIn('product_id', $productIdsToRemovePrice)->whereNull('valid_to')->update(['valid_to' => now()]);
+
+                // Los precios por volumen no tienen vigencia: se eliminan al quitar el producto.
+                DB::table('branch_volume_prices')
+                    ->where('branch_id', $target->id)
+                    ->whereIn('product_id', $productIdsToRemovePrice)
+                    ->delete();
+            }
+        }
+    }
+
+    /**
+     * Formatea los productos de una sucursal con la información necesaria
+     * para los formularios (precio especial vigente, imagen, stock y ubicación).
+     */
+    private function formatBranchProducts(Branch $sourceBranch)
+    {
+        return $sourceBranch->products()
+            ->with(['media', 'storages'])
+            ->whereNull('archived_at')
+            ->get()
+            ->map(function ($product) use ($sourceBranch) {
+                $specialPrice = DB::table('branch_price_history')
+                    ->where('branch_id', $sourceBranch->id)
+                    ->where('product_id', $product->id)
+                    ->whereNull('valid_to')
+                    ->orderBy('valid_from', 'desc')
+                    ->first();
+
+                return [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'price' => $specialPrice->price ?? null,
+                    'currency' => $specialPrice->currency ?? 'MXN',
+                    'base_price' => $product->base_price,
+                    'image_url' => $product->media->first()?->original_url,
+                    'current_stock' => $product->storages->sum('quantity'),
+                    'location' => $product->storages->first()?->location,
+                ];
+            })
+            ->values();
     }
 
     /**
@@ -823,8 +1396,143 @@ class BranchController extends Controller
      */
     private function getProductTargetBranch(Branch $branch): Branch
     {
-        // Si la sucursal tiene un padre, esa es la matriz. De lo contrario, es ella misma.
-        return $branch->parent_branch_id ? $branch->parent : $branch;
+        // Si la sucursal pertenece a un grupo, los productos se consolidan en el
+        // líder del grupo. De lo contrario, si tiene padre, esa es la matriz;
+        // caso contrario, es ella misma.
+        return $this->branchGroups->getProductTargetBranch($branch);
+    }
+
+    /* ============================================================
+     *  GESTIÓN DE GRUPOS DE CLIENTES
+     * ============================================================ */
+
+    /**
+     * Devuelve todos los grupos existentes con sus sucursales miembros.
+     * Usado por el modal de gestión de grupos.
+     */
+    public function groupsIndex()
+    {
+        // La pertenencia a un grupo se gestiona a nivel de clientes raíz (matrices o
+        // clientes independientes). Las sucursales hijas heredan el grupo de su matriz.
+        $branches = Branch::whereNull('parent_branch_id')
+            ->whereNotNull('group_name')
+            ->where('group_name', '!=', '')
+            ->with('accountManager:id,name')
+            ->orderBy('group_name')
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'rfc',
+                'business_name',
+                'group_name',
+                'parent_branch_id',
+                'account_manager_id',
+            ]);
+
+        $groups = $branches
+            ->groupBy('group_name')
+            ->map(function ($members, $name) {
+                return [
+                    'name' => $name,
+                    'members' => $members->values(),
+                ];
+            })
+            ->values();
+
+        return response()->json(['groups' => $groups]);
+    }
+
+    /**
+     * Busca clientes/sucursales candidatos para agregar a un grupo.
+     * Excluye a los que ya pertenecen al grupo indicado.
+     */
+    public function searchForGroup(Request $request)
+    {
+        $query = trim((string) $request->input('query', ''));
+        $group = $request->input('group');
+
+        $branches = Branch::query()
+            ->whereNull('parent_branch_id')
+            ->when($query !== '', function ($q) use ($query) {
+                $q->where(function ($w) use ($query) {
+                    $w->where('name', 'like', "%{$query}%")
+                      ->orWhere('rfc', 'like', "%{$query}%")
+                      ->orWhere('business_name', 'like', "%{$query}%")
+                      ->orWhere('client_number', 'like', "%{$query}%")
+                      ->orWhere('id', 'like', "%{$query}%");
+                });
+            })
+            ->when($group, function ($q) use ($group) {
+                $q->where(function ($w) use ($group) {
+                    $w->whereNull('group_name')
+                      ->orWhere('group_name', '!=', $group);
+                });
+            })
+            ->with('accountManager:id,name')
+            ->orderBy('name')
+            ->limit(25)
+            ->get([
+                'id',
+                'name',
+                'rfc',
+                'business_name',
+                'group_name',
+                'parent_branch_id',
+                'account_manager_id',
+            ]);
+
+        return response()->json(['items' => $branches]);
+    }
+
+    /**
+     * Agrega (o mueve) un cliente a un grupo y consolida sus productos.
+     */
+    public function addToGroup(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'group_name' => 'required|string|max:255',
+        ]);
+
+        $newGroup = trim($validated['group_name']);
+        $oldGroup = $branch->group_name;
+
+        DB::transaction(function () use ($branch, $newGroup, $oldGroup) {
+            $branch->update(['group_name' => $newGroup]);
+
+            // Las sucursales hijas siguen a su matriz, por lo que no llevan grupo propio.
+            $branch->children()->update(['group_name' => null]);
+
+            // Consolida el grupo destino y, si cambió de grupo, reconsolida el origen.
+            $this->branchGroups->rebalance($newGroup);
+
+            if ($oldGroup && $oldGroup !== $newGroup) {
+                $this->branchGroups->rebalance($oldGroup);
+            }
+        });
+
+        return response()->json(['message' => 'Cliente agregado al grupo correctamente.']);
+    }
+
+    /**
+     * Saca a un cliente de su grupo (deja el campo group_name vacío).
+     */
+    public function removeFromGroup(Branch $branch)
+    {
+        $oldGroup = $branch->group_name;
+
+        DB::transaction(function () use ($branch, $oldGroup) {
+            $branch->update(['group_name' => null]);
+
+            // Las sucursales hijas dejan de pertenecer al grupo junto con su matriz.
+            $branch->children()->update(['group_name' => null]);
+
+            if ($oldGroup) {
+                $this->branchGroups->rebalance($oldGroup);
+            }
+        });
+
+        return response()->json(['message' => 'Cliente removido del grupo correctamente.']);
     }
 
     // === AGREGAR ESTE NUEVO MÉTODO AL FINAL DE TU CONTROLADOR ===

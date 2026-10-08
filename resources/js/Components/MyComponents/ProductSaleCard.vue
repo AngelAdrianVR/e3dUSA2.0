@@ -57,77 +57,96 @@
                     <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Diseño Nuevo
                 </el-tag>
 
-                <div class="grid grid-cols-2 gap-x-6 gap-y-4 mt-4 text-sm">
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <p class="text-gray-500 dark:text-gray-400">Cantidad ordenada</p>
-                            <el-tooltip v-if="branchId" placement="top">
-                                <template #content>
-                                    <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
-                                    <p class="text-blue-400">
-                                        {{ isMuestraProductLine ? 'Cantidad descontada de stock:' : 'Cantidad tomada de stock:' }}
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                    <p v-if="isMuestraProductLine && saleProduct.quantity_to_produce > 0" class="text-amber-400">
-                                        Sin stock disponible (no descontado):
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                    <p v-else-if="!isMuestraProductLine" class="text-blue-400">
-                                        Cantidad a producir:
-                                        <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
-                                    </p>
-                                </template>
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
-                                </svg>
-                            </el-tooltip>
-                        </div>
-                        <p class="font-semibold text-lg">{{ saleProduct.quantity?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
-                    </div>
-                    
-                    <!-- PRECIO DE VENTA Y TOOLTIP -->
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Vendido a:</p>
-                        <div class="flex items-center space-x-2 mt-0.5">
-                            <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
-                                {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
-                            </p>
-                            
-                            <el-tooltip v-if="saleProduct.has_low_price && !isSaleAuthorized" placement="top" effect="dark">
-                                <template #content>
-                                    <div class="w-64 text-xs leading-relaxed">
-                                        El precio de venta es menor al establecido para el cliente.<br><br>
-                                        Si no autoriza este precio, <b>comuníquese con el vendedor</b> para que lo edite.<br>
-                                        Si autoriza el precio, solo tiene que <b>Autorizar la orden de venta</b> desde el botón principal.
-                                    </div>
-                                </template>
-                                <div class="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full size-6 flex items-center justify-center animate-pulse cursor-help">
-                                    <i class="fa-solid fa-triangle-exclamation text-xs"></i>
-                                </div>
-                            </el-tooltip>
+                <!-- ==== RESUMEN DE VENTA ==== -->
+                <div class="mt-4">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 flex items-center">
+                        <i class="fa-solid fa-receipt mr-1.5"></i> Resumen de venta
+                    </p>
 
-                            <el-tooltip v-else-if="saleProduct.has_low_price && isSaleAuthorized" content="Precio Bajo Autorizado" placement="top" effect="dark">
-                                <div class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full size-6 flex items-center justify-center cursor-help">
-                                    <i class="fa-solid fa-check-double text-xs"></i>
-                                </div>
-                            </el-tooltip>
-                        </div>
-                    </div>
+                    <div class="bg-white dark:bg-slate-900/40 border border-gray-200 dark:border-slate-700 rounded-xl p-4 shadow-sm text-sm">
+                        <!-- Precios agrupados: precio vendido vs precio de referencia del cliente -->
+                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden divide-y divide-gray-200 dark:divide-slate-700">
+                            <div class="flex items-center justify-between gap-3 px-3 py-2">
+                                <span class="text-gray-500 dark:text-gray-400">Vendido a:</span>
+                                <div class="flex items-center space-x-2">
+                                    <p class="font-semibold text-lg" :class="saleProduct.has_low_price && !isSaleAuthorized ? 'text-amber-500 dark:text-amber-400' : 'text-green-600 dark:text-green-400'">
+                                        {{ formatCurrency(saleProduct.price) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}
+                                    </p>
 
-                    <div v-if="!isSpecialProduct">
-                        <p class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}</p>
-                        <p class="font-semibold text-base">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
-                    </div>
-                     <div>
-                        <p class="text-gray-500 dark:text-gray-400">Importe Total</p>
-                        <p class="font-bold text-lg text-primary dark:text-sky-400">{{ formatCurrency(totalAmount) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</p>
+                                    <el-tooltip v-if="saleProduct.has_low_price && !isSaleAuthorized" placement="top" effect="dark">
+                                        <template #content>
+                                            <div class="w-64 text-xs leading-relaxed">
+                                                El precio de venta es menor al establecido para el cliente.<br><br>
+                                                Si no autoriza este precio, <b>comuníquese con el vendedor</b> para que lo edite.<br>
+                                                Si autoriza el precio, solo tiene que <b>Autorizar la orden de venta</b> desde el botón principal.
+                                            </div>
+                                        </template>
+                                        <div class="bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-full size-6 flex items-center justify-center animate-pulse cursor-help">
+                                            <i class="fa-solid fa-triangle-exclamation text-xs"></i>
+                                        </div>
+                                    </el-tooltip>
+
+                                    <el-tooltip v-else-if="saleProduct.has_low_price && isSaleAuthorized" content="Precio Bajo Autorizado" placement="top" effect="dark">
+                                        <div class="bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400 rounded-full size-6 flex items-center justify-center cursor-help">
+                                            <i class="fa-solid fa-check-double text-xs"></i>
+                                        </div>
+                                    </el-tooltip>
+                                </div>
+                            </div>
+
+                            <div v-if="!isSpecialProduct" class="flex items-center justify-between gap-3 px-3 py-2">
+                                <span class="text-gray-500 dark:text-gray-400">{{ currentPriceLabel }}:</span>
+                                <span class="font-semibold text-base text-gray-700 dark:text-gray-200">{{ formatCurrency(currentPrice) }} {{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Cantidad ordenada e importe total -->
+                        <div class="mt-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Cantidad ordenada</p>
+                                    <el-tooltip v-if="branchId" placement="top">
+                                        <template #content>
+                                            <h2 class="text-lg font-bold mb-2">Movimientos de stock</h2>
+                                            <p class="text-blue-400">
+                                                {{ isMuestraProductLine ? 'Cantidad descontada de stock:' : 'Cantidad tomada de stock:' }}
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ (saleProduct.quantity - saleProduct.quantity_to_produce).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                            <p v-if="isMuestraProductLine && saleProduct.quantity_to_produce > 0" class="text-amber-400">
+                                                Sin stock disponible (no descontado):
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                            <p v-else-if="!isMuestraProductLine" class="text-blue-400">
+                                                Cantidad a producir:
+                                                <span class="text-white dark:text-gray-500 ml-1">{{ saleProduct.quantity_to_produce.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} {{ saleProduct.product?.measure_unit }}</span>
+                                            </p>
+                                        </template>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 text-amber-400">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                                        </svg>
+                                    </el-tooltip>
+                                </div>
+                                <p class="font-semibold text-xl dark:text-gray-100">{{ saleProduct.quantity?.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",") }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
+                            </div>
+
+                            <div class="text-right">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Importe total</p>
+                                <p class="font-extrabold text-2xl sm:text-3xl leading-none text-primary dark:text-sky-400 mt-1">
+                                    {{ formatCurrency(totalAmount) }}
+                                    <span class="text-sm font-bold align-middle">{{ activeSpecialPrice ? this.activeSpecialPrice.currency : saleProduct.product.currency }}</span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- SECCIÓN DE STOCK (CONDICIONAL: COMPUESTO VS SIMPLE) -->
-                <div class="mt-4 border-t dark:border-slate-700/50 pt-4">
+                <div class="mt-5">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2 flex items-center">
+                        <i class="fa-solid fa-warehouse mr-1.5"></i> Información de almacén
+                    </p>
                     <!-- VISTA PARA PRODUCTOS COMPUESTOS (COLAPSABLE) -->
-                    <div v-if="isComposite" class="bg-white dark:bg-slate-800/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-all duration-300">
+                    <div v-if="isComposite" class="bg-white dark:bg-slate-900/40 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm transition-all duration-300">
                         <div @click="showComponents = !showComponents" class="flex flex-col sm:flex-row justify-between sm:items-center gap-2 cursor-pointer group">
                             <div class="flex items-center space-x-2">
                                 <h2 class="font-bold text-lg group-hover:text-primary transition-colors">
@@ -204,16 +223,16 @@
                     </div>
 
                     <!-- VISTA PARA PRODUCTOS SIMPLES (SIN COMPONENTES) -->
-                    <div v-else class="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div v-else class="bg-white dark:bg-slate-900/40 border border-gray-200 dark:border-slate-700 rounded-xl p-4 grid grid-cols-2 gap-x-6 gap-y-4 shadow-sm">
                         <div>
                             <div class="flex items-center space-x-2">
-                                <p class="text-gray-500 dark:text-gray-400">Stock actual</p>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Stock actual</p>
                                 <el-tooltip v-if="stockStatus !== 'green'" placement="top" :content="stockStatus === 'red' ? 'Sin stock o inventario negativo' : 'El stock está por debajo del mínimo permitido'" effect="dark">
                                     <i class="fa-solid fa-circle-exclamation cursor-help" :class="stockStatus === 'red' ? 'text-red-500' : 'text-amber-500'"></i>
                                 </el-tooltip>
                             </div>
                             <div class="flex items-center space-x-2 mt-0.5">
-                                <p class="font-bold text-lg" :class="{'text-red-600 dark:text-red-400': stockStatus === 'red', 'text-amber-600 dark:text-amber-400': stockStatus === 'amber', 'text-green-600 dark:text-green-400': stockStatus === 'green'}">
+                                <p class="font-bold text-xl" :class="{'text-red-600 dark:text-red-400': stockStatus === 'red', 'text-amber-600 dark:text-amber-400': stockStatus === 'amber', 'text-green-600 dark:text-green-400': stockStatus === 'green'}">
                                     {{ currentStock.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span>
                                 </p>
                                 <!-- Semáforo de Colores -->
@@ -228,8 +247,8 @@
                         </div>
 
                         <div v-if="!isSpecialProduct">
-                            <p class="text-gray-500 dark:text-gray-400">Stock mínimo</p>
-                            <p class="font-bold text-lg dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
+                            <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">Stock mínimo</p>
+                            <p class="font-bold text-xl dark:text-gray-100">{{ saleProduct.product.min_quantity?.toLocaleString() }} <span class="text-xs font-normal">{{ saleProduct.product?.measure_unit }}</span></p>
                         </div>
                         <!-- <div>
                             <p class="text-gray-500 dark:text-gray-400">Stock máximo</p>
@@ -286,7 +305,7 @@
             </p>
             
             <el-collapse v-if="saleProduct.product.price_history?.length">
-                <el-collapse-item title="Historial de precios especiales del cliente" name="history">
+                <el-collapse-item title="Historial de precios para este cliente" name="history">
                     <ul class="max-h-32 overflow-y-auto pr-2 text-sm">
                         <li v-for="history in saleProduct.product.price_history" :key="history.id" class="flex flex-col text-gray-600 dark:text-gray-400 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-slate-700/50 border-b dark:border-slate-700/50 last:border-0">
                             <div class="flex justify-between items-center w-full">
@@ -311,6 +330,38 @@
                     </ul>
                 </el-collapse-item>
             </el-collapse>
+
+            <!-- Precios especiales por volumen (plegable, plegado por defecto) -->
+            <el-collapse v-if="saleProduct.product.volume_prices?.length" class="mt-2">
+                <el-collapse-item name="volume_prices">
+                    <template #title>
+                        <span class="font-semibold text-sm text-indigo-500">
+                            <i class="fa-solid fa-layer-group mr-2"></i> Ver Precios Especiales por Volumen ({{ saleProduct.product.volume_prices.length }})
+                        </span>
+                    </template>
+                    <div class="p-2 overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-600">
+                        <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2">Rango de cantidad</th>
+                                    <th scope="col" class="px-4 py-2">Precio</th>
+                                    <th scope="col" class="px-4 py-2">Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="tier in saleProduct.product.volume_prices" :key="tier.id" class="bg-white dark:bg-slate-800 border-b dark:border-gray-600">
+                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">{{ formatVolumeRange(tier) }}</td>
+                                    <td class="px-4 py-2 font-medium text-gray-900 dark:text-white">${{ tier.price }} {{ tier.currency }}</td>
+                                    <td class="px-4 py-2">
+                                        <span v-if="tier.user">{{ tier.user.name }}</span>
+                                        <span v-else class="text-gray-400 italic text-xs">Sistema</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </el-collapse-item>
+            </el-collapse>
         </div>
 
 
@@ -333,7 +384,7 @@
                 <p v-if="canBypassPriceRule" class="text-green-600 dark:text-green-400 text-xs mt-1 font-semibold p-2 bg-green-50 dark:bg-green-900/20 rounded-md">
                     <i class="fa-solid fa-unlock mr-1"></i> Tienes permisos especiales para asignar cualquier precio sin restricción.
                 </p>
-                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%.</p>
+                <p v-else>El precio de referencia actual es <strong class="font-semibold">${{ priceForm.current_base_price }}</strong>. El nuevo precio no puede ser inferior al actual y el aumento debe ser de al menos 4%. Si solo deseas gestionar los precios por volumen, puedes dejar el precio nuevo vacío.</p>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                     <div>
@@ -366,12 +417,16 @@
                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
                     El precio debe ser mayor o igual a ${{ priceForm.min_allowed_price?.toFixed(2) }} (aumento mínimo del 4%).
                 </div>
+
+                <!-- PRECIOS ESPECIALES POR VOLUMEN -->
+                <VolumePricesEditor :key="priceModalKey" ref="volumePriceEditor" v-model="priceForm.volume_prices"
+                    :currency="priceForm.currency" @change="volumePricesDirty = $event.dirty" />
             </div>
         </template>
         <template #footer>
             <div class="flex space-x-2">
                 <CancelButton @click="showPriceModal = false">Cancelar</CancelButton>
-                <PrimaryButton @click="submitNewPrice" :disabled="isPriceInvalid || priceForm.processing" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">
+                <PrimaryButton @click="submitNewPrice" :disabled="!canSubmitPriceForm || priceForm.processing" class="!bg-blue-600 hover:!bg-blue-700 disabled:!bg-blue-300 dark:disabled:!bg-slate-600">
                     <span v-if="priceForm.processing">Guardando...</span>
                     <span v-else>Actualizar Precio</span>
                 </PrimaryButton>
@@ -404,6 +459,7 @@ import { es } from 'date-fns/locale';
 import ConfirmationModal from "@/Components/ConfirmationModal.vue";
 import CancelButton from "@/Components/MyComponents/CancelButton.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import VolumePricesEditor from "@/Components/MyComponents/VolumePricesEditor.vue";
 
 export default {
     name: 'ProductCard',
@@ -411,6 +467,7 @@ export default {
         ConfirmationModal,
         CancelButton,
         PrimaryButton,
+        VolumePricesEditor,
         Link,
     },
     props: {
@@ -426,6 +483,7 @@ export default {
             type: Boolean,
             default: false,
         },
+        
         branchId: {
             type: Number,
             required: true,
@@ -456,7 +514,12 @@ export default {
                 valid_from: new Date(),
                 current_base_price: 0,
                 min_allowed_price: 0,
+                volume_prices: [],
             }),
+            // Indica si el usuario modificó los rangos de volumen en el modal.
+            volumePricesDirty: false,
+            // Fuerza remontar el editor de rangos cada vez que se abre el modal.
+            priceModalKey: 0,
         };
     },
     computed: {
@@ -550,6 +613,14 @@ export default {
             
             return Number(this.priceForm.amount) < this.priceForm.min_allowed_price;
         },
+        hasNewAmount() {
+            return this.priceForm.amount !== null && this.priceForm.amount !== '';
+        },
+        // Se puede guardar si el precio nuevo es válido o si se modificaron los rangos de volumen.
+        canSubmitPriceForm() {
+            if (this.hasNewAmount) return !this.isPriceInvalid;
+            return this.volumePricesDirty;
+        },
         parsedCustomization() {
             try {
                 return typeof this.saleProduct.customization_details === "string"
@@ -572,7 +643,7 @@ export default {
         },
         currentPriceLabel() {
             return this.activeSpecialPrice
-                ? 'Precio Establecido Actual (Especial)'
+                ? 'Precio referencia para este cliente'
                 : 'Precio Actual (Base)';
         },
         lastUpdateInfo() {
@@ -641,12 +712,33 @@ export default {
             if (isNaN(num)) return '$0.00';
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
         },
+        formatQuantity(value) {
+            const number = Number(value);
+            if (isNaN(number)) return value;
+            return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        },
+        formatVolumeRange(tier) {
+            const min = this.formatQuantity(tier.min_quantity);
+            if (tier.max_quantity === null || tier.max_quantity === undefined) {
+                return `${min} en adelante`;
+            }
+            return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
+        },
         openPriceModal() {
             const basePrice = Number(this.activeSpecialPrice?.price ?? this.saleProduct.product?.base_price ?? 0);
             
             this.priceForm.reset();
             this.priceForm.current_base_price = basePrice;
             this.priceForm.min_allowed_price = basePrice * 1.04;
+            // Precargamos los rangos vigentes del cliente para poder editarlos.
+            this.priceForm.volume_prices = (this.saleProduct.product?.volume_prices ?? []).map((tier) => ({
+                min_quantity: tier.min_quantity,
+                max_quantity: tier.max_quantity,
+                price: tier.price,
+                currency: tier.currency,
+            }));
+            this.volumePricesDirty = false;
+            this.priceModalKey++;
             this.showPriceModal = true;
         },
         updatePriceFromAmount() {
@@ -668,7 +760,18 @@ export default {
             }
         },
         async submitNewPrice() {
-            if (this.isPriceInvalid) {
+            const volumePricesError = this.$refs.volumePriceEditor?.validate();
+            if (volumePricesError) {
+                ElMessage.error('Revisa los precios por volumen. ' + volumePricesError);
+                return;
+            }
+
+            if (!this.hasNewAmount && !this.volumePricesDirty) {
+                ElMessage.error('Ingresa un precio nuevo o modifica los precios especiales por volumen.');
+                return;
+            }
+
+            if (this.hasNewAmount && this.isPriceInvalid) {
                 ElMessage.error('El precio ingresado no es válido o es menor al permitido.');
                 return;
             }
@@ -676,11 +779,24 @@ export default {
             try {
                 const routeName = 'branches.products.price.store';
                 const routeParams = { branch: this.branchId, product: this.saleProduct.product.id };
+
+                const payload = {
+                    amount: this.hasNewAmount ? this.priceForm.amount : null,
+                    percentage: this.priceForm.percentage,
+                    currency: this.priceForm.currency,
+                    valid_from: this.priceForm.valid_from,
+                    current_base_price: this.priceForm.current_base_price,
+                    min_allowed_price: this.priceForm.min_allowed_price,
+                    sync_volume_prices: this.volumePricesDirty,
+                    volume_prices: this.volumePricesDirty ? this.priceForm.volume_prices : [],
+                };
                 
-                const response = await axios.post(route(routeName, routeParams), this.priceForm);
+                const response = await axios.post(route(routeName, routeParams), payload);
 
                 if (response.status === 200) {
-                    ElMessage.success('Precio actualizado correctamente.');
+                    ElMessage.success(this.hasNewAmount
+                        ? 'Precio actualizado correctamente.'
+                        : 'Precios por volumen actualizados correctamente.');
                     this.showPriceModal = false;
                     router.reload({ 
                         preserveScroll: true,
@@ -689,7 +805,9 @@ export default {
                 }
             } catch (error) {
                 console.error("Error al actualizar el precio:", error);
-                ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
+                const errors = error.response?.data?.errors;
+                const firstError = errors ? Object.values(errors)[0]?.[0] : null;
+                ElMessage.error(firstError || error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
         },
         confirmCloseSpecialPrice(historyId) {

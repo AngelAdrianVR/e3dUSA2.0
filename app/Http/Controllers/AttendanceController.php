@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use OwenIt\Auditing\Events\AuditCustom;
 
 class AttendanceController extends Controller
 {
@@ -56,6 +57,9 @@ class AttendanceController extends Controller
             'breaks.*.start_break' => 'nullable|date_format:H:i:s',
             'breaks.*.end_break' => 'nullable|date_format:H:i:s|after_or_equal:breaks.*.start_break',
         ]);
+
+        // Se guarda el estado anterior del día para registrar la modificación en el historial
+        $previousAttendances = $this->getDayAttendances($employee, $date);
 
         try {
             DB::transaction(function () use ($request, $employee, $date) {
@@ -124,7 +128,81 @@ class AttendanceController extends Controller
             return back()->with('error', 'Ocurrió un error inesperado al guardar. Por favor, inténtalo de nuevo.');
         }
 
+        $this->recordHoursAudit($employee, $date, $previousAttendances);
+
         return back()->with('success', 'Registro de asistencia actualizado correctamente.');
+    }
+
+    /**
+     * Obtiene los registros de asistencia de un empleado en una fecha específica.
+     */
+    private function getDayAttendances(EmployeeDetail $employee, string $date)
+    {
+        return Attendance::where('employee_detail_id', $employee->id)
+            ->whereDate('timestamp', $date)
+            ->orderBy('timestamp', 'asc')
+            ->get();
+    }
+
+    /**
+     * Registra en el historial de acciones la modificación de horas del empleado.
+     * Se guarda como un evento personalizado "hours_updated" sobre el empleado.
+     */
+    private function recordHoursAudit(EmployeeDetail $employee, string $date, $previousAttendances): void
+    {
+        $previous = $this->summarizeDayHours($employee, $date, $previousAttendances);
+        $current = $this->summarizeDayHours($employee, $date, $this->getDayAttendances($employee, $date));
+
+        // Si no hubo cambios reales no se registra nada en el historial
+        if ($previous === $current) {
+            return;
+        }
+
+        $employee->auditEvent = 'hours_updated';
+        $employee->isCustomEvent = true;
+        $employee->auditCustomOld = $previous;
+        $employee->auditCustomNew = $current;
+
+        event(new AuditCustom($employee));
+    }
+
+    /**
+     * Resume las horas del día (entrada, salida, descansos y tiempo registrado) en un formato legible.
+     */
+    private function summarizeDayHours(EmployeeDetail $employee, string $date, $attendances): array
+    {
+        $entry = $attendances->firstWhere('type', 'entry');
+        $exit = $attendances->where('type', 'exit')->last();
+
+        $breakStarts = $attendances->where('type', 'start_break')->values();
+        $breakEnds = $attendances->where('type', 'end_break')->values();
+
+        $breaks = [];
+        $breakSeconds = 0;
+        for ($i = 0; $i < $breakStarts->count(); $i++) {
+            if (!isset($breakStarts[$i], $breakEnds[$i])) {
+                continue;
+            }
+            $start = $breakStarts[$i]->timestamp;
+            $end = $breakEnds[$i]->timestamp;
+            $breaks[] = $start->format('H:i') . '-' . $end->format('H:i');
+            $breakSeconds += abs($end->diffInSeconds($start));
+        }
+
+        $worked = '—';
+        if ($entry && $exit) {
+            $seconds = max(abs($exit->timestamp->diffInSeconds($entry->timestamp)) - $breakSeconds, 0);
+            $worked = floor($seconds / 3600) . 'h ' . floor(($seconds % 3600) / 60) . 'm';
+        }
+
+        return [
+            'employee' => $employee->user?->name ?? 'Empleado #' . $employee->id,
+            'date' => $date,
+            'entry' => $entry ? $entry->timestamp->format('H:i') : '—',
+            'exit' => $exit ? $exit->timestamp->format('H:i') : '—',
+            'breaks' => count($breaks) ? implode(', ', $breaks) : '—',
+            'worked' => $worked,
+        ];
     }
 
     /**

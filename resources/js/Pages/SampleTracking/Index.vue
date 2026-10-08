@@ -28,6 +28,45 @@
                                     </el-button>
                                 </template>
                             </el-popconfirm>
+
+                            <!-- Switch para ver todas las muestras / mis muestras -->
+                            <div
+                                v-if="$page.props.auth.user.permissions.includes('Ver todas las muestras')"
+                                class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700"
+                            >
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
+                                <el-switch
+                                    v-model="showAllSampleTrackings"
+                                    @change="toggleView"
+                                    style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;"
+                                />
+                                <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
+                            </div>
+
+                            <!-- Dropdown de filtros de pendientes -->
+                            <el-dropdown trigger="click" @command="handleFilterCommand">
+                                <button
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm border text-sm font-medium transition-all duration-200"
+                                    :class="activeFilterLabel ? 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-500 dark:text-red-300' : 'bg-gray-100 border-gray-200 text-gray-600 dark:bg-slate-800 dark:border-slate-700 dark:text-gray-300 hover:bg-red-50 dark:hover:bg-red-900/30'"
+                                >
+                                    <!-- Indicador de filtro activo -->
+                                    <span v-if="activeFilterLabel" class="relative flex h-2 w-2 shrink-0">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    </span>
+                                    <i v-else class="fa-solid fa-bell text-xs"></i>
+                                    <span>{{ activeFilterLabel || 'Pendientes' }}</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                                </button>
+                                <template #dropdown>
+                                    <el-dropdown-menu>
+                                        <el-dropdown-item command="pending_authorization">
+                                            <i :class="isPendingAuthFilter ? 'fa-solid fa-check text-red-500' : 'fa-regular fa-circle text-gray-300'" class="mr-1.5 w-3.5"></i>
+                                            Pendiente por autorizar
+                                        </el-dropdown-item>
+                                    </el-dropdown-menu>
+                                </template>
+                            </el-dropdown>
                         </div>
                         
                         <!-- Input de búsqueda -->
@@ -59,6 +98,18 @@
                                     <el-tag :type="getStatusTagType(scope.row.status)" disable-transitions>
                                         {{ scope.row.status }}
                                     </el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Autorizado" width="100" align="center">
+                                <template #default="scope">
+                                    <el-tooltip v-if="scope.row.authorized_at" placement="top">
+                                        <template #content>
+                                            Autorizado por: {{ scope.row.authorizer?.name ?? 'N/A' }} <br>
+                                            Fecha: {{ formatDate(scope.row.authorized_at) }}
+                                        </template>
+                                        <i class="fa-solid fa-check-double text-green-500 text-lg"></i>
+                                    </el-tooltip>
+                                    <p v-else>No autorizada</p>
                                 </template>
                             </el-table-column>
                              <el-table-column label="Cliente" width="180">
@@ -137,6 +188,14 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                     </svg>Editar
                                                 </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-if="!scope.row.authorized_at && $page.props.auth.user.permissions.includes('Autorizar muestras')"
+                                                    :command="'authorize-' + scope.row.id">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-4 mr-2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                    </svg>
+                                                    Autorizar
+                                                </el-dropdown-item>
                                                 <!-- Órdenes de Venta de muestra/regalo (solo una por seguimiento) -->
                                                 <el-dropdown-item v-if="scope.row.sale_id" disabled>
                                                     <i class="fa-solid fa-lock mr-2 text-gray-400 w-4"></i>Ya existe una OV vinculada
@@ -211,6 +270,8 @@ export default {
             stockModalItems: [],
             stockModalRowId: null,
             isPreparingSale: false,
+            showAllSampleTrackings: this.filters.view !== 'mias',
+            isPendingAuthFilter: this.filters.filter === 'pending_authorization',
             SearchProps: ['ID', 'Nombre', 'Cliente', 'Contacto', 'Estatus', 'Solicitante'], // propiedades por las que se puede buscar
         };
     },
@@ -224,6 +285,13 @@ export default {
     },
     props: {
         sampleTrackings: Object,
+        filters: Object,
+    },
+    computed: {
+        activeFilterLabel() {
+            if (this.isPendingAuthFilter) return 'Pendiente por autorizar';
+            return null;
+        },
     },
     methods: {
         // Mapea el estatus a un tipo de tag de Element Plus para darle color
@@ -271,6 +339,11 @@ export default {
         handleCommand(command) {
             const [action, id] = command.split('-');
 
+            if (action === 'authorize') {
+                this.authorize(id);
+                return;
+            }
+
             // Acciones relacionadas con la Orden de Venta de muestra/regalo
             if (action === 'createSale') {
                 const row = this.tableData.find(item => String(item.id) === String(id));
@@ -293,6 +366,24 @@ export default {
             }
 
             this.$inertia.get(route(`sample-trackings.${action}`, id));
+        },
+        // Autoriza el seguimiento directamente desde la tabla, sin salir del index
+        async authorize(sampleTrackingId) {
+            try {
+                const response = await axios.put(route('sample-trackings.authorize', sampleTrackingId));
+                if (response.status === 200) {
+                    const index = this.tableData.findIndex(item => item.id == sampleTrackingId);
+                    if (index !== -1) {
+                        this.tableData[index].authorized_at = response.data.item.authorized_at;
+                        this.tableData[index].status = response.data.item.status;
+                        this.tableData[index].authorizer = response.data.item.authorizer;
+                    }
+                    ElMessage.success(response.data.message);
+                }
+            } catch (err) {
+                ElMessage.error('Ocurrió un error al autorizar el seguimiento de muestra');
+                console.error(err);
+            }
         },
         // Registra los productos nuevos como "Muestras y regalos" y continúa a la OV
         submitPrepareSale(id, payload = {}) {
@@ -319,8 +410,35 @@ export default {
                 }
             });
         },
+        buildParams(extra = {}) {
+            const params = { ...extra };
+            params.view = this.showAllSampleTrackings ? 'all' : 'mias';
+            if (this.isPendingAuthFilter) {
+                params.filter = 'pending_authorization';
+            }
+            return params;
+        },
+        toggleView() {
+            this.$inertia.get(route('sample-trackings.index', this.buildParams()), {
+                preserveState: true,
+                replace: true,
+                onStart: () => { this.loading = true; },
+                onFinish: () => { this.loading = false; },
+            });
+        },
+        handleFilterCommand(command) {
+            if (command === 'pending_authorization') {
+                this.isPendingAuthFilter = !this.isPendingAuthFilter;
+            }
+            this.$inertia.get(route('sample-trackings.index', this.buildParams()), {
+                preserveState: true,
+                replace: true,
+                onStart: () => { this.loading = true; },
+                onFinish: () => { this.loading = false; },
+            });
+        },
         handlePageChange(page) {
-            this.$inertia.get(route('sample-trackings.index', { page: page }), {
+            this.$inertia.get(route('sample-trackings.index', this.buildParams({ page })), {
                 preserveState: true,
                 replace: true,
             });

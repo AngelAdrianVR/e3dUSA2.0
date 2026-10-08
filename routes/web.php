@@ -171,12 +171,27 @@ Route::get('branches-export', [BranchController::class, 'export'])->middleware('
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
+Route::get('branches/{branch}/matrix-data', [BranchController::class, 'getMatrixData'])->middleware('auth')->name('branches.matrix-data');
+Route::post('branches/{branch}/csf', [BranchController::class, 'uploadCsf'])->middleware('auth')->name('branches.csf.store');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
 Route::post('/branches/quick-store-branch', [BranchController::class, 'quickStoreBranch'])->name('branches.quick-store');
 Route::post('/branches/{branch}/quick-store-contact', [BranchController::class, 'quickStoreContact'])->name('branches.quick-store.contact');
 Route::get('branches/{branch}/sales-analytics', [BranchController::class, 'getSalesAnalytics'])->middleware('auth')->name('branches.sales-analytics');
 Route::get('/branches/{branch}/check-validity', [BranchController::class, 'checkSaleValidity'])->name('branches.check-validity');
+
+// --- Grupos de clientes/sucursales ---
+Route::get('branches-groups', [BranchController::class, 'groupsIndex'])->middleware('auth')->name('branches.groups.index');
+Route::get('branches-search-group', [BranchController::class, 'searchForGroup'])->middleware('auth')->name('branches.groups.search');
+Route::post('branches/{branch}/group', [BranchController::class, 'addToGroup'])->middleware('auth')->name('branches.groups.add');
+Route::delete('branches/{branch}/group', [BranchController::class, 'removeFromGroup'])->middleware('auth')->name('branches.groups.remove');
+
+// --- Sucursales hijas (matriz) ---
+Route::get('branches/{branch}/child-candidates', [BranchController::class, 'searchChildCandidates'])->middleware('auth')->name('branches.children.candidates');
+Route::post('branches/{branch}/children', [BranchController::class, 'addChildren'])->middleware('auth')->name('branches.children.add');
+
+// --- Datos fiscales propios del cliente ---
+Route::patch('branches/{branch}/fiscal', [BranchController::class, 'updateFiscalData'])->middleware('auth')->name('branches.fiscal.update');
 
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
@@ -575,7 +590,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// eliminacion de archivo desde componente FileView
+// eliminacion de archivos 
 Route::delete('/media/{media}', function (Media $media) {
     try {
         $media->delete(); // Elimina el archivo y su registro
@@ -601,3 +616,18 @@ Route::get('/cerrar-nominas', function () {
     Artisan::call('app:manage-weekly-payroll');
     return 'Comando ejecutado correctamente.';
 });
+
+// Migra las autorizaciones antiguas (guardadas como "updated") al evento "authorized"
+// para que aparezcan en la pestaña de Autorizaciones del historial de acciones.
+//   /migrar-autorizaciones             -> ejecuta la migración
+//   /migrar-autorizaciones?dry_run=1   -> solo cuenta los registros afectados, sin modificar nada
+// Solo puede ejecutarlo el usuario con id 1 (debe haber iniciado sesión).
+Route::get('/migrar-autorizaciones', function () {
+    abort_unless(auth()->check() && auth()->id() === 1, 403);
+
+    Artisan::call('audits:migrate-authorizations', [
+        '--dry-run' => request()->boolean('dry_run'),
+    ]);
+
+    return response(Artisan::output(), 200)->header('Content-Type', 'text/plain');
+})->middleware('auth')->name('audits.migrate-authorizations');

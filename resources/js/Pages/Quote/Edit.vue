@@ -213,8 +213,21 @@
                                             <span class="bg-primary text-white px-2 py-0.5 rounded-full mr-1 text-xs">1</span>
                                             Selecciona el producto base (sin personalización). <span class="font-normal text-gray-500 text-xs ml-1">Ej. Llavero chevrolet (negro) con medallón</span>
                                         </p>
-                                        <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2">
-                                            <el-option class="!w-96" v-for="product in localCatalogProducts" 
+                                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                                            <el-radio-group v-model="productSource" size="small">
+                                                <el-radio-button label="all">
+                                                    <i class="fa-solid fa-boxes-stacked mr-1"></i> Todos los productos
+                                                </el-radio-button>
+                                                <el-radio-button label="client">
+                                                    <i class="fa-solid fa-user-check mr-1"></i> Solo productos del cliente
+                                                </el-radio-button>
+                                            </el-radio-group>
+                                            <span v-if="productSource === 'client'" class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ selectableBaseProducts.length }} producto(s) del cliente disponibles.
+                                            </span>
+                                        </div>
+                                        <el-select @change="handleBaseProductChange" v-model="selectedBaseProductId" filterable placeholder="Buscar producto base" class="w-full md:w-1/2" no-data-text="Sin productos disponibles">
+                                            <el-option class="!w-96" v-for="product in selectableBaseProducts" 
                                                 :key="product.id" 
                                                 :label="`${product.name} (${product.code})`" 
                                                 :value="product.id"
@@ -377,13 +390,29 @@
                                             <p class="text-gray-500 dark:text-gray-300">
                                                 Ubicación: <strong>{{ currentProduct.storages?.[0]?.location ?? 'No asignado' }}</strong>
                                             </p>
-                                            <p class="text-gray-500 dark:text-gray-300">
+                                            <!-- <p class="text-gray-500 dark:text-gray-300">
                                                 Precio base: <strong>${{ formatNumber(currentProduct.base_price) ?? '0.00' }}</strong>
-                                            </p>
+                                            </p> -->
                                             <!-- Precio actual del cliente -->
                                             <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
                                                 Precio actual: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                                             </p>
+
+                                            <!-- Precios especiales por volumen del cliente -->
+                                            <el-tooltip v-if="currentProduct.isClientProduct && currentProduct.volume_prices?.length" placement="right" :teleported="false">
+                                                <template #content>
+                                                    <div class="text-xs max-h-56 overflow-y-auto">
+                                                        <p class="font-semibold mb-1">Precios especiales por volumen</p>
+                                                        <div v-for="(tier, index) in currentProduct.volume_prices" :key="tier.id ?? index" class="flex justify-between gap-4">
+                                                            <span>{{ formatVolumeRange(tier) }}</span>
+                                                            <span class="font-semibold">${{ tier.price }} {{ tier.currency }}</span>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <span class="inline-flex items-center mt-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 underline decoration-dotted cursor-help">
+                                                    <i class="fa-solid fa-layer-group mr-1"></i> Ver precios especiales por volumen
+                                                </span>
+                                            </el-tooltip>
                                         </template>
                                     </div>
                                 </div>
@@ -692,6 +721,8 @@ export default {
             selectedVariantId: null,
             availableVariants: [],
             variantSearchQuery: '', // <- Búsqueda de variantes
+            // Fuente de productos en el selector: 'all' (todos) o 'client' (solo del cliente)
+            productSource: 'all',
 
             currentProduct: {
                 quote_product_id: null,
@@ -712,6 +743,7 @@ export default {
                 customization_details: [],
                 isClientProduct: false,
                 current_price: null,
+                volume_prices: [],
                 show_image: true,
                 media: null,
                 storages: [],
@@ -747,6 +779,17 @@ export default {
     },
     computed: {
         // Filtrar las variantes mostradas según la búsqueda
+        // Productos disponibles en el selector según la fuente elegida (todos o solo del cliente).
+        selectableBaseProducts() {
+            if (this.productSource === 'all') return this.localCatalogProducts;
+
+            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+
+            return this.localCatalogProducts.filter(base =>
+                clientProductIds.has(base.id) ||
+                (base.variants || []).some(variant => clientProductIds.has(variant.id))
+            );
+        },
         filteredVariants() {
             if (!this.variantSearchQuery) {
                 return this.availableVariants;
@@ -919,6 +962,15 @@ export default {
                 this.currentProduct.image_preview = this.form.products[index].image_preview;
             }
 
+            // Refrescar los precios por volumen vigentes del cliente para la previsualización.
+            const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+            if (clientProduct) {
+                this.currentProduct.volume_prices = clientProduct.volume_prices ?? [];
+            }
+            if (!this.currentProduct.volume_prices) {
+                this.currentProduct.volume_prices = [];
+            }
+
             // Restaurar visualmente si se trataba de un producto base o variante
             if (!this.currentProduct.is_custom && this.currentProduct.id) {
                 let foundBase = this.localCatalogProducts.find(p => p.id === this.currentProduct.id);
@@ -969,6 +1021,7 @@ export default {
                 customization_details: [],
                 isClientProduct: false,
                 current_price: null,
+                volume_prices: [],
                 media: null,
                 storages: [],
                 has_customization: false,
@@ -1012,6 +1065,31 @@ export default {
             if (isNaN(num)) return '0.00';
             return new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(num);
         },
+        formatQuantity(value) {
+            const number = Number(value);
+            if (isNaN(number)) return value;
+            return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        },
+        formatVolumeRange(tier) {
+            const min = this.formatQuantity(tier.min_quantity);
+            if (tier.max_quantity === null || tier.max_quantity === undefined) {
+                return `${min} en adelante`;
+            }
+            return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
+        },
+        // Limpia la selección de producto base cuando deja de estar disponible (cambio de fuente).
+        resetBaseProductSelection() {
+            this.selectedBaseProductId = null;
+            this.selectedVariantId = null;
+            this.availableVariants = [];
+            this.variantSearchQuery = '';
+            this.currentProduct.id = null;
+            this.currentProduct.isClientProduct = false;
+            this.currentProduct.current_price = null;
+            this.currentProduct.unit_price = null;
+            this.currentProduct.min_price = 0;
+            this.currentProduct.volume_prices = [];
+        },
         async getProductData() {
             if (!this.currentProduct.id) return;
             this.loadingProductData = true;
@@ -1030,9 +1108,11 @@ export default {
                         this.currentProduct.current_price = (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
                             ? clientProduct.price_history[0].price : clientProduct.base_price;
                         this.currentProduct.unit_price = this.currentProduct.current_price;
+                        this.currentProduct.volume_prices = clientProduct.volume_prices ?? [];
                     } else {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
+                        this.currentProduct.volume_prices = [];
                     }
                     this.currentProduct.min_price = this.currentProduct.unit_price || 0;
                 }
@@ -1176,6 +1256,11 @@ export default {
             this.clientProducts = [];
             this.handleBranchChange(newVal);
             if (newVal) this.fetchClientProducts(newVal);
+        },
+        productSource() {
+            if (this.selectedBaseProductId && !this.selectableBaseProducts.some(p => p.id === this.selectedBaseProductId)) {
+                this.resetBaseProductSelection();
+            }
         },
         branches(newVal) { this.localBranches = [...newVal]; },
         hasLowPrices(newVal) {
