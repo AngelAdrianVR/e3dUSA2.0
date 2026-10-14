@@ -897,6 +897,47 @@ class SaleController extends Controller
     }
 
     /**
+     * Adjunta archivos de OCE (Orden de Compra de Exterior) desde el detalle de la venta.
+     * Los archivos se eliminan con la ruta general `media.delete-file`.
+     */
+    public function uploadOceMedia(Request $request, Sale $sale)
+    {
+        $user = Auth::user();
+
+        $canUpload = $user->hasAnyPermission(['Editar ordenes de venta', 'Crear ordenes de venta'])
+            || (int) $sale->user_id === (int) $user->id;
+
+        abort_unless($canUpload, 403);
+
+        $request->validate([
+            'oce_name' => ['nullable', 'string', 'max:255', 'unique:sales,oce_name,' . $sale->id],
+            'oce_media' => ['required', 'array', 'max:3'],
+            'oce_media.*' => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp', 'max:10000'],
+        ]);
+
+        $currentCount = $sale->getMedia('oce_media')->count();
+        $incoming = count($request->file('oce_media') ?? []);
+
+        if ($currentCount + $incoming > 3) {
+            return back()->withErrors([
+                'oce_media' => 'Máximo 3 archivos de OCE por orden. Elimina alguno antes de subir otro.',
+            ]);
+        }
+
+        $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
+            $fileAdder->toMediaCollection('oce_media');
+        });
+
+        if ($request->filled('oce_name')) {
+            $sale->update(['oce_name' => $request->oce_name]);
+        }
+
+        Log::info("Archivos de OCE adjuntados a la órden #{$sale->id} por el usuario " . auth()->id());
+
+        return back()->with('success', 'Archivo(s) de OCE adjuntados correctamente.');
+    }
+
+    /**
      * Elimina una orden de venta y revierte el stock comprometido.
      */
     public function destroy(Sale $sale)

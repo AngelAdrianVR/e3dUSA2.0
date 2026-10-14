@@ -6,6 +6,26 @@
         <h1 class="text-2xl font-bold text-gray-800 dark:text-white">Calendario de Actividades</h1>
       </header>
 
+      <!-- Pestañas del calendario -->
+      <div v-if="requisitionArrivals?.enabled" class="flex items-center gap-2 mt-4 border-b border-gray-300 dark:border-gray-600">
+        <button @click="activeTab = 'activities'"
+          :class="activeTab === 'activities'
+            ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
+            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          class="px-4 py-2 text-sm transition-colors">
+          <i class="fa-solid fa-calendar-days mr-2"></i> Actividades
+        </button>
+        <button @click="activeTab = 'arrivals'"
+          :class="activeTab === 'arrivals'
+            ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
+            : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+          class="px-4 py-2 text-sm transition-colors">
+          <i class="fa-solid fa-truck-fast mr-2"></i> Arribos de mercancía
+        </button>
+      </div>
+
+      <div v-show="activeTab === 'activities'">
+
       <!-- SECCIÓN DE INVITACIONES PENDIENTES -->
       <div v-if="pendingInvitations.length > 0" class="my-6 p-4 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 rounded-lg">
         <h3 class="font-bold text-lg text-blue-800 dark:text-blue-300 mb-3">Invitaciones Pendientes</h3>
@@ -56,6 +76,11 @@
           </div>
         </div>
       </div>
+      </div>
+
+      <!-- Pestaña: arribos de mercancía (guías de paquetería) -->
+      <ArrivalsCalendar v-if="requisitionArrivals?.enabled" v-show="activeTab === 'arrivals'"
+        :arrivals="requisitionArrivals" />
     </div>
 
     <!-- Drawer para ver detalles -->
@@ -174,17 +199,22 @@
 import AppLayout from "@/Layouts/AppLayout.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
+import ArrivalsCalendar from "./Components/ArrivalsCalendar.vue";
 import { Link, router } from "@inertiajs/vue3";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, addMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage } from 'element-plus';
 
 export default {
-  components: { AppLayout, PrimaryButton, SecondaryButton, Link },
+  components: { AppLayout, PrimaryButton, SecondaryButton, ArrivalsCalendar, Link },
   props: {
     calendarEntries: Array,
     authUserId: Number,
     pendingInvitations: Array,
+    requisitionArrivals: {
+      type: Object,
+      default: () => ({ enabled: false, arrivals: [], undated: [] }),
+    },
   },
   data() {
     return {
@@ -194,6 +224,8 @@ export default {
       weekDays: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
       drawerDirection: 'rtl',
       drawerSize: '400px',
+      // Permite abrir directamente la pestaña de arribos (ej. desde una notificación).
+      activeTab: new URLSearchParams(window.location.search).get('tab') === 'arrivals' ? 'arrivals' : 'activities',
     };
   },
   computed: {

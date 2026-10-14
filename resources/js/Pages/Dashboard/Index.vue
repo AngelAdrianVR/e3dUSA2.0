@@ -29,7 +29,7 @@
                     </div>
 
                     <!-- Required Actions -->
-                    <div v-if="$page.props.auth.user.role === 'Super Administrador' || $page.props.auth.user.role === 'amuel'" class="lg:col-span-3">
+                    <div v-if="showRequiredActions" class="lg:col-span-3">
                         <RequiredActions :actions="requiredActions" />
                     </div>
 
@@ -143,6 +143,32 @@ export default {
     computed: {
         theme() {
             return this.isDark ? 'dark' : 'light';
+        },
+        /**
+         * Accesos rápidos: dirección/almacén y los responsables del módulo
+         * de requisiciones (compras, gerencia de compras, pagos y logística).
+         */
+        showRequiredActions() {
+            const user = this.$page.props.auth.user;
+            const permissions = user.permissions ?? [];
+            const requisitionPermissions = [
+                'Ver requisiciones de compra',
+                'Crear requisiciones de compra',
+                'Editar requisiciones de compra',
+                'Autorizar requisiciones de compra',
+                'Registrar pagos de requisiciones de compra',
+                'Gestionar arribos de requisiciones',
+                'Gestión de almacén',
+                'Gestión de compras',
+                'Gerencia de compras',
+                'Hacer pagos',
+            ];
+
+            if (user.role === 'Super Administrador' || user.role === 'Samuel') {
+                return true;
+            }
+
+            return permissions.some(permission => requisitionPermissions.includes(permission));
         }
     },
     methods: {

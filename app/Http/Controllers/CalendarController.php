@@ -4,10 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\CalendarEntry;
 use App\Models\Event;
+use App\Models\Product;
+use App\Models\Requisition;
+use App\Models\RequisitionItem;
+use App\Models\RequisitionShipment;
 use App\Models\Task;
 use App\Models\User;
 use App\Notifications\EventInvitationNotification;
 use App\Notifications\EventResponseNotification;
+use App\Support\RequisitionPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +59,151 @@ class CalendarController extends Controller
             'calendarEntries' => $calendarEntries,
             'pendingInvitations' => $pendingInvitations, // Pasamos las invitaciones a la vista
             'authUserId' => $authUserId,
+            'requisitionArrivals' => $this->requisitionArrivals(),
         ]);
+    }
+
+    /**
+     * Arribos de mercancía para la pestaña del calendario.
+     *
+     * Cada guía de paquetería genera UNA sola entrada (agrupa todos los productos
+     * que viajan en ella). Los productos con fecha estimada que aún no tienen guía
+     * se muestran como entradas individuales.
+     */
+    private function requisitionArrivals(): array
+    {
+        $canManage = RequisitionPermissions::canManageArrivals(auth()->user());
+
+        $shipments = RequisitionShipment::with([
+            'items:id,requisition_id,product_id,quantity,arrival_status',
+            'items.product:id,name,code',
+            'items.product.media',
+            'items.requisition:id,type,status,branch_id,business_name,product_id,arrival_status',
+            'items.requisition.branch:id,name',
+            'requisitions:id,type,status,branch_id,business_name',
+            'requisitions.branch:id,name',
+        ])->orderBy('created_at', 'desc')->get();
+
+        $arrivals = [];
+        $undated = [];
+
+        foreach ($shipments as $shipment) {
+            $date = $shipment->arrived_at?->toDateString() ?? $shipment->estimated_arrival_date?->toDateString();
+
+            $entry = [
+                'key' => 'shipment-' . $shipment->id,
+                'kind' => 'shipment',
+                'id' => $shipment->id,
+                'title' => $shipment->tracking_number,
+                'subtitle' => $shipment->carrier,
+                'status' => $shipment->status,
+                'color' => $shipment->color,
+                'date' => $date,
+                'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
+                'arrived_at' => $shipment->arrived_at?->toDateTimeString(),
+                'notes' => $shipment->notes,
+                'items' => $shipment->items->map(fn (RequisitionItem $item) => [
+                    'id' => $item->id,
+                    'product' => $item->product?->name ?? 'Mercancía',
+                    'code' => $item->product?->code,
+                    'image_url' => $this->productImageUrl($item->product),
+                    'requisition_id' => $item->requisition_id,
+                    'quantity' => (float) $item->quantity,
+                    'status' => $item->arrival_status,
+                    'color' => $item->arrival_color,
+                    'folio' => $item->requisition?->folio,
+                    'url' => $item->requisition ? route('requisitions.show', $item->requisition->id, false) : null,
+                ])->values()->all(),
+                'requisitions' => $shipment->requisitions->map(fn (Requisition $requisition) => [
+                    'id' => $requisition->id,
+                    'folio' => $requisition->folio,
+                    'type' => $requisition->type,
+                    'status' => $requisition->status,
+                    'label' => $requisition->branch?->name ?? 'Requisición',
+                    'url' => route('requisitions.show', $requisition->id, false),
+                ])->values()->all(),
+            ];
+
+            if ($date) {
+                $arrivals[] = $entry;
+            } else {
+                $undated[] = $entry;
+            }
+        }
+
+        // Productos con fecha de entrega que aún no viajan en ninguna guía.
+        $standaloneItems = RequisitionItem::with([
+            'product:id,name,code',
+            'product.media',
+            'requisition:id,type,status,branch_id,business_name,expected_delivery_date,arrival_status',
+        ])
+            ->whereDoesntHave('shipments')
+            ->whereHas('requisition', fn ($query) => $query
+                ->whereNotNull('expected_delivery_date')
+                ->whereNotIn('status', ['Completada', 'Rechazada']))
+            ->get();
+
+        foreach ($standaloneItems as $item) {
+            $requisition = $item->requisition;
+
+            if (! $requisition) {
+                continue;
+            }
+
+            $arrivals[] = [
+                'key' => 'item-' . $item->id,
+                'kind' => 'item',
+                'id' => $item->id,
+                'title' => $requisition->folio,
+                'subtitle' => $item->product?->name,
+                'status' => $item->arrival_status,
+                'color' => $item->arrival_color,
+                'date' => $requisition->expected_delivery_date->toDateString(),
+                'estimated_arrival_date' => $requisition->expected_delivery_date->toDateString(),
+                'arrived_at' => null,
+                'notes' => null,
+                'items' => [[
+                    'id' => $item->id,
+                    'product' => $item->product?->name ?? 'Mercancía',
+                    'code' => $item->product?->code,
+                    'image_url' => $this->productImageUrl($item->product),
+                    'requisition_id' => $requisition->id,
+                    'quantity' => (float) $item->quantity,
+                    'status' => $item->arrival_status,
+                    'color' => $item->arrival_color,
+                    'folio' => $requisition->folio,
+                    'url' => route('requisitions.show', $requisition->id, false),
+                ]],
+                'requisitions' => [[
+                    'id' => $requisition->id,
+                    'folio' => $requisition->folio,
+                    'type' => $requisition->type,
+                    'status' => $requisition->status,
+                    'label' => $requisition->branch?->name ?? $item->product?->name ?? 'Requisición',
+                    'url' => route('requisitions.show', $requisition->id, false),
+                ]],
+            ];
+        }
+
+        return [
+            'enabled' => true,
+            'can_manage' => $canManage,
+            'arrivals' => $arrivals,
+            'undated' => $undated,
+        ];
+    }
+
+    /**
+     * Imagen del producto de catálogo (resurtido) para el detalle del arribo.
+     */
+    private function productImageUrl(?Product $product): ?string
+    {
+        if (! $product) {
+            return null;
+        }
+
+        return $product->getFirstMediaUrl('images')
+            ?: ($product->media->first()?->original_url ?: null);
     }
 
     public function create(Request $request)

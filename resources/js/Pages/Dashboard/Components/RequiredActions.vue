@@ -45,7 +45,76 @@ export default {
         }
     },
     computed: {
+        userPermissions() {
+            return this.$page.props.auth.user.permissions ?? [];
+        },
+        /**
+         * Los accesos tradicionales se mantienen para dirección/almacén.
+         */
+        isGeneralAdmin() {
+            const role = this.$page.props.auth.user.role;
+
+            return role === 'Super Administrador' || role === 'Samuel';
+        },
+        /**
+         * Accesos rápidos específicos del módulo de requisiciones,
+         * visibles solo si el usuario tiene el permiso correspondiente.
+         */
+        requisitionButtons() {
+            const can = (permissions) => permissions.some(permission => this.userPermissions.includes(permission));
+
+            return [
+                {
+                    label: 'Requisiciones por cotizar',
+                    key: 'requisitions_to_quote',
+                    count: this.actions.requisitions_to_quote || 0,
+                    routeName: route('requisitions.index', { status: 'Pendiente de cotización', view: 'todas' }),
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>`,
+                    visible: can(['Editar requisiciones de compra', 'Gestión de compras']),
+                },
+                {
+                    label: 'Requisiciones por autorizar',
+                    key: 'requisitions_to_authorize',
+                    count: this.actions.requisitions_to_authorize || 0,
+                    routeName: route('requisitions.index', { filter: 'pending_authorization', view: 'todas' }),
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>`,
+                    visible: can(['Autorizar requisiciones de compra', 'Gerencia de compras']),
+                },
+                {
+                    label: 'Pagos pendientes',
+                    key: 'requisitions_pending_payment',
+                    count: this.actions.requisitions_pending_payment || 0,
+                    routeName: route('requisitions.index', { filter: 'pending_payment', view: 'todas' }),
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>`,
+                    visible: can(['Registrar pagos de requisiciones de compra', 'Hacer pagos']),
+                },
+                {
+                    label: 'Arribos en tránsito',
+                    key: 'requisitions_in_transit',
+                    count: this.actions.requisitions_in_transit || 0,
+                    routeName: route('calendar.index') + '?tab=arrivals',
+                    icon: `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h15v13H1z"></path><path d="M16 8h4l3 3v5h-7V8z"></path><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>`,
+                    visible: can(['Gestionar arribos de requisiciones', 'Gestión de compras', 'Gerencia de compras']),
+                },
+            ].filter(button => button.visible);
+        },
         sections() {
+            const sections = [];
+
+            if (this.isGeneralAdmin) {
+                sections.push(...this.adminSections);
+            }
+
+            if (this.requisitionButtons.length > 0) {
+                sections.push({
+                    title: 'Requisiciones de material',
+                    buttons: this.requisitionButtons,
+                });
+            }
+
+            return sections;
+        },
+        adminSections() {
             return [
                 {
                     title: 'Pendientes por autorizar',

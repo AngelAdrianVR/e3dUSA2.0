@@ -258,6 +258,44 @@
                     </ul>
                 </div>
 
+                <!-- Card de Archivos adjuntos de Órden -->
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b dark:border-gray-600 pb-3 mb-4">
+                        <h3 class="text-lg font-semibold">
+                            <i class="fa-regular fa-file-lines mr-2"></i> Archivos de OCE (Orden de Compra)
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <span v-if="oceMediaFiles.length" class="text-xs text-gray-500 dark:text-gray-400">
+                                {{ oceMediaFiles.length }}/3 archivo(s)
+                            </span>
+                            <SecondaryButton v-if="canUploadOce && oceMediaFiles.length < 3" @click="triggerOceInput">
+                                <i class="fa-solid fa-paperclip mr-2"></i>
+                                {{ oceMediaFiles.length ? 'Agregar OCE' : 'Adjuntar OCE' }}
+                            </SecondaryButton>
+                            <input ref="oceInput" type="file" class="hidden" multiple
+                                accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xml,.txt"
+                                @change="handleOceUpload" />
+                        </div>
+                    </div>
+
+                    <div v-if="oceMediaFiles.length" class="grid grid-cols-2 gap-3">
+                        <FileView v-for="file in oceMediaFiles" :key="file.id" :file="file" :deletable="true"
+                            @delete-file="deleteFile($event)" />
+                    </div>
+                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                        <template v-if="canUploadOce">
+                            Sin archivos de OCE. Usa <strong>Adjuntar OCE</strong> para subir el archivo.
+                        </template>
+                        <template v-else>
+                            Sin archivos de OCE. Solicita a ventas que lo adjunte.
+                        </template>
+                    </p>
+
+                    <p v-if="oceMediaFiles.length" class="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                        Haz clic en el archivo para abrirlo en una pestaña nueva; usa el ícono de papelera para eliminarlo.
+                    </p>
+                </div>
+
                 <!-- Card de Resumen de Producción -->
                 <div v-if="sale.production_summary && sale.production_summary.total_productions > 0"
                     class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-4">
@@ -325,17 +363,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z" />
                         </svg> Imprimir Orden de Producción
                     </button>
-                </div>
-
-                <!-- Card de Archivos adjuntos de Órden -->
-                <div v-if="oceMediaFiles.length" class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
-                    <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">
-                        <i class="fa-regular fa-file-lines mr-2"></i> Archivos de OCE (Orden de Compra)
-                    </h3>
-                    <div class="grid grid-cols-2 gap-3 col-span-full">
-                        <FileView v-for="file in oceMediaFiles" :key="file.id" :file="file" :deletable="true"
-                            @delete-file="deleteFile($event)" />
-                    </div>
                 </div>
 
                 <!-- Card de Información de Envío (paquetería, guía, fecha promesa y tarifas sugeridas) -->
@@ -654,7 +681,7 @@ import DialogModal from "@/Components/DialogModal.vue";
 import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue"; // <-- NUEVO COMPONENTE
 import ShippingTrackingCard from "@/Components/MyComponents/ShippingTrackingCard.vue"; // <-- Tarjeta de envío reutilizable
 import AuthorizedOrderLockedModal from "@/Components/MyComponents/AuthorizedOrderLockedModal.vue";
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
@@ -766,6 +793,15 @@ export default {
         oceMediaFiles() {
             return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
         },
+        // Permiso para adjuntar OCE: edición/creación de órdenes o el propio vendedor dueño de la orden.
+        canUploadOce() {
+            const user = this.$page.props.auth.user;
+            const permissions = user?.permissions ?? [];
+
+            return permissions.includes('Editar ordenes de venta')
+                || permissions.includes('Crear ordenes de venta')
+                || (Number(this.sale.user_id) === Number(user?.id));
+        },
         formattedDate() {
             if (!this.sale.created_at) return 'N/A';
             const date = new Date(this.sale.created_at);
@@ -873,6 +909,22 @@ export default {
         },
         deleteFile(fileId) {
             this.sale.media = this.sale.media.filter(m => m.id !== fileId);
+        },
+        triggerOceInput() {
+            this.$refs.oceInput?.click();
+        },
+        handleOceUpload(event) {
+            const files = Array.from(event.target.files || []);
+
+            if (!files.length) return;
+
+            router.post(route('sales.oce-media', this.sale.id), { oce_media: files }, {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Archivo(s) de OCE adjuntados.'),
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudieron subir los archivos.'),
+                onFinish: () => { event.target.value = ''; },
+            });
         },
         openExchangeModal() {
             this.exchangeForm.reset();

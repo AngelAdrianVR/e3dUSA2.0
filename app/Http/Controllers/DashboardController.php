@@ -16,9 +16,12 @@ use App\Models\ProductionTask;
 use App\Models\ProjectTask;
 use App\Models\Purchase;
 use App\Models\Quote;
+use App\Models\Requisition;
+use App\Models\RequisitionShipment;
 use App\Models\Sale;
 use App\Models\SampleTracking;
 use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -132,6 +135,31 @@ class DashboardController extends Controller
             ];
         }
         
+        // Requisiciones de material: accesos rápidos según el permiso del usuario.
+        // - Compras ve lo que falta cotizar.
+        // - Gerencia de compras lo que falta autorizar.
+        // - Pagos/Tesorería las requisiciones pendientes de pago.
+        // - Logística los arribos que siguen en tránsito.
+        if ($authUser->hasAnyPermission(RequisitionPermissions::all())) {
+            $requiredActions = $requiredActions ?? [];
+
+            if (RequisitionPermissions::canEdit($authUser)) {
+                $requiredActions['requisitions_to_quote'] = Requisition::where('status', 'Pendiente de cotización')->count();
+            }
+
+            if (RequisitionPermissions::canAuthorize($authUser)) {
+                $requiredActions['requisitions_to_authorize'] = Requisition::whereIn('status', ['Pendiente de autorización', 'Pendiente de negociación'])->count();
+            }
+
+            if (RequisitionPermissions::canRegisterPayments($authUser)) {
+                $requiredActions['requisitions_pending_payment'] = Requisition::where('status', 'Pendiente de pago')->count();
+            }
+
+            if (RequisitionPermissions::canManageArrivals($authUser)) {
+                $requiredActions['requisitions_in_transit'] = RequisitionShipment::whereIn('status', ['Pendiente', 'En tránsito'])->count();
+            }
+        }
+
         // Employee Performance
         // --- Performance Data by Role ---
         $productionPerformance = $this->getPerformanceData('Auxiliar de producción');
