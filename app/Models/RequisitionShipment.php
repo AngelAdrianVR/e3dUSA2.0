@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RequisitionShipment extends Model
 {
@@ -62,6 +63,14 @@ class RequisitionShipment extends Model
         return $this->belongsToMany(Requisition::class, 'requisition_item_shipment', 'requisition_shipment_id', 'requisition_id')
             ->withTimestamps()
             ->distinct();
+    }
+
+    /**
+     * Actualizaciones / eventos de seguimiento de la guía.
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(RequisitionShipmentEvent::class)->orderBy('event_date');
     }
 
     /**

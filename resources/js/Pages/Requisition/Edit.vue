@@ -18,6 +18,10 @@
                 <p class="text-xs text-red-500 dark:text-red-400 mt-1">
                     Al guardar los cambios la requisición se re-trabaja conservando el folio {{ requisition.folio }}.
                 </p>
+                <p class="text-sm font-semibold text-red-700 dark:text-red-300 mt-2">
+                    <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                    Edita la requisición para corregirla y volver a habilitar las acciones del flujo.
+                </p>
             </div>
         </div>
 

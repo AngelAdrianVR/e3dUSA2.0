@@ -75,6 +75,7 @@
                         </div>
 
                         <el-table :data="requisitions.data" style="width: 100%" stripe @row-click="handleRowClick"
+                            :row-class-name="rowClassName"
                             class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
                             <el-table-column label="Folio" width="120">
                                 <template #default="scope">
@@ -103,27 +104,62 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Cliente / Producto" min-width="200">
+                            <el-table-column label="Cliente" min-width="170">
                                 <template #default="scope">
-                                    <div v-if="scope.row.branch" class="text-sm">
-                                        <p class="font-semibold text-gray-700 dark:text-gray-200">{{ scope.row.branch.name }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ scope.row.business_name ?? 'Sin razón social' }}</p>
-                                    </div>
-                                    <div v-else-if="scope.row.items?.length" class="text-sm">
-                                        <p class="font-semibold text-gray-700 dark:text-gray-200">{{ itemsTitle(scope.row) }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ itemsDetail(scope.row) }}
+                                    <div v-if="scope.row.branch" class="text-sm min-w-0">
+                                        <p class="font-semibold text-gray-700 dark:text-gray-200 truncate"
+                                            :title="scope.row.branch.name">{{ scope.row.branch.name }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate"
+                                            :title="scope.row.business_name ?? ''">
+                                            {{ scope.row.business_name ?? 'Sin razón social' }}
                                         </p>
                                     </div>
+                                    <span v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                        N/A - Resurtido
+                                    </span>
+                                </template>
+                            </el-table-column>
+
+                            <el-table-column label="Producto / Cantidad" min-width="210">
+                                <template #default="scope">
+                                    <el-tooltip v-if="hasProducts(scope.row)" placement="top" effect="dark" :show-after="150">
+                                        <template #content>
+                                            <div class="space-y-1.5 py-0.5 max-h-72 max-w-md overflow-y-auto">
+                                                <p v-if="productRows(scope.row).length > 1"
+                                                    class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                    {{ productRows(scope.row).length }} productos solicitados
+                                                </p>
+                                                <div v-for="(line, index) in productRows(scope.row)" :key="index"
+                                                    class="flex items-start justify-between gap-6 leading-snug py-0.5">
+                                                    <span class="text-xs text-gray-200">{{ line.name }}</span>
+                                                    <span class="text-xs font-semibold text-gray-100 bg-white/10 rounded px-1.5 py-0.5 shrink-0">
+                                                        {{ line.quantity }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </template>
+
+                                        <div class="text-sm min-w-0">
+                                            <p class="font-semibold text-gray-700 dark:text-gray-200 truncate">
+                                                {{ productName(scope.row) }}
+                                            </p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                <span v-if="extraProductsLabel(scope.row)">
+                                                    {{ extraProductsLabel(scope.row) }}
+                                                </span>
+                                                Cantidad: {{ formatQuantity(productQuantity(scope.row)) }}
+                                            </p>
+                                        </div>
+                                    </el-tooltip>
                                     <span v-else class="text-xs text-gray-400">N/A</span>
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Cantidad" width="105">
+                            <!-- <el-table-column label="Cantidad" width="105">
                                 <template #default="scope">
                                     {{ formatQuantity(scope.row.quantity) }}
                                 </template>
-                            </el-table-column>
+                            </el-table-column> -->
 
                             <el-table-column label="Prioridad" width="105">
                                 <template #default="scope">
@@ -137,13 +173,16 @@
                             <el-table-column label="Frecuencia" width="150">
                                 <template #default="scope">
                                     <div @click.stop>
+                                        <!-- La frecuencia solo aplica a requisiciones de vendedor -->
                                         <el-select v-if="scope.row.can?.edit_frequency" v-model="scope.row.sale_frequency"
                                             size="small" placeholder="Sin definir" clearable class="w-full"
                                             @change="saveFrequency(scope.row)">
                                             <el-option v-for="frequency in salesFrequencies" :key="frequency"
                                                 :label="frequency" :value="frequency" />
                                         </el-select>
-                                        <span v-else class="text-xs">{{ scope.row.sale_frequency ?? '—' }}</span>
+                                        <span v-else class="text-xs">
+                                            {{ frequencyLabel(scope.row) }}
+                                        </span>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -181,7 +220,7 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Montos" width="170">
+                            <el-table-column label="Monto total" width="170">
                                 <template #default="scope">
                                     <div class="text-xs space-y-1">
                                         <p v-if="scope.row.quoted_cost">
@@ -357,25 +396,53 @@ export default {
                 onError: () => ElMessage.error('No se pudo eliminar la requisición.'),
             });
         },
-        itemsTitle(row) {
+        // --- Columna Producto / Cantidad ---------------------------------
+        hasProducts(row) {
+            return Boolean(row.items?.length) || Boolean(row.product);
+        },
+        productName(row) {
+            const item = (row.items ?? [])[0];
+
+            return item?.product?.name ?? item?.description ?? row.product?.name ?? 'Mercancía';
+        },
+        productQuantity(row) {
+            const item = (row.items ?? [])[0];
+
+            return item ? item.quantity : row.quantity;
+        },
+        extraProductsLabel(row) {
+            const extra = (row.items?.length ?? 0) - 1;
+
+            return extra > 0 ? `+${extra} producto(s)` : '';
+        },
+        // Detalle de cada partida para el tooltip: nombre y cantidad por renglón.
+        productRows(row) {
             const items = row.items ?? [];
 
-            if (items.length === 1) {
-                return items[0].product?.name ?? 'Mercancía';
+            if (!items.length) {
+                return [{
+                    name: row.product?.name ?? 'Mercancía',
+                    quantity: this.formatQuantity(row.quantity),
+                }];
             }
 
-            return `${items.length} productos`;
+            return items.map(item => ({
+                name: item.product?.name ?? item.description ?? 'Mercancía',
+                quantity: this.formatQuantity(item.quantity),
+            }));
         },
-        itemsDetail(row) {
-            const items = row.items ?? [];
-            const names = items
-                .slice(0, 2)
-                .map(item => item.product?.name ?? 'Mercancía')
-                .join(', ');
-            const extra = items.length > 2 ? ` +${items.length - 2} más` : '';
-            const reason = row.reason ? ` · ${row.reason}` : '';
+        // La frecuencia de venta solo aplica a requisiciones levantadas por vendedor.
+        frequencyLabel(row) {
+            if (row.sale_frequency) return row.sale_frequency;
 
-            return `${names}${extra}${reason}`;
+            return row.origin === 'Almacén' ? 'N/A' : '—';
+        },
+        // Filas con incidencia (rojo tenue) y arribo confirmado (verde tenue).
+        rowClassName({ row }) {
+            if (row.arrival_status === 'Incidencia') return 'req-row-incidencia';
+            if (row.arrival_status === 'Arribado') return 'req-row-arribado';
+
+            return '';
         },
         formatDate(dateString) {
             if (!dateString) return '—';
@@ -427,3 +494,40 @@ export default {
     },
 };
 </script>
+
+<style>
+/* Filas del listado de requisiciones según el estatus de arribo.
+   Los estilos de el-table se renderizan fuera del scope del componente,
+   por eso el bloque no es scoped. */
+.el-table .req-row-incidencia td.el-table__cell {
+    background-color: #fee2e2 !important;
+}
+
+.el-table .req-row-arribado td.el-table__cell {
+    background-color: #dcfce7 !important;
+}
+
+.dark .el-table .req-row-incidencia td.el-table__cell {
+    background-color: rgba(239, 68, 68, 0.16) !important;
+}
+
+.dark .el-table .req-row-arribado td.el-table__cell {
+    background-color: rgba(34, 197, 94, 0.16) !important;
+}
+
+.el-table .req-row-incidencia:hover > td.el-table__cell {
+    background-color: #fecaca !important;
+}
+
+.el-table .req-row-arribado:hover > td.el-table__cell {
+    background-color: #bbf7d0 !important;
+}
+
+.dark .el-table .req-row-incidencia:hover > td.el-table__cell {
+    background-color: rgba(239, 68, 68, 0.26) !important;
+}
+
+.dark .el-table .req-row-arribado:hover > td.el-table__cell {
+    background-color: rgba(34, 197, 94, 0.26) !important;
+}
+</style>

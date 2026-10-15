@@ -12,6 +12,16 @@
                     <span class="inline-block w-3.5 h-3.5 rounded-full" :style="{ backgroundColor: color }"></span>
                     <span class="text-sm text-gray-600 dark:text-gray-300">{{ status }}</span>
                 </div>
+                <div class="flex items-center gap-4 border-l border-gray-300 dark:border-gray-600 pl-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-flag text-gray-500 dark:text-gray-400"></i>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Fecha tentativa de arribo</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-truck-fast text-gray-500 dark:text-gray-400"></i>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Actualización / evento</span>
+                    </div>
+                </div>
                 <p class="text-xs text-gray-400 dark:text-gray-500 ml-auto">
                     Destino: Guadalajara (GDL). Una guía agrupa todas las requisiciones que viajan en ella.
                 </p>
@@ -38,9 +48,23 @@
                         </svg>
                     </button>
                 </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ arrivals.arrivals.length }} arribo(s) programado(s)
-                </p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <el-input v-model="search" clearable placeholder="Buscar folio de requisición o guía" class="!w-72"
+                        @keyup.enter="searchArrival" @clear="clearHighlight">
+                        <template #prefix>
+                            <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                        </template>
+                        <template #append>
+                            <el-button @click="searchArrival">Buscar</el-button>
+                        </template>
+                    </el-input>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        {{ arrivals.arrivals.length }} entrada(s) programada(s)
+                    </p>
+                    <el-button v-if="canManage" type="primary" size="small" @click="openEventDialog()">
+                        <i class="fa-solid fa-plus mr-2"></i> Registrar actualización / evento
+                    </el-button>
+                </div>
             </div>
 
             <!-- Calendario -->
@@ -51,24 +75,33 @@
                 </div>
 
                 <div v-for="day in calendarDays" :key="day.date"
-                    :class="['relative min-h-[120px] p-2 bg-white dark:bg-gray-800 transition-colors', { 'bg-gray-50 dark:bg-gray-900': !day.isCurrentMonth }]">
+                    @click="openEventDialog(day.date)"
+                    :title="canManage ? 'Registrar actualización / evento en este día' : null"
+                    :class="['relative min-h-[120px] p-2 bg-white dark:bg-gray-800 transition-colors',
+                        { 'bg-gray-50 dark:bg-gray-900': !day.isCurrentMonth },
+                        dayHasHighlight(day.date) ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/70 dark:bg-blue-900/20' : '',
+                        canManage ? 'cursor-pointer hover:bg-blue-50/60 dark:hover:bg-slate-700/40' : '']">
                     <span
                         :class="['font-semibold', day.isToday ? 'bg-blue-600 text-white rounded-full h-7 w-7 flex items-center justify-center' : 'text-gray-700 dark:text-gray-200']">
                         {{ day.dayNumber }}
                     </span>
                     <div class="mt-2 space-y-1">
-                        <div v-for="entry in entriesByDay[day.date]" :key="entry.key"
-                            @click="selectedEntry = entry"
-                            class="px-2 py-1 rounded-md text-xs font-medium cursor-pointer truncate flex items-center gap-2 text-white transition-transform hover:scale-[1.02]"
-                            :style="{ backgroundColor: entry.color }">
-                            <i :class="entryIcon(entry)"></i>
-                            <span class="truncate">
-                                {{ entryLabel(entry) }}
-                                <template v-if="entry.kind === 'shipment' && entry.requisitions.length > 1">
-                                    ({{ entry.requisitions.length }})
-                                </template>
-                            </span>
-                        </div>
+                        <el-tooltip v-for="entry in entriesByDay[day.date]" :key="entry.key"
+                            :content="entryTooltip(entry)" placement="top" effect="dark" :show-after="200">
+                            <div @click.stop="selectedEntry = entry" :data-entry-key="entry.key"
+                                class="px-2 py-1 rounded-md text-xs font-medium cursor-pointer truncate flex items-center gap-2 text-white transition-transform hover:scale-[1.02]"
+                                :class="[entry.kind === 'event' ? 'ring-1 ring-white/40' : '',
+                                    entry.key === highlightKey ? 'arrivals-highlight' : '']"
+                                :style="{ backgroundColor: entry.color }">
+                                <i :class="entryIcon(entry)"></i>
+                                <span class="truncate">
+                                    {{ entryLabel(entry) }}
+                                    <template v-if="entry.kind === 'shipment' && entry.requisitions?.length > 1">
+                                        ({{ entry.requisitions.length }})
+                                    </template>
+                                </span>
+                            </div>
+                        </el-tooltip>
                     </div>
                 </div>
             </div>
@@ -83,6 +116,7 @@
                         class="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2 cursor-pointer"
                         @click="selectedEntry = entry">
                         <span class="inline-block w-3 h-3 rounded-full" :style="{ backgroundColor: entry.color }"></span>
+                        <i :class="[entryIcon(entry), 'text-gray-400']"></i>
                         <span class="font-mono">{{ entryLabel(entry) }}</span>
                         <span class="text-xs text-gray-400">{{ entry.subtitle }}</span>
                         <span class="text-xs">· {{ entry.status }}</span>
@@ -92,131 +126,257 @@
         </template>
 
         <!-- Detalle del arribo -->
-        <el-drawer v-model="drawerOpen" :title="selectedEntry?.title ?? 'Detalle de arribo'" size="480px">
-            <div v-if="selectedEntry" class="p-4 space-y-4">
-                <div class="flex items-center gap-2">
+        <el-drawer v-model="drawerOpen" :title="selectedEntry?.title ?? 'Detalle de arribo'" size="576px">
+            <div v-if="selectedEntry" class="arrivals-detail p-4 space-y-4">
+                <!-- Encabezado: estatus y tipo de entrada -->
+                <div class="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
                     <span class="inline-block w-4 h-4 rounded-full" :style="{ backgroundColor: selectedEntry.color }"></span>
                     <span class="font-semibold text-gray-800 dark:text-gray-200">{{ selectedEntry.status }}</span>
-                    <el-tag size="small" :type="selectedEntry.kind === 'shipment' ? 'primary' : 'info'">
-                        {{ selectedEntry.kind === 'shipment' ? 'Guía de paquetería' : (selectedEntry.kind === 'item' ? 'Producto' : 'Requisición') }}
+                    <el-tag size="small" :type="kindTagType(selectedEntry)">
+                        {{ kindLabel(selectedEntry) }}
                     </el-tag>
+                    <span class="ml-auto text-xs text-gray-500 dark:text-gray-400">
+                        {{ formatDate(selectedEntry.date) }}
+                    </span>
                 </div>
 
-                <div v-if="selectedEntry.kind === 'shipment'" class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Número de guía</p>
-                        <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Paquetería</p>
-                        <p class="dark:text-gray-200">{{ selectedEntry.subtitle ?? 'N/A' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Arribo estimado</p>
-                        <p class="dark:text-gray-200">{{ formatDate(selectedEntry.estimated_arrival_date) }}</p>
-                    </div>
-                    <div>
-                        <p class="text-gray-500 dark:text-gray-400">Arribo confirmado</p>
-                        <p class="dark:text-gray-200">{{ selectedEntry.arrived_at ? formatDateTime(selectedEntry.arrived_at) : 'Pendiente' }}</p>
-                    </div>
-                    <div v-if="selectedEntry.notes" class="col-span-2">
-                        <p class="text-gray-500 dark:text-gray-400">Notas</p>
-                        <p class="dark:text-gray-200 whitespace-pre-line">{{ selectedEntry.notes }}</p>
-                    </div>
+                <el-collapse v-model="openSections">
+                    <!-- Detalles generales -->
+                    <el-collapse-item name="general" title="Detalles generales">
+                        <!-- Actualización / evento -->
+                        <div v-if="selectedEntry.kind === 'event'" class="space-y-3 text-sm px-1">
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Guía</p>
+                                <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Fecha del evento</p>
+                                <p class="dark:text-gray-200">{{ formatDate(selectedEntry.date) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Descripción</p>
+                                <p class="dark:text-gray-200 whitespace-pre-line">{{ selectedEntry.description }}</p>
+                            </div>
+                            <div v-if="selectedEntry.created_by_name">
+                                <p class="text-gray-500 dark:text-gray-400">Registrado por</p>
+                                <p class="dark:text-gray-200">{{ selectedEntry.created_by_name }}</p>
+                            </div>
+                            <div v-if="creatorNames.length">
+                                <p class="text-gray-500 dark:text-gray-400">Levantada por</p>
+                                <p class="dark:text-gray-200">
+                                    <i class="fa-solid fa-user text-gray-400 mr-1"></i>
+                                    {{ creatorNames.join(' · ') }}
+                                </p>
+                            </div>
+                            <div v-if="canManage" class="flex justify-end pt-2">
+                                <el-button type="danger" plain size="small" :loading="deleting" @click="deleteEvent(selectedEntry)">
+                                    <i class="fa-solid fa-trash-can mr-2"></i> Eliminar actualización
+                                </el-button>
+                            </div>
+                        </div>
+
+                        <!-- Guía de paquetería -->
+                        <div v-else class="grid grid-cols-2 gap-4 text-sm px-1">
+                            <div v-if="selectedEntry.kind === 'item'">
+                                <p class="text-gray-500 dark:text-gray-400">Requisición</p>
+                                <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
+                            </div>
+                            <div v-else>
+                                <p class="text-gray-500 dark:text-gray-400">Número de guía</p>
+                                <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Paquetería</p>
+                                <p class="dark:text-gray-200">{{ selectedEntry.subtitle ?? 'N/A' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Fecha tentativa de arribo</p>
+                                <p class="dark:text-gray-200">
+                                    <i class="fa-solid fa-flag text-gray-400 mr-1"></i>
+                                    {{ formatDate(selectedEntry.estimated_arrival_date) }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-gray-500 dark:text-gray-400">Arribo confirmado</p>
+                                <p class="dark:text-gray-200">
+                                    {{ selectedEntry.arrived_at ? formatDateTime(selectedEntry.arrived_at) : 'Pendiente' }}
+                                </p>
+                            </div>
+                            <div v-if="creatorNames.length" class="col-span-2">
+                                <p class="text-gray-500 dark:text-gray-400">Levantada por</p>
+                                <p class="dark:text-gray-200">
+                                    <i class="fa-solid fa-user text-gray-400 mr-1"></i>
+                                    {{ creatorNames.join(' · ') }}
+                                </p>
+                            </div>
+                            <div v-if="selectedEntry.notes" class="col-span-2">
+                                <p class="text-gray-500 dark:text-gray-400">Notas de la guía</p>
+                                <p class="dark:text-gray-200 whitespace-pre-line">{{ selectedEntry.notes }}</p>
+                            </div>
+                        </div>
+                    </el-collapse-item>
+
+                    <!-- Actualizaciones / eventos (plegado por default) -->
+                    <el-collapse-item v-if="selectedEntry.events?.length" name="events">
+                        <template #title>
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-truck-fast"></i>
+                                Actualizaciones / eventos ({{ selectedEntry.events.length }})
+                            </span>
+                        </template>
+                        <ul class="space-y-2 px-1">
+                            <li v-for="event in selectedEntry.events" :key="event.id"
+                                class="text-xs text-gray-600 dark:text-gray-300 border-l-2 pl-3 py-0.5"
+                                :style="{ borderColor: selectedEntry.color }">
+                                <span class="font-semibold">{{ formatDate(event.date) }}</span> ·
+                                {{ event.description }}
+                                <span v-if="event.created_by_name" class="text-gray-400"> — {{ event.created_by_name }}</span>
+                            </li>
+                        </ul>
+                    </el-collapse-item>
+
+                    <!-- Productos en el arribo -->
+                    <el-collapse-item name="products"
+                        :title="`Productos en este arribo (${selectedEntry.items?.length ?? 0})`">
+                        <ul class="space-y-2 px-1">
+                            <li v-for="item in selectedEntry.items" :key="item.id"
+                                class="border border-gray-200 dark:border-slate-700 rounded-lg p-3">
+                                <div class="flex justify-between items-center gap-3">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <el-image v-if="item.image_url" :src="item.image_url" fit="cover"
+                                            :preview-src-list="productImages" :initial-index="previewIndex(item)"
+                                            preview-teleported hide-on-click-modal
+                                            class="size-14 rounded-lg border border-gray-200 dark:border-slate-700 cursor-pointer shrink-0"
+                                            :alt="item.product" />
+                                        <div class="min-w-0">
+                                            <p class="font-semibold text-gray-800 dark:text-gray-200">{{ item.product }}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                <span v-if="item.code">{{ item.code }} · </span>
+                                                {{ item.quantity }} pieza(s)
+                                                <template v-if="item.folio">
+                                                    · <a :href="item.url" class="text-primary hover:underline font-mono">{{ item.folio }}</a>
+                                                </template>
+                                            </p>
+                                            <p v-if="item.requester" class="text-xs text-gray-500 dark:text-gray-400">
+                                                <i class="fa-solid fa-user mr-1"></i> Solicitó: {{ item.requester }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 shrink-0">
+                                        <span class="inline-block w-3 h-3 rounded-full"
+                                            :style="{ backgroundColor: item.color ?? '#9CA3AF' }"></span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.status }}</span>
+                                    </div>
+                                </div>
+                            </li>
+                            <li v-if="!selectedEntry.items?.length" class="text-xs text-gray-400">
+                                Sin detalle de productos.
+                            </li>
+                        </ul>
+                    </el-collapse-item>
+
+                    <!-- Requisiciones involucradas -->
+                    <el-collapse-item v-if="selectedEntry.requisitions?.length" name="requisitions"
+                        :title="`Requisiciones en este arribo (${selectedEntry.requisitions?.length ?? 0})`">
+                        <ul class="space-y-2 px-1">
+                            <li v-for="requisition in selectedEntry.requisitions" :key="requisition.id"
+                                class="border border-gray-200 dark:border-slate-700 rounded-lg p-3">
+                                <div class="flex justify-between items-center">
+                                    <a :href="requisition.url" class="font-mono font-semibold text-primary hover:underline">
+                                        {{ requisition.folio }}
+                                    </a>
+                                    <el-tag size="small" :type="requisition.type === 'Importación' ? 'primary' : 'success'">
+                                        {{ requisition.type }}
+                                    </el-tag>
+                                </div>
+                                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ requisition.label }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Estatus: {{ requisition.status }}</p>
+                                <p v-if="requisition.creator" class="text-xs text-gray-500 dark:text-gray-400">
+                                    <i class="fa-solid fa-user mr-1"></i> Levantada por: {{ requisition.creator }}
+                                </p>
+                            </li>
+                        </ul>
+                    </el-collapse-item>
+
+                    <!-- Actualización del arribo (requiere permiso de gestión de arribos) -->
+                    <el-collapse-item v-if="canManage && selectedEntry.kind !== 'event'" name="update">
+                        <template #title>
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-pen-to-square text-gray-400"></i> Actualizar arribo
+                            </span>
+                        </template>
+                        <div class="space-y-4 px-1">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Estatus</p>
+                                    <el-select v-model="arrivalForm.status" class="w-full">
+                                        <el-option v-for="status in statuses" :key="status" :label="status" :value="status" />
+                                    </el-select>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha tentativa de arribo</p>
+                                    <el-date-picker v-model="arrivalForm.date" type="date" value-format="YYYY-MM-DD"
+                                        placeholder="Selecciona la fecha" class="w-full" />
+                                </div>
+                            </div>
+                            <div v-if="selectedEntry.kind === 'shipment'">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Notas de la guía</p>
+                                <textarea v-model="arrivalForm.notes" rows="2"
+                                    class="w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
+                                    placeholder="Ej. Contiene 3 cajas, pendiente de aduana..."></textarea>
+                                <p class="text-[11px] text-gray-400 mt-1">
+                                    La nota se muestra junto al número de guía en el calendario.
+                                </p>
+                            </div>
+                            <div class="flex justify-end">
+                                <el-button type="primary" :loading="saving" @click="saveArrival">Guardar cambios</el-button>
+                            </div>
+                        </div>
+                    </el-collapse-item>
+                </el-collapse>
+            </div>
+        </el-drawer>
+
+        <!-- Registro de actualizaciones / eventos de una guía -->
+        <el-dialog v-model="eventModal" title="Registrar actualización / evento" width="560" :center="true">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Guía *</label>
+                    <el-select v-model="eventForm.shipment_id" filterable clearable class="w-full mt-1"
+                        placeholder="Busca por número de guía o paquetería">
+                        <el-option v-for="option in shipmentOptions" :key="option.id" :value="option.id"
+                            :label="`${option.tracking_number} · ${option.carrier ?? 'N/A'} (${option.status})`" />
+                    </el-select>
+                    <p v-if="!shipmentOptions.length" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        Todavía no hay guías registradas en el calendario.
+                    </p>
                 </div>
 
                 <div>
-                    <p class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Productos en este arribo ({{ selectedEntry.items?.length ?? 0 }})
-                    </p>
-                    <ul class="space-y-2">
-                        <li v-for="item in selectedEntry.items" :key="item.id"
-                            class="border border-gray-200 dark:border-slate-700 rounded-lg p-3">
-                            <div class="flex justify-between items-center gap-3">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <el-image v-if="item.image_url" :src="item.image_url" fit="cover"
-                                        :preview-src-list="productImages" :initial-index="previewIndex(item)"
-                                        preview-teleported hide-on-click-modal
-                                        class="size-14 rounded-lg border border-gray-200 dark:border-slate-700 cursor-pointer shrink-0"
-                                        :alt="item.product" />
-                                    <div class="min-w-0">
-                                        <p class="font-semibold text-gray-800 dark:text-gray-200">{{ item.product }}</p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            <span v-if="item.code">{{ item.code }} · </span>
-                                            {{ item.quantity }} pieza(s)
-                                            <template v-if="item.folio">
-                                                · <a :href="item.url" class="text-primary hover:underline font-mono">{{ item.folio }}</a>
-                                            </template>
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center gap-2 shrink-0">
-                                    <span class="inline-block w-3 h-3 rounded-full"
-                                        :style="{ backgroundColor: item.color ?? '#9CA3AF' }"></span>
-                                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ item.status }}</span>
-                                </div>
-                            </div>
-                        </li>
-                        <li v-if="!selectedEntry.items?.length" class="text-xs text-gray-400">
-                            Sin detalle de productos.
-                        </li>
-                    </ul>
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Fecha del evento *</label>
+                    <el-date-picker v-model="eventForm.event_date" type="date" value-format="YYYY-MM-DD"
+                        placeholder="Selecciona la fecha" class="w-full mt-1" />
                 </div>
 
-                <div v-if="selectedEntry.requisitions?.length">
-                    <p class="font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Requisiciones en este arribo ({{ selectedEntry.requisitions.length }})
+                <div>
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Descripción *</label>
+                    <textarea v-model="eventForm.description" rows="3"
+                        class="w-full mt-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
+                        placeholder="Ej. La mercancía llegó a GDL y quedó en resguardo de aduana."></textarea>
+                    <p class="text-[11px] text-gray-400 mt-1">
+                        La actualización se pinta en el día seleccionado, distinta de la fecha tentativa de arribo.
                     </p>
-                    <ul class="space-y-2">
-                        <li v-for="requisition in selectedEntry.requisitions" :key="requisition.id"
-                            class="border border-gray-200 dark:border-slate-700 rounded-lg p-3">
-                            <div class="flex justify-between items-center">
-                                <a :href="requisition.url" class="font-mono font-semibold text-primary hover:underline">
-                                    {{ requisition.folio }}
-                                </a>
-                                <el-tag size="small" :type="requisition.type === 'Importación' ? 'primary' : 'success'">
-                                    {{ requisition.type }}
-                                </el-tag>
-                            </div>
-                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">{{ requisition.label }}</p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">Estatus: {{ requisition.status }}</p>
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Actualización del arribo (requiere permiso de gestión de arribos) -->
-                <div v-if="canManage" class="border-t border-dashed border-gray-200 dark:border-slate-700 pt-4 space-y-3">
-                    <p class="font-semibold text-gray-700 dark:text-gray-300">
-                        <i class="fa-solid fa-pen-to-square mr-2"></i> Actualizar arribo
-                    </p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Estatus</p>
-                            <el-select v-model="arrivalForm.status" class="w-full">
-                                <el-option v-for="status in statuses" :key="status" :label="status" :value="status" />
-                            </el-select>
-                        </div>
-                        <div>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha tentativa</p>
-                            <el-date-picker v-model="arrivalForm.date" type="date" value-format="YYYY-MM-DD"
-                                placeholder="Selecciona la fecha" class="w-full" />
-                        </div>
-                    </div>
-                    <div v-if="selectedEntry.kind === 'shipment'">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Notas de la guía</p>
-                        <textarea v-model="arrivalForm.notes" rows="2"
-                            class="w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
-                            placeholder="Ej. Contiene 3 cajas, pendiente de aduana..."></textarea>
-                        <p class="text-[11px] text-gray-400 mt-1">
-                            La nota se muestra junto al número de guía en el calendario.
-                        </p>
-                    </div>
-                    <div class="flex justify-end">
-                        <el-button type="primary" :loading="saving" @click="saveArrival">Guardar cambios</el-button>
-                    </div>
                 </div>
             </div>
-        </el-drawer>
+            <template #footer>
+                <div class="flex justify-end space-x-3">
+                    <el-button @click="eventModal = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="savingEvent" :disabled="!canSubmitEvent" @click="submitEvent">
+                        Guardar actualización
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -248,8 +408,17 @@ export default {
         return {
             currentMonth: new Date(),
             selectedEntry: null,
+            search: '',
+            highlightKey: null,
+            highlightTimer: null,
             saving: false,
+            deleting: false,
+            savingEvent: false,
+            eventModal: false,
+            eventForm: { shipment_id: null, event_date: null, description: '' },
             arrivalForm: { status: 'Pendiente', date: null, notes: '' },
+            // Secciones abiertas del drawer: las actualizaciones quedan plegadas.
+            openSections: ['general', 'products'],
             weekDays: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
             legend: {
                 Pendiente: '#9CA3AF',
@@ -269,6 +438,23 @@ export default {
         },
         productImages() {
             return (this.selectedEntry?.items ?? []).map(item => item.image_url).filter(Boolean);
+        },
+        shipmentOptions() {
+            return this.arrivals?.shipment_options ?? [];
+        },
+        canSubmitEvent() {
+            return Boolean(this.eventForm.shipment_id)
+                && Boolean(this.eventForm.event_date)
+                && Boolean(this.eventForm.description?.trim());
+        },
+        // Quién levantó las requisiciones del arribo (sin repetir nombres).
+        creatorNames() {
+            const names = [
+                ...(this.selectedEntry?.requisitions ?? []).map(requisition => requisition.creator),
+                ...(this.selectedEntry?.items ?? []).map(item => item.requester),
+            ].filter(Boolean);
+
+            return [...new Set(names)];
         },
         drawerOpen: {
             get() {
@@ -306,6 +492,8 @@ export default {
             this.arrivalForm.status = entry?.status ?? 'Pendiente';
             this.arrivalForm.date = entry?.estimated_arrival_date ?? null;
             this.arrivalForm.notes = entry?.notes ?? '';
+            // Cada apertura reinicia las secciones plegadas.
+            this.openSections = ['general', 'products'];
         },
     },
     methods: {
@@ -313,20 +501,193 @@ export default {
             this.currentMonth = addMonths(this.currentMonth, offset);
         },
         /**
+         * Busca por número de guía o folio/id de requisición, salta al mes de la
+         * fecha tentativa y resalta el registro encontrado.
+         */
+        searchArrival() {
+            const query = String(this.search ?? '').trim();
+
+            if (!query) {
+                this.clearHighlight();
+                return;
+            }
+
+            const normalized = this.normalizeSearch(query);
+
+            if (normalized.length < 2) {
+                ElMessage.warning('Ingresa al menos 2 caracteres para buscar.');
+                return;
+            }
+
+            const dated = this.arrivals?.arrivals ?? [];
+            const undated = this.arrivals?.undated ?? [];
+
+            const entry = [...dated, ...undated].find(candidate => this.matchesSearch(candidate, normalized));
+
+            if (!entry) {
+                ElMessage.warning('No se encontró ninguna guía ni requisición con ese folio o número de guía.');
+                return;
+            }
+
+            this.highlightEntry(entry);
+        },
+        normalizeSearch(value) {
+            return String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+        },
+        foliosFor(entry) {
+            return [
+                ...(entry.requisitions ?? []).map(requisition => requisition.folio),
+                ...(entry.items ?? []).map(item => item.folio),
+            ].filter(Boolean);
+        },
+        // Solo se ubican las guías / partidas (la fecha tentativa), no los eventos.
+        matchesSearch(entry, normalized) {
+            if (!normalized || entry.kind === 'event') return false;
+
+            if (this.normalizeSearch(entry.title).includes(normalized)) return true;
+
+            // Permite buscar por id de requisición: "48", "REQ-0048" o "req48".
+            const queryNumber = Number(normalized.replace(/[^0-9]/g, ''));
+
+            return this.foliosFor(entry).some(folio => {
+                const normalizedFolio = this.normalizeSearch(folio);
+
+                if (normalizedFolio.includes(normalized)) return true;
+
+                return queryNumber > 0 && Number(normalizedFolio.replace(/[^0-9]/g, '')) === queryNumber;
+            });
+        },
+        highlightEntry(entry) {
+            if (!entry.date) {
+                // Sin fecha tentativa no hay mes al que saltar: se abre su detalle.
+                this.selectedEntry = entry;
+                ElMessage.warning(`La guía ${entry.title} no tiene fecha tentativa de arribo registrada.`);
+                return;
+            }
+
+            // Salta al mes correspondiente y resalta el registro.
+            this.currentMonth = parseISO(entry.date);
+            this.highlightKey = entry.key;
+
+            clearTimeout(this.highlightTimer);
+            this.highlightTimer = setTimeout(() => {
+                this.highlightKey = null;
+            }, 6000);
+
+            this.$nextTick(() => {
+                setTimeout(() => {
+                    const element = document.querySelector(`[data-entry-key="${entry.key}"]`);
+                    element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 60);
+            });
+
+            ElMessage.success(`Guía ${entry.title} encontrada.`);
+        },
+        clearHighlight() {
+            clearTimeout(this.highlightTimer);
+            this.highlightKey = null;
+        },
+        dayHasHighlight(date) {
+            if (!this.highlightKey) return false;
+
+            return (this.entriesByDay[date] ?? []).some(entry => entry.key === this.highlightKey);
+        },
+        /**
          * Título del arribo con la nota de la guía concatenada y truncada.
          */
         entryLabel(entry) {
+            if (entry.kind === 'event') {
+                return `${entry.title} · ${this.truncateText(entry.description)}`;
+            }
+
             const note = (entry.notes ?? '').trim();
 
-            if (!note) return entry.title;
+            return note ? `${entry.title} · ${this.truncateText(note)}` : entry.title;
+        },
+        truncateText(value, maxLength = 40) {
+            const text = (value ?? '').trim();
 
-            const maxLength = 40;
-            const short = note.length > maxLength ? `${note.slice(0, maxLength).trimEnd()}…` : note;
+            if (!text) return '';
 
-            return `${entry.title} · ${short}`;
+            return text.length > maxLength ? `${text.slice(0, maxLength).trimEnd()}…` : text;
         },
         previewIndex(item) {
             return Math.max(this.productImages.indexOf(item.image_url), 0);
+        },
+        // Distinción visual: bandera = fecha tentativa, coche = actualización/evento.
+        entryIcon(entry) {
+            if (entry.kind === 'event') return 'fa-solid fa-truck-fast';
+
+            return entry.arrived_at ? 'fa-solid fa-flag-checkered' : 'fa-solid fa-flag';
+        },
+        entryTooltip(entry) {
+            if (entry.kind === 'event') {
+                return `Actualización/evento · ${entry.description ?? ''}`;
+            }
+
+            if (entry.kind === 'item') {
+                return `Fecha tentativa de arribo · ${entry.subtitle ?? 'Mercancía'}`;
+            }
+
+            return entry.arrived_at
+                ? 'Arribo confirmado'
+                : 'Fecha tentativa de arribo';
+        },
+        kindLabel(entry) {
+            if (entry.kind === 'event') return 'Actualización / evento';
+            if (entry.kind === 'shipment') return 'Guía de paquetería';
+
+            return entry.kind === 'item' ? 'Producto' : 'Requisición';
+        },
+        kindTagType(entry) {
+            if (entry.kind === 'event') return 'warning';
+            if (entry.kind === 'shipment') return 'primary';
+
+            return 'info';
+        },
+        // Abre el alta de evento con el día seleccionado ya cargado.
+        openEventDialog(date = null) {
+            if (!this.canManage) return;
+
+            this.eventForm.shipment_id = this.selectedEntry?.kind === 'shipment'
+                ? this.selectedEntry.id
+                : null;
+            this.eventForm.event_date = date;
+            this.eventForm.description = '';
+            this.eventModal = true;
+        },
+        submitEvent() {
+            const form = this.eventForm;
+
+            if (!this.canSubmitEvent) return;
+
+            this.savingEvent = true;
+
+            router.post(route('requisition-shipments.store-event', form.shipment_id), {
+                event_date: form.event_date,
+                description: form.description.trim(),
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.eventModal = false;
+                    ElMessage.success('Actualización registrada.');
+                },
+                onError: () => ElMessage.error('No se pudo registrar la actualización.'),
+                onFinish: () => (this.savingEvent = false),
+            });
+        },
+        deleteEvent(entry) {
+            this.deleting = true;
+
+            router.delete(route('requisition-shipment-events.destroy', entry.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.selectedEntry = null;
+                    ElMessage.success('Actualización eliminada.');
+                },
+                onError: () => ElMessage.error('No se pudo eliminar la actualización.'),
+                onFinish: () => (this.deleting = false),
+            });
         },
         saveArrival() {
             const entry = this.selectedEntry;
@@ -371,12 +732,6 @@ export default {
                 expected_delivery_date: date,
             }, options);
         },
-        entryIcon(entry) {
-            if (entry.kind === 'shipment') return 'fa-solid fa-truck-fast';
-            if (entry.kind === 'item') return 'fa-solid fa-box';
-
-            return 'fa-solid fa-clipboard-list';
-        },
         formatDate(dateString) {
             if (!dateString) return 'Sin definir';
             return format(parseISO(dateString), "d 'de' MMM, yyy", { locale: es });
@@ -386,5 +741,89 @@ export default {
             return format(parseISO(dateString), "d 'de' MMM, yyy HH:mm", { locale: es });
         },
     },
+    beforeUnmount() {
+        clearTimeout(this.highlightTimer);
+    },
 };
 </script>
+
+<style>
+/* Secciones del detalle del arribo: tarjetas con más aire entre sí.
+   El ajuste se aplica solo en modo claro; en oscuro se conserva el estilo
+   nativo de Element Plus. */
+html:not(.dark) .arrivals-detail .el-collapse {
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item {
+    background-color: #ffffff;
+    border: 1px solid var(--el-border-color-light);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    overflow: hidden;
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__header {
+    height: 48px;
+    padding: 0 16px;
+    background-color: #f5f7fa;
+    border-bottom: 1px solid transparent;
+    border-radius: 12px 12px 0 0;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--el-text-color-primary);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__header:hover {
+    background-color: #eef2f7;
+    color: var(--el-color-primary);
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__header.is-active {
+    border-bottom-color: var(--el-border-color-lighter);
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__arrow {
+    margin-right: 4px;
+    color: var(--el-text-color-secondary);
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__wrap {
+    border-bottom: none;
+    background-color: #ffffff;
+}
+
+html:not(.dark) .arrivals-detail .el-collapse-item__content {
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--el-text-color-regular);
+}
+
+/* Animación para señalar el registro encontrado con el buscador. */
+@keyframes arrivalsPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.75);
+    }
+    60% {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+.arrivals-highlight {
+    animation: arrivalsPulse 1.2s ease-in-out 4;
+    outline: 2px solid #3b82f6;
+    outline-offset: 1px;
+    z-index: 1;
+}
+</style>

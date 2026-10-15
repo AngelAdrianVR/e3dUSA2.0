@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Requisition;
 use App\Models\RequisitionItem;
 use App\Models\RequisitionShipment;
+use App\Models\RequisitionShipmentEvent;
 use App\Models\Task;
 use App\Models\User;
 use App\Notifications\EventInvitationNotification;
@@ -62,7 +63,6 @@ class CalendarController extends Controller
             'requisitionArrivals' => $this->requisitionArrivals(),
         ]);
     }
-
     /**
      * Arribos de mercancía para la pestaña del calendario.
      *
@@ -78,10 +78,14 @@ class CalendarController extends Controller
             'items:id,requisition_id,product_id,quantity,arrival_status',
             'items.product:id,name,code',
             'items.product.media',
-            'items.requisition:id,type,status,branch_id,business_name,product_id,arrival_status',
+            'items.requisition:id,type,status,branch_id,business_name,product_id,arrival_status,user_id',
+            'items.requisition.user:id,name',
             'items.requisition.branch:id,name',
-            'requisitions:id,type,status,branch_id,business_name',
+            'requisitions:id,type,status,branch_id,business_name,user_id',
+            'requisitions.user:id,name',
             'requisitions.branch:id,name',
+            'events:id,requisition_shipment_id,event_date,description,created_by',
+            'events.creator:id,name',
         ])->orderBy('created_at', 'desc')->get();
 
         $arrivals = [];
@@ -89,6 +93,62 @@ class CalendarController extends Controller
 
         foreach ($shipments as $shipment) {
             $date = $shipment->arrived_at?->toDateString() ?? $shipment->estimated_arrival_date?->toDateString();
+
+            // Detalle compartido entre la guía y cada una de sus actualizaciones.
+            $items = $shipment->items->map(fn (RequisitionItem $item) => [
+                'id' => $item->id,
+                'product' => $item->product?->name ?? 'Mercancía',
+                'code' => $item->product?->code,
+                'image_url' => $this->productImageUrl($item->product),
+                'requisition_id' => $item->requisition_id,
+                'quantity' => (float) $item->quantity,
+                'status' => $item->arrival_status,
+                'color' => $item->arrival_color,
+                'folio' => $item->requisition?->folio,
+                'requester' => $item->requisition?->user?->name,
+                'url' => $item->requisition ? route('requisitions.show', $item->requisition->id, false) : null,
+            ])->values()->all();
+
+            $requisitions = $shipment->requisitions->map(fn (Requisition $requisition) => [
+                'id' => $requisition->id,
+                'folio' => $requisition->folio,
+                'type' => $requisition->type,
+                'status' => $requisition->status,
+                'label' => $requisition->branch?->name ?? 'Requisición',
+                'creator' => $requisition->user?->name,
+                'url' => route('requisitions.show', $requisition->id, false),
+            ])->values()->all();
+
+            $events = $shipment->events->map(fn (RequisitionShipmentEvent $shipmentEvent) => [
+                'id' => $shipmentEvent->id,
+                'date' => $shipmentEvent->event_date?->toDateString(),
+                'description' => $shipmentEvent->description,
+                'created_by_name' => $shipmentEvent->creator?->name,
+            ])->values()->all();
+
+            // Cada actualización es una entrada propia en su fecha, con el mismo
+            // color y detalle de la guía a la que pertenece.
+            foreach ($shipment->events as $shipmentEvent) {
+                $arrivals[] = [
+                    'key' => 'shipment-event-' . $shipmentEvent->id,
+                    'kind' => 'event',
+                    'id' => $shipmentEvent->id,
+                    'shipment_id' => $shipment->id,
+                    'title' => $shipment->tracking_number,
+                    'subtitle' => $shipment->carrier,
+                    'description' => $shipmentEvent->description,
+                    'status' => $shipment->status,
+                    'color' => $shipment->color,
+                    'date' => $shipmentEvent->event_date?->toDateString(),
+                    'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
+                    'arrived_at' => $shipment->arrived_at?->toDateTimeString(),
+                    'notes' => $shipment->notes,
+                    'created_by_name' => $shipmentEvent->creator?->name,
+                    'items' => $items,
+                    'requisitions' => $requisitions,
+                    'events' => $events,
+                ];
+            }
 
             $entry = [
                 'key' => 'shipment-' . $shipment->id,
@@ -102,26 +162,9 @@ class CalendarController extends Controller
                 'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
                 'arrived_at' => $shipment->arrived_at?->toDateTimeString(),
                 'notes' => $shipment->notes,
-                'items' => $shipment->items->map(fn (RequisitionItem $item) => [
-                    'id' => $item->id,
-                    'product' => $item->product?->name ?? 'Mercancía',
-                    'code' => $item->product?->code,
-                    'image_url' => $this->productImageUrl($item->product),
-                    'requisition_id' => $item->requisition_id,
-                    'quantity' => (float) $item->quantity,
-                    'status' => $item->arrival_status,
-                    'color' => $item->arrival_color,
-                    'folio' => $item->requisition?->folio,
-                    'url' => $item->requisition ? route('requisitions.show', $item->requisition->id, false) : null,
-                ])->values()->all(),
-                'requisitions' => $shipment->requisitions->map(fn (Requisition $requisition) => [
-                    'id' => $requisition->id,
-                    'folio' => $requisition->folio,
-                    'type' => $requisition->type,
-                    'status' => $requisition->status,
-                    'label' => $requisition->branch?->name ?? 'Requisición',
-                    'url' => route('requisitions.show', $requisition->id, false),
-                ])->values()->all(),
+                'events' => $events,
+                'items' => $items,
+                'requisitions' => $requisitions,
             ];
 
             if ($date) {
@@ -135,7 +178,8 @@ class CalendarController extends Controller
         $standaloneItems = RequisitionItem::with([
             'product:id,name,code',
             'product.media',
-            'requisition:id,type,status,branch_id,business_name,expected_delivery_date,arrival_status',
+            'requisition:id,type,status,branch_id,business_name,expected_delivery_date,arrival_status,user_id',
+            'requisition.user:id,name',
         ])
             ->whereDoesntHave('shipments')
             ->whereHas('requisition', fn ($query) => $query
@@ -172,6 +216,7 @@ class CalendarController extends Controller
                     'status' => $item->arrival_status,
                     'color' => $item->arrival_color,
                     'folio' => $requisition->folio,
+                    'requester' => $requisition->user?->name,
                     'url' => route('requisitions.show', $requisition->id, false),
                 ]],
                 'requisitions' => [[
@@ -180,6 +225,7 @@ class CalendarController extends Controller
                     'type' => $requisition->type,
                     'status' => $requisition->status,
                     'label' => $requisition->branch?->name ?? $item->product?->name ?? 'Requisición',
+                    'creator' => $requisition->user?->name,
                     'url' => route('requisitions.show', $requisition->id, false),
                 ]],
             ];
@@ -190,6 +236,20 @@ class CalendarController extends Controller
             'can_manage' => $canManage,
             'arrivals' => $arrivals,
             'undated' => $undated,
+            // Guías disponibles para registrar actualizaciones / eventos.
+            'shipment_options' => $canManage
+                ? RequisitionShipment::orderByDesc('created_at')
+                    ->get(['id', 'tracking_number', 'carrier', 'status', 'estimated_arrival_date'])
+                    ->map(fn (RequisitionShipment $shipment) => [
+                        'id' => $shipment->id,
+                        'tracking_number' => $shipment->tracking_number,
+                        'carrier' => $shipment->carrier,
+                        'status' => $shipment->status,
+                        'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
+                    ])
+                    ->values()
+                    ->all()
+                : [],
         ];
     }
 

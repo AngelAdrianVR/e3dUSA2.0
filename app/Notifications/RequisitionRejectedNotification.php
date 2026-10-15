@@ -32,7 +32,7 @@ class RequisitionRejectedNotification extends Notification
             'folio' => $this->requisition->folio,
             'type' => 'requisition_rejected',
             'url' => route('requisitions.show', $this->requisition->id, false),
-            'message' => "La requisición <b>{$this->requisition->folio}</b> fue rechazada. Motivo: {$this->requisition->rejection_reason}. Se debe re-trabajar sobre el mismo folio.",
+            'message' => "La requisición <b>{$this->requisition->folio}</b> fue rechazada. Motivo: {$this->requisition->rejection_reason}. Edita la requisición para corregirla y volver a habilitar las acciones sobre el mismo folio.",
             'icon' => 'fa-solid fa-circle-xmark',
         ];
     }

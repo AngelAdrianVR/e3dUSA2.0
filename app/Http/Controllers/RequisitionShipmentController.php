@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Requisition;
 use App\Models\RequisitionItem;
 use App\Models\RequisitionShipment;
+use App\Models\RequisitionShipmentEvent;
 use App\Notifications\RequisitionShipmentStatusNotification;
 use App\Support\RequisitionPermissions;
 use Illuminate\Http\Request;
@@ -242,6 +243,44 @@ class RequisitionShipmentController extends Controller
         });
 
         return back()->with('success', "Guía {$tracking} eliminada.");
+    }
+
+    /**
+     * Registra una actualización / evento con fecha propia sobre una guía.
+     */
+    public function storeEvent(Request $request, RequisitionShipment $shipment)
+    {
+        $user = Auth::user();
+        abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
+
+        $validated = $request->validate([
+            'event_date' => ['required', 'date'],
+            'description' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $shipment->events()->create([
+            'event_date' => $validated['event_date'],
+            'description' => $validated['description'],
+            'created_by' => $user->id,
+        ]);
+
+        return back()->with('success', "Actualización registrada en la guía {$shipment->tracking_number}.");
+    }
+
+    /**
+     * Elimina una actualización / evento del calendario de arribos.
+     */
+    public function destroyEvent(RequisitionShipmentEvent $event)
+    {
+        $user = Auth::user();
+        abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
+
+        $tracking = $event->shipment?->tracking_number;
+        $event->delete();
+
+        return back()->with('success', $tracking
+            ? "Actualización de la guía {$tracking} eliminada."
+            : 'Actualización eliminada.');
     }
 
     /**

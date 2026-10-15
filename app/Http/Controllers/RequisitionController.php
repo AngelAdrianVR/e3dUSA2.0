@@ -115,7 +115,9 @@ class RequisitionController extends Controller
             'can' => [
                 'edit' => $this->canEditRequisition($requisition, $user),
                 'delete' => $this->canDeleteRequisition($requisition, $user),
-                'edit_frequency' => $this->canEditRequisition($requisition, $user),
+                // La frecuencia de venta solo aplica a requisiciones de vendedor.
+                'edit_frequency' => $requisition->origin === Requisition::ORIGIN_SELLER
+                    && $this->canEditRequisition($requisition, $user),
             ],
         ]);
 
@@ -205,7 +207,8 @@ class RequisitionController extends Controller
                 'quantity' => $totalQuantity,
                 'reason' => $isWarehouse ? $request->reason : null,
                 'sale_specification' => $request->sale_specification,
-                'sale_frequency' => $request->sale_frequency,
+                // La frecuencia de venta solo aplica a requisiciones de vendedor.
+                'sale_frequency' => $isWarehouse ? null : $request->sale_frequency,
                 'notes' => $request->notes,
             ]);
 
@@ -293,7 +296,8 @@ class RequisitionController extends Controller
                 'quantity' => $totalQuantity,
                 'reason' => $isWarehouse ? $request->reason : null,
                 'sale_specification' => $request->sale_specification,
-                'sale_frequency' => $request->sale_frequency,
+                // La frecuencia de venta solo aplica a requisiciones de vendedor.
+                'sale_frequency' => $isWarehouse ? null : $request->sale_frequency,
                 'notes' => $request->notes,
             ];
 
@@ -344,6 +348,7 @@ class RequisitionController extends Controller
     {
         $user = Auth::user();
         abort_unless($this->canEditRequisition($requisition, $user), 403);
+        abort_unless($requisition->origin === Requisition::ORIGIN_SELLER, 409, 'La frecuencia de venta solo aplica a requisiciones de vendedor.');
 
         $validated = $request->validate([
             'sale_frequency' => ['nullable', Rule::in(Requisition::SALES_FREQUENCIES)],
@@ -404,14 +409,31 @@ class RequisitionController extends Controller
     }
 
     /**
-     * Compras adjunta la cotización del proveedor (flujo local).
+     * Compras adjunta la cotización del proveedor.
+     *
+     * Local: la cotización habilita la validación gerencial.
+     * Importación: la captura la gerencia de compras y no altera la etapa.
      */
     public function uploadQuotation(Request $request, Requisition $requisition)
     {
         $user = Auth::user();
-        abort_unless(RequisitionPermissions::canEdit($user), 403);
-        abort_unless($requisition->type === Requisition::TYPE_LOCAL, 403, 'La cotización solo aplica a requisiciones locales.');
-        abort_unless(in_array($requisition->status, ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización'], true), 409, 'La requisición no está en etapa de cotización.');
+        $isLocal = $requisition->type === Requisition::TYPE_LOCAL;
+
+        // La importación la cotiza la gerencia de compras; la local, cualquier editor.
+        abort_unless(
+            $isLocal
+                ? RequisitionPermissions::canEdit($user)
+                : RequisitionPermissions::canQuote($user),
+            403
+        );
+
+        abort_if($this->hasQuotation($requisition), 409, 'La requisición ya tiene una cotización adjunta.');
+
+        $quotableStatuses = $isLocal
+            ? ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización']
+            : ['Pendiente de negociación', 'Rechazada', 'Aprobada'];
+
+        abort_unless(in_array($requisition->status, $quotableStatuses, true), 409, 'La requisición no está en etapa de cotización.');
 
         $request->validate([
             'quotation' => ['required', 'file', 'max:10240'],
@@ -424,22 +446,37 @@ class RequisitionController extends Controller
             'items.*.description' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        DB::transaction(function () use ($request, $requisition) {
+        DB::transaction(function () use ($request, $requisition, $isLocal) {
             $requisition->addMediaFromRequest('quotation')->toMediaCollection('quotations');
-            $requisition->update([
-                'status' => 'Pendiente de autorización',
+
+            $payload = [
                 'quoted_cost' => $request->quoted_cost,
                 'quoted_currency' => $request->quoted_currency,
-            ]);
+            ];
+
+            // Solo el flujo local avanza a validación gerencial.
+            if ($isLocal) {
+                $payload['status'] = 'Pendiente de autorización';
+            }
+
+            $requisition->update($payload);
 
             $this->storeQuotationItems($requisition, $request->items ?? []);
         });
 
-        $this->storeComment($requisition, $user, 'Cotización adjuntada; enviada a autorización.');
+        $this->storeComment($requisition, $user, $isLocal
+            ? 'Cotización adjuntada; enviada a autorización.'
+            : 'Cotización adjuntada por la gerencia de compras.');
 
-        $this->notify(RequisitionPermissions::AUTHORIZE, $user, new RequisitionQuotationUploadedNotification($requisition));
+        $this->notify(
+            $isLocal ? RequisitionPermissions::AUTHORIZE : RequisitionPermissions::EDIT,
+            $user,
+            new RequisitionQuotationUploadedNotification($requisition, $isLocal)
+        );
 
-        return back()->with('success', 'Cotización adjuntada. Se notificó a la gerencia de compras.');
+        return back()->with('success', $isLocal
+            ? 'Cotización adjuntada. Se notificó a la gerencia de compras.'
+            : 'Cotización adjuntada.');
     }
 
     /**
@@ -478,7 +515,7 @@ class RequisitionController extends Controller
                 ->unique('id');
             Notification::send($recipients, new RequisitionRejectedNotification($requisition));
 
-            return back()->with('warning', 'Requisición rechazada. Se notificó al solicitante y se re-trabaja sobre el mismo folio.');
+            return back()->with('warning', 'Requisición rechazada. Se notificó al solicitante; debe editar la requisición para volver a habilitar las acciones.');
         }
 
         $newStatus = $requisition->type === Requisition::TYPE_LOCAL ? 'Autorizada' : 'Aprobada';
@@ -795,6 +832,7 @@ class RequisitionController extends Controller
             'items.*.product_id.required' => 'Selecciona el producto en cada partida.',
             'items.*.quantity.required' => 'Indica la cantidad de cada producto.',
             'reason.required' => 'Indica el motivo de la requisición.',
+            'sale_frequency.in' => 'Selecciona una frecuencia de venta / consumo válida.',
             'priority.required' => 'Selecciona la prioridad.',
             'authorization_formats.required' => 'Adjunta el formato de autorización.',
             'blueprints.required' => 'Adjunta el plano o render para especificaciones.',
@@ -947,6 +985,14 @@ class RequisitionController extends Controller
     }
 
     /**
+     * Indica si la requisición ya tiene una cotización adjunta.
+     */
+    private function hasQuotation(Requisition $requisition): bool
+    {
+        return $requisition->media()->where('collection_name', 'quotations')->exists();
+    }
+
+    /**
      * Banderas de acción que consume la vista de detalle.
      */
     private function actionFlags(Requisition $requisition, User $user): array
@@ -956,13 +1002,20 @@ class RequisitionController extends Controller
         $canPay = RequisitionPermissions::canRegisterPayments($user);
         $canManageArrivals = RequisitionPermissions::canManageArrivals($user);
         $isLocal = $requisition->type === Requisition::TYPE_LOCAL;
+        $hasQuotation = $this->hasQuotation($requisition);
+
+        // La cotización se captura una sola vez por requisición.
+        $canQuote = $isLocal
+            ? RequisitionPermissions::canEdit($user)
+                && in_array($requisition->status, ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización'], true)
+            : RequisitionPermissions::canQuote($user)
+                && in_array($requisition->status, ['Pendiente de negociación', 'Rechazada', 'Aprobada'], true);
 
         return [
             'edit' => $canEdit,
             'delete' => $this->canDeleteRequisition($requisition, $user),
-            'upload_quotation' => RequisitionPermissions::canEdit($user)
-                && $isLocal
-                && in_array($requisition->status, ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización'], true),
+            'upload_quotation' => $canQuote && ! $hasQuotation,
+            'quoted' => $hasQuotation,
             'authorize' => $canAuthorize && in_array($requisition->status, $isLocal
                 ? ['Pendiente de autorización']
                 : ['Pendiente de negociación', 'Aprobada'], true),

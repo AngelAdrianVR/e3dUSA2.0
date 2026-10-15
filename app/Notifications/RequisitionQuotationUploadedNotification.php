@@ -10,7 +10,7 @@ class RequisitionQuotationUploadedNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(protected Requisition $requisition)
+    public function __construct(protected Requisition $requisition, protected bool $requiresAuthorization = true)
     {
     }
 
@@ -28,11 +28,15 @@ class RequisitionQuotationUploadedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'title' => 'Cotización pendiente de autorización',
+            'title' => $this->requiresAuthorization
+                ? 'Cotización pendiente de autorización'
+                : 'Cotización registrada',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_quotation',
             'url' => route('requisitions.show', $this->requisition->id, false),
-            'message' => "La requisición <b>{$this->requisition->folio}</b> ya tiene cotización y requiere autorización.",
+            'message' => $this->requiresAuthorization
+                ? "La requisición <b>{$this->requisition->folio}</b> ya tiene cotización y requiere autorización."
+                : "La requisición <b>{$this->requisition->folio}</b> ya tiene cotización registrada por la gerencia de compras.",
             'icon' => 'fa-solid fa-file-invoice-dollar',
         ];
     }

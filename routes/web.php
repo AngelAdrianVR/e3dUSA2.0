@@ -388,6 +388,8 @@ Route::post('requisitions/{requisition}/shipments', [RequisitionShipmentControll
 Route::post('requisition-shipments', [RequisitionShipmentController::class, 'store'])->middleware('auth')->name('requisition-shipments.store');
 Route::put('requisition-shipments/{shipment}', [RequisitionShipmentController::class, 'update'])->middleware('auth')->name('requisition-shipments.update');
 Route::put('requisition-shipments/{shipment}/status', [RequisitionShipmentController::class, 'updateStatus'])->middleware('auth')->name('requisition-shipments.update-status');
+Route::post('requisition-shipments/{shipment}/events', [RequisitionShipmentController::class, 'storeEvent'])->middleware('auth')->name('requisition-shipments.store-event');
+Route::delete('requisition-shipment-events/{event}', [RequisitionShipmentController::class, 'destroyEvent'])->middleware('auth')->name('requisition-shipment-events.destroy');
 Route::delete('requisition-shipments/{shipment}', [RequisitionShipmentController::class, 'destroy'])->middleware('auth')->name('requisition-shipments.destroy');
 
 

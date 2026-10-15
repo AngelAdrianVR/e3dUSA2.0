@@ -302,7 +302,7 @@ const stepperClasses = computed(() => [
             >
         </div>
         
-        <div class="flex justify-between items-center min-h-[1rem] mt-1">
+        <div class="flex justify-between items-center mt-1">
             <p v-if="error" class="text-xs text-red-600 dark:text-red-500 ml-4">
                 {{ error }}
             </p>

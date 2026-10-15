@@ -75,6 +75,13 @@
                         Rechazada por {{ requisition.rejecter?.name ?? 'N/A' }} el {{ formatDateTime(requisition.rejected_at) }}.
                         Se re-trabaja conservando el folio <strong>{{ requisition.folio }}</strong>.
                     </p>
+                    <p class="text-sm font-semibold text-red-700 dark:text-red-300 mt-2">
+                        <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                        Edita la requisición para corregirla y volver a habilitar las acciones del flujo.
+                    </p>
+                    <SecondaryButton v-if="can.edit" class="mt-3" @click="handleManageCommand('edit')">
+                        <i class="fa-solid fa-pen-to-square mr-2"></i> Editar requisición
+                    </SecondaryButton>
                 </div>
 
                 <!-- Línea de proceso -->
@@ -186,6 +193,16 @@
                                     </div>
                                 </div>
 
+                                <!-- La cotización solo se captura una vez -->
+                                <div v-if="hasQuotation"
+                                    class="flex items-start gap-2 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3">
+                                    <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400 mt-0.5"></i>
+                                    <p class="text-xs text-emerald-700 dark:text-emerald-300">
+                                        Esta requisición ya tiene una cotización adjunta. Consulta el archivo en la
+                                        pestaña <strong>Documentos</strong>; si necesitas reemplazarla, elimínala primero desde ahí.
+                                    </p>
+                                </div>
+
                                 <div v-if="paymentActions.length"
                                     class="flex flex-wrap gap-2 border-t border-dashed border-gray-200 dark:border-slate-700 pt-4">
                                     <SecondaryButton v-for="action in paymentActions" :key="action.key" @click="openAction(action.key)">
@@ -203,70 +220,137 @@
                                 ({{ requisition.items?.length ?? 0 }} partida(s) · {{ formatQuantity(totalItemsQuantity) }} piezas)
                             </span>
                         </h3>
-                        <el-tooltip v-if="can.manage_arrivals"
-                            content="Selecciona en la tabla los productos que viajan en la misma guía" placement="top">
+                        <el-tooltip v-if="can.manage_arrivals" content="Selecciona en la tabla los productos que viajan en la misma guía" placement="top">
                             <SecondaryButton @click="openShipmentModal">
                                 <i class="fa-solid fa-truck-fast mr-2"></i>
                                 Asignar a guía
                                 <span v-if="selectedItems.length" class="ml-2 font-bold">({{ selectedItems.length }})</span>
                             </SecondaryButton>
                         </el-tooltip>
-                    </div>
+                </div>
 
-                    <el-table :data="requisition.items ?? []" style="width: 100%" stripe
-                        @selection-change="handleItemsSelection"
-                        class="dark:!bg-slate-900 dark:!text-gray-300">
-                        <el-table-column type="selection" width="40" :selectable="() => can.manage_arrivals" />
-                        <el-table-column label="Producto" min-width="220">
-                            <template #default="scope">
-                                <div class="flex items-center gap-3">
-                                    <img v-if="scope.row.product?.media?.length" :src="scope.row.product.media[0].original_url"
-                                        class="size-10 rounded object-cover border border-gray-200 dark:border-slate-700"
-                                        :alt="scope.row.product?.name" />
-                                    <div>
-                                        <p class="font-semibold text-gray-800 dark:text-gray-200">
-                                            {{ scope.row.product?.name ?? scope.row.description ?? 'Sin producto de catálogo' }}
-                                        </p>
-                                        <p v-if="scope.row.product?.code" class="text-xs text-gray-500 dark:text-gray-400">
-                                            {{ scope.row.product.code }}
+                <!-- Bloque: productos sin guía (pendientes de asignar) -->
+                <div class="rounded-xl border border-amber-300 dark:border-amber-700/60 overflow-hidden">
+                        <div class="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 dark:bg-amber-900/20">
+                            <p class="text-sm font-bold text-amber-700 dark:text-amber-300">
+                                <i class="fa-solid fa-box mr-2"></i> Sin guía asignada
+                            </p>
+                            <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                {{ unassignedItems.length }} producto(s)
+                            </span>
+                        </div>
+                        <el-table v-if="unassignedItems.length" :data="unassignedItems" style="width: 100%" stripe
+                            @selection-change="handleUnassignedSelection"
+                            class="dark:!bg-slate-900 dark:!text-gray-300">
+                            <el-table-column type="selection" width="40" :selectable="() => can.manage_arrivals" />
+                            <el-table-column label="Producto" min-width="220">
+                                <template #default="scope">
+                                    <div class="flex items-center gap-3">
+                                        <img v-if="scope.row.product?.media?.length" :src="scope.row.product.media[0].original_url"
+                                            class="size-10 rounded object-cover border border-gray-200 dark:border-slate-700"
+                                            :alt="scope.row.product?.name" />
+                                        <div>
+                                            <p class="font-semibold text-gray-800 dark:text-gray-200">
+                                                {{ scope.row.product?.name ?? scope.row.description ?? 'Sin producto de catálogo' }}
+                                            </p>
+                                            <p v-if="scope.row.product?.code" class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ scope.row.product.code }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Cantidad" width="110">
+                                <template #default="scope">{{ formatQuantity(scope.row.quantity) }}</template>
+                            </el-table-column>
+                            <el-table-column label="Costo unitario" width="140">
+                                <template #default="scope">
+                                    <span v-if="scope.row.unit_cost !== null && scope.row.unit_cost !== undefined">
+                                        {{ formatCurrency(scope.row.unit_cost, requisition.quoted_currency) }}
+                                    </span>
+                                    <span v-else class="text-xs text-gray-400">—</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Arribo" width="150">
+                                <template #default="scope">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="inline-block w-3 h-3 rounded-full"
+                                            :style="{ backgroundColor: scope.row.arrival_color ?? '#9CA3AF' }"></span>
+                                        <span class="text-xs">{{ scope.row.arrival_status }}</span>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <p v-else class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            Todos los productos ya están ligados a una guía de paquetería.
+                        </p>
+                </div>
+
+                <!-- Bloque: productos con guía ligada -->
+                <div class="rounded-xl border border-emerald-300 dark:border-emerald-700/60 overflow-hidden">
+                        <div class="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20">
+                            <p class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
+                                <i class="fa-solid fa-truck-fast mr-2"></i> Con guía ligada
+                            </p>
+                            <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                                {{ assignedItems.length }} producto(s)
+                            </span>
+                        </div>
+                        <el-table v-if="assignedItems.length" :data="assignedItems" style="width: 100%" stripe
+                            class="dark:!bg-slate-900 dark:!text-gray-300">
+                            <el-table-column label="Producto" min-width="220">
+                                <template #default="scope">
+                                    <div class="flex items-center gap-3">
+                                        <img v-if="scope.row.product?.media?.length" :src="scope.row.product.media[0].original_url"
+                                            class="size-10 rounded object-cover border border-gray-200 dark:border-slate-700"
+                                            :alt="scope.row.product?.name" />
+                                        <div>
+                                            <p class="font-semibold text-gray-800 dark:text-gray-200">
+                                                {{ scope.row.product?.name ?? scope.row.description ?? 'Sin producto de catálogo' }}
+                                            </p>
+                                            <p v-if="scope.row.product?.code" class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ scope.row.product.code }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Cantidad" width="110">
+                                <template #default="scope">{{ formatQuantity(scope.row.quantity) }}</template>
+                            </el-table-column>
+                            <el-table-column label="Costo unitario" width="140">
+                                <template #default="scope">
+                                    <span v-if="scope.row.unit_cost !== null && scope.row.unit_cost !== undefined">
+                                        {{ formatCurrency(scope.row.unit_cost, requisition.quoted_currency) }}
+                                    </span>
+                                    <span v-else class="text-xs text-gray-400">—</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Guía de paquetería" min-width="200">
+                                <template #default="scope">
+                                    <div class="space-y-1">
+                                        <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="text-xs">
+                                            <span class="font-mono font-semibold">{{ shipment.tracking_number }}</span>
+                                            <span class="text-gray-500 dark:text-gray-400"> · {{ shipment.carrier ?? 'N/A' }}</span>
                                         </p>
                                     </div>
-                                </div>
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="Cantidad" width="110">
-                            <template #default="scope">{{ formatQuantity(scope.row.quantity) }}</template>
-                        </el-table-column>
-                        <el-table-column label="Costo unitario" width="140">
-                            <template #default="scope">
-                                <span v-if="scope.row.unit_cost !== null && scope.row.unit_cost !== undefined">
-                                    {{ formatCurrency(scope.row.unit_cost, requisition.quoted_currency) }}
-                                </span>
-                                <span v-else class="text-xs text-gray-400">—</span>
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="Guía de paquetería" min-width="200">
-                            <template #default="scope">
-                                <div v-if="scope.row.shipments?.length" class="space-y-1">
-                                    <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="text-xs">
-                                        <span class="font-mono font-semibold">{{ shipment.tracking_number }}</span>
-                                        <span class="text-gray-500 dark:text-gray-400"> · {{ shipment.carrier ?? 'N/A' }}</span>
-                                    </p>
-                                </div>
-                                <span v-else class="text-xs text-gray-400">Sin asignar</span>
-                            </template>
-                        </el-table-column>
-                        <el-table-column label="Arribo" width="150">
-                            <template #default="scope">
-                                <div class="flex items-center space-x-2">
-                                    <span class="inline-block w-3 h-3 rounded-full"
-                                        :style="{ backgroundColor: scope.row.arrival_color ?? '#9CA3AF' }"></span>
-                                    <span class="text-xs">{{ scope.row.arrival_status }}</span>
-                                </div>
-                            </template>
-                        </el-table-column>
-                    </el-table>
-                            </div><!-- /pestaña productos solicitados -->
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Arribo" width="150">
+                                <template #default="scope">
+                                    <div class="flex items-center space-x-2">
+                                        <span class="inline-block w-3 h-3 rounded-full"
+                                            :style="{ backgroundColor: scope.row.arrival_color ?? '#9CA3AF' }"></span>
+                                        <span class="text-xs">{{ scope.row.arrival_status }}</span>
+                                    </div>
+                                </template>
+                            </el-table-column>
+                        </el-table>
+                        <p v-else class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                            Ningún producto tiene guía de paquetería asignada.
+                        </p>
+                </div>
+                                </div><!-- /pestaña productos solicitados -->
 
                             <!-- Pestaña: Documentos -->
                             <div v-show="activeTab === 'documents'" class="space-y-4">
@@ -275,7 +359,7 @@
                                 </h3>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div v-for="group in documentGroups" :key="group.label">
+                        <div v-for="group in documentGroups" :key="group.label" class="border border-gray-300 p-4 rounded-xl dark:border-gray-700">
                             <div class="flex items-center justify-between mb-2">
                                 <p class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ group.label }}</p>
                                 <!-- Con archivos existentes el cargador se compacta en un botón "+" -->
@@ -850,7 +934,8 @@ export default {
         // Acciones del flujo disponibles según la etapa y los permisos.
         flowActions() {
             return [
-                { key: 'quotation', label: 'Adjuntar cotización', icon: 'fa-solid fa-file-invoice-dollar', show: this.can.upload_quotation },
+                // La cotización se captura una sola vez: si ya hay archivo, no se ofrece.
+                { key: 'quotation', label: 'Adjuntar cotización', icon: 'fa-solid fa-file-invoice-dollar', show: this.canQuoteNow },
                 { key: 'authorize', label: 'Validar (Pass / Fail)', icon: 'fa-solid fa-gavel', show: this.can.authorize },
                 { key: 'factory', label: 'Pedido a fábrica', icon: 'fa-solid fa-industry', show: this.can.factory_order },
                 { key: 'docs', label: 'Documentación de fábrica', icon: 'fa-solid fa-box-open', show: this.can.upload_factory_docs },
@@ -868,8 +953,28 @@ export default {
         documentCount() {
             return (this.requisition.media ?? []).length;
         },
+        // La cotización existe mientras el archivo siga adjunto.
+        hasQuotation() {
+            return (this.requisition.media ?? []).some(file => file.collection_name === 'quotations');
+        },
+        /*
+         * El servidor habilita la captura por etapa y permisos; si la cotización
+         * previa se eliminó desde Documentos, se vuelve a ofrecer el reemplazo.
+         */
+        canQuoteNow() {
+            if (this.hasQuotation) return false;
+
+            return Boolean(this.can.upload_quotation || this.can.quoted);
+        },
         totalItemsQuantity() {
             return (this.requisition.items ?? []).reduce((total, item) => total + (Number(item.quantity) || 0), 0);
+        },
+        // Partidas sin guía y con guía, para separarlas visualmente.
+        unassignedItems() {
+            return (this.requisition.items ?? []).filter(item => !(item.shipments ?? []).length);
+        },
+        assignedItems() {
+            return (this.requisition.items ?? []).filter(item => (item.shipments ?? []).length > 0);
         },
         progressSteps() {
             return this.requisition.type === 'Importación'
@@ -908,7 +1013,8 @@ export default {
             const number = Number(value) || 0;
             return number.toLocaleString('es-MX', { maximumFractionDigits: 2 });
         },
-        handleItemsSelection(selection) {
+        // La selección para guías vive en el bloque de productos sin asignar.
+        handleUnassignedSelection(selection) {
             this.selectedItems = selection;
         },
         /**

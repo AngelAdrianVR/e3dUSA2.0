@@ -50,6 +50,13 @@ class RequisitionPermissions
     ];
 
     /**
+     * Captura de la cotización en requisiciones de importación.
+     */
+    public const QUOTE = [
+        'Gerencia de compras',
+    ];
+
+    /**
      * Cualquier permiso del módulo habilita el acceso al listado.
      */
     public static function all(): array
@@ -92,6 +99,14 @@ class RequisitionPermissions
     public static function canManageArrivals(User $user): bool
     {
         return $user->hasAnyPermission(self::MANAGE_ARRIVALS);
+    }
+
+    /**
+     * Permite cotizar requisiciones de importación.
+     */
+    public static function canQuote(User $user): bool
+    {
+        return $user->hasAnyPermission(self::QUOTE);
     }
 
     /**
