@@ -51,7 +51,6 @@
                                 <el-option label="Toda prioridad" value="" />
                                 <el-option label="Baja" value="Baja" />
                                 <el-option label="Media" value="Media" />
-                                <el-option label="Alta" value="Alta" />
                                 <el-option label="Urgente" value="Urgente" />
                             </el-select>
 
@@ -163,7 +162,12 @@
 
                             <el-table-column label="Prioridad" width="105">
                                 <template #default="scope">
-                                    <el-tag v-if="scope.row.priority" size="small" :type="getPriorityTagType(scope.row.priority)">
+                                    <!-- Urgente abierta: distintivo animado; al completarse queda solo la etiqueta. -->
+                                    <span v-if="isUrgentActive(scope.row)"
+                                        class="priority-badge inline-flex items-center gap-1 text-[10px] font-bold text-white bg-red-600 px-1.5 py-0.5 rounded-full">
+                                        <i class="fa-solid fa-triangle-exclamation"></i> URGENTE
+                                    </span>
+                                    <el-tag v-else-if="scope.row.priority" size="small" :type="getPriorityTagType(scope.row.priority)">
                                         {{ scope.row.priority }}
                                     </el-tag>
                                     <span v-else class="text-xs text-gray-400">—</span>
@@ -439,10 +443,18 @@ export default {
         },
         // Filas con incidencia (rojo tenue) y arribo confirmado (verde tenue).
         rowClassName({ row }) {
-            if (row.arrival_status === 'Incidencia') return 'req-row-incidencia';
-            if (row.arrival_status === 'Arribado') return 'req-row-arribado';
+            const classes = [];
 
-            return '';
+            // La urgencia se distingue solo en la columna Prioridad: pintar la fila
+            // se confundía con el realce de las incidencias de arribo.
+            if (row.arrival_status === 'Incidencia') classes.push('req-row-incidencia');
+            if (row.arrival_status === 'Arribado') classes.push('req-row-arribado');
+
+            return classes.join(' ');
+        },
+        // El distintivo de urgencia solo se muestra mientras la requisición siga abierta.
+        isUrgentActive(row) {
+            return row.priority === 'Urgente' && row.status !== 'Completada';
         },
         formatDate(dateString) {
             if (!dateString) return '—';
@@ -479,7 +491,7 @@ export default {
             return map[status] ?? 'info';
         },
         getPriorityTagType(priority) {
-            const map = { Baja: 'info', Media: 'primary', Alta: 'warning', Urgente: 'danger' };
+            const map = { Baja: 'info', Media: 'primary', Urgente: 'danger' };
             return map[priority] ?? 'info';
         },
         getArrivalColor(row) {
@@ -496,6 +508,20 @@ export default {
 </script>
 
 <style>
+/* ===== Requisición urgente abierta: distintivo con pulso en la columna Prioridad ===== */
+@keyframes priority-badge-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .5); }
+    50%      { transform: scale(1.06); box-shadow: 0 0 0 5px rgba(220, 38, 38, 0); }
+}
+
+.priority-badge {
+    animation: priority-badge-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .priority-badge { animation: none; }
+}
+
 /* Filas del listado de requisiciones según el estatus de arribo.
    Los estilos de el-table se renderizan fuera del scope del componente,
    por eso el bloque no es scoped. */

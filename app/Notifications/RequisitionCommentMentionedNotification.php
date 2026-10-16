@@ -36,7 +36,8 @@ class RequisitionCommentMentionedNotification extends Notification
             'title' => 'Te mencionaron en una requisición',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_mentioned',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            // Lleva directo a la pestaña de comentarios para responder de inmediato.
+            'url' => route('requisitions.show', ['requisition' => $this->requisition->id, 'tab' => 'comments'], false),
             'message' => "{$authorName} te mencionó en un comentario de la requisición <b>{$this->requisition->folio}</b>.",
             'icon' => 'fa-solid fa-at',
         ];

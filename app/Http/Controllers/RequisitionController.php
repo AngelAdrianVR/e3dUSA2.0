@@ -492,9 +492,7 @@ class RequisitionController extends Controller
             'rejection_reason' => ['nullable', 'string', 'max:2000', Rule::requiredIf($request->input('result') === 'fail')],
         ]);
 
-        $authorizable = $requisition->type === Requisition::TYPE_LOCAL
-            ? ['Pendiente de autorización']
-            : ['Pendiente de negociación', 'Aprobada'];
+        $authorizable = $this->authorizableStatuses($requisition->type === Requisition::TYPE_LOCAL);
 
         abort_unless(in_array($requisition->status, $authorizable, true), 409, 'La requisición no está en una etapa autorizable.');
 
@@ -985,6 +983,20 @@ class RequisitionController extends Controller
     }
 
     /**
+     * Estatus desde los que la gerencia puede registrar la validación (Pass/Fail).
+     *
+     * Local: la cotización mueve la requisición a "Pendiente de autorización".
+     * Importación: la cotización no altera la etapa, así que una requisición
+     * rechazada también se puede aprobar o volver a rechazar sin editarla.
+     */
+    private function authorizableStatuses(bool $isLocal): array
+    {
+        return $isLocal
+            ? ['Pendiente de autorización']
+            : ['Pendiente de negociación', 'Aprobada', 'Rechazada'];
+    }
+
+    /**
      * Indica si la requisición ya tiene una cotización adjunta.
      */
     private function hasQuotation(Requisition $requisition): bool
@@ -1016,9 +1028,7 @@ class RequisitionController extends Controller
             'delete' => $this->canDeleteRequisition($requisition, $user),
             'upload_quotation' => $canQuote && ! $hasQuotation,
             'quoted' => $hasQuotation,
-            'authorize' => $canAuthorize && in_array($requisition->status, $isLocal
-                ? ['Pendiente de autorización']
-                : ['Pendiente de negociación', 'Aprobada'], true),
+            'authorize' => $canAuthorize && in_array($requisition->status, $this->authorizableStatuses($isLocal), true),
             'factory_order' => ($canAuthorize || $canManageArrivals) && ! $isLocal && $requisition->status === 'Aprobada',
             'upload_factory_docs' => ($canManageArrivals || RequisitionPermissions::canEdit($user))
                 && ! $isLocal

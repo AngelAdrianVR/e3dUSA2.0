@@ -58,7 +58,7 @@ class Requisition extends Model implements HasMedia, Auditable
         'Completada',
     ];
 
-    public const PRIORITIES = ['Baja', 'Media', 'Alta', 'Urgente'];
+    public const PRIORITIES = ['Baja', 'Media', 'Urgente'];
 
     /**
      * Frecuencia de venta / consumo de la mercancía solicitada.

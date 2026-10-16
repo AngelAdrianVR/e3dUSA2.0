@@ -20,7 +20,7 @@ return new class extends Migration
 
             // Etapa del proceso: ver catálogo en el modelo Requisition.
             $table->string('status')->index();
-            $table->string('priority')->nullable()->comment('Baja, Media, Alta, Urgente');
+            $table->string('priority')->nullable()->comment('Baja, Media, Urgente');
             $table->string('arrival_status')->default('Pendiente')->comment('Pendiente, En tránsito, Incidencia, Arribado');
 
             $table->foreignId('user_id')->comment('Usuario que levantó la requisición')->constrained('users')->cascadeOnDelete();

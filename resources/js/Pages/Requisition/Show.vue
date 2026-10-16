@@ -4,7 +4,8 @@
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 
                 <!-- Encabezado -->
-                <div class="bg-white dark:bg-slate-900 shadow-xl sm:rounded-lg p-6">
+                <div class="bg-white dark:bg-slate-900 shadow-xl sm:rounded-lg p-6"
+                    :class="isUrgentActive ? 'ring-2 ring-red-400/70 dark:ring-red-500/60' : ''">
                     <div class="flex flex-col lg:flex-row justify-between gap-4">
                         <div class="flex items-start gap-3">
                             <Back route="requisitions.index" class="shrink-0" />
@@ -19,7 +20,12 @@
                                 </el-tag>
                                 <el-tag type="info">{{ requisition.origin }}</el-tag>
                                 <el-tag :type="getStatusTagType(requisition.status)">{{ requisition.status }}</el-tag>
-                                <el-tag v-if="requisition.priority" :type="getPriorityTagType(requisition.priority)">
+                                <!-- Urgente en proceso: distintivo animado; al completarse queda solo la etiqueta. -->
+                                <span v-if="isUrgentActive"
+                                    class="priority-badge inline-flex items-center gap-1.5 text-[11px] font-bold text-white bg-red-600 px-2.5 py-1 rounded-full">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> URGENTE
+                                </span>
+                                <el-tag v-else-if="requisition.priority" :type="getPriorityTagType(requisition.priority)">
                                     Prioridad {{ requisition.priority }}
                                 </el-tag>
                                 <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
@@ -77,15 +83,108 @@
                     </p>
                     <p class="text-sm font-semibold text-red-700 dark:text-red-300 mt-2">
                         <i class="fa-solid fa-triangle-exclamation mr-2"></i>
-                        Edita la requisición para corregirla y volver a habilitar las acciones del flujo.
+                        <template v-if="requisition.type === 'Importación'">
+                            Corrige la requisición con «Editar requisición» o vuelve a subir la cotización para
+                            reactivar la validación: la gerencia puede aprobarla o rechazarla de nuevo sin editarla.
+                        </template>
+                        <template v-else>
+                            Edita la requisición para corregirla o elimina la cotización actual y sube otra corregida
+                            en caso de que sea ese el motivo de rechazo para volver a habilitar las acciones del flujo.
+                        </template>
                     </p>
-                    <SecondaryButton v-if="can.edit" class="mt-3" @click="handleManageCommand('edit')">
-                        <i class="fa-solid fa-pen-to-square mr-2"></i> Editar requisición
-                    </SecondaryButton>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <SecondaryButton v-if="can.edit" @click="handleManageCommand('edit')">
+                            <i class="fa-solid fa-pen-to-square mr-2"></i> Editar requisición
+                        </SecondaryButton>
+                        <!-- Importación: la gerencia revalida sin editar (Pass / Fail). -->
+                        <PrimaryButton v-if="can.authorize" @click="openAction('authorize')">
+                            <i class="fa-solid fa-gavel mr-2"></i> Validar (Pass / Fail)
+                        </PrimaryButton>
+                    </div>
                 </div>
 
                 <!-- Línea de proceso -->
-                <Stepper v-else :currentStatus="requisition.status" :steps="progressSteps" />
+                <Stepper v-else :currentStatus="requisition.status" :steps="stepperSteps"
+                    :completedCount="stepperCompletedCount" />
+
+                <!-- ¿Qué sigue? Guía paso a paso del flujo (plegable) -->
+                <div v-if="nextStepGuide" class="bg-white dark:bg-slate-900 shadow-xl sm:rounded-lg border-l-4"
+                    :class="nextStepGuide.styles.border">
+                    <!-- Encabezado: siempre visible y funciona como disparador del plegado -->
+                    <button type="button" :aria-expanded="guideExpanded"
+                        class="w-full text-left p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+                        @click="guideExpanded = !guideExpanded">
+                        <div class="flex items-start gap-3">
+                            <div class="size-10 shrink-0 rounded-full flex items-center justify-center"
+                                :class="nextStepGuide.styles.icon">
+                                <i :class="[nextStepGuide.icon, 'text-base']"></i>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-bold uppercase tracking-wider" :class="nextStepGuide.styles.accent">
+                                    ¿Qué sigue?
+                                </p>
+                                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">
+                                    {{ nextStepGuide.title }}
+                                </h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Etapa actual: <span class="font-semibold">{{ requisition.status }}</span>
+                                    <template v-if="nextStepGuide.nextStatus">
+                                        · Siguiente hito: <span class="font-semibold">{{ nextStepGuide.nextStatus }}</span>
+                                    </template>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 self-start shrink-0">
+                            <el-tag :type="nextStepGuide.styles.tag" effect="dark">
+                                <i class="fa-solid fa-user-gear mr-1"></i> {{ nextStepGuide.owner }}
+                            </el-tag>
+                            <i class="fa-solid fa-chevron-down text-xs text-gray-400 transition-transform duration-300"
+                                :class="{ 'rotate-180': guideExpanded }"
+                                :title="guideExpanded ? 'Ocultar detalle' : 'Ver detalle'"></i>
+                        </div>
+                    </button>
+
+                    <!-- Detalle: requisitos, pasos y acciones -->
+                    <div v-show="guideExpanded" class="px-5 pb-5">
+                        <div v-if="nextStepGuide.requirements.length" class="flex flex-wrap gap-x-5 gap-y-1">
+                            <p v-for="requirement in nextStepGuide.requirements" :key="requirement.label"
+                                class="text-xs flex items-center gap-1"
+                                :class="requirement.met
+                                    ? 'text-emerald-600 dark:text-emerald-400'
+                                    : 'text-amber-600 dark:text-amber-400'">
+                                <i :class="[requirement.met ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-exclamation']"></i>
+                                {{ requirement.label }}
+                                <span class="text-gray-400 dark:text-gray-500">({{ requirement.met ? 'listo' : 'pendiente' }})</span>
+                            </p>
+                        </div>
+
+                        <div class="mt-4">
+                            <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                                <i class="fa-solid fa-list-ol mr-1"></i> Sigue estos pasos en orden
+                            </p>
+                            <ol class="space-y-2">
+                                <li v-for="(step, index) in nextStepGuide.steps" :key="index" class="flex items-start gap-3">
+                                    <span class="mt-0.5 size-5 shrink-0 rounded-full text-[11px] font-bold flex items-center justify-center"
+                                        :class="nextStepGuide.styles.step">
+                                        {{ index + 1 }}
+                                    </span>
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">{{ step }}</span>
+                                </li>
+                            </ol>
+                        </div>
+
+                        <div
+                            class="mt-4 pt-3 border-t border-dashed border-gray-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
+                            <PrimaryButton v-for="action in nextStepGuide.actions" :key="action.key"
+                                @click="runGuideAction(action.key)">
+                                <i :class="[action.icon, 'mr-2']"></i> {{ action.label }}
+                            </PrimaryButton>
+                            <p v-if="nextStepGuide.hint" class="text-xs text-gray-500 dark:text-gray-400">
+                                <i class="fa-solid fa-circle-info mr-1"></i> {{ nextStepGuide.hint }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- CONTENIDO PRINCIPAL: izquierda información general / derecha pestañas -->
                 <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-2">
@@ -158,7 +257,7 @@
                     <div class="lg:col-span-2">
                         <div class="bg-white dark:bg-slate-900 shadow-xl sm:rounded-lg p-6 min-h-[340px]">
                             <div class="flex flex-nowrap gap-x-4 border-b border-gray-200 dark:border-slate-700 mb-4 overflow-x-auto">
-                                <button v-for="tab in tabs" :key="tab.key" type="button" @click="activeTab = tab.key"
+                                <button v-for="tab in tabs" :key="tab.key" type="button" @click="selectTab(tab.key)"
                                     class="pb-2 text-xs font-semibold transition-colors flex items-center gap-1.5 whitespace-nowrap"
                                     :class="activeTab === tab.key
                                         ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
@@ -841,6 +940,264 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ElMessage, ElMessageBox } from 'element-plus';
 
+/*
+ * Guías del flujo: describen el siguiente hito y los pasos concretos a seguir en
+ * cada etapa, para que cualquier usuario sepa cómo continuar sin perderse.
+ * `actionKeys` referencia las acciones del menú "Acciones" que se muestran como
+ * botón directo en la tarjeta cuando el usuario tiene permiso para ejecutarlas.
+ * `requirements` son los requisitos previos con los que ya debe contar la etapa.
+ */
+
+/*
+ * Pasos del stepper y avance alcanzado según el estatus. Los pasos reflejan las
+ * etapas accionables de la guía (no los estatus internos), de modo que el paso
+ * marcado "en proceso" sea siempre la siguiente acción a realizar.
+ */
+const DEFAULT_TAB = 'payments';
+const LOCAL_FLOW_STEPS = ['Cotización', 'Autorización', 'Factura', 'Pago', 'Cierre'];
+const IMPORT_FLOW_STEPS = ['Negociación', 'Pedido a fábrica', 'Documentación', 'Arribo', 'Cierre'];
+
+const LOCAL_COMPLETED_STEPS = {
+    'Pendiente de cotización': 0,
+    'Pendiente de autorización': 1,
+    'Autorizada': 2,
+    'Pendiente de pago': 3,
+    'Pagada': 4,
+    'Completada': 5,
+};
+
+const IMPORT_COMPLETED_STEPS = {
+    'Pendiente de negociación': 0,
+    'Aprobada': 1,
+    'Pedido a fábrica': 2,
+    'En tránsito': 3,
+    'Arribo confirmado': 4,
+    'Completada': 5,
+};
+
+const LOCAL_FLOW_GUIDES = {
+    'Pendiente de cotización': {
+        tone: 'info',
+        icon: 'fa-solid fa-file-invoice-dollar',
+        title: 'Cotiza con el proveedor y adjunta la cotización',
+        nextStatus: 'Pendiente de autorización',
+        owner: 'Compras',
+        steps: [
+            'Abre el menú «Acciones» de la parte superior y elige «Adjuntar cotización».',
+            'Adjunta el archivo de la cotización del proveedor (máximo 10 MB).',
+            'Captura el costo unitario y la descripción de cada producto, y define la moneda.',
+            'Guarda: la requisición pasa a «Pendiente de autorización» y se notifica a la gerencia de compras.',
+        ],
+        actionKeys: ['quotation'],
+        hint: 'Este paso lo ejecuta el área de compras. Si no ves el botón, pide que adjunten la cotización.',
+    },
+    'Pendiente de autorización': {
+        tone: 'warning',
+        icon: 'fa-solid fa-gavel',
+        title: 'La gerencia debe validar la cotización (Pass / Fail)',
+        nextStatus: 'Autorizada',
+        owner: 'Gerencia de compras',
+        steps: [
+            'Confirma que la cotización esté adjunta; puedes revisarla en la pestaña «Documentos».',
+            'Abre el menú «Acciones» y elige «Validar (Pass / Fail)».',
+            'Selecciona «Pass» para autorizar la compra: la requisición pasa a «Autorizada».',
+            'Si seleccionas «Fail», escribe el motivo del rechazo: la requisición pasa a «Rechazada» y el solicitante deberá corregirla.',
+        ],
+        actionKeys: ['quotation', 'authorize'],
+        requirements: [{ key: 'quotation', label: 'Cotización adjunta' }],
+        hint: 'Solo la gerencia de compras puede registrar esta validación.',
+    },
+    'Autorizada': {
+        tone: 'info',
+        icon: 'fa-solid fa-file-invoice',
+        title: 'Adjunta la factura del proveedor',
+        nextStatus: 'Pendiente de pago',
+        owner: 'Compras',
+        steps: [
+            'Solicita al proveedor la factura correspondiente a la compra autorizada.',
+            'Abre el menú «Acciones» y elige «Adjuntar factura».',
+            'Sube el archivo de la factura y captura el monto y la moneda.',
+            'Guarda: la requisición pasa a «Pendiente de pago» y se notifica a tesorería.',
+        ],
+        actionKeys: ['invoice'],
+        hint: 'Este paso lo ejecuta el área de compras o quien dio seguimiento a la requisición.',
+    },
+    'Pendiente de pago': {
+        tone: 'warning',
+        icon: 'fa-solid fa-money-bill-wave',
+        title: 'Tesorería debe registrar el pago al proveedor',
+        nextStatus: 'Pagada',
+        owner: 'Tesorería',
+        steps: [
+            'Verifica que la factura esté adjunta en la pestaña «Documentos».',
+            'Abre el menú «Acciones» y elige «Registrar pago».',
+            'Adjunta el comprobante de pago y define la fecha en que se realizó el pago.',
+            'Guarda: la requisición pasa a «Pagada» y se comparte el comprobante con el proveedor.',
+        ],
+        actionKeys: ['payment'],
+        requirements: [{ key: 'invoice', label: 'Factura adjunta' }],
+        hint: 'Solo tesorería puede registrar el pago. Si falta el comprobante, solicítalo al área de pagos.',
+    },
+    'Pagada': {
+        tone: 'success',
+        icon: 'fa-solid fa-flag-checkered',
+        title: 'Registra la fecha de entrega y cierra la requisición',
+        nextStatus: 'Completada',
+        owner: 'Compras / Almacén',
+        steps: [
+            'Acuerda con el proveedor la fecha en que entregará la mercancía.',
+            'Asigna guía a los productos de la requisición desde la pestaña «Productos»',
+            'Abre el menú «Acciones» y elige «Fecha de entrega» para registrarla.',
+            'Cuando la mercancía esté recibida y verificada, elige «Completar requisición» y confirma la operación.',
+            'La requisición pasa a «Completada» y el flujo termina.',
+        ],
+        actionKeys: ['delivery', 'complete'],
+        requirements: [{ key: 'payment', label: 'Comprobante de pago adjunto' }],
+        hint: 'Completar la requisición cierra el flujo; hazlo únicamente cuando la mercancía esté recibida.',
+    },
+};
+
+const IMPORT_FLOW_GUIDES = {
+    'Pendiente de negociación': {
+        tone: 'info',
+        icon: 'fa-solid fa-file-invoice-dollar',
+        title: 'Negocia con la fábrica y adjunta la cotización',
+        nextStatus: 'Aprobada',
+        owner: 'Gerencia de compras',
+        steps: [
+            'Negocia con la fábrica precios, tiempos de producción y condiciones de embarque.',
+            'Abre el menú «Acciones» y elige «Adjuntar cotización» para subir el documento.',
+            'Captura el costo unitario por producto y la moneda; guarda los cambios.',
+            'Después abre «Acciones» → «Validar (Pass / Fail)» y selecciona «Pass»: la requisición pasa a «Aprobada».',
+        ],
+        actionKeys: ['quotation', 'authorize'],
+        hint: 'La cotización de importación la captura la gerencia de compras y no cambia la etapa por sí sola.',
+    },
+    'Aprobada': {
+        tone: 'info',
+        icon: 'fa-solid fa-industry',
+        title: 'Registra el pedido a fábrica',
+        nextStatus: 'Pedido a fábrica',
+        owner: 'Gerencia de compras / Almacén',
+        steps: [
+            'Confirma con la fábrica los productos, cantidades y fechas de producción.',
+            'Abre el menú «Acciones» y elige «Pedido a fábrica».',
+            'Captura la fecha estimada de entrega y las notas para la fábrica.',
+            'Guarda: la requisición pasa a «Pedido a fábrica» y comienza el seguimiento documental.',
+        ],
+        actionKeys: ['factory', 'docs'],
+        requirements: [{ key: 'quotation', label: 'Cotización adjunta' }],
+        hint: 'Este paso lo registra la gerencia de compras o el área de almacén.',
+    },
+    'Pedido a fábrica': {
+        tone: 'info',
+        icon: 'fa-solid fa-box-open',
+        title: 'Adjunta la documentación de seguimiento de la fábrica',
+        nextStatus: 'En tránsito',
+        owner: 'Almacén',
+        steps: [
+            'Solicita a la fábrica el packing list, el invoice, las fichas técnicas y las fotos de la mercancía.',
+            'Abre el menú «Acciones» y elige «Documentación de fábrica».',
+            'Adjunta los archivos disponibles; el packing list es indispensable para avanzar.',
+            'Guarda: al cargar el packing list la requisición pasa a «En tránsito».',
+        ],
+        actionKeys: ['docs'],
+        hint: 'Adjunta al menos un documento; sin packing list la requisición no avanza a «En tránsito».',
+    },
+    'En tránsito': {
+        tone: 'warning',
+        icon: 'fa-solid fa-truck-fast',
+        title: 'Asigna las guías y confirma el arribo de la mercancía',
+        nextStatus: 'Arribo confirmado',
+        owner: 'Almacén',
+        steps: [
+            'Ve a la pestaña «Productos» y marca con las casillas las partidas que viajan juntas.',
+            'Presiona «Asignar a guía» y captura número de guía, paquetería, estatus y fecha estimada de arribo.',
+            'Repite la asignación con el resto de las partidas; puedes reutilizar una guía ya creada.',
+            'En la pestaña «Guía», cambia el estatus a «Arribado» cuando la mercancía llegue a destino.',
+            'Cuando todas las partidas estén como «Arribado», la requisición pasa a «Arribo confirmado».',
+        ],
+        actionKeys: ['shipment', 'docs'],
+        requirements: [{ key: 'packing_list', label: 'Packing list adjunto' }],
+        hint: 'La asignación de guía requiere seleccionar antes las partidas en la pestaña «Productos».',
+    },
+    'Arribo confirmado': {
+        tone: 'success',
+        icon: 'fa-solid fa-flag-checkered',
+        title: 'Verifica la recepción y cierra la requisición',
+        nextStatus: 'Completada',
+        owner: 'Almacén',
+        steps: [
+            'Confirma en la pestaña «Productos» que todas las partidas estén marcadas como «Arribado».',
+            'Si alguna presenta faltantes o daños, regístralo en «Comentarios» y ajusta su estatus de arribo.',
+            'Abre el menú «Acciones» y elige «Completar requisición».',
+            'Confirma la operación: la requisición pasa a «Completada» y el flujo termina.',
+        ],
+        actionKeys: ['complete', 'delivery'],
+        requirements: [
+            { key: 'shipment', label: 'Guías asignadas' },
+            { key: 'arrival', label: 'Partidas marcadas como arribadas' },
+        ],
+        hint: 'Completar la requisición cierra el flujo; verifica antes la recepción física de la mercancía.',
+    },
+};
+
+/**
+ * Guía para requisiciones rechazadas: el folio se conserva y el flujo reinicia.
+ */
+function rejectedFlowGuide(isImport) {
+    // Importación: la gerencia puede volver a validar sin editar (la cotización no cambia la etapa).
+    const steps = isImport
+        ? [
+            'Lee el motivo del rechazo indicado en el aviso rojo de la parte superior.',
+            'Si el problema fue el documento, elimina la «Cotización» en la pestaña «Documentos» y vuelve a subirla con «Acciones» → «Adjuntar cotización».',
+            'Si hay datos por corregir, presiona «Editar requisición»: al guardar se conserva el folio y regresa a «Pendiente de negociación».',
+            'Cuando esté lista, registra otra vez la validación con «Acciones» → «Validar (Pass / Fail)».',
+            'Con «Pass» la requisición pasa a «Aprobada» y sigue con el pedido a fábrica; con «Fail» se rechaza de nuevo y se actualiza el motivo.',
+        ]
+        : [
+            'Lee el motivo del rechazo indicado en el aviso rojo de la parte superior.',
+            'Si el problema fue el documento, elimina la «Cotización» en la pestaña «Documentos» y vuelve a subirla con «Acciones» → «Adjuntar cotización».',
+            'O presiona «Editar requisición» y corrige lo señalado: productos, cantidades, especificación o archivos.',
+            'Al guardar se conserva el folio y la requisición regresa al inicio del flujo.',
+            'Al adjuntar la cotización pasa a «Pendiente de autorización», donde la gerencia registra la validación.',
+        ];
+
+    return {
+        tone: 'danger',
+        icon: 'fa-solid fa-triangle-exclamation',
+        title: 'Corrige la requisición para reactivar el flujo',
+        nextStatus: isImport ? 'Aprobada' : 'Pendiente de cotización',
+        owner: isImport ? 'Gerencia de compras / Solicitante' : 'Solicitante',
+        steps,
+        actionKeys: isImport ? ['authorize', 'quotation'] : ['quotation'],
+        editAction: true,
+        hint: 'Solo el solicitante o un usuario con permiso de edición puede corregir la requisición.',
+    };
+}
+
+/**
+ * Guía mostrada cuando el flujo ya terminó (sin acciones pendientes).
+ */
+function completedFlowGuide(isImport) {
+    return {
+        tone: 'success',
+        icon: 'fa-solid fa-circle-check',
+        title: 'Flujo finalizado',
+        nextStatus: null,
+        owner: 'Flujo cerrado',
+        steps: [
+            'La requisición está cerrada y la mercancía fue recibida.',
+            isImport
+                ? 'Consulta la pestaña «Documentos» para revisar packing list, invoice de fábrica, fichas técnicas y fotos.'
+                : 'Consulta la pestaña «Documentos» para revisar cotización, factura y comprobante de pago.',
+            'Usa la pestaña «Comentarios» si necesitas dejar alguna nota o seguimiento posterior.',
+        ],
+        actionKeys: [],
+        hint: 'No hay acciones pendientes en esta requisición. Si requieres más mercancía, crea una requisición nueva.',
+    };
+}
+
 export default {
     components: {
         AppLayout,
@@ -876,8 +1233,11 @@ export default {
     },
     data() {
         return {
-            activeTab: 'payments',
+            // Pestaña activa: se sincroniza con el parámetro ?tab= de la URL.
+            activeTab: DEFAULT_TAB,
             selectedItems: [],
+            // La sección de ayuda "¿Qué sigue?" inicia plegada (solo el encabezado).
+            guideExpanded: false,
             // Grupos de documentos cuyo cargador se expandió manualmente.
             expandedUploads: {},
             arrivalColors: {
@@ -921,6 +1281,16 @@ export default {
             commentForm: useForm({ content: '', mentioned_user_ids: [] }),
         };
     },
+    created() {
+        // Se respeta la pestaña indicada en la URL (enlaces de notificaciones, recargas).
+        this.activeTab = this.resolveTab(this.$page?.url);
+    },
+    watch: {
+        // Al navegar entre requisiciones se vuelve a evaluar la pestaña de la URL.
+        '$page.url'(url) {
+            this.activeTab = this.resolveTab(url);
+        },
+    },
     computed: {
         tabs() {
             return [
@@ -957,6 +1327,10 @@ export default {
         hasQuotation() {
             return (this.requisition.media ?? []).some(file => file.collection_name === 'quotations');
         },
+        // Urgente solo se distingue mientras la requisición siga abierta.
+        isUrgentActive() {
+            return this.requisition.priority === 'Urgente' && this.requisition.status !== 'Completada';
+        },
         /*
          * El servidor habilita la captura por etapa y permisos; si la cotización
          * previa se eliminó desde Documentos, se vuelve a ofrecer el reemplazo.
@@ -976,10 +1350,52 @@ export default {
         assignedItems() {
             return (this.requisition.items ?? []).filter(item => (item.shipments ?? []).length > 0);
         },
-        progressSteps() {
-            return this.requisition.type === 'Importación'
-                ? ['Pendiente de negociación', 'Aprobada', 'Pedido a fábrica', 'En tránsito', 'Arribo confirmado', 'Completada']
-                : ['Pendiente de cotización', 'Pendiente de autorización', 'Autorizada', 'Pendiente de pago', 'Pagada', 'Completada'];
+        stepperSteps() {
+            return this.requisition.type === 'Importación' ? IMPORT_FLOW_STEPS : LOCAL_FLOW_STEPS;
+        },
+        // Pasos ya logrados según el estatus actual (el siguiente queda en proceso).
+        stepperCompletedCount() {
+            const progress = this.requisition.type === 'Importación' ? IMPORT_COMPLETED_STEPS : LOCAL_COMPLETED_STEPS;
+
+            return progress[this.requisition.status] ?? 0;
+        },
+        /*
+         * Guía del flujo: indica el siguiente hito, quién lo ejecuta y los pasos
+         * concretos a seguir, además de las acciones que el usuario puede abrir
+         * directamente desde la tarjeta.
+         */
+        nextStepGuide() {
+            const status = this.requisition.status;
+            const isImport = this.requisition.type === 'Importación';
+            const source = isImport ? IMPORT_FLOW_GUIDES : LOCAL_FLOW_GUIDES;
+
+            const guide = status === 'Rechazada'
+                ? rejectedFlowGuide(isImport)
+                : status === 'Completada'
+                    ? completedFlowGuide(isImport)
+                    : source[status];
+
+            if (!guide) return null;
+
+            // Solo se ofrecen las acciones que el usuario puede ejecutar en esta etapa,
+            // respetando el orden en que aparecen dentro de la guía.
+            const available = new Map(this.flowActions.map(action => [action.key, action]));
+            const actions = (guide.actionKeys ?? []).map(key => available.get(key)).filter(Boolean);
+
+            if (guide.editAction && this.can.edit) {
+                actions.unshift({ key: 'edit', label: 'Editar requisición', icon: 'fa-solid fa-pen-to-square' });
+            }
+
+            return {
+                ...guide,
+                styles: this.guideStyles(guide.tone),
+                actions,
+                requirements: (guide.requirements ?? []).map(requirement => ({
+                    label: requirement.label,
+                    met: this.guideRequirementMet(requirement.key),
+                })),
+                hint: guide.hint ?? null,
+            };
         },
         documentGroups() {
             const media = this.requisition.media ?? [];
@@ -991,6 +1407,8 @@ export default {
             ];
 
             if (this.requisition.type === 'Importación') {
+                // La cotización de fábrica se captura en la etapa de negociación.
+                groups.push({ label: 'Cotización', collection: 'quotations', files: byCollection('quotations') });
                 groups.push({ label: 'Carta de uso de marca', collection: 'brand_use_letters', files: byCollection('brand_use_letters') });
                 groups.push({ label: 'Packing list', collection: 'packing_lists', files: byCollection('packing_lists') });
                 groups.push({ label: 'Invoice de fábrica', collection: 'factory_invoices', files: byCollection('factory_invoices') });
@@ -1080,11 +1498,103 @@ export default {
             return map[status] ?? 'info';
         },
         getPriorityTagType(priority) {
-            const map = { Baja: 'info', Media: 'primary', Alta: 'warning', Urgente: 'danger' };
+            const map = { Baja: 'info', Media: 'primary', Urgente: 'danger' };
             return map[priority] ?? 'info';
         },
         openAction(action) {
             this.modals[action] = true;
+        },
+        // Pestaña válida a partir del parámetro ?tab= de la URL.
+        resolveTab(url) {
+            try {
+                // `window.location.href` sirve como base tanto para rutas absolutas como relativas.
+                const requested = new URL(url ?? '', window.location.href).searchParams.get('tab');
+
+                return this.tabs.some(tab => tab.key === requested) ? requested : DEFAULT_TAB;
+            } catch (error) {
+                return DEFAULT_TAB;
+            }
+        },
+        // Cambia de pestaña y la refleja en la URL para conservarla al recargar o compartir.
+        selectTab(key) {
+            if (!this.tabs.some(tab => tab.key === key)) return;
+
+            this.activeTab = key;
+
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', key);
+                // replaceState conserva el historial de Inertia y evita recargar la página.
+                window.history.replaceState(window.history.state, '', url);
+            } catch (error) {
+                // Sin History API la pestaña sigue funcionando en memoria.
+            }
+        },
+        // Estilos por tono de la tarjeta "¿Qué sigue?".
+        guideStyles(tone) {
+            const map = {
+                info: {
+                    border: 'border-l-sky-500',
+                    icon: 'bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-300',
+                    accent: 'text-sky-600 dark:text-sky-300',
+                    step: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300',
+                    tag: 'primary',
+                },
+                warning: {
+                    border: 'border-l-amber-500',
+                    icon: 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300',
+                    accent: 'text-amber-600 dark:text-amber-300',
+                    step: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
+                    tag: 'warning',
+                },
+                success: {
+                    border: 'border-l-emerald-500',
+                    icon: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300',
+                    accent: 'text-emerald-600 dark:text-emerald-300',
+                    step: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300',
+                    tag: 'success',
+                },
+                danger: {
+                    border: 'border-l-red-500',
+                    icon: 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300',
+                    accent: 'text-red-600 dark:text-red-300',
+                    step: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
+                    tag: 'danger',
+                },
+            };
+
+            return map[tone] ?? map.info;
+        },
+        // Indica si la etapa ya cuenta con el requisito previo indicado.
+        guideRequirementMet(key) {
+            const media = this.requisition.media ?? [];
+            const hasFile = collection => media.some(file => file.collection_name === collection);
+
+            switch (key) {
+                case 'quotation':
+                    return this.hasQuotation;
+                case 'packing_list':
+                    return hasFile('packing_lists');
+                case 'invoice':
+                    return hasFile('invoices');
+                case 'payment':
+                    return hasFile('payment_receipts');
+                case 'shipment':
+                    return (this.requisition.shipments ?? []).length > 0;
+                case 'arrival':
+                    return (this.requisition.items ?? []).some(item => item.arrival_status === 'Arribado');
+                default:
+                    return false;
+            }
+        },
+        // Acción disparada desde la tarjeta "¿Qué sigue?".
+        runGuideAction(action) {
+            if (action === 'edit') {
+                this.handleManageCommand('edit');
+                return;
+            }
+
+            this.handleFlowCommand(action);
         },
         // Grupo de acciones del flujo (menú "Acciones").
         async handleFlowCommand(command) {
@@ -1094,7 +1604,7 @@ export default {
             }
 
             if (command === 'shipment' && !this.selectedItems.length) {
-                this.activeTab = 'items';
+                this.selectTab('items');
                 ElMessage.warning('Selecciona en la tabla los productos que viajan en la guía.');
                 return;
             }
@@ -1342,3 +1852,19 @@ export default {
     },
 };
 </script>
+
+<style>
+/* ===== Requisiciones urgentes: distintivo con pulso ===== */
+@keyframes priority-badge-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, .5); }
+    50%      { transform: scale(1.04); box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.priority-badge {
+    animation: priority-badge-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .priority-badge { animation: none; }
+}
+</style>
