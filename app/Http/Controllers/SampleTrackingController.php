@@ -407,6 +407,12 @@ class SampleTrackingController extends Controller
             return back()->withErrors('Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.');
         }
 
+        // La Orden de Venta solo puede crearse cuando el seguimiento ya fue autorizado.
+        // (registrar los productos como "Muestras y regalos" sí está permitido antes)
+        if ($request->input('redirect_source') !== 'show' && !$sampleTracking->authorized_at) {
+            return back()->withErrors('Autoriza el seguimiento de muestra antes de crear su Orden de Venta.');
+        }
+
         // Stock actual capturado por el usuario para los productos nuevos que se registran
         $validated = $request->validate([
             'stocks' => 'nullable|array',

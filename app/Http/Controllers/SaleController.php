@@ -139,6 +139,14 @@ class SaleController extends Controller
 
         $quoteToConvertId = intval($request->input('quote_id'));
 
+        // La Orden de Venta de muestra/regalo solo puede crearse desde un seguimiento autorizado.
+        if ($request->input('sample_tracking_id')
+            && !SampleTracking::whereKey($request->input('sample_tracking_id'))->whereNotNull('authorized_at')->exists()) {
+            throw ValidationException::withMessages([
+                'sample_tracking_id' => 'El seguimiento de muestra debe estar autorizado antes de crear su Orden de Venta.',
+            ]);
+        }
+
         // --- ORDEN DE MUESTRA/REGALO: datos del seguimiento de muestra (para prellenar el form) ---
         $sampleTrackingData = $this->getSampleTrackingDataForSale($request->input('sample_tracking_id'));
 
@@ -307,6 +315,12 @@ class SaleController extends Controller
             if ($sampleTrackingForSale?->sale_id) {
                 throw ValidationException::withMessages([
                     'sample_tracking_id' => 'Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.',
+                ]);
+            }
+
+            if ($sampleTrackingForSale && !$sampleTrackingForSale->authorized_at) {
+                throw ValidationException::withMessages([
+                    'sample_tracking_id' => 'El seguimiento de muestra debe estar autorizado antes de crear su Orden de Venta.',
                 ]);
             }
         }

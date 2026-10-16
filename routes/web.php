@@ -195,6 +195,9 @@ Route::post('branches/{branch}/children', [BranchController::class, 'addChildren
 // --- Datos fiscales propios del cliente ---
 Route::patch('branches/{branch}/fiscal', [BranchController::class, 'updateFiscalData'])->middleware('auth')->name('branches.fiscal.update');
 
+// --- Vendedor asignado al cliente ---
+Route::patch('branches/{branch}/account-manager', [BranchController::class, 'updateAccountManager'])->middleware('auth')->name('branches.account-manager.update');
+
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
 Route::get('/branches/{branch}/notes', [BranchNoteController::class, 'index'])->name('branch-notes.index');
