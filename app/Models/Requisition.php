@@ -94,6 +94,8 @@ class Requisition extends Model implements HasMedia, Auditable
         'notes',
         'quoted_cost',
         'quoted_currency',
+        'quoted_tax_enabled',
+        'quoted_tax_rate',
         'invoice_amount',
         'invoice_currency',
         'paid_at',
@@ -109,6 +111,8 @@ class Requisition extends Model implements HasMedia, Auditable
     protected $casts = [
         'quantity' => 'decimal:2',
         'quoted_cost' => 'decimal:2',
+        'quoted_tax_enabled' => 'boolean',
+        'quoted_tax_rate' => 'decimal:2',
         'invoice_amount' => 'decimal:2',
         'paid_at' => 'datetime',
         'authorized_at' => 'datetime',
@@ -120,7 +124,7 @@ class Requisition extends Model implements HasMedia, Auditable
     /**
      * Atributos calculados que siempre viajan al frontend.
      */
-    protected $appends = ['folio', 'arrival_color'];
+    protected $appends = ['folio', 'arrival_color', 'quoted_tax_amount', 'quoted_total'];
 
     /**
      * Folio visible de la requisición.
@@ -128,6 +132,36 @@ class Requisition extends Model implements HasMedia, Auditable
     public function getFolioAttribute(): string
     {
         return 'REQ-' . str_pad($this->id, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Monto de IVA calculado sobre el subtotal cotizado.
+     */
+    public function getQuotedTaxAmountAttribute(): ?float
+    {
+        if ($this->quoted_cost === null) {
+            return null;
+        }
+
+        if (! $this->quoted_tax_enabled) {
+            return 0.0;
+        }
+
+        $rate = (float) ($this->quoted_tax_rate ?? 16);
+
+        return round((float) $this->quoted_cost * $rate / 100, 2);
+    }
+
+    /**
+     * Total de la cotización: subtotal más IVA cuando está activado.
+     */
+    public function getQuotedTotalAttribute(): ?float
+    {
+        if ($this->quoted_cost === null) {
+            return null;
+        }
+
+        return round((float) $this->quoted_cost + (float) $this->quoted_tax_amount, 2);
     }
 
     /**

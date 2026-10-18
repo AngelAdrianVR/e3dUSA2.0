@@ -22,9 +22,9 @@
                         <span class="text-sm text-gray-600 dark:text-gray-300">Actualización / evento</span>
                     </div>
                 </div>
-                <p class="text-xs text-gray-400 dark:text-gray-500 ml-auto">
+                <!-- <p class="text-xs text-gray-400 dark:text-gray-500 ml-auto">
                     Destino: Guadalajara (GDL). Una guía agrupa todas las requisiciones que viajan en ella.
-                </p>
+                </p> -->
             </div>
 
             <!-- Controles de mes -->
@@ -210,7 +210,9 @@
                                 </p>
                             </div>
                             <div v-if="selectedEntry.notes" class="col-span-2">
-                                <p class="text-gray-500 dark:text-gray-400">Notas de la guía</p>
+                                <p class="text-gray-500 dark:text-gray-400">
+                                    {{ selectedEntry.kind === 'shipment' ? 'Notas de la guía' : 'Notas del arribo' }}
+                                </p>
                                 <p class="dark:text-gray-200 whitespace-pre-line">{{ selectedEntry.notes }}</p>
                             </div>
                         </div>
@@ -253,8 +255,12 @@
                                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                                 <span v-if="item.code">{{ item.code }} · </span>
                                                 {{ item.quantity }} pieza(s)
+                                                <template v-if="item.total_quantity && item.total_quantity > item.quantity">
+                                                    de {{ item.total_quantity }} solicitadas
+                                                </template>
                                                 <template v-if="item.folio">
-                                                    · <a :href="item.url" class="text-primary hover:underline font-mono">{{ item.folio }}</a>
+                                                    · <a v-if="item.url" :href="item.url" class="text-primary hover:underline font-mono">{{ item.folio }}</a>
+                                                    <span v-else class="font-mono">{{ item.folio }}</span>
                                                 </template>
                                             </p>
                                             <p v-if="item.requester" class="text-xs text-gray-500 dark:text-gray-400">
@@ -282,9 +288,10 @@
                             <li v-for="requisition in selectedEntry.requisitions" :key="requisition.id"
                                 class="border border-gray-200 dark:border-slate-700 rounded-lg p-3">
                                 <div class="flex justify-between items-center">
-                                    <a :href="requisition.url" class="font-mono font-semibold text-primary hover:underline">
+                                    <a v-if="requisition.url" :href="requisition.url" class="font-mono font-semibold text-primary hover:underline">
                                         {{ requisition.folio }}
                                     </a>
+                                    <span v-else class="font-mono font-semibold">{{ requisition.folio }}</span>
                                     <el-tag size="small" :type="requisition.type === 'Importación' ? 'primary' : 'success'">
                                         {{ requisition.type }}
                                     </el-tag>
@@ -319,13 +326,20 @@
                                         placeholder="Selecciona la fecha" class="w-full" />
                                 </div>
                             </div>
-                            <div v-if="selectedEntry.kind === 'shipment'">
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Notas de la guía</p>
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                                    {{ selectedEntry.kind === 'shipment' ? 'Notas de la guía' : 'Notas del arribo' }}
+                                </p>
                                 <textarea v-model="arrivalForm.notes" rows="2"
                                     class="w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
                                     placeholder="Ej. Contiene 3 cajas, pendiente de aduana..."></textarea>
                                 <p class="text-[11px] text-gray-400 mt-1">
-                                    La nota se muestra junto al número de guía en el calendario.
+                                    <template v-if="selectedEntry.kind === 'shipment'">
+                                        La nota se muestra junto al número de guía en el calendario.
+                                    </template>
+                                    <template v-else>
+                                        La nota se muestra junto a la fecha tentativa de arribo en el calendario.
+                                    </template>
                                 </p>
                             </div>
                             <div class="flex justify-end">
@@ -419,6 +433,8 @@ export default {
             arrivalForm: { status: 'Pendiente', date: null, notes: '' },
             // Secciones abiertas del drawer: las actualizaciones quedan plegadas.
             openSections: ['general', 'products'],
+            // Última entrada abierta por enlace directo (notificaciones).
+            lastDeepLinkedEntry: null,
             weekDays: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
             legend: {
                 Pendiente: '#9CA3AF',
@@ -495,8 +511,40 @@ export default {
             // Cada apertura reinicia las secciones plegadas.
             this.openSections = ['general', 'products'];
         },
+        // Enlaces directos desde notificaciones (misma página reutilizada por Inertia).
+        '$page.url'() {
+            this.openFromQuery();
+        },
+    },
+    mounted() {
+        this.openFromQuery();
     },
     methods: {
+        /**
+         * Abre el registro indicado en la URL (?tab=arrivals&entry=shipment-123):
+         * salta al mes de la fecha tentativa, lo resalta y muestra su detalle.
+         */
+        openFromQuery() {
+            let entryKey = null;
+
+            try {
+                entryKey = new URL(window.location.href).searchParams.get('entry');
+            } catch (error) {
+                return;
+            }
+
+            if (!entryKey || entryKey === this.lastDeepLinkedEntry) return;
+
+            const entries = [...(this.arrivals?.arrivals ?? []), ...(this.arrivals?.undated ?? [])];
+            const entry = entries.find(candidate => candidate.key === entryKey);
+
+            if (!entry) return;
+
+            this.lastDeepLinkedEntry = entryKey;
+            this.search = entry.title;
+            this.highlightEntry(entry);
+            this.selectedEntry = entry;
+        },
         changeMonth(offset) {
             this.currentMonth = addMonths(this.currentMonth, offset);
         },
@@ -696,7 +744,7 @@ export default {
 
             const status = this.arrivalForm.status;
             const date = this.arrivalForm.date || null;
-            const notes = entry.kind === 'shipment' ? (this.arrivalForm.notes || '') : entry.notes;
+            const notes = this.arrivalForm.notes || '';
 
             const options = {
                 preserveScroll: true,
@@ -716,7 +764,7 @@ export default {
             this.saving = true;
 
             // Las guías tienen estatus, fecha y notas propias; las partidas sin
-            // guía actualizan su estatus y la fecha tentativa de la requisición.
+            // guía actualizan su estatus, la fecha tentativa y sus notas.
             if (entry.kind === 'shipment') {
                 router.put(route('requisition-shipments.update-status', entry.id), {
                     status,
@@ -730,6 +778,7 @@ export default {
             router.put(route('requisition-items.arrival-status', entry.id), {
                 arrival_status: status,
                 expected_delivery_date: date,
+                arrival_notes: notes,
             }, options);
         },
         formatDate(dateString) {

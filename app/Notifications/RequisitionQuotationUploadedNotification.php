@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -33,7 +35,9 @@ class RequisitionQuotationUploadedNotification extends Notification
                 : 'Cotización registrada',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_quotation',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => $this->requiresAuthorization
                 ? "La requisición <b>{$this->requisition->folio}</b> ya tiene cotización y requiere autorización."
                 : "La requisición <b>{$this->requisition->folio}</b> ya tiene cotización registrada por la gerencia de compras.",

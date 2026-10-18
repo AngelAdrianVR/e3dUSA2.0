@@ -72,7 +72,9 @@ class CalendarController extends Controller
      */
     private function requisitionArrivals(): array
     {
-        $canManage = RequisitionPermissions::canManageArrivals(auth()->user());
+        $user = auth()->user();
+        $canManage = RequisitionPermissions::canManageArrivals($user);
+        $canViewDetails = RequisitionPermissions::canViewDetails($user);
 
         $shipments = RequisitionShipment::with([
             'items:id,requisition_id,product_id,quantity,arrival_status',
@@ -101,12 +103,14 @@ class CalendarController extends Controller
                 'code' => $item->product?->code,
                 'image_url' => $this->productImageUrl($item->product),
                 'requisition_id' => $item->requisition_id,
-                'quantity' => (float) $item->quantity,
+                // Cantidad que viaja en esta guía (parcialidad) y total solicitado.
+                'quantity' => (float) ($item->pivot->quantity ?? $item->quantity),
+                'total_quantity' => (float) $item->quantity,
                 'status' => $item->arrival_status,
                 'color' => $item->arrival_color,
                 'folio' => $item->requisition?->folio,
                 'requester' => $item->requisition?->user?->name,
-                'url' => $item->requisition ? route('requisitions.show', $item->requisition->id, false) : null,
+                'url' => $canViewDetails && $item->requisition ? route('requisitions.show', $item->requisition->id, false) : null,
             ])->values()->all();
 
             $requisitions = $shipment->requisitions->map(fn (Requisition $requisition) => [
@@ -116,7 +120,7 @@ class CalendarController extends Controller
                 'status' => $requisition->status,
                 'label' => $requisition->branch?->name ?? 'Requisición',
                 'creator' => $requisition->user?->name,
-                'url' => route('requisitions.show', $requisition->id, false),
+                'url' => $canViewDetails ? route('requisitions.show', $requisition->id, false) : null,
             ])->values()->all();
 
             $events = $shipment->events->map(fn (RequisitionShipmentEvent $shipmentEvent) => [
@@ -205,7 +209,7 @@ class CalendarController extends Controller
                 'date' => $requisition->expected_delivery_date->toDateString(),
                 'estimated_arrival_date' => $requisition->expected_delivery_date->toDateString(),
                 'arrived_at' => null,
-                'notes' => null,
+                'notes' => $item->arrival_notes,
                 'items' => [[
                     'id' => $item->id,
                     'product' => $item->product?->name ?? 'Mercancía',
@@ -213,11 +217,12 @@ class CalendarController extends Controller
                     'image_url' => $this->productImageUrl($item->product),
                     'requisition_id' => $requisition->id,
                     'quantity' => (float) $item->quantity,
+                    'total_quantity' => (float) $item->quantity,
                     'status' => $item->arrival_status,
                     'color' => $item->arrival_color,
                     'folio' => $requisition->folio,
                     'requester' => $requisition->user?->name,
-                    'url' => route('requisitions.show', $requisition->id, false),
+                    'url' => $canViewDetails ? route('requisitions.show', $requisition->id, false) : null,
                 ]],
                 'requisitions' => [[
                     'id' => $requisition->id,
@@ -226,7 +231,7 @@ class CalendarController extends Controller
                     'status' => $requisition->status,
                     'label' => $requisition->branch?->name ?? $item->product?->name ?? 'Requisición',
                     'creator' => $requisition->user?->name,
-                    'url' => route('requisitions.show', $requisition->id, false),
+                    'url' => $canViewDetails ? route('requisitions.show', $requisition->id, false) : null,
                 ]],
             ];
         }

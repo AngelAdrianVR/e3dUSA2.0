@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -31,7 +33,9 @@ class RequisitionRejectedNotification extends Notification
             'title' => 'Requisición rechazada',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_rejected',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => "La requisición <b>{$this->requisition->folio}</b> fue rechazada. Motivo: {$this->requisition->rejection_reason}. " . ($this->requisition->type === Requisition::TYPE_IMPORT
                 ? 'Corrígela con «Editar requisición» o vuelve a subir la cotización, y registra de nuevo la validación (Pass / Fail) sobre el mismo folio.'
                 : 'Edita la requisición para corregirla y volver a habilitar las acciones sobre el mismo folio.'),

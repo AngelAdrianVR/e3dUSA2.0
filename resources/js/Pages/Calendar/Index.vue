@@ -228,6 +228,18 @@ export default {
       activeTab: new URLSearchParams(window.location.search).get('tab') === 'arrivals' ? 'arrivals' : 'activities',
     };
   },
+  watch: {
+    // Al llegar desde una notificación estando ya en el calendario, Inertia
+    // reutiliza el componente: se sincroniza la pestaña con la URL.
+    '$page.url'(url) {
+      try {
+        const tab = new URL(url, window.location.href).searchParams.get('tab');
+        this.activeTab = tab === 'arrivals' ? 'arrivals' : 'activities';
+      } catch (error) {
+        // Sin URL válida se conserva la pestaña actual.
+      }
+    },
+  },
   computed: {
     monthAndYear() { return format(this.currentDate, 'MMMM \'de\' yyyy', { locale: es }); },
     calendarDays() {

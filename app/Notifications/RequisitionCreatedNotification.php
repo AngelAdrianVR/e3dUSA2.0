@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -35,7 +37,9 @@ class RequisitionCreatedNotification extends Notification
             'title' => 'Nueva requisición de material',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_created',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => "Nueva requisición <b>{$this->requisition->folio}</b> ({$this->requisition->type}) levantada por la vía de {$origin}.",
             'icon' => 'fa-solid fa-clipboard-list',
         ];

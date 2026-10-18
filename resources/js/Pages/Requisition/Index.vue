@@ -75,7 +75,7 @@
 
                         <el-table :data="requisitions.data" style="width: 100%" stripe @row-click="handleRowClick"
                             :row-class-name="rowClassName"
-                            class="cursor-pointer dark:!bg-slate-900 dark:!text-gray-300">
+                            :class="[can.view_details ? 'cursor-pointer' : '', 'dark:!bg-slate-900 dark:!text-gray-300']">
                             <el-table-column label="Folio" width="120">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
@@ -125,13 +125,13 @@
                                         <template #content>
                                             <div class="space-y-1.5 py-0.5 max-h-72 max-w-md overflow-y-auto">
                                                 <p v-if="productRows(scope.row).length > 1"
-                                                    class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                                                    class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-800">
                                                     {{ productRows(scope.row).length }} productos solicitados
                                                 </p>
                                                 <div v-for="(line, index) in productRows(scope.row)" :key="index"
                                                     class="flex items-start justify-between gap-6 leading-snug py-0.5">
-                                                    <span class="text-xs text-gray-200">{{ line.name }}</span>
-                                                    <span class="text-xs font-semibold text-gray-100 bg-white/10 rounded px-1.5 py-0.5 shrink-0">
+                                                    <span class="text-xs text-gray-200 dark:text-gray-800">{{ line.name }}</span>
+                                                    <span class="text-xs font-semibold text-gray-100 bg-white/10 dark:bg-black/50 rounded px-1.5 py-0.5 shrink-0">
                                                         {{ line.quantity }}
                                                     </span>
                                                 </div>
@@ -224,12 +224,14 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Monto total" width="170">
+                            <el-table-column v-if="can.view_details" label="Monto total" width="170">
                                 <template #default="scope">
                                     <div class="text-xs space-y-1">
                                         <p v-if="scope.row.quoted_cost">
-                                            <span class="text-gray-500 dark:text-gray-400">Cotizado:</span>
-                                            {{ formatCurrency(scope.row.quoted_cost, scope.row.quoted_currency) }}
+                                            <span class="text-gray-500 dark:text-gray-400">
+                                                {{ scope.row.quoted_tax_enabled ? 'Total:' : 'Cotizado:' }}
+                                            </span>
+                                            {{ formatCurrency(scope.row.quoted_tax_enabled ? scope.row.quoted_total : scope.row.quoted_cost, scope.row.quoted_currency) }}
                                         </p>
                                         <p v-if="scope.row.invoice_amount">
                                             <span class="text-gray-500 dark:text-gray-400">Factura:</span>
@@ -240,7 +242,7 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Acciones" width="110" fixed="right">
+                            <el-table-column v-if="can.view_details" label="Acciones" width="110" fixed="right">
                                 <template #default="scope">
                                     <div class="flex items-center gap-1" @click.stop>
                                         <el-tooltip content="Editar" placement="top">
@@ -364,6 +366,9 @@ export default {
             });
         },
         handleRowClick(row) {
+            // Solo la gestión de compras puede abrir el detalle.
+            if (!this.can?.view_details) return;
+
             router.get(route('requisitions.show', row.id));
         },
         goToCreate(type) {

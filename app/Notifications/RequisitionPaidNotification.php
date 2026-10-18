@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -31,7 +33,9 @@ class RequisitionPaidNotification extends Notification
             'title' => 'Pago de requisición registrado',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_paid',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => "El pago de la requisición <b>{$this->requisition->folio}</b> fue registrado. Se comparte el comprobante con el proveedor y se solicita fecha de entrega.",
             'icon' => 'fa-solid fa-money-bill-wave',
         ];

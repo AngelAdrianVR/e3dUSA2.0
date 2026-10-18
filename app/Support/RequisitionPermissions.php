@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\Requisition;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Spatie\Permission\Models\Role;
 
 /**
  * Agrupa los permisos que gobiernan el módulo de requisiciones.
@@ -57,6 +59,30 @@ class RequisitionPermissions
     ];
 
     /**
+     * Roles que siguen la fecha tentativa de arribo de la mercancía.
+     */
+    public const ARRIVAL_TRACKING_ROLES = [
+        'Almacenista',
+        'Jefe de producción',
+        'Samuel',
+    ];
+
+    /**
+     * Permiso que habilita el detalle (show) de una requisición.
+     * El resto de los usuarios solo accede al listado.
+     */
+    public const VIEW_DETAILS = [
+        'Gestión de compras',
+    ];
+
+    /**
+     * Permiso que recibe el aviso de cambios en la frecuencia de consumo.
+     */
+    public const PURCHASING_MANAGEMENT = [
+        'Gestión de compras',
+    ];
+
+    /**
      * Cualquier permiso del módulo habilita el acceso al listado.
      */
     public static function all(): array
@@ -96,6 +122,26 @@ class RequisitionPermissions
         return $user->hasAnyPermission(self::PAY);
     }
 
+    /**
+     * Solo la gestión de compras puede abrir el detalle de una requisición.
+     */
+    public static function canViewDetails(User $user): bool
+    {
+        return $user->hasAnyPermission(self::VIEW_DETAILS);
+    }
+
+    /**
+     * URL de la requisición según el acceso del usuario: detalle o listado.
+     */
+    public static function urlFor(User $user, Requisition $requisition, array $query = []): string
+    {
+        if (! self::canViewDetails($user)) {
+            return route('requisitions.index', $query, false);
+        }
+
+        return route('requisitions.show', array_merge(['requisition' => $requisition->id], $query), false);
+    }
+
     public static function canManageArrivals(User $user): bool
     {
         return $user->hasAnyPermission(self::MANAGE_ARRIVALS);
@@ -131,5 +177,39 @@ class RequisitionPermissions
         }
 
         return $users->values();
+    }
+
+    /**
+     * Usuarios activos que tienen alguno de los roles indicados.
+     *
+     * Se validan los roles existentes para evitar excepciones cuando el catálogo
+     * de roles cambia (p. ej. "Almacén" aún no está creado).
+     */
+    public static function usersWithRoles(array $roles, ?User $exclude = null): Collection
+    {
+        $existingRoles = Role::whereIn('name', $roles)->pluck('name')->all();
+
+        if (empty($existingRoles)) {
+            return new Collection();
+        }
+
+        $users = User::role($existingRoles)->where('is_active', true)->get();
+
+        if ($exclude) {
+            $users = $users->reject(fn (User $user) => $user->id === $exclude->id);
+        }
+
+        return $users->values();
+    }
+
+    /**
+     * Responsables de dar seguimiento a la fecha tentativa de arribo.
+     */
+    public static function arrivalTrackingUsers(?User $exclude = null): Collection
+    {
+        return self::usersWithRoles(self::ARRIVAL_TRACKING_ROLES, $exclude)
+            ->concat(self::usersToNotify(['Gestión de almacén'], $exclude))
+            ->unique('id')
+            ->values();
     }
 }

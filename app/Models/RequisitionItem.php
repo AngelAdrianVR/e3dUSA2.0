@@ -20,6 +20,7 @@ class RequisitionItem extends Model
         'unit_cost',
         'description',
         'arrival_status',
+        'arrival_notes',
     ];
 
     protected $casts = [
@@ -47,11 +48,13 @@ class RequisitionItem extends Model
     }
 
     /**
-     * Guías de paquetería en las que viaja este producto.
+     * Guías de paquetería en las que viaja este producto, con la cantidad
+     * enviada en cada una (parcialidades de entrega).
      */
     public function shipments(): BelongsToMany
     {
         return $this->belongsToMany(RequisitionShipment::class, 'requisition_item_shipment')
+            ->withPivot('quantity')
             ->withTimestamps();
     }
 }

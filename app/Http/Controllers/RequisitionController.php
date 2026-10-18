@@ -16,6 +16,7 @@ use App\Notifications\RequisitionInvoiceUploadedNotification;
 use App\Notifications\RequisitionPaidNotification;
 use App\Notifications\RequisitionQuotationUploadedNotification;
 use App\Notifications\RequisitionRejectedNotification;
+use App\Notifications\RequisitionSaleFrequencyUpdatedNotification;
 use App\Support\RequisitionPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -53,6 +54,7 @@ class RequisitionController extends Controller
         abort_unless($user->hasAnyPermission(RequisitionPermissions::all()), 403);
 
         $canViewAll = RequisitionPermissions::canViewAll($user);
+        $canViewDetails = RequisitionPermissions::canViewDetails($user);
         $view = $canViewAll && $request->input('view') !== 'mias' ? 'todas' : 'mias';
 
         $query = Requisition::query()->with([
@@ -110,16 +112,34 @@ class RequisitionController extends Controller
         $requisitions = $query->latest()->paginate(15)->withQueryString();
 
         // Banderas por fila: habilitan las acciones y la edición en línea del listado.
-        $requisitions->through(fn (Requisition $requisition) => [
-            ...$requisition->toArray(),
-            'can' => [
-                'edit' => $this->canEditRequisition($requisition, $user),
-                'delete' => $this->canDeleteRequisition($requisition, $user),
-                // La frecuencia de venta solo aplica a requisiciones de vendedor.
-                'edit_frequency' => $requisition->origin === Requisition::ORIGIN_SELLER
-                    && $this->canEditRequisition($requisition, $user),
-            ],
-        ]);
+        $requisitions->through(function (Requisition $requisition) use ($user, $canViewDetails) {
+            $row = [
+                ...$requisition->toArray(),
+                'can' => [
+                    'edit' => $this->canEditRequisition($requisition, $user),
+                    'delete' => $this->canDeleteRequisition($requisition, $user),
+                    // La frecuencia de venta solo aplica a requisiciones de vendedor.
+                    'edit_frequency' => $requisition->origin === Requisition::ORIGIN_SELLER
+                        && $this->canEditRequisition($requisition, $user),
+                ],
+            ];
+
+            // Los montos solo se envían a quienes pueden abrir el detalle.
+            if (! $canViewDetails) {
+                unset(
+                    $row['quoted_cost'],
+                    $row['quoted_currency'],
+                    $row['quoted_tax_enabled'],
+                    $row['quoted_tax_rate'],
+                    $row['quoted_tax_amount'],
+                    $row['quoted_total'],
+                    $row['invoice_amount'],
+                    $row['invoice_currency'],
+                );
+            }
+
+            return $row;
+        });
 
         return Inertia::render('Requisition/Index', [
             'requisitions' => $requisitions,
@@ -129,6 +149,7 @@ class RequisitionController extends Controller
             'can' => [
                 'create' => RequisitionPermissions::canCreate($user),
                 'view_all' => $canViewAll,
+                'view_details' => $canViewDetails,
             ],
         ]);
     }
@@ -220,14 +241,19 @@ class RequisitionController extends Controller
 
         $this->notifyCreation($requisition, $user);
 
-        return redirect()->route('requisitions.show', $requisition->id)
+        return redirect(RequisitionPermissions::urlFor($user, $requisition))
             ->with('success', "Requisición {$requisition->folio} creada correctamente.");
     }
 
     public function show(Requisition $requisition)
     {
         $user = Auth::user();
-        abort_unless($this->canViewRequisition($requisition, $user), 403);
+
+        // Solo la gestión de compras puede abrir el detalle; el resto usa el listado.
+        if (! RequisitionPermissions::canViewDetails($user)) {
+            return redirect()->route('requisitions.index')
+                ->with('error', 'No tienes permiso para ver el detalle de las requisiciones.');
+        }
 
         $requisition->load([
             'user:id,name',
@@ -325,7 +351,7 @@ class RequisitionController extends Controller
             $this->notifyCreation($requisition, $user);
         }
 
-        return redirect()->route('requisitions.show', $requisition->id)
+        return redirect(RequisitionPermissions::urlFor($user, $requisition))
             ->with('success', "Requisición {$requisition->folio} actualizada.");
     }
 
@@ -354,7 +380,22 @@ class RequisitionController extends Controller
             'sale_frequency' => ['nullable', Rule::in(Requisition::SALES_FREQUENCIES)],
         ]);
 
+        $previousFrequency = $requisition->sale_frequency;
+
         $requisition->update(['sale_frequency' => $validated['sale_frequency'] ?? null]);
+
+        // El cambio de frecuencia impacta la planeación de compras: se avisa a
+        // quienes tienen el permiso de gestión de compras.
+        if ($requisition->wasChanged('sale_frequency')) {
+            $recipients = RequisitionPermissions::usersToNotify(
+                RequisitionPermissions::PURCHASING_MANAGEMENT,
+                $user
+            );
+
+            if ($recipients->isNotEmpty()) {
+                Notification::send($recipients, new RequisitionSaleFrequencyUpdatedNotification($requisition, $previousFrequency));
+            }
+        }
 
         return back()->with('success', 'Frecuencia actualizada.');
     }
@@ -391,9 +432,13 @@ class RequisitionController extends Controller
         $validated = $request->validate([
             'arrival_status' => ['required', Rule::in(Requisition::ARRIVAL_STATUSES)],
             'expected_delivery_date' => ['nullable', 'date'],
+            'arrival_notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $item->update(['arrival_status' => $validated['arrival_status']]);
+        $item->update([
+            'arrival_status' => $validated['arrival_status'],
+            'arrival_notes' => $validated['arrival_notes'] ?? null,
+        ]);
 
         $requisition = $item->requisition;
 
@@ -439,6 +484,9 @@ class RequisitionController extends Controller
             'quotation' => ['required', 'file', 'max:10240'],
             'quoted_cost' => ['nullable', 'numeric', 'min:0'],
             'quoted_currency' => ['nullable', 'string', 'max:3'],
+            // IVA de la cotización: activable y con porcentaje editable (16% por defecto).
+            'quoted_tax_enabled' => ['nullable', 'boolean'],
+            'quoted_tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             // Costo unitario y descripción por producto cotizado.
             'items' => ['nullable', 'array'],
             'items.*.id' => ['required', 'integer', 'exists:requisition_items,id'],
@@ -452,6 +500,8 @@ class RequisitionController extends Controller
             $payload = [
                 'quoted_cost' => $request->quoted_cost,
                 'quoted_currency' => $request->quoted_currency,
+                'quoted_tax_enabled' => $request->boolean('quoted_tax_enabled'),
+                'quoted_tax_rate' => $request->filled('quoted_tax_rate') ? $request->quoted_tax_rate : 16,
             ];
 
             // Solo el flujo local avanza a validación gerencial.
@@ -752,7 +802,7 @@ class RequisitionController extends Controller
     public function addComment(Request $request, Requisition $requisition)
     {
         $user = Auth::user();
-        abort_unless($this->canViewRequisition($requisition, $user), 403);
+        abort_unless(RequisitionPermissions::canViewDetails($user), 403);
 
         $request->validate([
             'content' => ['required', 'string', 'max:2000'],
@@ -947,11 +997,6 @@ class RequisitionController extends Controller
         $branch = Branch::with('parent:id,business_name')->find($branchId);
 
         return $branch?->business_name ?: $branch?->parent?->business_name;
-    }
-
-    private function canViewRequisition(Requisition $requisition, User $user): bool
-    {
-        return RequisitionPermissions::canViewAll($user) || $requisition->user_id === $user->id;
     }
 
     private function canEditRequisition(Requisition $requisition, User $user): bool

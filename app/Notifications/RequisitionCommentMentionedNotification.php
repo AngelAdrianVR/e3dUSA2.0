@@ -4,6 +4,8 @@ namespace App\Notifications;
 
 use App\Models\Comment;
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -37,7 +39,9 @@ class RequisitionCommentMentionedNotification extends Notification
             'folio' => $this->requisition->folio,
             'type' => 'requisition_mentioned',
             // Lleva directo a la pestaña de comentarios para responder de inmediato.
-            'url' => route('requisitions.show', ['requisition' => $this->requisition->id, 'tab' => 'comments'], false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition, ['tab' => 'comments'])
+                : route('requisitions.index', [], false),
             'message' => "{$authorName} te mencionó en un comentario de la requisición <b>{$this->requisition->folio}</b>.",
             'icon' => 'fa-solid fa-at',
         ];

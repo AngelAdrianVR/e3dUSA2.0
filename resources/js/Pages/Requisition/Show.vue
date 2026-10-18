@@ -110,11 +110,10 @@
                 <!-- ¿Qué sigue? Guía paso a paso del flujo (plegable) -->
                 <div v-if="nextStepGuide" class="bg-white dark:bg-slate-900 shadow-xl sm:rounded-lg border-l-4"
                     :class="nextStepGuide.styles.border">
-                    <!-- Encabezado: siempre visible y funciona como disparador del plegado -->
-                    <button type="button" :aria-expanded="guideExpanded"
-                        class="w-full text-left p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
-                        @click="guideExpanded = !guideExpanded">
-                        <div class="flex items-start gap-3">
+                    <!-- Encabezado: el bloque izquierdo funciona como disparador del plegado -->
+                    <div class="w-full p-5 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <button type="button" :aria-expanded="guideExpanded"
+                            class="flex-1 text-left flex items-start gap-3" @click="guideExpanded = !guideExpanded">
                             <div class="size-10 shrink-0 rounded-full flex items-center justify-center"
                                 :class="nextStepGuide.styles.icon">
                                 <i :class="[nextStepGuide.icon, 'text-base']"></i>
@@ -133,16 +132,25 @@
                                     </template>
                                 </p>
                             </div>
-                        </div>
+                        </button>
                         <div class="flex items-center gap-2 self-start shrink-0">
+                            <!-- Acceso rápido al desglose de la cotización (precios, IVA y total) -->
+                            <el-tooltip v-if="quotationSummaryAvailable" content="Ver precios unitarios, IVA y total de la cotización" placement="top">
+                                <SecondaryButton @click="openQuotationSummary">
+                                    <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Ver cotización
+                                </SecondaryButton>
+                            </el-tooltip>
                             <el-tag :type="nextStepGuide.styles.tag" effect="dark">
                                 <i class="fa-solid fa-user-gear mr-1"></i> {{ nextStepGuide.owner }}
                             </el-tag>
-                            <i class="fa-solid fa-chevron-down text-xs text-gray-400 transition-transform duration-300"
-                                :class="{ 'rotate-180': guideExpanded }"
-                                :title="guideExpanded ? 'Ocultar detalle' : 'Ver detalle'"></i>
+                            <button type="button" class="p-1" :aria-expanded="guideExpanded"
+                                :title="guideExpanded ? 'Ocultar detalle' : 'Ver detalle'"
+                                @click="guideExpanded = !guideExpanded">
+                                <i class="fa-solid fa-chevron-down text-xs text-gray-400 transition-transform duration-300"
+                                    :class="{ 'rotate-180': guideExpanded }"></i>
+                            </button>
                         </div>
-                    </button>
+                    </div>
 
                     <!-- Detalle: requisitos, pasos y acciones -->
                     <div v-show="guideExpanded" class="px-5 pb-5">
@@ -274,7 +282,19 @@
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                                     <div>
                                         <p class="text-gray-500 dark:text-gray-400">Costo cotizado</p>
-                                        <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                        <template v-if="quotationHasTax">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                Subtotal: {{ formatCurrency(quotationSummarySubtotal, requisition.quoted_currency) }}
+                                            </p>
+                                            <p class="text-xs text-amber-600 dark:text-amber-400">
+                                                IVA ({{ quotationTaxRateLabel }}%):
+                                                {{ formatCurrency(quotationSummaryTax, requisition.quoted_currency) }}
+                                            </p>
+                                            <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                                Total: {{ formatCurrency(quotationSummaryTotal, requisition.quoted_currency) }}
+                                            </p>
+                                        </template>
+                                        <p v-else class="font-semibold text-gray-800 dark:text-gray-100">
                                             {{ formatCurrency(requisition.quoted_cost, requisition.quoted_currency) }}
                                         </p>
                                     </div>
@@ -294,12 +314,16 @@
 
                                 <!-- La cotización solo se captura una vez -->
                                 <div v-if="hasQuotation"
-                                    class="flex items-start gap-2 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3">
-                                    <i class="fa-solid fa-circle-check text-emerald-600 dark:text-emerald-400 mt-0.5"></i>
+                                    class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-3">
                                     <p class="text-xs text-emerald-700 dark:text-emerald-300">
-                                        Esta requisición ya tiene una cotización adjunta. Consulta el archivo en la
-                                        pestaña <strong>Documentos</strong>; si necesitas reemplazarla, elimínala primero desde ahí.
+                                        <i class="fa-solid fa-circle-check mr-1"></i>
+                                        Esta requisición ya tiene una cotización adjunta. Consulta precios unitarios,
+                                        IVA y total, o revisa el archivo en la pestaña <strong>Documentos</strong>; si
+                                        necesitas reemplazarla, elimínala primero desde ahí.
                                     </p>
+                                    <SecondaryButton @click="openQuotationSummary">
+                                        <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Ver detalle
+                                    </SecondaryButton>
                                 </div>
 
                                 <div v-if="paymentActions.length"
@@ -312,27 +336,27 @@
 
                             <!-- Pestaña: Productos solicitados -->
                             <div v-show="activeTab === 'items'" class="space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                        <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200">
-                            <i class="fa-solid fa-boxes-stacked mr-2"></i> Productos solicitados
-                            <span class="text-sm font-normal text-gray-500 dark:text-gray-400">
-                                ({{ requisition.items?.length ?? 0 }} partida(s) · {{ formatQuantity(totalItemsQuantity) }} piezas)
-                            </span>
-                        </h3>
-                        <el-tooltip v-if="can.manage_arrivals" content="Selecciona en la tabla los productos que viajan en la misma guía" placement="top">
-                            <SecondaryButton @click="openShipmentModal">
-                                <i class="fa-solid fa-truck-fast mr-2"></i>
-                                Asignar a guía
-                                <span v-if="selectedItems.length" class="ml-2 font-bold">({{ selectedItems.length }})</span>
-                            </SecondaryButton>
-                        </el-tooltip>
-                </div>
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                                    <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200">
+                                        <i class="fa-solid fa-boxes-stacked mr-2"></i> Productos solicitados
+                                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">
+                                            ({{ requisition.items?.length ?? 0 }} partida(s) · {{ formatQuantity(totalItemsQuantity) }} piezas)
+                                        </span>
+                                    </h3>
+                                    <el-tooltip v-if="can.manage_arrivals" content="Selecciona en la tabla los productos que viajan en la misma guía" placement="top">
+                                        <SecondaryButton @click="openShipmentModal">
+                                            <i class="fa-solid fa-truck-fast mr-2"></i>
+                                            Asignar a guía
+                                            <span v-if="selectedItems.length" class="ml-2 font-bold">({{ selectedItems.length }})</span>
+                                        </SecondaryButton>
+                                    </el-tooltip>
+                                </div>
 
-                <!-- Bloque: productos sin guía (pendientes de asignar) -->
+                <!-- Bloque: productos sin guía (pendientes de asignar, incluye parcialidades) -->
                 <div class="rounded-xl border border-amber-300 dark:border-amber-700/60 overflow-hidden">
                         <div class="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 dark:bg-amber-900/20">
                             <p class="text-sm font-bold text-amber-700 dark:text-amber-300">
-                                <i class="fa-solid fa-box mr-2"></i> Sin guía asignada
+                                <i class="fa-solid fa-box mr-2"></i> Pendientes de asignar
                             </p>
                             <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">
                                 {{ unassignedItems.length }} producto(s)
@@ -359,8 +383,13 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Cantidad" width="110">
-                                <template #default="scope">{{ formatQuantity(scope.row.quantity) }}</template>
+                            <el-table-column label="Cantidad" width="150">
+                                <template #default="scope">
+                                    <p>{{ formatQuantity(scope.row.quantity) }} pieza(s)</p>
+                                    <p class="text-[11px] text-amber-600 dark:text-amber-400">
+                                        Pendiente: {{ formatQuantity(itemRemainingQuantity(scope.row)) }}
+                                    </p>
+                                </template>
                             </el-table-column>
                             <el-table-column label="Costo unitario" width="140">
                                 <template #default="scope">
@@ -410,6 +439,9 @@
                                             <p v-if="scope.row.product?.code" class="text-xs text-gray-500 dark:text-gray-400">
                                                 {{ scope.row.product.code }}
                                             </p>
+                                            <el-tag v-if="itemRemainingQuantity(scope.row) > 0" size="small" type="warning" class="mt-1">
+                                                Envío parcial · faltan {{ formatQuantity(itemRemainingQuantity(scope.row)) }}
+                                            </el-tag>
                                         </div>
                                     </div>
                                 </template>
@@ -425,12 +457,15 @@
                                     <span v-else class="text-xs text-gray-400">—</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Guía de paquetería" min-width="200">
+                            <el-table-column label="Guía de paquetería" min-width="220">
                                 <template #default="scope">
                                     <div class="space-y-1">
                                         <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="text-xs">
                                             <span class="font-mono font-semibold">{{ shipment.tracking_number }}</span>
                                             <span class="text-gray-500 dark:text-gray-400"> · {{ shipment.carrier ?? 'N/A' }}</span>
+                                            <span class="text-gray-600 dark:text-gray-300">
+                                                · {{ formatQuantity(shipmentItemQuantity(scope.row, shipment)) }} pza(s)
+                                            </span>
                                         </p>
                                     </div>
                                 </template>
@@ -541,7 +576,10 @@
                                     <li v-for="item in itemsInShipment(shipment.id)" :key="item.id">
                                         <i class="fa-solid fa-box mr-1 text-gray-400"></i>
                                         {{ item.product?.name ?? 'Sin producto de catálogo' }}
-                                        <span class="text-gray-500 dark:text-gray-400">({{ formatQuantity(item.quantity) }})</span>
+                                        <span class="text-gray-500 dark:text-gray-400">
+                                            ({{ formatQuantity(shipmentItemQuantity(item, shipment)) }}
+                                            de {{ formatQuantity(item.quantity) }})
+                                        </span>
                                     </li>
                                 </ul>
                             </div>
@@ -646,9 +684,9 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <InputLabel value="Costo total cotizado" />
+                        <InputLabel :value="actionForm.quotation.tax_enabled ? 'Subtotal cotizado (sin IVA)' : 'Costo total cotizado'" />
                         <TextInput v-model="actionForm.quotation.cost" type="number" :min="0" :step="0.01" class="w-full mt-1" />
                     </div>
                     <div>
@@ -657,6 +695,43 @@
                             <el-option label="MXN" value="MXN" />
                             <el-option label="USD" value="USD" />
                         </el-select>
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-3 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">IVA</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Actívalo si la cotización incluye impuesto; el porcentaje es editable.
+                            </p>
+                        </div>
+                        <el-switch v-model="actionForm.quotation.tax_enabled" />
+                    </div>
+                    <div v-if="actionForm.quotation.tax_enabled" class="space-y-3">
+                        <div class="sm:w-48">
+                            <InputLabel value="Porcentaje de IVA (%)" />
+                            <TextInput v-model="actionForm.quotation.tax_rate" type="number" :min="0" :max="100"
+                                :step="0.01" class="w-full mt-1" />
+                        </div>
+                        <dl class="space-y-1 text-sm">
+                            <div class="flex items-center justify-between text-gray-700 dark:text-gray-300">
+                                <dt>Subtotal</dt>
+                                <dd class="font-semibold">
+                                    {{ formatCurrency(quotationPreview.subtotal, actionForm.quotation.currency) }}
+                                </dd>
+                            </div>
+                            <div class="flex items-center justify-between text-amber-600 dark:text-amber-400">
+                                <dt>IVA ({{ quotationPreview.rateLabel }}%)</dt>
+                                <dd class="font-semibold">
+                                    {{ formatCurrency(quotationPreview.tax, actionForm.quotation.currency) }}
+                                </dd>
+                            </div>
+                            <div class="flex items-center justify-between border-t border-gray-200 dark:border-slate-700 pt-1 font-bold text-gray-800 dark:text-gray-100">
+                                <dt>Total</dt>
+                                <dd>{{ formatCurrency(quotationPreview.total, actionForm.quotation.currency) }}</dd>
+                            </div>
+                        </dl>
                     </div>
                 </div>
             </div>
@@ -670,9 +745,26 @@
             </template>
         </el-dialog>
 
+        <!-- Detalle de la cotización (acceso rápido desde la guía y la pestaña de pagos) -->
+        <el-dialog v-model="modals.quotationSummary" title="Detalle de la cotización" width="760" :center="true">
+            <QuotationSummary :requisition="requisition" />
+            <template #footer>
+                <div class="flex justify-end">
+                    <el-button @click="modals.quotationSummary = false">Cerrar</el-button>
+                </div>
+            </template>
+        </el-dialog>
+
         <!-- Validación Pass/Fail -->
-        <el-dialog v-model="modals.authorize" title="Validación gerencial" width="540" :center="true">
+        <el-dialog v-model="modals.authorize" title="Validación gerencial" width="760" :center="true">
             <div class="space-y-4">
+                <!-- La gerencia revisa aquí la información completa antes de validar -->
+                <div v-if="quotationSummaryAvailable" class="rounded-lg border border-gray-200 dark:border-slate-700 p-3">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">
+                        <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Información de la cotización
+                    </p>
+                    <QuotationSummary :requisition="requisition" />
+                </div>
                 <div class="flex gap-3">
                     <button type="button" @click="actionForm.authorize.result = 'pass'"
                         :class="actionForm.authorize.result === 'pass' ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' : 'border-gray-200 dark:border-slate-700'"
@@ -858,17 +950,37 @@
         <!-- Guía de paquetería -->
         <el-dialog v-model="modals.shipment" title="Asignar productos a guía de paquetería" width="620" :center="true">
             <div class="space-y-4">
-                <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-lg p-3">
-                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
+                <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-lg p-3 space-y-3">
+                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">
                         Productos seleccionados ({{ selectedItems.length }}):
                     </p>
-                    <ul class="text-xs text-gray-700 dark:text-gray-300 space-y-0.5">
-                        <li v-for="item in selectedItems" :key="item.id">
-                            <i class="fa-solid fa-box mr-1 text-gray-400"></i>
-                            {{ item.product?.name ?? 'Sin producto de catálogo' }}
-                            <span class="text-gray-500 dark:text-gray-400">({{ formatQuantity(item.quantity) }})</span>
-                        </li>
-                    </ul>
+                    <div v-for="item in selectedItems" :key="item.id"
+                        class="border border-blue-200/70 dark:border-slate-700 rounded-lg p-2 bg-white/70 dark:bg-slate-900/40">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate">
+                                    <i class="fa-solid fa-box mr-1 text-gray-400"></i>
+                                    {{ item.product?.name ?? 'Sin producto de catálogo' }}
+                                </p>
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                    Solicitado: {{ formatQuantity(item.quantity) }} ·
+                                    Pendiente: {{ formatQuantity(itemRemainingQuantity(item)) }} ·
+                                    Enviadas antes: {{ formatQuantity(itemShippedQuantity(item)) }}
+                                </p>
+                            </div>
+                            <div class="w-full sm:w-32 shrink-0">
+                                <InputLabel value="Cantidad en esta guía" />
+                                <TextInput v-model="shipmentQuantities[item.id]" type="number" :min="0.01"
+                                    :max="itemRemainingQuantity(item)" :step="0.01" class="w-full mt-1"
+                                    :placeholder="formatQuantity(itemRemainingQuantity(item))" />
+                            </div>
+                        </div>
+                    </div>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                        <i class="fa-solid fa-circle-info mr-1"></i>
+                        Deja la cantidad vacía para enviar todo lo pendiente. Si el proveedor entrega por
+                        parcialidades, registra una guía por cada envío con la cantidad correspondiente.
+                    </p>
                 </div>
 
                 <div>
@@ -935,6 +1047,7 @@ import FileView from "@/Components/MyComponents/FileView.vue";
 import Stepper from "@/Components/MyComponents/Stepper.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import MentionInput from "@/Pages/Projects/Partials/MentionInput.vue";
+import QuotationSummary from "@/Pages/Requisition/Components/QuotationSummary.vue";
 import { router, useForm } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -953,7 +1066,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
  * etapas accionables de la guía (no los estatus internos), de modo que el paso
  * marcado "en proceso" sea siempre la siguiente acción a realizar.
  */
-const DEFAULT_TAB = 'payments';
+const DEFAULT_TAB = 'items';
 const LOCAL_FLOW_STEPS = ['Cotización', 'Autorización', 'Factura', 'Pago', 'Cierre'];
 const IMPORT_FLOW_STEPS = ['Negociación', 'Pedido a fábrica', 'Documentación', 'Arribo', 'Cierre'];
 
@@ -985,7 +1098,7 @@ const LOCAL_FLOW_GUIDES = {
         steps: [
             'Abre el menú «Acciones» de la parte superior y elige «Adjuntar cotización».',
             'Adjunta el archivo de la cotización del proveedor (máximo 10 MB).',
-            'Captura el costo unitario y la descripción de cada producto, y define la moneda.',
+            'Captura el costo unitario y la descripción de cada producto, define la moneda y, si aplica, activa el IVA (16% por defecto, editable).',
             'Guarda: la requisición pasa a «Pendiente de autorización» y se notifica a la gerencia de compras.',
         ],
         actionKeys: ['quotation'],
@@ -998,7 +1111,7 @@ const LOCAL_FLOW_GUIDES = {
         nextStatus: 'Autorizada',
         owner: 'Gerencia de compras',
         steps: [
-            'Confirma que la cotización esté adjunta; puedes revisarla en la pestaña «Documentos».',
+            'Revisa precios unitarios, subtotal, IVA y total con el botón «Ver cotización» o en la pestaña «Cotización y pagos».',
             'Abre el menú «Acciones» y elige «Validar (Pass / Fail)».',
             'Selecciona «Pass» para autorizar la compra: la requisición pasa a «Autorizada».',
             'Si seleccionas «Fail», escribe el motivo del rechazo: la requisición pasa a «Rechazada» y el solicitante deberá corregirla.',
@@ -1017,7 +1130,7 @@ const LOCAL_FLOW_GUIDES = {
             'Solicita al proveedor la factura correspondiente a la compra autorizada.',
             'Abre el menú «Acciones» y elige «Adjuntar factura».',
             'Sube el archivo de la factura y captura el monto y la moneda.',
-            'Guarda: la requisición pasa a «Pendiente de pago» y se notifica a tesorería.',
+            'Guarda: la requisición pasa a «Pendiente de pago» y se notifica a Pagos.',
         ],
         actionKeys: ['invoice'],
         hint: 'Este paso lo ejecuta el área de compras o quien dio seguimiento a la requisición.',
@@ -1027,7 +1140,7 @@ const LOCAL_FLOW_GUIDES = {
         icon: 'fa-solid fa-money-bill-wave',
         title: 'Tesorería debe registrar el pago al proveedor',
         nextStatus: 'Pagada',
-        owner: 'Tesorería',
+        owner: 'Pagos',
         steps: [
             'Verifica que la factura esté adjunta en la pestaña «Documentos».',
             'Abre el menú «Acciones» y elige «Registrar pago».',
@@ -1036,14 +1149,14 @@ const LOCAL_FLOW_GUIDES = {
         ],
         actionKeys: ['payment'],
         requirements: [{ key: 'invoice', label: 'Factura adjunta' }],
-        hint: 'Solo tesorería puede registrar el pago. Si falta el comprobante, solicítalo al área de pagos.',
+        hint: 'Solo Pagos puede registrar el pago. Si falta el comprobante, solicítalo al área de pagos.',
     },
     'Pagada': {
         tone: 'success',
         icon: 'fa-solid fa-flag-checkered',
         title: 'Registra la fecha de entrega y cierra la requisición',
         nextStatus: 'Completada',
-        owner: 'Compras / Almacén',
+        owner: 'Compras',
         steps: [
             'Acuerda con el proveedor la fecha en que entregará la mercancía.',
             'Asigna guía a los productos de la requisición desde la pestaña «Productos»',
@@ -1067,7 +1180,7 @@ const IMPORT_FLOW_GUIDES = {
         steps: [
             'Negocia con la fábrica precios, tiempos de producción y condiciones de embarque.',
             'Abre el menú «Acciones» y elige «Adjuntar cotización» para subir el documento.',
-            'Captura el costo unitario por producto y la moneda; guarda los cambios.',
+            'Captura el costo unitario por producto, la moneda y el IVA si aplica; guarda los cambios.',
             'Después abre «Acciones» → «Validar (Pass / Fail)» y selecciona «Pass»: la requisición pasa a «Aprobada».',
         ],
         actionKeys: ['quotation', 'authorize'],
@@ -1112,7 +1225,7 @@ const IMPORT_FLOW_GUIDES = {
         owner: 'Almacén',
         steps: [
             'Ve a la pestaña «Productos» y marca con las casillas las partidas que viajan juntas.',
-            'Presiona «Asignar a guía» y captura número de guía, paquetería, estatus y fecha estimada de arribo.',
+            'Presiona «Asignar a guía» y captura número de guía, paquetería, estatus y fecha estimada de arribo. Si el envío es parcial, indica la cantidad que llega en esa guía.',
             'Repite la asignación con el resto de las partidas; puedes reutilizar una guía ya creada.',
             'En la pestaña «Guía», cambia el estatus a «Arribado» cuando la mercancía llegue a destino.',
             'Cuando todas las partidas estén como «Arribado», la requisición pasa a «Arribo confirmado».',
@@ -1211,6 +1324,7 @@ export default {
         Stepper,
         Back,
         MentionInput,
+        QuotationSummary,
     },
     props: {
         requisition: Object,
@@ -1236,6 +1350,8 @@ export default {
             // Pestaña activa: se sincroniza con el parámetro ?tab= de la URL.
             activeTab: DEFAULT_TAB,
             selectedItems: [],
+            // Cantidad a enviar por producto al asignar una guía (parcialidades).
+            shipmentQuantities: {},
             // La sección de ayuda "¿Qué sigue?" inicia plegada (solo el encabezado).
             guideExpanded: false,
             // Grupos de documentos cuyo cargador se expandió manualmente.
@@ -1248,6 +1364,7 @@ export default {
             },
             modals: {
                 quotation: false,
+                quotationSummary: false,
                 authorize: false,
                 factory: false,
                 docs: false,
@@ -1257,7 +1374,14 @@ export default {
                 shipment: false,
             },
             actionForm: {
-                quotation: { file: null, cost: '', currency: 'MXN', items: this.initialQuotationItems() },
+                quotation: {
+                    file: null,
+                    cost: '',
+                    currency: 'MXN',
+                    tax_enabled: false,
+                    tax_rate: 16,
+                    items: this.initialQuotationItems(),
+                },
                 authorize: { result: null, rejection_reason: '' },
                 factory: { expected_delivery_date: null, notes: '' },
                 docs: {
@@ -1294,11 +1418,11 @@ export default {
     computed: {
         tabs() {
             return [
-                { key: 'payments', label: 'Cotización y pagos', icon: 'fa-solid fa-coins' },
                 { key: 'items', label: 'Productos', icon: 'fa-solid fa-boxes-stacked', count: this.requisition.items?.length ?? 0 },
                 { key: 'documents', label: 'Documentos', icon: 'fa-solid fa-folder-open', count: this.documentCount },
+                { key: 'payments', label: 'Cotización y pagos', icon: 'fa-solid fa-coins' },
                 { key: 'shipments', label: 'Guía', icon: 'fa-solid fa-truck-fast', count: this.requisition.shipments?.length ?? 0 },
-                { key: 'comments', label: 'Comentarios', icon: 'fa-solid fa-comments', count: this.requisition.comments?.length ?? 0 },
+                { key: 'comments', label: 'Comentarios/Historial', icon: 'fa-solid fa-comments', count: this.requisition.comments?.length ?? 0 },
             ];
         },
         // Acciones del flujo disponibles según la etapa y los permisos.
@@ -1327,6 +1451,68 @@ export default {
         hasQuotation() {
             return (this.requisition.media ?? []).some(file => file.collection_name === 'quotations');
         },
+        // El desglose está disponible en cuanto hay archivo o costo registrado.
+        quotationSummaryAvailable() {
+            return this.hasQuotation || this.quotationHasStoredSubtotal;
+        },
+        quotationHasStoredSubtotal() {
+            const cost = this.requisition.quoted_cost;
+
+            return cost !== null && cost !== undefined && cost !== '';
+        },
+        quotationHasTax() {
+            return Boolean(this.requisition.quoted_tax_enabled);
+        },
+        quotationTaxRateLabel() {
+            return Number(this.requisition.quoted_tax_rate ?? 16)
+                .toLocaleString('es-MX', { maximumFractionDigits: 2 });
+        },
+        // Subtotal: costo capturado o, en su defecto, la suma de precio unitario × cantidad.
+        quotationSummarySubtotal() {
+            if (this.quotationHasStoredSubtotal) {
+                return Number(this.requisition.quoted_cost) || 0;
+            }
+
+            return (this.requisition.items ?? []).reduce((sum, item) => {
+                if (item.unit_cost === null || item.unit_cost === undefined || item.unit_cost === '') {
+                    return sum;
+                }
+
+                return sum + (Number(item.unit_cost) || 0) * (Number(item.quantity) || 0);
+            }, 0);
+        },
+        quotationSummaryTax() {
+            if (!this.quotationHasTax) return 0;
+
+            const stored = Number(this.requisition.quoted_tax_amount);
+            if (this.quotationHasStoredSubtotal && Number.isFinite(stored)) {
+                return stored;
+            }
+
+            return Math.round(this.quotationSummarySubtotal * Number(this.requisition.quoted_tax_rate ?? 16)) / 100;
+        },
+        quotationSummaryTotal() {
+            const stored = Number(this.requisition.quoted_total);
+            if (this.quotationHasTax && this.quotationHasStoredSubtotal && Number.isFinite(stored)) {
+                return stored;
+            }
+
+            return Math.round((this.quotationSummarySubtotal + this.quotationSummaryTax) * 100) / 100;
+        },
+        // Vista previa del desglose mientras se captura la cotización.
+        quotationPreview() {
+            const subtotal = Number(this.actionForm.quotation.cost) || 0;
+            const rawRate = this.actionForm.quotation.tax_rate;
+            const rate = rawRate === '' || rawRate === null ? 0 : Number(rawRate) || 0;
+            const tax = Math.round(subtotal * rate) / 100;
+
+            return {
+                subtotal,
+                tax,
+                total: subtotal + tax,
+                rateLabel: rate.toLocaleString('es-MX', { maximumFractionDigits: 2 }),
+            };
+        },
         // Urgente solo se distingue mientras la requisición siga abierta.
         isUrgentActive() {
             return this.requisition.priority === 'Urgente' && this.requisition.status !== 'Completada';
@@ -1343,9 +1529,10 @@ export default {
         totalItemsQuantity() {
             return (this.requisition.items ?? []).reduce((total, item) => total + (Number(item.quantity) || 0), 0);
         },
-        // Partidas sin guía y con guía, para separarlas visualmente.
+        // Partidas sin guía y con guía, para separarlas visualmente. Con
+        // parcialidades, la partida sigue pendiente hasta cubrir su cantidad.
         unassignedItems() {
-            return (this.requisition.items ?? []).filter(item => !(item.shipments ?? []).length);
+            return (this.requisition.items ?? []).filter(item => this.itemRemainingQuantity(item) > 0);
         },
         assignedItems() {
             return (this.requisition.items ?? []).filter(item => (item.shipments ?? []).length > 0);
@@ -1455,12 +1642,30 @@ export default {
             return (this.requisition.items ?? []).filter(item =>
                 (item.shipments ?? []).some(shipment => shipment.id === shipmentId));
         },
+        // Cantidad de la partida que viaja en una guía (parcialidad).
+        shipmentItemQuantity(item, shipment) {
+            const quantity = shipment?.pivot?.quantity;
+
+            return quantity !== null && quantity !== undefined ? Number(quantity) : Number(item.quantity) || 0;
+        },
+        // Total ya asignado a guías de la partida.
+        itemShippedQuantity(item) {
+            return (item.shipments ?? []).reduce(
+                (total, shipment) => total + this.shipmentItemQuantity(item, shipment),
+                0,
+            );
+        },
+        // Cantidad pendiente de asignar a una guía.
+        itemRemainingQuantity(item) {
+            return Math.max(0, (Number(item.quantity) || 0) - this.itemShippedQuantity(item));
+        },
         openShipmentModal() {
             if (!this.selectedItems.length) {
                 ElMessage.warning('Selecciona en la tabla los productos que viajan en esta guía.');
                 return;
             }
 
+            this.shipmentQuantities = {};
             this.openAction('shipment');
         },
         formatDate(dateString) {
@@ -1503,6 +1708,9 @@ export default {
         },
         openAction(action) {
             this.modals[action] = true;
+        },
+        openQuotationSummary() {
+            this.modals.quotationSummary = true;
         },
         // Pestaña válida a partir del parámetro ?tab= de la URL.
         resolveTab(url) {
@@ -1678,11 +1886,16 @@ export default {
             ElMessage.success(message);
         },
         submitQuotation() {
+            const quotation = this.actionForm.quotation;
+            const taxRate = quotation.tax_rate === '' || quotation.tax_rate === null ? 16 : quotation.tax_rate;
+
             router.post(route('requisitions.upload-quotation', this.requisition.id), {
-                quotation: this.actionForm.quotation.file,
-                quoted_cost: this.actionForm.quotation.cost || null,
-                quoted_currency: this.actionForm.quotation.currency || null,
-                items: this.actionForm.quotation.items.map(item => ({
+                quotation: quotation.file,
+                quoted_cost: quotation.cost || null,
+                quoted_currency: quotation.currency || null,
+                quoted_tax_enabled: quotation.tax_enabled ? 1 : 0,
+                quoted_tax_rate: quotation.tax_enabled ? taxRate : 16,
+                items: quotation.items.map(item => ({
                     id: item.id,
                     unit_cost: item.unit_cost === '' ? null : item.unit_cost,
                     description: item.description || null,
@@ -1691,6 +1904,8 @@ export default {
                 forceFormData: true,
                 onSuccess: () => {
                     this.modals.quotation = false;
+                    quotation.tax_enabled = false;
+                    quotation.tax_rate = 16;
                     this.handleSuccess('Cotización adjuntada.');
                 },
                 onError: () => ElMessage.error('No se pudo subir la cotización.'),
@@ -1785,9 +2000,28 @@ export default {
         },
         submitShipment() {
             const form = this.actionForm.shipment;
+            const entries = this.selectedItems.map(item => {
+                const raw = this.shipmentQuantities[item.id];
+                const quantity = raw === '' || raw === null || raw === undefined ? null : Number(raw);
+
+                return {
+                    id: item.id,
+                    quantity,
+                    available: this.itemRemainingQuantity(item),
+                    label: item.product?.name ?? item.description ?? `Partida #${item.id}`,
+                };
+            });
+
+            const invalid = entries.find(entry =>
+                entry.quantity !== null && (Number.isNaN(entry.quantity) || entry.quantity <= 0 || entry.quantity > entry.available));
+
+            if (invalid) {
+                ElMessage.warning(`La cantidad de «${invalid.label}» debe ser mayor a 0 y máximo ${invalid.available}.`);
+                return;
+            }
 
             router.post(route('requisitions.assign-shipment', this.requisition.id), {
-                item_ids: this.selectedItems.map(item => item.id),
+                items: entries.map(({ id, quantity }) => ({ id, quantity })),
                 shipment_id: form.shipment_id,
                 tracking_number: form.shipment_id ? null : form.tracking_number,
                 carrier: form.carrier,
@@ -1797,6 +2031,7 @@ export default {
                 onSuccess: () => {
                     this.modals.shipment = false;
                     this.selectedItems = [];
+                    this.shipmentQuantities = {};
                     this.handleSuccess('Producto(s) ligado(s) a la guía.');
                 },
                 onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo ligar la guía.'),

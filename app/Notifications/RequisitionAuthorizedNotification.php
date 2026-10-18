@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -33,7 +35,9 @@ class RequisitionAuthorizedNotification extends Notification
             'title' => "Requisición: {$label}",
             'folio' => $this->requisition->folio,
             'type' => 'requisition_authorized',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => "La requisición <b>{$this->requisition->folio}</b> pasó la validación y ahora está en etapa <b>{$label}</b>.",
             'icon' => 'fa-solid fa-circle-check',
         ];

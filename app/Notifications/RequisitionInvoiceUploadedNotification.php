@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Requisition;
+use App\Models\User;
+use App\Support\RequisitionPermissions;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -35,7 +37,9 @@ class RequisitionInvoiceUploadedNotification extends Notification
             'title' => 'Factura recibida: pago pendiente',
             'folio' => $this->requisition->folio,
             'type' => 'requisition_invoice',
-            'url' => route('requisitions.show', $this->requisition->id, false),
+            'url' => $notifiable instanceof User
+                ? RequisitionPermissions::urlFor($notifiable, $this->requisition)
+                : route('requisitions.index', [], false),
             'message' => "La requisición <b>{$this->requisition->folio}</b> tiene factura adjunta ({$amount}). Requiere pago.",
             'icon' => 'fa-solid fa-file-invoice',
         ];

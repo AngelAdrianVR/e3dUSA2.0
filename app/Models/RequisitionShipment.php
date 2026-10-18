@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class RequisitionShipment extends Model
 {
@@ -47,11 +48,13 @@ class RequisitionShipment extends Model
     // --- RELACIONES ---
 
     /**
-     * Partidas (productos) que viajan en esta guía.
+     * Partidas (productos) que viajan en esta guía, con la cantidad enviada en
+     * cada una (parcialidades de entrega).
      */
     public function items(): BelongsToMany
     {
         return $this->belongsToMany(RequisitionItem::class, 'requisition_item_shipment')
+            ->withPivot('quantity')
             ->withTimestamps();
     }
 
@@ -77,17 +80,46 @@ class RequisitionShipment extends Model
      * Sincroniza las partidas ligadas a la guía conservando la requisición
      * de cada partida en la tabla pivote.
      *
-     * @param  array<int, int|string>  $itemIds
+     * @param  array<int, int|string|array{id: int|string, quantity?: float|int|string|null}>  $items
      */
-    public function syncItems(array $itemIds): void
+    public function syncItems(array $items): void
     {
-        $items = RequisitionItem::whereIn('id', $itemIds)->get();
+        $entries = collect($items)->map(function ($entry) {
+            return is_array($entry)
+                ? $entry
+                : ['id' => $entry, 'quantity' => null];
+        })->keyBy(fn (array $entry) => (int) $entry['id']);
+
+        $models = RequisitionItem::whereIn('id', $entries->keys()->all())->get();
 
         $this->items()->sync(
-            $items->mapWithKeys(fn (RequisitionItem $item) => [
-                $item->id => ['requisition_id' => $item->requisition_id],
-            ])->all()
+            $models->mapWithKeys(function (RequisitionItem $item) use ($entries) {
+                $quantity = $entries[$item->id]['quantity'] ?? null;
+
+                return [
+                    $item->id => [
+                        'requisition_id' => $item->requisition_id,
+                        // Sin cantidad explícita se envía lo que resta por asignar.
+                        'quantity' => $quantity !== null && $quantity !== ''
+                            ? (float) $quantity
+                            : $this->remainingQuantityFor($item),
+                    ],
+                ];
+            })->all()
         );
+    }
+
+    /**
+     * Cantidad de la partida que aún no viaja en otras guías.
+     */
+    public function remainingQuantityFor(RequisitionItem $item): float
+    {
+        $assigned = DB::table('requisition_item_shipment')
+            ->where('requisition_item_id', $item->id)
+            ->where('requisition_shipment_id', '!=', $this->id)
+            ->sum('quantity');
+
+        return max(0, round((float) $item->quantity - (float) $assigned, 2));
     }
 
     public function creator(): BelongsTo
