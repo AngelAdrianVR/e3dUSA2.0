@@ -15,7 +15,7 @@
                 <div class="flex items-center gap-4 border-l border-gray-300 dark:border-gray-600 pl-4">
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-flag text-gray-500 dark:text-gray-400"></i>
-                        <span class="text-sm text-gray-600 dark:text-gray-300">Fecha tentativa de arribo</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Registro de guía / seguimiento</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-truck-fast text-gray-500 dark:text-gray-400"></i>
@@ -49,7 +49,7 @@
                     </button>
                 </div>
                 <div class="flex flex-wrap items-center gap-3">
-                    <el-input v-model="search" clearable placeholder="Buscar folio de requisición o guía" class="!w-72"
+                    <el-input v-model="search" clearable placeholder="Buscar por folio de requisición o guía" class="!w-96"
                         @keyup.enter="searchArrival" @clear="clearHighlight">
                         <template #prefix>
                             <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
@@ -59,7 +59,7 @@
                         </template>
                     </el-input>
                     <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ arrivals.arrivals.length }} entrada(s) programada(s)
+                        {{ arrivals.arrivals.length }} registro(s) en el calendario
                     </p>
                     <el-button v-if="canManage" type="primary" size="small" @click="openEventDialog()">
                         <i class="fa-solid fa-plus mr-2"></i> Registrar actualización / evento
@@ -90,7 +90,7 @@
                             :content="entryTooltip(entry)" placement="top" effect="dark" :show-after="200">
                             <div @click.stop="selectedEntry = entry" :data-entry-key="entry.key"
                                 class="px-2 py-1 rounded-md text-xs font-medium cursor-pointer truncate flex items-center gap-2 text-white transition-transform hover:scale-[1.02]"
-                                :class="[entry.kind === 'event' ? 'ring-1 ring-white/40' : '',
+                                :class="[entry.kind === 'event' || entry.state_kind === 'event' ? 'ring-1 ring-white/40' : '',
                                     entry.key === highlightKey ? 'arrivals-highlight' : '']"
                                 :style="{ backgroundColor: entry.color }">
                                 <i :class="entryIcon(entry)"></i>
@@ -109,7 +109,7 @@
             <!-- Arribos sin fecha -->
             <div v-if="arrivals.undated?.length" class="mt-6 bg-white dark:bg-slate-900 rounded-lg shadow p-4">
                 <h3 class="font-semibold text-gray-700 dark:text-gray-200 mb-2">
-                    <i class="fa-solid fa-hourglass-half mr-2"></i> Guías sin fecha estimada
+                    <i class="fa-solid fa-hourglass-half mr-2"></i> Guías sin fecha de registro
                 </h3>
                 <ul class="space-y-1">
                     <li v-for="entry in arrivals.undated" :key="entry.key"
@@ -182,11 +182,15 @@
                                 <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
                             </div>
                             <div v-else>
-                                <p class="text-gray-500 dark:text-gray-400">Número de guía</p>
+                                <p class="text-gray-500 dark:text-gray-400">
+                                    {{ selectedEntry.tracking_number ? 'Número de guía' : 'Forma de entrega' }}
+                                </p>
                                 <p class="font-mono font-semibold dark:text-gray-200">{{ selectedEntry.title }}</p>
                             </div>
                             <div>
-                                <p class="text-gray-500 dark:text-gray-400">Paquetería</p>
+                                <p class="text-gray-500 dark:text-gray-400">
+                                    {{ selectedEntry.tracking_number ? 'Paquetería' : 'Transportista / referencia' }}
+                                </p>
                                 <p class="dark:text-gray-200">{{ selectedEntry.subtitle ?? 'N/A' }}</p>
                             </div>
                             <div>
@@ -215,6 +219,21 @@
                                 </p>
                                 <p class="dark:text-gray-200 whitespace-pre-line">{{ selectedEntry.notes }}</p>
                             </div>
+                            <!-- Estado del seguimiento arrastrado día a día -->
+                            <div v-if="selectedEntry.carried || selectedEntry.state_kind === 'event'"
+                                class="col-span-2 rounded-lg border border-dashed border-gray-300 dark:border-slate-600 px-3 py-2">
+                                <p class="text-gray-500 dark:text-gray-400">
+                                    Estado al {{ formatDate(selectedEntry.date) }}
+                                </p>
+                                <p class="font-semibold dark:text-gray-200">
+                                    {{ selectedEntry.state_label || 'Sin actualización registrada' }}
+                                </p>
+                                <p v-if="selectedEntry.carried" class="text-[11px] text-gray-400 mt-1">
+                                    <i class="fa-solid fa-repeat mr-1"></i>
+                                    Se repite el último registro del {{ formatDate(selectedEntry.state_date) }}
+                                    hasta que se capture una nueva actualización.
+                                </p>
+                            </div>
                         </div>
                     </el-collapse-item>
 
@@ -231,7 +250,7 @@
                                 class="text-xs text-gray-600 dark:text-gray-300 border-l-2 pl-3 py-0.5"
                                 :style="{ borderColor: selectedEntry.color }">
                                 <span class="font-semibold">{{ formatDate(event.date) }}</span> ·
-                                {{ event.description }}
+                                {{ event.label ?? event.description }}
                                 <span v-if="event.created_by_name" class="text-gray-400"> — {{ event.created_by_name }}</span>
                             </li>
                         </ul>
@@ -316,9 +335,13 @@
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Estatus</p>
-                                    <el-select v-model="arrivalForm.status" class="w-full">
+                                    <el-select v-model="arrivalForm.status" class="w-full" :disabled="arrivalStatusLocked">
                                         <el-option v-for="status in statuses" :key="status" :label="status" :value="status" />
                                     </el-select>
+                                    <p v-if="arrivalStatusLocked" class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                                        <i class="fa-solid fa-lock mr-1"></i>
+                                        La guía ya fue marcada como arribada; su estatus no puede cambiarse.
+                                    </p>
                                 </div>
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha tentativa de arribo</p>
@@ -359,7 +382,7 @@
                     <el-select v-model="eventForm.shipment_id" filterable clearable class="w-full mt-1"
                         placeholder="Busca por número de guía o paquetería">
                         <el-option v-for="option in shipmentOptions" :key="option.id" :value="option.id"
-                            :label="`${option.tracking_number} · ${option.carrier ?? 'N/A'} (${option.status})`" />
+                            :label="`${option.display_name ?? option.tracking_number ?? option.delivery_method} · ${option.carrier ?? 'N/A'} (${option.status})`" />
                     </el-select>
                     <p v-if="!shipmentOptions.length" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         Todavía no hay guías registradas en el calendario.
@@ -373,12 +396,31 @@
                 </div>
 
                 <div>
-                    <label class="text-sm text-gray-600 dark:text-gray-300">Descripción *</label>
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Ubicación / etapa</label>
+                    <el-select v-model="eventForm.location" clearable class="w-full mt-1"
+                        placeholder="China, GDL, Aduanas u otra">
+                        <el-option v-for="location in locationOptions" :key="location" :label="location" :value="location" />
+                        <el-option label="Otro" value="Otro" />
+                    </el-select>
+                </div>
+
+                <div v-if="eventForm.location === 'Otro'">
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Especifica la ubicación / etapa *</label>
+                    <input v-model="eventForm.custom_location" type="text" maxlength="100"
+                        class="w-full mt-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
+                        placeholder="Ej. Bodega Guadalajara" />
+                </div>
+
+                <div>
+                    <label class="text-sm text-gray-600 dark:text-gray-300">
+                        Descripción <span v-if="!eventForm.location">*</span>
+                    </label>
                     <textarea v-model="eventForm.description" rows="3"
                         class="w-full mt-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
                         placeholder="Ej. La mercancía llegó a GDL y quedó en resguardo de aduana."></textarea>
                     <p class="text-[11px] text-gray-400 mt-1">
-                        La actualización se pinta en el día seleccionado, distinta de la fecha tentativa de arribo.
+                        La actualización se pinta en el día seleccionado y se repite en los días siguientes
+                        hasta que registres otra.
                     </p>
                 </div>
             </div>
@@ -429,7 +471,7 @@ export default {
             deleting: false,
             savingEvent: false,
             eventModal: false,
-            eventForm: { shipment_id: null, event_date: null, description: '' },
+            eventForm: { shipment_id: null, event_date: null, location: '', custom_location: '', description: '' },
             arrivalForm: { status: 'Pendiente', date: null, notes: '' },
             // Secciones abiertas del drawer: las actualizaciones quedan plegadas.
             openSections: ['general', 'products'],
@@ -452,16 +494,32 @@ export default {
         statuses() {
             return Object.keys(this.legend);
         },
+        // Una guía arribada queda cerrada: su estatus ya no se puede modificar.
+        arrivalStatusLocked() {
+            return this.selectedEntry?.kind === 'shipment' && this.selectedEntry?.status === 'Arribado';
+        },
         productImages() {
             return (this.selectedEntry?.items ?? []).map(item => item.image_url).filter(Boolean);
         },
         shipmentOptions() {
             return this.arrivals?.shipment_options ?? [];
         },
+        // Ubicaciones / etapas sugeridas para el seguimiento.
+        locationOptions() {
+            return this.arrivals?.event_locations ?? ['China', 'GDL', 'Aduanas'];
+        },
+        // Ubicación efectiva: la opción elegida o el texto libre de "Otro".
+        eventLocation() {
+            if (this.eventForm.location === 'Otro') {
+                return this.eventForm.custom_location?.trim() ?? '';
+            }
+
+            return this.eventForm.location?.trim() ?? '';
+        },
         canSubmitEvent() {
             return Boolean(this.eventForm.shipment_id)
                 && Boolean(this.eventForm.event_date)
-                && Boolean(this.eventForm.description?.trim());
+                && Boolean(this.eventLocation || this.eventForm.description?.trim());
         },
         // Quién levantó las requisiciones del arribo (sin repetir nombres).
         creatorNames() {
@@ -549,8 +607,8 @@ export default {
             this.currentMonth = addMonths(this.currentMonth, offset);
         },
         /**
-         * Busca por número de guía o folio/id de requisición, salta al mes de la
-         * fecha tentativa y resalta el registro encontrado.
+         * Busca por número de guía o folio/id de requisición y señala el primer
+         * registro (el día más antiguo) del seguimiento, no la fecha tentativa.
          */
         searchArrival() {
             const query = String(this.search ?? '').trim();
@@ -570,7 +628,12 @@ export default {
             const dated = this.arrivals?.arrivals ?? [];
             const undated = this.arrivals?.undated ?? [];
 
-            const entry = [...dated, ...undated].find(candidate => this.matchesSearch(candidate, normalized));
+            // Se señala el primer registro del folio: el día más antiguo del
+            // seguimiento (alta de la guía), sin importar el orden del listado.
+            const matches = dated.filter(candidate => this.matchesSearch(candidate, normalized));
+            const entry = matches.length
+                ? matches.reduce((earliest, candidate) => (!earliest || candidate.date < earliest.date ? candidate : earliest), null)
+                : undated.find(candidate => this.matchesSearch(candidate, normalized));
 
             if (!entry) {
                 ElMessage.warning('No se encontró ninguna guía ni requisición con ese folio o número de guía.');
@@ -588,7 +651,7 @@ export default {
                 ...(entry.items ?? []).map(item => item.folio),
             ].filter(Boolean);
         },
-        // Solo se ubican las guías / partidas (la fecha tentativa), no los eventos.
+        // Solo se ubican las guías / partidas (registros del seguimiento), no los eventos.
         matchesSearch(entry, normalized) {
             if (!normalized || entry.kind === 'event') return false;
 
@@ -607,9 +670,9 @@ export default {
         },
         highlightEntry(entry) {
             if (!entry.date) {
-                // Sin fecha tentativa no hay mes al que saltar: se abre su detalle.
+                // Sin fecha de registro no hay mes al que saltar: se abre su detalle.
                 this.selectedEntry = entry;
-                ElMessage.warning(`La guía ${entry.title} no tiene fecha tentativa de arribo registrada.`);
+                ElMessage.warning(`La guía ${entry.title} no tiene fecha de registro.`);
                 return;
             }
 
@@ -629,7 +692,7 @@ export default {
                 }, 60);
             });
 
-            ElMessage.success(`Guía ${entry.title} encontrada.`);
+            ElMessage.success(`Primer registro de ${entry.title}: ${this.formatDate(entry.date)}.`);
         },
         clearHighlight() {
             clearTimeout(this.highlightTimer);
@@ -648,7 +711,8 @@ export default {
                 return `${entry.title} · ${this.truncateText(entry.description)}`;
             }
 
-            const note = (entry.notes ?? '').trim();
+            // En los días repetidos se muestra el último estado registrado.
+            const note = (entry.state_label ?? entry.notes ?? '').trim();
 
             return note ? `${entry.title} · ${this.truncateText(note)}` : entry.title;
         },
@@ -662,9 +726,9 @@ export default {
         previewIndex(item) {
             return Math.max(this.productImages.indexOf(item.image_url), 0);
         },
-        // Distinción visual: bandera = fecha tentativa, coche = actualización/evento.
+        // Distinción visual: bandera = registro de guía, coche = actualización/evento.
         entryIcon(entry) {
-            if (entry.kind === 'event') return 'fa-solid fa-truck-fast';
+            if (entry.kind === 'event' || entry.state_kind === 'event') return 'fa-solid fa-truck-fast';
 
             return entry.arrived_at ? 'fa-solid fa-flag-checkered' : 'fa-solid fa-flag';
         },
@@ -677,9 +741,10 @@ export default {
                 return `Fecha tentativa de arribo · ${entry.subtitle ?? 'Mercancía'}`;
             }
 
-            return entry.arrived_at
-                ? 'Arribo confirmado'
-                : 'Fecha tentativa de arribo';
+            const state = (entry.state_label ?? entry.notes ?? '').trim();
+            const status = entry.arrived_at ? 'Arribo confirmado' : 'Registro de guía';
+
+            return state ? `${status} · ${state}` : status;
         },
         kindLabel(entry) {
             if (entry.kind === 'event') return 'Actualización / evento';
@@ -701,6 +766,8 @@ export default {
                 ? this.selectedEntry.id
                 : null;
             this.eventForm.event_date = date;
+            this.eventForm.location = '';
+            this.eventForm.custom_location = '';
             this.eventForm.description = '';
             this.eventModal = true;
         },
@@ -713,7 +780,8 @@ export default {
 
             router.post(route('requisition-shipments.store-event', form.shipment_id), {
                 event_date: form.event_date,
-                description: form.description.trim(),
+                location: this.eventLocation || null,
+                description: form.description?.trim() || null,
             }, {
                 preserveScroll: true,
                 onSuccess: () => {

@@ -34,10 +34,10 @@ class RequisitionShipmentStatusNotification extends Notification
 
         return [
             'title' => "Arribo de mercancía: {$this->shipment->status}",
-            'folio' => $this->shipment->tracking_number,
+            'folio' => $this->shipment->display_name,
             'type' => 'requisition_shipment',
             'url' => route('calendar.index', [], false) . '?tab=arrivals',
-            'message' => "La guía <b>{$this->shipment->tracking_number}</b> cambió a <b>{$this->shipment->status}</b> ({$folios}).{$date}",
+            'message' => "La entrega <b>{$this->shipment->display_name}</b> cambió a <b>{$this->shipment->status}</b> ({$folios}).{$date}",
             'icon' => 'fa-solid fa-truck-fast',
         ];
     }

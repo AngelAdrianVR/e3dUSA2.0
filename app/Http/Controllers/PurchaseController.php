@@ -8,6 +8,7 @@ use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Requisition;
 use App\Models\StockMovement;
+use App\Support\RequisitionPermissions;
 // use App\Models\Storage;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Supplier;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Mail\EmailSupplierTemplateMarkdownMail;
 use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -158,6 +160,24 @@ class PurchaseController extends Controller
             'total' => 'required|numeric',
         ]);
 
+        // Los productos precargados desde una requisición deben traer su
+        // distribución (avión / barco / fábrica) antes de crear la orden.
+        if ($request->filled('requisition_id')) {
+            $undistributed = collect($request->items)->contains(function (array $item) {
+                $assigned = (float) ($item['plane_stock'] ?? 0)
+                    + (float) ($item['ship_stock'] ?? 0)
+                    + (float) ($item['additional_stock'] ?? 0);
+
+                return abs($assigned - (float) $item['quantity']) > 0.0001;
+            });
+
+            if ($undistributed) {
+                throw ValidationException::withMessages([
+                    'items' => 'Define la vía de envío (avión, barco y fábrica) de cada producto antes de crear la orden.',
+                ]);
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -272,12 +292,17 @@ class PurchaseController extends Controller
             'contact.details',
             'items.product.media',
             'bankAccount',
+            // Requisición que originó la orden (si existe).
+            'requisition:id,type,origin,status,quantity,branch_id,business_name,user_id',
+            'requisition.branch:id,name',
+            'requisition.user:id,name',
             'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
         // return $purchase;
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
+            'canViewRequisition' => RequisitionPermissions::canViewDetails(auth()->user()),
         ]);
     }
 

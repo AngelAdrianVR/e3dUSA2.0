@@ -109,7 +109,7 @@
                         <el-table :data="requisitions.data" style="width: 100%" stripe @row-click="handleRowClick"
                             :row-class-name="rowClassName"
                             :class="[can.view_details ? 'cursor-pointer' : '', 'dark:!bg-slate-900 dark:!text-gray-300']">
-                            <el-table-column label="Folio" width="120">
+                            <el-table-column label="Folio" width="130">
                                 <template #default="scope">
                                     <div class="flex items-center space-x-2">
                                         <el-tooltip :content="scope.row.type" placement="top">
@@ -240,11 +240,11 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Guía" width="140">
+                            <el-table-column label="Guía / entrega" width="140">
                                 <template #default="scope">
                                     <div v-if="scope.row.shipments?.length" class="text-xs">
                                         <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="font-semibold">
-                                            {{ shipment.tracking_number }}
+                                            {{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}
                                         </p>
                                     </div>
                                     <span v-else class="text-xs text-gray-400">—</span>

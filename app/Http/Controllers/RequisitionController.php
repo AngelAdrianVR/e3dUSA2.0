@@ -63,7 +63,7 @@ class RequisitionController extends Controller
             'branch.parent:id,name,business_name',
             'items:id,requisition_id,product_id,quantity,arrival_status',
             'items.product:id,name,code',
-            'shipments:id,tracking_number,status',
+            'shipments:id,tracking_number,delivery_method,status',
         ]);
 
         if ($view === 'mias') {
@@ -298,8 +298,8 @@ class RequisitionController extends Controller
             'rejecter:id,name',
             'comments.user:id,name',
             'items.product.media',
-            'items.shipments:id,tracking_number,carrier,status',
-            'shipments:id,tracking_number,carrier,status,estimated_arrival_date',
+            'items.shipments:id,tracking_number,delivery_method,carrier,status',
+            'shipments:id,tracking_number,delivery_method,carrier,status,estimated_arrival_date,notes,created_at',
             // Órdenes de compra vinculadas: distribuyen la mercancía por vía de envío.
             'purchases.supplier:id,name',
             'purchases.items.product:id,name,code,measure_unit',
@@ -315,7 +315,8 @@ class RequisitionController extends Controller
             ],
             'mentionableUsers' => $this->mentionableUsers($requisition),
             'shipmentStatuses' => RequisitionShipment::STATUSES,
-            'shipmentOptions' => RequisitionShipment::orderByDesc('created_at')->get(['id', 'tracking_number', 'carrier', 'status', 'estimated_arrival_date']),
+            'deliveryMethods' => RequisitionShipment::DELIVERY_METHODS,
+            'shipmentOptions' => RequisitionShipment::orderByDesc('created_at')->get(['id', 'tracking_number', 'carrier', 'delivery_method', 'status', 'estimated_arrival_date']),
         ]);
     }
 
@@ -328,7 +329,7 @@ class RequisitionController extends Controller
             'media',
             'branch:id,name,business_name,parent_branch_id',
             'items.product:id,name,code',
-            'items.shipments:id,tracking_number',
+            'items.shipments:id,tracking_number,delivery_method',
         ]);
 
         return Inertia::render('Requisition/Edit', [
@@ -1147,15 +1148,16 @@ class RequisitionController extends Controller
      */
     private function canCreatePurchaseOrder(Requisition $requisition, User $user): bool
     {
+        // Las requisiciones locales no generan orden de compra.
+        if ($requisition->type !== Requisition::TYPE_IMPORT) {
+            return false;
+        }
+
         if (! RequisitionPermissions::canViewDetails($user) || $requisition->purchases()->exists()) {
             return false;
         }
 
-        $statuses = $requisition->type === Requisition::TYPE_IMPORT
-            ? ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito']
-            : ['Autorizada', 'Pendiente de pago', 'Pagada'];
-
-        return in_array($requisition->status, $statuses, true);
+        return in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito'], true);
     }
 
     private function storeComment(Requisition $requisition, User $user, string $content, array $mentionedUserIds = []): Comment

@@ -23,6 +23,11 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class CalendarController extends Controller
 {
+    /**
+     * Días máximos que se repite el seguimiento de una guía en el calendario.
+     */
+    private const CARRY_DAYS_LIMIT = 120;
+
     public function index()
     {
         $authUserId = auth()->id();
@@ -86,7 +91,7 @@ class CalendarController extends Controller
             'requisitions:id,type,status,branch_id,business_name,user_id',
             'requisitions.user:id,name',
             'requisitions.branch:id,name',
-            'events:id,requisition_shipment_id,event_date,description,created_by',
+            'events:id,requisition_shipment_id,event_date,location,description,created_by',
             'events.creator:id,name',
         ])->orderBy('created_at', 'desc')->get();
 
@@ -94,8 +99,6 @@ class CalendarController extends Controller
         $undated = [];
 
         foreach ($shipments as $shipment) {
-            $date = $shipment->arrived_at?->toDateString() ?? $shipment->estimated_arrival_date?->toDateString();
-
             // Detalle compartido entre la guía y cada una de sus actualizaciones.
             $items = $shipment->items->map(fn (RequisitionItem $item) => [
                 'id' => $item->id,
@@ -123,46 +126,62 @@ class CalendarController extends Controller
                 'url' => $canViewDetails ? route('requisitions.show', $requisition->id, false) : null,
             ])->values()->all();
 
-            $events = $shipment->events->map(fn (RequisitionShipmentEvent $shipmentEvent) => [
-                'id' => $shipmentEvent->id,
-                'date' => $shipmentEvent->event_date?->toDateString(),
-                'description' => $shipmentEvent->description,
-                'created_by_name' => $shipmentEvent->creator?->name,
-            ])->values()->all();
+            $events = $shipment->events
+                ->sortBy('event_date')
+                ->map(fn (RequisitionShipmentEvent $shipmentEvent) => [
+                    'id' => $shipmentEvent->id,
+                    'date' => $shipmentEvent->event_date?->toDateString(),
+                    'location' => $shipmentEvent->location,
+                    'description' => $shipmentEvent->description,
+                    'label' => $shipmentEvent->label,
+                    'created_by_name' => $shipmentEvent->creator?->name,
+                ])->values()->all();
 
-            // Cada actualización es una entrada propia en su fecha, con el mismo
-            // color y detalle de la guía a la que pertenece.
+            /*
+             * Registros base del seguimiento: el alta de la guía (con la nota
+             * capturada al asignarla) y cada actualización / evento. La guía se
+             * ancla al día en que se asignó, no a la fecha tentativa de arribo.
+             */
+            $records = collect();
+
+            if ($shipment->created_at) {
+                $records->push([
+                    'key' => 'shipment-' . $shipment->id,
+                    'kind' => 'shipment',
+                    'id' => $shipment->id,
+                    'date' => $shipment->created_at->toDateString(),
+                    'label' => $shipment->notes,
+                    'created_by_name' => null,
+                ]);
+            }
+
             foreach ($shipment->events as $shipmentEvent) {
-                $arrivals[] = [
+                if (! $shipmentEvent->event_date) {
+                    continue;
+                }
+
+                $records->push([
                     'key' => 'shipment-event-' . $shipmentEvent->id,
                     'kind' => 'event',
                     'id' => $shipmentEvent->id,
-                    'shipment_id' => $shipment->id,
-                    'title' => $shipment->tracking_number,
-                    'subtitle' => $shipment->carrier,
-                    'description' => $shipmentEvent->description,
-                    'status' => $shipment->status,
-                    'color' => $shipment->color,
-                    'date' => $shipmentEvent->event_date?->toDateString(),
-                    'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
-                    'arrived_at' => $shipment->arrived_at?->toDateTimeString(),
-                    'notes' => $shipment->notes,
+                    'date' => $shipmentEvent->event_date->toDateString(),
+                    'label' => $shipmentEvent->label,
                     'created_by_name' => $shipmentEvent->creator?->name,
-                    'items' => $items,
-                    'requisitions' => $requisitions,
-                    'events' => $events,
-                ];
+                ]);
             }
 
+            $records = $records->sortBy('date')->values();
+
             $entry = [
-                'key' => 'shipment-' . $shipment->id,
-                'kind' => 'shipment',
                 'id' => $shipment->id,
-                'title' => $shipment->tracking_number,
-                'subtitle' => $shipment->carrier,
+                'shipment_id' => $shipment->id,
+                // Número de guía o forma de entrega (proveedor / transporte propio).
+                'title' => $shipment->display_name,
+                'tracking_number' => $shipment->tracking_number,
+                'delivery_method' => $shipment->delivery_method ?? RequisitionShipment::DELIVERY_METHODS[0],
+                'subtitle' => $shipment->carrier ?: ($shipment->delivery_method ?? null),
                 'status' => $shipment->status,
                 'color' => $shipment->color,
-                'date' => $date,
                 'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
                 'arrived_at' => $shipment->arrived_at?->toDateTimeString(),
                 'notes' => $shipment->notes,
@@ -171,10 +190,111 @@ class CalendarController extends Controller
                 'requisitions' => $requisitions,
             ];
 
-            if ($date) {
-                $arrivals[] = $entry;
-            } else {
-                $undated[] = $entry;
+            $start = $shipment->created_at?->copy()->startOfDay();
+
+            if (! $start) {
+                // Sin fecha de asignación no hay día al que anclar la guía.
+                $undated[] = [
+                    ...$entry,
+                    'key' => 'shipment-' . $shipment->id,
+                    'kind' => 'shipment',
+                    'date' => null,
+                    'description' => $shipment->notes,
+                    'state_label' => $shipment->notes,
+                    'state_kind' => 'shipment',
+                    'state_date' => null,
+                    'carried' => false,
+                    'created_by_name' => null,
+                ];
+
+                continue;
+            }
+
+            // Se repite el último estado conocido hasta el arribo (o hasta hoy).
+            $today = now()->startOfDay();
+            $end = $shipment->arrived_at?->copy()->startOfDay() ?? $today;
+
+            if ($end->gt($today)) {
+                $end = $today->copy();
+            }
+
+            if ($end->lt($start)) {
+                $end = $start->copy();
+            }
+
+            // Ventana máxima de repetición para no inflar el calendario.
+            $windowStart = $end->copy()->subDays(self::CARRY_DAYS_LIMIT);
+
+            if ($start->lt($windowStart)) {
+                $start = $windowStart;
+            }
+
+            // Los registros fuera de la ventana de repetición (anteriores a ella o
+            // programados a futuro) conservan su propia entrada.
+            $outsideRange = $records->filter(fn (array $record) => $record['date'] < $start->toDateString()
+                || $record['date'] > $end->toDateString());
+
+            foreach ($outsideRange as $record) {
+                $arrivals[] = [
+                    ...$entry,
+                    'key' => $record['key'],
+                    'kind' => $record['kind'],
+                    'id' => $record['id'],
+                    'date' => $record['date'],
+                    'description' => $record['label'],
+                    'state_label' => $record['label'],
+                    'state_kind' => $record['kind'],
+                    'state_date' => $record['date'],
+                    'carried' => false,
+                    'created_by_name' => $record['created_by_name'],
+                ];
+            }
+
+            for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+                $date = $day->toDateString();
+                $dayRecords = $records->filter(fn (array $record) => $record['date'] === $date);
+
+                // Los días con registro propio (alta o actualización) no se repiten.
+                foreach ($dayRecords as $record) {
+                    $arrivals[] = [
+                        ...$entry,
+                        'key' => $record['key'],
+                        'kind' => $record['kind'],
+                        'id' => $record['id'],
+                        'date' => $date,
+                        'description' => $record['label'],
+                        'state_label' => $record['label'],
+                        'state_kind' => $record['kind'],
+                        'state_date' => $record['date'],
+                        'carried' => false,
+                        'created_by_name' => $record['created_by_name'],
+                    ];
+                }
+
+                if ($dayRecords->isNotEmpty()) {
+                    continue;
+                }
+
+                // Días intermedios: se arrastra el último estado registrado.
+                $current = $records->filter(fn (array $record) => $record['date'] <= $date)->last();
+
+                if (! $current) {
+                    continue;
+                }
+
+                $arrivals[] = [
+                    ...$entry,
+                    'key' => "shipment-{$shipment->id}-{$date}",
+                    'kind' => 'shipment',
+                    'id' => $shipment->id,
+                    'date' => $date,
+                    'description' => $current['label'],
+                    'state_label' => $current['label'],
+                    'state_kind' => $current['kind'],
+                    'state_date' => $current['date'],
+                    'carried' => true,
+                    'created_by_name' => $current['created_by_name'],
+                ];
             }
         }
 
@@ -241,13 +361,17 @@ class CalendarController extends Controller
             'can_manage' => $canManage,
             'arrivals' => $arrivals,
             'undated' => $undated,
+            // Ubicaciones / etapas sugeridas al registrar actualizaciones.
+            'event_locations' => RequisitionShipmentEvent::LOCATIONS,
             // Guías disponibles para registrar actualizaciones / eventos.
             'shipment_options' => $canManage
                 ? RequisitionShipment::orderByDesc('created_at')
-                    ->get(['id', 'tracking_number', 'carrier', 'status', 'estimated_arrival_date'])
+                    ->get(['id', 'tracking_number', 'carrier', 'delivery_method', 'status', 'estimated_arrival_date'])
                     ->map(fn (RequisitionShipment $shipment) => [
                         'id' => $shipment->id,
                         'tracking_number' => $shipment->tracking_number,
+                        'display_name' => $shipment->display_name,
+                        'delivery_method' => $shipment->delivery_method,
                         'carrier' => $shipment->carrier,
                         'status' => $shipment->status,
                         'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),

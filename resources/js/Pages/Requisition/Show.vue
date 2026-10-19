@@ -361,10 +361,14 @@
                                             ({{ requisition.items?.length ?? 0 }} partida(s) · {{ formatQuantity(totalItemsQuantity) }} piezas)
                                         </span>
                                     </h3>
-                                    <el-tooltip v-if="can.manage_arrivals" content="Selecciona en la tabla los productos que viajan en la misma guía" placement="top">
+                                    <el-tooltip v-if="can.manage_arrivals"
+                                        :content="isLocalRequisition
+                                            ? 'Selecciona los productos que entrega el proveedor o el transporte propio'
+                                            : 'Selecciona en la tabla los productos que viajan en la misma guía'"
+                                        placement="top">
                                         <SecondaryButton @click="openShipmentModal">
                                             <i class="fa-solid fa-truck-fast mr-2"></i>
-                                            Asignar a guía
+                                            {{ isLocalRequisition ? 'Registrar entrega' : 'Asignar a guía' }}
                                             <span v-if="selectedItems.length" class="ml-2 font-bold">({{ selectedItems.length }})</span>
                                         </SecondaryButton>
                                     </el-tooltip>
@@ -494,7 +498,9 @@
                             </el-table-column>
                         </el-table>
                         <p v-else class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                            Todos los productos ya están ligados a una guía de paquetería.
+                            {{ isLocalRequisition
+                                ? 'Todos los productos ya tienen una entrega registrada.'
+                                : 'Todos los productos ya están ligados a una guía de paquetería.' }}
                         </p>
                 </div>
 
@@ -502,7 +508,8 @@
                 <div class="rounded-xl border border-emerald-300 dark:border-emerald-700/60 overflow-hidden">
                         <div class="flex items-center justify-between gap-3 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20">
                             <p class="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                                <i class="fa-solid fa-truck-fast mr-2"></i> Con guía ligada
+                                <i class="fa-solid fa-truck-fast mr-2"></i>
+                                {{ isLocalRequisition ? 'Con entrega registrada' : 'Con guía ligada' }}
                             </p>
                             <span class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                                 {{ assignedItems.length }} producto(s)
@@ -574,7 +581,9 @@
                             </el-table-column>
                         </el-table>
                         <p v-else class="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                            Ningún producto tiene guía de paquetería asignada.
+                            {{ isLocalRequisition
+                                ? 'Ningún producto tiene una entrega registrada.'
+                                : 'Ningún producto tiene guía de paquetería asignada.' }}
                         </p>
                 </div>
                                 </div><!-- /pestaña productos solicitados -->
@@ -614,10 +623,12 @@
                             <div v-show="activeTab === 'shipments'" class="space-y-4">
                                 <div class="flex justify-between items-center">
                                     <h3 class="font-bold text-lg text-gray-800 dark:text-gray-200">
-                                        <i class="fa-solid fa-truck-fast mr-2"></i> Guías de paquetería
+                                        <i class="fa-solid fa-truck-fast mr-2"></i>
+                                        {{ isLocalRequisition ? 'Entregas de mercancía' : 'Guías de paquetería' }}
                                     </h3>
                                     <SecondaryButton v-if="can.manage_arrivals" @click="openAction('shipment')">
-                                        <i class="fa-solid fa-plus mr-2"></i> Ligar guía
+                                        <i class="fa-solid fa-plus mr-2"></i>
+                                        {{ isLocalRequisition ? 'Registrar entrega' : 'Ligar guía' }}
                                     </SecondaryButton>
                                 </div>
 
@@ -626,11 +637,17 @@
                             class="border border-gray-200 dark:border-slate-700 rounded-lg p-4 space-y-3">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center">
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Número de guía</p>
-                                    <p class="font-mono font-semibold dark:text-gray-200">{{ shipment.tracking_number }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ shipment.tracking_number ? 'Número de guía' : 'Forma de entrega' }}
+                                    </p>
+                                    <p class="font-mono font-semibold dark:text-gray-200">
+                                        {{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}
+                                    </p>
                                 </div>
                                 <div>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Paquetería</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ shipment.tracking_number ? 'Paquetería' : 'Transportista / referencia' }}
+                                    </p>
                                     <p class="dark:text-gray-200">{{ shipment.carrier ?? 'N/A' }}</p>
                                 </div>
                                 <div>
@@ -648,7 +665,14 @@
                                             {{ shipment.estimated_arrival_date ? formatDate(shipment.estimated_arrival_date) : 'Sin definir' }}
                                         </p>
                                     </div>
-                                    <el-dropdown v-if="can.manage_arrivals" @command="status => updateShipmentStatus(shipment.id, status)">
+                                    <!-- La guía arribada queda cerrada: su estatus ya no se puede cambiar -->
+                                    <el-tooltip v-if="can.manage_arrivals && shipment.status === 'Arribado'"
+                                        content="La guía ya fue marcada como arribada; su estatus no puede cambiarse" placement="top">
+                                        <el-tag type="success" effect="dark">
+                                            <i class="fa-solid fa-lock mr-1"></i> Arribado
+                                        </el-tag>
+                                    </el-tooltip>
+                                    <el-dropdown v-else-if="can.manage_arrivals" @command="status => updateShipmentStatus(shipment.id, status)">
                                         <SecondaryButton>
                                             Cambiar estatus <i class="fa-solid fa-chevron-down ml-2"></i>
                                         </SecondaryButton>
@@ -661,6 +685,11 @@
                                         </template>
                                     </el-dropdown>
                                 </div>
+                            </div>
+
+                            <div v-if="shipment.notes" class="rounded-lg bg-gray-50 dark:bg-slate-800/60 px-3 py-2">
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400">Nota del seguimiento</p>
+                                <p class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-line">{{ shipment.notes }}</p>
                             </div>
 
                             <div class="border-t border-dashed border-gray-200 dark:border-slate-700 pt-2">
@@ -678,12 +707,14 @@
                             </div>
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400">
-                            Una misma guía puede agrupar varios productos y requisiciones; todo se muestra en una sola
-                            entrada del calendario de arribos.
+                            Una misma guía o entrega puede agrupar varios productos y requisiciones; todo se muestra en
+                            una sola entrada del calendario de arribos.
                         </p>
                     </div>
                     <p v-else class="text-sm text-gray-500 dark:text-gray-400">
-                        Ningún producto de esta requisición está ligado a una guía de paquetería.
+                        {{ isLocalRequisition
+                            ? 'Ningún producto de esta requisición tiene una entrega registrada.'
+                            : 'Ningún producto de esta requisición está ligado a una guía de paquetería.' }}
                     </p>
                             </div><!-- /pestaña guías -->
 
@@ -1052,8 +1083,10 @@
             </template>
         </el-dialog>
 
-        <!-- Guía de paquetería -->
-        <el-dialog v-model="modals.shipment" title="Asignar productos a guía de paquetería" width="620" :center="true">
+        <!-- Entrega de mercancía (guía, proveedor o transporte propio) -->
+        <el-dialog v-model="modals.shipment"
+            :title="isLocalRequisition ? 'Registrar entrega de mercancía' : 'Asignar productos a guía de paquetería'"
+            width="620" :center="true">
             <div class="space-y-4">
                 <div class="bg-blue-50 dark:bg-slate-800/60 border border-blue-200 dark:border-slate-700 rounded-lg p-3 space-y-3">
                     <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">
@@ -1088,30 +1121,49 @@
                     </p>
                 </div>
 
+                <!-- Forma de entrega: guía, proveedor o transporte propio -->
                 <div>
-                    <InputLabel value="Guía existente" />
-                    <el-select v-model="actionForm.shipment.shipment_id" filterable clearable class="w-full mt-1"
-                        placeholder="Busca una guía ya registrada para agrupar productos">
-                        <el-option v-for="option in shipmentOptions" :key="option.id" :value="option.id"
-                            :label="`${option.tracking_number} · ${option.carrier ?? 'N/A'} (${option.status})`" />
-                    </el-select>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Si los productos comparten número de guía con otras requisiciones, selecciónala aquí para no
-                        duplicar registros en el calendario.
+                    <InputLabel value="Forma de entrega" />
+                    <el-radio-group v-model="actionForm.shipment.delivery_method" class="!w-full mt-1"
+                        @change="onDeliveryMethodChange">
+                        <el-radio-button v-for="method in deliveryMethods" :key="method" :label="method">
+                            {{ method }}
+                        </el-radio-button>
+                    </el-radio-group>
+                    <p v-if="actionForm.shipment.delivery_method !== 'Guía'"
+                        class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <i class="fa-solid fa-circle-info mr-1"></i>
+                        Sin guía: la entrega puede registrarse igual y el estatus se actualiza desde el calendario o esta pestaña.
                     </p>
                 </div>
 
-                <div class="text-center text-xs text-gray-400">— o registra una guía nueva —</div>
+                <template v-if="actionForm.shipment.delivery_method === 'Guía'">
+                    <div>
+                        <InputLabel value="Guía existente" />
+                        <el-select v-model="actionForm.shipment.shipment_id" filterable clearable class="w-full mt-1"
+                            placeholder="Busca una guía ya registrada para agrupar productos">
+                            <el-option v-for="option in guideOptions" :key="option.id" :value="option.id"
+                                :label="`${option.tracking_number} · ${option.carrier ?? 'N/A'} (${option.status})`" />
+                        </el-select>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Si los productos comparten número de guía con otras requisiciones, selecciónala aquí para no
+                            duplicar registros en el calendario.
+                        </p>
+                    </div>
+
+                    <div class="text-center text-xs text-gray-400">— o registra una guía nueva —</div>
+                </template>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
+                    <div v-if="actionForm.shipment.delivery_method === 'Guía'">
                         <InputLabel value="Número de guía" />
                         <TextInput v-model="actionForm.shipment.tracking_number" class="w-full mt-1"
                             placeholder="Ej. 1234567890" />
                     </div>
                     <div>
-                        <InputLabel value="Paquetería" />
-                        <TextInput v-model="actionForm.shipment.carrier" class="w-full mt-1" placeholder="Ej. DHL, FedEx..." />
+                        <InputLabel :value="actionForm.shipment.delivery_method === 'Guía' ? 'Paquetería' : 'Transportista / referencia'" />
+                        <TextInput v-model="actionForm.shipment.carrier" class="w-full mt-1"
+                            :placeholder="actionForm.shipment.delivery_method === 'Guía' ? 'Ej. DHL, FedEx...' : 'Ej. Proveedor o unidad propia'" />
                     </div>
                     <div>
                         <InputLabel value="Estatus de arribo" />
@@ -1125,13 +1177,22 @@
                             value-format="YYYY-MM-DD" placeholder="Selecciona la fecha" class="w-full mt-1" />
                     </div>
                 </div>
+
+                <div>
+                    <InputLabel value="Nota del seguimiento" />
+                    <textarea v-model="actionForm.shipment.notes" rows="2"
+                        class="w-full mt-1 rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
+                        placeholder="Ej. En China / Entrega en bodega"></textarea>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <i class="fa-solid fa-circle-info mr-1"></i>
+                        Se muestra en el calendario de arribos desde el día en que se registra la entrega.
+                    </p>
+                </div>
             </div>
             <template #footer>
                 <div class="flex justify-end space-x-3">
                     <el-button @click="modals.shipment = false">Cancelar</el-button>
-                    <el-button type="primary"
-                        :disabled="!selectedItems.length || (!actionForm.shipment.shipment_id && !actionForm.shipment.tracking_number)"
-                        @click="submitShipment">
+                    <el-button type="primary" :disabled="!canSubmitShipment" @click="submitShipment">
                         Asignar {{ selectedItems.length }} producto(s)
                     </el-button>
                 </div>
@@ -1266,7 +1327,7 @@ const LOCAL_FLOW_GUIDES = {
         owner: 'Compras',
         steps: [
             'Acuerda con el proveedor la fecha en que entregará la mercancía.',
-            'Asigna guía a los productos de la requisición desde la pestaña «Productos»',
+            'Registra la entrega desde la pestaña «Productos»: con guía de paquetería, entrega directa del proveedor o transporte propio de la empresa.',
             'Abre el menú «Acciones» y elige «Fecha de entrega» para registrarla.',
             'Cuando la mercancía esté recibida y verificada, elige «Completar requisición» y confirma la operación.',
             'La requisición pasa a «Completada» y el flujo termina.',
@@ -1344,7 +1405,7 @@ const IMPORT_FLOW_GUIDES = {
         icon: 'fa-solid fa-truck-fast',
         title: 'Asigna las guías y confirma el arribo de la mercancía',
         nextStatus: 'Arribo confirmado',
-        owner: 'Almacén',
+        owner: 'Compras',
         steps: [
             'Ve a la pestaña «Productos» y marca con las casillas las partidas que viajan juntas.',
             'Presiona «Asignar a guía» y captura número de guía, paquetería, estatus y fecha estimada de arribo. Si el envío es parcial, indica la cantidad que llega en esa guía.',
@@ -1470,6 +1531,11 @@ export default {
             type: Array,
             default: () => [],
         },
+        // Formas de entrega disponibles (guía, proveedor, transporte propio).
+        deliveryMethods: {
+            type: Array,
+            default: () => ['Guía', 'Proveedor', 'Transporte propio'],
+        },
     },
     data() {
         return {
@@ -1524,8 +1590,10 @@ export default {
                     shipment_id: null,
                     tracking_number: '',
                     carrier: '',
+                    delivery_method: 'Guía',
                     status: 'Pendiente',
                     estimated_arrival_date: null,
+                    notes: '',
                 },
             },
             commentForm: useForm({ content: '', mentioned_user_ids: [] }),
@@ -1647,6 +1715,21 @@ export default {
         // Urgente solo se distingue mientras la requisición siga abierta.
         isUrgentActive() {
             return this.requisition.priority === 'Urgente' && this.requisition.status !== 'Completada';
+        },
+        isLocalRequisition() {
+            return this.requisition.type === 'Local';
+        },
+        // Solo las guías con número se pueden reutilizar.
+        guideOptions() {
+            return this.shipmentOptions.filter(option => option.tracking_number);
+        },
+        // La entrega por proveedor o transporte propio no requiere número de guía.
+        canSubmitShipment() {
+            if (!this.selectedItems.length) return false;
+
+            if (this.actionForm.shipment.delivery_method !== 'Guía') return true;
+
+            return Boolean(this.actionForm.shipment.shipment_id || this.actionForm.shipment.tracking_number);
         },
         /*
          * El servidor habilita la captura por etapa y permisos; si la cotización
@@ -1869,12 +1952,19 @@ export default {
         },
         openShipmentModal() {
             if (!this.selectedItems.length) {
-                ElMessage.warning('Selecciona en la tabla los productos que viajan en esta guía.');
+                ElMessage.warning('Selecciona en la tabla los productos que viajan en esta entrega.');
                 return;
             }
 
             this.shipmentQuantities = {};
             this.openAction('shipment');
+        },
+        // Al cambiar a una entrega sin guía se limpian los datos de paquetería.
+        onDeliveryMethodChange(method) {
+            if (method === 'Guía') return;
+
+            this.actionForm.shipment.shipment_id = null;
+            this.actionForm.shipment.tracking_number = '';
         },
         formatDate(dateString) {
             if (!dateString) return '—';
@@ -2238,19 +2328,26 @@ export default {
 
             router.post(route('requisitions.assign-shipment', this.requisition.id), {
                 items: entries.map(({ id, quantity }) => ({ id, quantity })),
-                shipment_id: form.shipment_id,
-                tracking_number: form.shipment_id ? null : form.tracking_number,
+                shipment_id: form.delivery_method === 'Guía' ? form.shipment_id : null,
+                tracking_number: form.delivery_method === 'Guía' && !form.shipment_id ? form.tracking_number : null,
                 carrier: form.carrier,
+                delivery_method: form.delivery_method,
                 status: form.status,
                 estimated_arrival_date: form.estimated_arrival_date,
+                notes: form.notes || null,
             }, {
                 onSuccess: () => {
                     this.modals.shipment = false;
                     this.selectedItems = [];
                     this.shipmentQuantities = {};
-                    this.handleSuccess('Producto(s) ligado(s) a la guía.');
+                    form.notes = '';
+                    form.shipment_id = null;
+                    form.tracking_number = '';
+                    form.carrier = '';
+                    form.delivery_method = 'Guía';
+                    this.handleSuccess('Entrega registrada para los producto(s).');
                 },
-                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo ligar la guía.'),
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo registrar la entrega.'),
             });
         },
         updateShipmentStatus(shipmentId, status) {

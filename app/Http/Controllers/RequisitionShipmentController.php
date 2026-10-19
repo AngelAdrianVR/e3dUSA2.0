@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PurchaseItem;
 use App\Models\Requisition;
 use App\Models\RequisitionItem;
 use App\Models\RequisitionShipment;
 use App\Models\RequisitionShipmentEvent;
+use App\Models\StockMovement;
 use App\Notifications\RequisitionArrivalScheduledNotification;
 use App\Notifications\RequisitionShipmentStatusNotification;
 use App\Support\RequisitionPermissions;
@@ -27,8 +29,9 @@ class RequisitionShipmentController extends Controller
         abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
 
         $request->validate([
-            'tracking_number' => ['required', 'string', 'max:100', Rule::unique('requisition_shipments', 'tracking_number')],
+            'tracking_number' => ['nullable', 'string', 'max:100', Rule::unique('requisition_shipments', 'tracking_number')],
             'carrier' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['required', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -42,14 +45,23 @@ class RequisitionShipmentController extends Controller
             'tracking_number.unique' => 'Ya existe una guía con ese número; búscala y liga los productos en lugar de duplicarla.',
         ]);
 
+        $deliveryMethod = $request->input('delivery_method') ?: RequisitionShipment::DELIVERY_METHODS[0];
+
+        if ($deliveryMethod === 'Guía' && ! $request->filled('tracking_number')) {
+            throw ValidationException::withMessages([
+                'tracking_number' => 'Captura el número de guía o elige la entrega por proveedor / transporte propio.',
+            ]);
+        }
+
         $entries = $this->shipmentEntries($request);
 
         $this->validateQuantities($entries);
 
         $shipment = DB::transaction(function () use ($request, $user, $entries) {
             $shipment = RequisitionShipment::create([
-                'tracking_number' => $request->tracking_number,
+                'tracking_number' => $deliveryMethod === 'Guía' ? $request->tracking_number : null,
                 'carrier' => $request->carrier,
+                'delivery_method' => $deliveryMethod,
                 'status' => $request->status,
                 'estimated_arrival_date' => $request->estimated_arrival_date,
                 'arrived_at' => $request->status === 'Arribado' ? now() : null,
@@ -59,6 +71,11 @@ class RequisitionShipmentController extends Controller
 
             $shipment->syncItems($entries);
 
+            // Si la guía se registra ya arribada, el inventario entra de inmediato.
+            if ($shipment->status === 'Arribado') {
+                $this->registerArrivalStock($shipment);
+            }
+
             return $shipment;
         });
 
@@ -67,7 +84,7 @@ class RequisitionShipmentController extends Controller
         $this->notifyShipment($shipment, $user);
         $this->notifyArrivalDate($shipment, $user);
 
-        return back()->with('success', "Guía {$shipment->tracking_number} registrada.");
+        return back()->with('success', "Entrega {$shipment->display_name} registrada.");
     }
 
     /**
@@ -88,13 +105,19 @@ class RequisitionShipmentController extends Controller
             'shipment_id' => ['nullable', 'exists:requisition_shipments,id'],
             'tracking_number' => ['nullable', 'string', 'max:100'],
             'carrier' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['nullable', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        if (! $request->filled('shipment_id') && ! $request->filled('tracking_number')) {
-            return back()->withErrors(['tracking_number' => 'Selecciona una guía existente o captura el número de guía.']);
+        $deliveryMethod = $request->input('delivery_method') ?: RequisitionShipment::DELIVERY_METHODS[0];
+        $usesGuide = $deliveryMethod === 'Guía';
+
+        if (! $request->filled('shipment_id') && $usesGuide && ! $request->filled('tracking_number')) {
+            return back()->withErrors([
+                'tracking_number' => 'Selecciona una guía existente o captura el número de guía (o elige proveedor / transporte propio).',
+            ]);
         }
 
         if (empty($request->input('item_ids', [])) && empty($request->input('items', []))) {
@@ -121,15 +144,25 @@ class RequisitionShipmentController extends Controller
 
         $this->validateQuantities($entries, $existingShipment, $requisition->id);
 
-        $shipment = DB::transaction(function () use ($request, $user, $entries, $existingShipment, $items) {
+        $shipment = DB::transaction(function () use ($request, $user, $entries, $existingShipment, $deliveryMethod) {
             if ($existingShipment) {
                 $shipment = $existingShipment;
-            } else {
+
+                // La nota de la entrega alimenta el registro del calendario de arribos.
+                $shipment->fill([
+                    'notes' => $request->filled('notes') ? $request->notes : $shipment->notes,
+                    'carrier' => $request->filled('carrier') ? $request->carrier : $shipment->carrier,
+                    'delivery_method' => $request->filled('delivery_method')
+                        ? $deliveryMethod
+                        : $shipment->delivery_method,
+                ])->save();
+            } elseif ($deliveryMethod === 'Guía') {
                 // Si el número de guía ya existe se reutiliza la misma guía.
                 $shipment = RequisitionShipment::firstOrCreate(
                     ['tracking_number' => $request->tracking_number],
                     [
                         'carrier' => $request->carrier,
+                        'delivery_method' => $deliveryMethod,
                         'status' => $request->status ?? 'Pendiente',
                         'estimated_arrival_date' => $request->estimated_arrival_date,
                         'arrived_at' => $request->status === 'Arribado' ? now() : null,
@@ -137,6 +170,18 @@ class RequisitionShipmentController extends Controller
                         'created_by' => $user->id,
                     ]
                 );
+            } else {
+                // Entregas sin guía: proveedor o transporte propio de la empresa.
+                $shipment = RequisitionShipment::create([
+                    'tracking_number' => null,
+                    'carrier' => $request->carrier,
+                    'delivery_method' => $deliveryMethod,
+                    'status' => $request->status ?? 'Pendiente',
+                    'estimated_arrival_date' => $request->estimated_arrival_date,
+                    'arrived_at' => $request->status === 'Arribado' ? now() : null,
+                    'notes' => $request->notes,
+                    'created_by' => $user->id,
+                ]);
             }
 
             // Se conservan las cantidades ya asignadas y se actualizan las enviadas.
@@ -154,6 +199,11 @@ class RequisitionShipmentController extends Controller
 
             $shipment->syncItems($merged->values()->all());
 
+            // Guía nueva registrada ya como arribada: entra el inventario.
+            if ($shipment->wasRecentlyCreated && $shipment->status === 'Arribado') {
+                $this->registerArrivalStock($shipment);
+            }
+
             return $shipment;
         });
 
@@ -165,8 +215,8 @@ class RequisitionShipmentController extends Controller
         $count = $items->count();
 
         return back()->with('success', $count === 1
-            ? "Producto ligado a la guía {$shipment->tracking_number}."
-            : "{$count} productos ligados a la guía {$shipment->tracking_number}.");
+            ? "Producto ligado a la entrega {$shipment->display_name}."
+            : "{$count} productos ligados a la entrega {$shipment->display_name}.");
     }
 
     /**
@@ -178,8 +228,9 @@ class RequisitionShipmentController extends Controller
         abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
 
         $request->validate([
-            'tracking_number' => ['required', 'string', 'max:100', Rule::unique('requisition_shipments', 'tracking_number')->ignore($shipment->id)],
+            'tracking_number' => ['nullable', 'string', 'max:100', Rule::unique('requisition_shipments', 'tracking_number')->ignore($shipment->id)],
             'carrier' => ['nullable', 'string', 'max:100'],
+            'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['required', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -189,6 +240,23 @@ class RequisitionShipmentController extends Controller
             'items.*.id' => ['required', 'integer', 'exists:requisition_items,id'],
             'items.*.quantity' => ['nullable', 'numeric', 'min:0'],
         ]);
+
+        $previousStatus = $shipment->status;
+
+        // Una vez marcada como arribada, la guía queda cerrada.
+        if ($previousStatus === 'Arribado' && $request->status !== 'Arribado') {
+            return back()->withErrors(['status' => 'La guía ya fue marcada como arribada y su estatus no puede cambiarse.']);
+        }
+
+        $deliveryMethod = $request->filled('delivery_method')
+            ? $request->input('delivery_method')
+            : ($shipment->delivery_method ?: RequisitionShipment::DELIVERY_METHODS[0]);
+
+        if ($deliveryMethod === 'Guía' && ! $request->filled('tracking_number')) {
+            return back()->withErrors([
+                'tracking_number' => 'Captura el número de guía o cambia la forma de entrega a proveedor / transporte propio.',
+            ]);
+        }
 
         // Partidas que se desligan al guardar (para recalcular su estatus).
         $removedItems = collect();
@@ -209,7 +277,7 @@ class RequisitionShipmentController extends Controller
             $this->validateQuantities($entries, $shipment);
         }
 
-        DB::transaction(function () use ($request, $shipment, &$removedItems, $hasItemUpdate, $entries) {
+        DB::transaction(function () use ($request, $shipment, $previousStatus, $deliveryMethod, &$removedItems, $hasItemUpdate, $entries) {
             if ($hasItemUpdate) {
                 $removedItems = $shipment->items()
                     ->whereNotIn('requisition_items.id', collect($entries)->pluck('id')->all())
@@ -217,8 +285,9 @@ class RequisitionShipmentController extends Controller
             }
 
             $shipment->update([
-                'tracking_number' => $request->tracking_number,
+                'tracking_number' => $deliveryMethod === 'Guía' ? $request->tracking_number : null,
                 'carrier' => $request->carrier,
+                'delivery_method' => $deliveryMethod,
                 'status' => $request->status,
                 'estimated_arrival_date' => $request->estimated_arrival_date,
                 'arrived_at' => $request->status === 'Arribado' ? ($shipment->arrived_at ?? now()) : null,
@@ -227,6 +296,10 @@ class RequisitionShipmentController extends Controller
 
             if ($hasItemUpdate) {
                 $shipment->syncItems($entries);
+            }
+
+            if ($request->status === 'Arribado' && $previousStatus !== 'Arribado') {
+                $this->registerArrivalStock($shipment);
             }
         });
 
@@ -257,12 +330,27 @@ class RequisitionShipmentController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $shipment->update([
-            'status' => $request->status,
-            'estimated_arrival_date' => $request->input('estimated_arrival_date', $shipment->estimated_arrival_date),
-            'arrived_at' => $request->status === 'Arribado' ? ($shipment->arrived_at ?? now()) : null,
-            'notes' => $request->has('notes') ? $request->notes : $shipment->notes,
-        ]);
+        $previousStatus = $shipment->status;
+
+        // Una vez marcada como arribada, la guía queda cerrada.
+        if ($previousStatus === 'Arribado' && $request->status !== 'Arribado') {
+            return back()->withErrors(['status' => 'La guía ya fue marcada como arribada y su estatus no puede cambiarse.']);
+        }
+
+        DB::transaction(function () use ($request, $shipment, $previousStatus) {
+            $shipment->update([
+                'status' => $request->status,
+                'estimated_arrival_date' => $request->input('estimated_arrival_date', $shipment->estimated_arrival_date),
+                'arrived_at' => $request->status === 'Arribado' ? ($shipment->arrived_at ?? now()) : null,
+                'notes' => $request->has('notes') ? $request->notes : $shipment->notes,
+            ]);
+
+            // El primer cambio a "Arribado" registra la entrada al inventario y
+            // sincroniza las piezas recibidas de la orden de compra vinculada.
+            if ($request->status === 'Arribado' && $previousStatus !== 'Arribado') {
+                $this->registerArrivalStock($shipment);
+            }
+        });
 
         $shipment->load('items');
         $this->syncItemsStatus($shipment->items, $shipment);
@@ -270,7 +358,7 @@ class RequisitionShipmentController extends Controller
         $this->notifyShipment($shipment, $user);
         $this->notifyArrivalDate($shipment, $user);
 
-        return back()->with('success', "Guía {$shipment->tracking_number}: {$shipment->status}.");
+        return back()->with('success', "Entrega {$shipment->display_name}: {$shipment->status}.");
     }
 
     /**
@@ -281,7 +369,7 @@ class RequisitionShipmentController extends Controller
         $user = Auth::user();
         abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
 
-        $tracking = $shipment->tracking_number;
+        $reference = $shipment->display_name;
 
         DB::transaction(function () use ($shipment) {
             $requisitions = collect();
@@ -305,7 +393,7 @@ class RequisitionShipmentController extends Controller
             }
         });
 
-        return back()->with('success', "Guía {$tracking} eliminada.");
+        return back()->with('success', "Entrega {$reference} eliminada.");
     }
 
     /**
@@ -318,16 +406,21 @@ class RequisitionShipmentController extends Controller
 
         $validated = $request->validate([
             'event_date' => ['required', 'date'],
-            'description' => ['required', 'string', 'max:2000'],
+            // Ubicación / etapa: China, GDL, Aduanas u otra capturada libremente.
+            'location' => ['nullable', 'string', 'max:100'],
+            'description' => ['nullable', 'string', 'max:2000', 'required_without:location'],
+        ], [
+            'description.required_without' => 'Selecciona una ubicación o escribe una descripción.',
         ]);
 
         $shipment->events()->create([
             'event_date' => $validated['event_date'],
-            'description' => $validated['description'],
+            'location' => $validated['location'] ?? null,
+            'description' => $validated['description'] ?? null,
             'created_by' => $user->id,
         ]);
 
-        return back()->with('success', "Actualización registrada en la guía {$shipment->tracking_number}.");
+        return back()->with('success', "Actualización registrada en la entrega {$shipment->display_name}.");
     }
 
     /**
@@ -338,12 +431,81 @@ class RequisitionShipmentController extends Controller
         $user = Auth::user();
         abort_unless(RequisitionPermissions::canManageArrivals($user), 403);
 
-        $tracking = $event->shipment?->tracking_number;
+        $reference = $event->shipment?->display_name;
         $event->delete();
 
-        return back()->with('success', $tracking
-            ? "Actualización de la guía {$tracking} eliminada."
+        return back()->with('success', $reference
+            ? "Actualización de la entrega {$reference} eliminada."
             : 'Actualización eliminada.');
+    }
+
+    /**
+     * Registra la entrada al inventario de la mercancía que arribó en la guía y
+     * sincroniza las piezas recibidas de la orden de compra de la requisición.
+     * Con parcialidades, cada guía suma su propia cantidad.
+     */
+    private function registerArrivalStock(RequisitionShipment $shipment): void
+    {
+        // Se fuerza la recarga para tomar las partidas y cantidades vigentes.
+        $shipment->load(['items.product', 'items.requisition']);
+
+        foreach ($shipment->items as $item) {
+            $product = $item->product;
+
+            // Los productos nuevos (sin catálogo) no afectan el inventario.
+            if (! $product) {
+                continue;
+            }
+
+            // Cantidad que viaja en esta guía (puede ser una parcialidad).
+            $quantity = $item->pivot->quantity !== null
+                ? (float) $item->pivot->quantity
+                : (float) $item->quantity;
+
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            // 1. Se sincronizan las piezas recibidas de las órdenes de compra
+            //    vinculadas a la requisición, sin rebasar lo comprado.
+            $purchaseItems = PurchaseItem::query()
+                ->where('product_id', $product->id)
+                ->whereHas('purchase', fn ($query) => $query->where('requisition_id', $item->requisition_id))
+                ->get();
+
+            $pending = $quantity;
+
+            foreach ($purchaseItems as $purchaseItem) {
+                if ($pending <= 0) {
+                    break;
+                }
+
+                $missing = (float) $purchaseItem->quantity - (float) ($purchaseItem->quantity_received ?? 0);
+
+                if ($missing <= 0) {
+                    continue;
+                }
+
+                $received = min($pending, $missing);
+                $purchaseItem->update([
+                    'quantity_received' => (float) ($purchaseItem->quantity_received ?? 0) + $received,
+                ]);
+                $pending -= $received;
+            }
+
+            // 2. Movimiento de entrada al inventario por la mercancía recibida.
+            $storage = $product->storages()->firstOrCreate([], ['quantity' => 0]);
+            $storage->increment('quantity', $quantity);
+
+            StockMovement::create([
+                'product_id' => $product->id,
+                'storage_id' => $storage->id,
+                'quantity_change' => $quantity,
+                'type' => 'Entrada',
+                'notes' => 'Entrada por arribo de entrega ' . $shipment->display_name
+                    . ($item->requisition?->folio ? ' · ' . $item->requisition->folio : ''),
+            ]);
+        }
     }
 
     /**

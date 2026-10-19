@@ -16,6 +16,11 @@ class RequisitionShipment extends Model
     public const STATUSES = ['Pendiente', 'En tránsito', 'Incidencia', 'Arribado'];
 
     /**
+     * Formas de entrega de la mercancía.
+     */
+    public const DELIVERY_METHODS = ['Guía', 'Proveedor', 'Transporte propio'];
+
+    /**
      * Color asociado al estatus de la guía en el calendario de arribos.
      */
     public const STATUS_COLORS = [
@@ -28,6 +33,7 @@ class RequisitionShipment extends Model
     protected $fillable = [
         'tracking_number',
         'carrier',
+        'delivery_method',
         'status',
         'estimated_arrival_date',
         'arrived_at',
@@ -43,6 +49,18 @@ class RequisitionShipment extends Model
     public function getColorAttribute(): string
     {
         return self::STATUS_COLORS[$this->status] ?? self::STATUS_COLORS['Pendiente'];
+    }
+
+    /**
+     * Nombre visible del registro: número de guía o la forma de entrega.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        if ($this->tracking_number) {
+            return $this->tracking_number;
+        }
+
+        return ($this->delivery_method ?: 'Guía') . ' (sin guía)';
     }
 
     // --- RELACIONES ---

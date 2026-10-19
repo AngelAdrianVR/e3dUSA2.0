@@ -16,9 +16,15 @@ class RequisitionShipmentEvent extends Model
 {
     use HasFactory;
 
+    /**
+     * Ubicaciones / etapas sugeridas al registrar una actualización.
+     */
+    public const LOCATIONS = ['China', 'GDL', 'Aduanas'];
+
     protected $fillable = [
         'requisition_shipment_id',
         'event_date',
+        'location',
         'description',
         'created_by',
     ];
@@ -26,6 +32,14 @@ class RequisitionShipmentEvent extends Model
     protected $casts = [
         'event_date' => 'date',
     ];
+
+    /**
+     * Texto visible del evento: ubicación y descripción concatenadas.
+     */
+    public function getLabelAttribute(): string
+    {
+        return trim(implode(' · ', array_filter([$this->location, $this->description])));
+    }
 
     // --- RELACIONES ---
 

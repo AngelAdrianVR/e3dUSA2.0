@@ -78,7 +78,7 @@
                                 </div>
                                 <!-- Selector de Fecha de Entrega (opcional) -->
                                 <div>
-                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada</label>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada (opcional)</label>
                                     <el-date-picker v-model="form.expected_delivery_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" :disabled-date="disabledDate" class="!w-full" />
                                     <InputError :message="form.errors.expected_delivery_date" />
                                 </div>
@@ -145,6 +145,20 @@
                                                 </p>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Indicación: la distribución es obligatoria antes de crear la orden -->
+                                    <div class="rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+                                        <p class="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                            Define la vía de envío de cada producto precargado
+                                        </p>
+                                        <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                            Edita cada producto de la lista con el ícono del lápiz y captura cuántas piezas
+                                            viajan por <strong>avión</strong>, cuántas por <strong>barco</strong> y cuántas se
+                                            <strong>quedan en fábrica</strong>. La suma debe ser igual a la cantidad solicitada;
+                                            sin ese dato no se puede crear la orden de compra.
+                                        </p>
                                     </div>
                                 </div>
 
@@ -299,6 +313,20 @@
                                     </div>
                                 </div>
 
+                                <!-- Distribución pendiente: bloquea la creación de la orden -->
+                                <div v-if="missingDistribution.length"
+                                    class="mt-4 rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+                                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                        <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                                        Falta la distribución de {{ missingDistribution.length }} producto(s)
+                                    </p>
+                                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                        Edita cada producto de la lista con el ícono del lápiz y captura cuántas piezas viajan
+                                        por avión, cuántas por barco y cuántas se quedan en fábrica. La suma debe ser igual a
+                                        la cantidad solicitada para poder crear la orden.
+                                    </p>
+                                </div>
+
                                 <!-- Tabla de productos agregados -->
                                 <div class="mt-4 overflow-x-auto">
                                     <el-table :data="form.items" stripe class="!w-full">
@@ -327,8 +355,10 @@
                                                         class="rounded bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5">
                                                         Fábrica: {{ formatRequisitionQuantity(scope.row.additional_stock) }}
                                                     </span>
-                                                    <span v-if="!scope.row.plane_stock && !scope.row.ship_stock && !scope.row.additional_stock"
-                                                        class="text-gray-400">Sin asignar</span>
+                                                    <span v-if="!hasDistribution(scope.row)"
+                                                        class="font-semibold text-red-600 dark:text-red-400">
+                                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Falta distribuir
+                                                    </span>
                                                 </div>
                                             </template>
                                         </el-table-column>
@@ -402,8 +432,12 @@
                         </section>
                         
                         <!-- Botón de envío -->
-                        <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :loading="form.processing" :disabled="form.items.length === 0">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 mt-8 col-span-full">
+                            <p v-if="missingDistribution.length" class="text-xs font-semibold text-red-600 dark:text-red-400 text-right">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                Completa la vía de envío de {{ missingDistribution.length }} producto(s) para poder crear la orden.
+                            </p>
+                            <SecondaryButton :loading="form.processing" :disabled="!canSubmitPurchase">
                                 Crear Órden de Compra
                             </SecondaryButton>
                         </div>
@@ -585,10 +619,37 @@ export default {
                                (this.productForm.additional_stock || 0);
             return (this.productForm.quantity || 0) - totalStock;
         },
+        /*
+         * Partidas cuya distribución (avión + barco + fábrica) no coincide con
+         * la cantidad. Las precargadas desde la requisición entran aquí hasta
+         * que se editan y se captura la vía de envío.
+         */
+        missingDistribution() {
+            return this.form.items.filter(item => !this.hasDistribution(item));
+        },
+        canSubmitPurchase() {
+            return this.form.items.length > 0 && this.missingDistribution.length === 0;
+        },
     },
     methods: {
+        /**
+         * Indica si la partida ya tiene repartida su cantidad entre avión,
+         * barco y lo que se queda en fábrica.
+         */
+        hasDistribution(item) {
+            const assigned = (Number(item.plane_stock) || 0)
+                + (Number(item.ship_stock) || 0)
+                + (Number(item.additional_stock) || 0);
+
+            return Math.abs(assigned - (Number(item.quantity) || 0)) < 0.0001;
+        },
         // Enviar el formulario para crear la orden
         store() {
+            if (this.missingDistribution.length) {
+                ElMessage.error('Define la vía de envío (avión, barco y fábrica) de cada producto antes de crear la orden.');
+                return;
+            }
+
             this.form.subtotal = this.totals.subtotal;
             this.form.tax = this.totals.tax;
             this.form.total = this.totals.total;
