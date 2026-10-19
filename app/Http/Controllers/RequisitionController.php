@@ -300,12 +300,19 @@ class RequisitionController extends Controller
             'items.product.media',
             'items.shipments:id,tracking_number,carrier,status',
             'shipments:id,tracking_number,carrier,status,estimated_arrival_date',
+            // Órdenes de compra vinculadas: distribuyen la mercancía por vía de envío.
+            'purchases.supplier:id,name',
+            'purchases.items.product:id,name,code,measure_unit',
+            'purchases.items.product.media',
             'media',
         ]);
 
         return Inertia::render('Requisition/Show', [
             'requisition' => $requisition,
-            'can' => $this->actionFlags($requisition, $user),
+            'can' => [
+                ...$this->actionFlags($requisition, $user),
+                'create_purchase_order' => $this->canCreatePurchaseOrder($requisition, $user),
+            ],
             'mentionableUsers' => $this->mentionableUsers($requisition),
             'shipmentStatuses' => RequisitionShipment::STATUSES,
             'shipmentOptions' => RequisitionShipment::orderByDesc('created_at')->get(['id', 'tracking_number', 'carrier', 'status', 'estimated_arrival_date']),
@@ -635,21 +642,23 @@ class RequisitionController extends Controller
         abort_unless(RequisitionPermissions::canAuthorize($user) || RequisitionPermissions::canManageArrivals($user), 403);
         abort_unless($requisition->type === Requisition::TYPE_IMPORT && $requisition->status === 'Aprobada', 409, 'La requisición no está en etapa de pedido a fábrica.');
 
-        $validated = $request->validate([
-            'expected_delivery_date' => ['nullable', 'date'],
+        $request->validate([
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $requisition->update([
-            'status' => 'Pedido a fábrica',
-            'expected_delivery_date' => $validated['expected_delivery_date'] ?? null,
-        ]);
+        // Con orden de compra vinculada el pedido ya quedó registrado: la
+        // requisición avanza directo a la etapa de documentación.
+        $status = $requisition->purchases()->exists() ? 'Documentación' : 'Pedido a fábrica';
 
-        $this->storeComment($requisition, $user, 'Pedido realizado a fábrica. Se solicita documentación de seguimiento (packing list, invoice, fichas técnicas, fotos).');
+        $requisition->update(['status' => $status]);
+
+        $this->storeComment($requisition, $user, "Pedido realizado a fábrica ({$status}). Se solicita documentación de seguimiento (packing list, invoice, fichas técnicas, fotos).");
 
         $this->notify(RequisitionPermissions::EDIT, $user, new RequisitionAuthorizedNotification($requisition));
 
-        return back()->with('success', 'Pedido a fábrica registrado.');
+        return back()->with('success', $status === 'Documentación'
+            ? 'Pedido a fábrica registrado; la requisición pasa a documentación.'
+            : 'Pedido a fábrica registrado.');
     }
 
     /**
@@ -660,7 +669,7 @@ class RequisitionController extends Controller
         $user = Auth::user();
         abort_unless(RequisitionPermissions::canManageArrivals($user) || RequisitionPermissions::canEdit($user), 403);
         abort_unless($requisition->type === Requisition::TYPE_IMPORT, 403, 'La documentación de fábrica solo aplica a importaciones.');
-        abort_unless(in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'En tránsito'], true), 409, 'La requisición no está en etapa de documentación.');
+        abort_unless(in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito'], true), 409, 'La requisición no está en etapa de documentación.');
 
         $request->validate([
             'packing_lists' => ['nullable', 'array'],
@@ -671,7 +680,6 @@ class RequisitionController extends Controller
             'technical_sheets.*' => ['file', 'max:10240'],
             'product_photos' => ['nullable', 'array'],
             'product_photos.*' => ['file', 'max:10240'],
-            'expected_delivery_date' => ['nullable', 'date'],
         ]);
 
         $collections = ['packing_lists', 'factory_invoices', 'technical_sheets', 'product_photos'];
@@ -692,12 +700,8 @@ class RequisitionController extends Controller
 
             $payload = [];
 
-            if ($request->filled('expected_delivery_date')) {
-                $payload['expected_delivery_date'] = $request->expected_delivery_date;
-            }
-
             // Con el packing list en mano la mercancía ya va en tránsito.
-            if ($request->hasFile('packing_lists') && $requisition->status === 'Pedido a fábrica') {
+            if ($request->hasFile('packing_lists') && in_array($requisition->status, ['Pedido a fábrica', 'Documentación'], true)) {
                 $payload['status'] = 'En tránsito';
                 $payload['arrival_status'] = 'En tránsito';
             }
@@ -1101,6 +1105,8 @@ class RequisitionController extends Controller
         $canManageArrivals = RequisitionPermissions::canManageArrivals($user);
         $isLocal = $requisition->type === Requisition::TYPE_LOCAL;
         $hasQuotation = $this->hasQuotation($requisition);
+        // En importaciones la fecha tentativa de llegada se define con las guías en mano.
+        $hasShipments = $requisition->shipments()->exists();
 
         // La cotización se captura una sola vez por requisición.
         $canQuote = $isLocal
@@ -1118,18 +1124,38 @@ class RequisitionController extends Controller
             'factory_order' => ($canAuthorize || $canManageArrivals) && ! $isLocal && $requisition->status === 'Aprobada',
             'upload_factory_docs' => ($canManageArrivals || RequisitionPermissions::canEdit($user))
                 && ! $isLocal
-                && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'En tránsito'], true),
+                && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito'], true),
             'upload_invoice' => RequisitionPermissions::canEdit($user)
                 && $isLocal
                 && in_array($requisition->status, ['Autorizada', 'Pendiente de pago'], true),
             'register_payment' => $canPay && $requisition->status === 'Pendiente de pago',
-            'register_delivery' => ($canEdit || $canManageArrivals) && ! in_array($requisition->status, ['Completada', 'Rechazada'], true),
+            'register_delivery' => ($canEdit || $canManageArrivals)
+                && ! in_array($requisition->status, ['Completada', 'Rechazada'], true)
+                // En importaciones la fecha se estima hasta tener guías asignadas.
+                && ($isLocal || $hasShipments),
             'complete' => ($canEdit || $canManageArrivals) && ($isLocal
                 ? $requisition->status === 'Pagada'
                 : $requisition->status === 'Arribo confirmado'),
             'manage_arrivals' => $canManageArrivals,
             'comment' => true,
         ];
+    }
+
+    /**
+     * La orden de compra se levanta cuando la requisición ya fue autorizada y
+     * todavía no tiene una orden vinculada.
+     */
+    private function canCreatePurchaseOrder(Requisition $requisition, User $user): bool
+    {
+        if (! RequisitionPermissions::canViewDetails($user) || $requisition->purchases()->exists()) {
+            return false;
+        }
+
+        $statuses = $requisition->type === Requisition::TYPE_IMPORT
+            ? ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito']
+            : ['Autorizada', 'Pendiente de pago', 'Pagada'];
+
+        return in_array($requisition->status, $statuses, true);
     }
 
     private function storeComment(Requisition $requisition, User $user, string $content, array $mentionedUserIds = []): Comment

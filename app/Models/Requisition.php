@@ -53,6 +53,8 @@ class Requisition extends Model implements HasMedia, Auditable
         'Rechazada',
         'Aprobada',
         'Pedido a fábrica',
+        // Con orden de compra vinculada el pedido a fábrica se registra como documentación.
+        'Documentación',
         'En tránsito',
         'Arribo confirmado',
         'Completada',
@@ -221,6 +223,14 @@ class Requisition extends Model implements HasMedia, Auditable
     public function items(): HasMany
     {
         return $this->hasMany(RequisitionItem::class)->orderBy('id');
+    }
+
+    /**
+     * Órdenes de compra generadas a partir de la requisición.
+     */
+    public function purchases(): HasMany
+    {
+        return $this->hasMany(Purchase::class);
     }
 
     /**

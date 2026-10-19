@@ -25,6 +25,7 @@ class Purchase extends Model implements HasMedia, Auditable
      */
     protected $fillable = [
         'id',
+        'requisition_id',
         'rating',
         'status', //Autorizada, Compra realizada, Compra recibida
         'supplier_id',
@@ -60,6 +61,11 @@ class Purchase extends Model implements HasMedia, Auditable
         'is_spanish_template' => 'boolean',
         'rating' => 'array',
     ];
+
+    /**
+     * Atributos calculados que siempre viajan al frontend.
+     */
+    protected $appends = ['folio'];
 
     /**
      * Get the supplier for the purchase.
@@ -110,5 +116,21 @@ class Purchase extends Model implements HasMedia, Auditable
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseItem::class);
+    }
+
+    /**
+     * Requisición que originó la orden de compra.
+     */
+    public function requisition(): BelongsTo
+    {
+        return $this->belongsTo(Requisition::class);
+    }
+
+    /**
+     * Folio visible de la orden de compra.
+     */
+    public function getFolioAttribute(): string
+    {
+        return 'OC-' . str_pad((string) $this->id, 4, '0', STR_PAD_LEFT);
     }
 }

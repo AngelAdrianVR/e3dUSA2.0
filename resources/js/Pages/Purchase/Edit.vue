@@ -68,7 +68,7 @@
                                 </div>
                                 <!-- Selector de Fecha de Entrega -->
                                 <div>
-                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada*</label>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada</label>
                                     <el-date-picker v-model="form.expected_delivery_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" class="!w-full" />
                                     <InputError :message="form.errors.expected_delivery_date" />
                                 </div>
@@ -160,17 +160,17 @@
                                     </div>
                                     <div class="md:col-span-2"></div> <!-- Spacer -->
 
-                                    <!-- Distribución de stock -->
+                                    <!-- Vía de envío y cantidad que viaja -->
                                     <div v-if="productForm.type === 'Venta'" class="md:col-span-full">
-                                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Distribución de stock</p>
+                                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Vía de envío y cantidad que viaja</p>
                                         <div class="grid grid-cols-3 gap-x-2 border p-3 rounded-md" :class="{
                                                 'border-red-500': stockRemaining < 0,
                                                 'border-green-500': stockRemaining === 0,
                                                 'border-amber-500': stockRemaining > 0
                                         }">
-                                            <TextInput label="Stock Avión" v-model.number="productForm.plane_stock" type="numeric-stepper" placeholder="0" />
-                                            <TextInput label="Stock Barco" v-model.number="productForm.ship_stock" type="numeric-stepper" placeholder="0" />
-                                            <TextInput label="Stock Favor" v-model.number="productForm.additional_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Por avión" v-model.number="productForm.plane_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Por barco" v-model.number="productForm.ship_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Se queda en fábrica" v-model.number="productForm.additional_stock" type="numeric-stepper" placeholder="0" />
                                         </div>
                                         <p v-if="stockRemaining !== 0" :class="stockRemaining < 0 ? 'text-red-500' : 'text-amber-500'" class="text-xs mt-1">
                                             <i class="fa-solid fa-circle-info mr-1"></i> Cantidad por asignar: {{ stockRemaining }}

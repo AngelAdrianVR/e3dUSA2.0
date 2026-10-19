@@ -550,6 +550,7 @@ export default {
                 'Arribo confirmado': 'success',
                 'Completada': 'success',
                 'Pedido a fábrica': 'primary',
+                'Documentación': 'primary',
                 'En tránsito': 'warning',
             };
             return map[status] ?? 'info';

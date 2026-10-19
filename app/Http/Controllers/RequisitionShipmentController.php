@@ -366,7 +366,7 @@ class RequisitionShipmentController extends Controller
             $requisition->refreshArrivalStatusFromItems();
             $requisition->refresh();
 
-            if ($shipment->status === 'En tránsito' && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica'], true)) {
+            if ($shipment->status === 'En tránsito' && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'Documentación'], true)) {
                 $requisition->update(['status' => 'En tránsito']);
             }
 
@@ -377,7 +377,7 @@ class RequisitionShipmentController extends Controller
             if ($shipment->status === 'Arribado'
                 && $requisition->type === Requisition::TYPE_IMPORT
                 && $fullyArrived
-                && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'En tránsito'], true)) {
+                && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica', 'Documentación', 'En tránsito'], true)) {
                 $requisition->update(['status' => 'Arribo confirmado']);
             }
         }

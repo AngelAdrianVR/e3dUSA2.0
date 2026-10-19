@@ -140,6 +140,12 @@
                                     <i class="fa-solid fa-file-invoice-dollar mr-1"></i> Ver cotización
                                 </SecondaryButton>
                             </el-tooltip>
+                            <!-- Atajo: levantar la orden de compra con el folio de la requisición -->
+                            <el-tooltip v-if="can.create_purchase_order" content="Levantar la orden de compra con el folio de esta requisición" placement="top">
+                                <SecondaryButton @click="createPurchaseOrder">
+                                    <i class="fa-solid fa-file-invoice mr-1"></i> Crear orden de compra
+                                </SecondaryButton>
+                            </el-tooltip>
                             <el-tag :type="nextStepGuide.styles.tag" effect="dark">
                                 <i class="fa-solid fa-user-gear mr-1"></i> {{ nextStepGuide.owner }}
                             </el-tag>
@@ -242,7 +248,9 @@
                             <p class="font-semibold text-gray-800 dark:text-gray-100">{{ formatDateTime(requisition.created_at) }}</p>
                         </div>
                         <div>
-                            <p class="text-gray-500 dark:text-gray-400">Entrega estimada</p>
+                            <p class="text-gray-500 dark:text-gray-400">
+                                {{ requisition.type === 'Importación' ? 'Arribo tentativo' : 'Entrega estimada' }}
+                            </p>
                             <p class="font-semibold text-gray-800 dark:text-gray-100">
                                 {{ requisition.expected_delivery_date ? formatDate(requisition.expected_delivery_date) : 'Sin definir' }}
                             </p>
@@ -251,6 +259,16 @@
                             <p class="text-gray-500 dark:text-gray-400">Validada por</p>
                             <p class="font-semibold text-gray-800 dark:text-gray-100">
                                 {{ requisition.authorizer?.name }} · {{ formatDateTime(requisition.authorized_at) }}
+                            </p>
+                        </div>
+                        <div v-if="requisitionPurchases.length" class="col-span-2">
+                            <p class="text-gray-500 dark:text-gray-400">Orden de compra</p>
+                            <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                <span v-for="(purchase, index) in requisitionPurchases" :key="purchase.id" class="font-mono">
+                                    <span class="cursor-pointer text-blue-500 hover:underline" @click="$inertia.visit(route('purchases.show', { id: purchase.id }))">{{ purchase.folio }}</span>
+                                    <span class="text-gray-400 font-normal"> · {{ purchase.supplier?.name ?? 'Sin proveedor' }}</span>
+                                    <template v-if="index < requisitionPurchases.length - 1">, </template>
+                                </span>
                             </p>
                         </div>
                         <div v-if="requisition.notes" class="col-span-2">
@@ -352,6 +370,65 @@
                                     </el-tooltip>
                                 </div>
 
+                <!-- Distribución de la orden de compra: vía de envío por producto -->
+                <div v-if="purchaseDistributionRows.length"
+                    class="rounded-xl border border-sky-300 dark:border-sky-700/60 overflow-hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2 bg-sky-50 dark:bg-sky-900/20">
+                        <p class="text-sm font-bold text-sky-700 dark:text-sky-300">
+                            <i class="fa-solid fa-ship mr-2"></i> Distribución de la compra
+                        </p>
+                        <span class="text-xs font-semibold text-sky-700 dark:text-sky-300">
+                            {{ purchaseDistributionRows.length }} producto(s) comprado(s)
+                        </span>
+                    </div>
+                    <el-table :data="purchaseDistributionRows" style="width: 100%" stripe
+                        class="dark:!bg-slate-900 dark:!text-gray-300">
+                        <el-table-column label="Producto" min-width="220">
+                            <template #default="scope">
+                                <div class="flex items-center gap-3">
+                                    <img v-if="scope.row.image_url" :src="scope.row.image_url"
+                                        class="size-10 rounded object-cover border border-gray-200 dark:border-slate-700"
+                                        :alt="scope.row.name" />
+                                    <div>
+                                        <p class="font-semibold text-gray-800 dark:text-gray-200">{{ scope.row.name }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ scope.row.folio }}
+                                            <span v-if="scope.row.code"> · {{ scope.row.code }}</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="Comprado" width="100" align="right">
+                            <template #default="scope">{{ formatQuantity(scope.row.total) }}</template>
+                        </el-table-column>
+                        <el-table-column label="Avión" width="100" align="right">
+                            <template #default="scope">
+                                <span v-if="scope.row.plane" class="font-semibold text-sky-600 dark:text-sky-400">
+                                    {{ formatQuantity(scope.row.plane) }}
+                                </span>
+                                <span v-else class="text-xs text-gray-400">—</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="Barco" width="100" align="right">
+                            <template #default="scope">
+                                <span v-if="scope.row.ship" class="font-semibold text-indigo-600 dark:text-indigo-400">
+                                    {{ formatQuantity(scope.row.ship) }}
+                                </span>
+                                <span v-else class="text-xs text-gray-400">—</span>
+                            </template>
+                        </el-table-column>
+                        <el-table-column label="Se queda en fábrica" width="150" align="right">
+                            <template #default="scope">
+                                <span v-if="scope.row.factory" class="font-semibold text-amber-600 dark:text-amber-400">
+                                    {{ formatQuantity(scope.row.factory) }}
+                                </span>
+                                <span v-else class="text-xs text-gray-400">—</span>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </div>
+
                 <!-- Bloque: productos sin guía (pendientes de asignar, incluye parcialidades) -->
                 <div class="rounded-xl border border-amber-300 dark:border-amber-700/60 overflow-hidden">
                         <div class="flex items-center justify-between gap-3 px-4 py-2 bg-amber-50 dark:bg-amber-900/20">
@@ -383,11 +460,18 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Cantidad" width="150">
+                            <el-table-column label="Cantidad" width="170">
                                 <template #default="scope">
                                     <p>{{ formatQuantity(scope.row.quantity) }} pieza(s)</p>
                                     <p class="text-[11px] text-amber-600 dark:text-amber-400">
                                         Pendiente: {{ formatQuantity(itemRemainingQuantity(scope.row)) }}
+                                    </p>
+                                    <p v-if="hasPurchaseDistribution(itemPurchaseDistribution(scope.row))"
+                                        class="text-[11px] text-sky-600 dark:text-sky-400">
+                                        <i class="fa-solid fa-ship mr-1"></i>
+                                        Avión {{ formatQuantity(itemPurchaseDistribution(scope.row).plane) }} ·
+                                        Barco {{ formatQuantity(itemPurchaseDistribution(scope.row).ship) }} ·
+                                        Fábrica {{ formatQuantity(itemPurchaseDistribution(scope.row).factory) }}
                                     </p>
                                 </template>
                             </el-table-column>
@@ -446,8 +530,17 @@
                                     </div>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Cantidad" width="110">
-                                <template #default="scope">{{ formatQuantity(scope.row.quantity) }}</template>
+                            <el-table-column label="Cantidad" width="150">
+                                <template #default="scope">
+                                    <p>{{ formatQuantity(scope.row.quantity) }}</p>
+                                    <p v-if="hasPurchaseDistribution(itemPurchaseDistribution(scope.row))"
+                                        class="text-[11px] text-sky-600 dark:text-sky-400">
+                                        <i class="fa-solid fa-ship mr-1"></i>
+                                        Avión {{ formatQuantity(itemPurchaseDistribution(scope.row).plane) }} ·
+                                        Barco {{ formatQuantity(itemPurchaseDistribution(scope.row).ship) }} ·
+                                        Fábrica {{ formatQuantity(itemPurchaseDistribution(scope.row).factory) }}
+                                    </p>
+                                </template>
                             </el-table-column>
                             <el-table-column label="Costo unitario" width="140">
                                 <template #default="scope">
@@ -813,11 +906,10 @@
         <!-- Pedido a fábrica (importación) -->
         <el-dialog v-model="modals.factory" title="Pedido a fábrica" width="520" :center="true">
             <div class="space-y-4">
-                <div>
-                    <InputLabel value="Fecha estimada de arribo (opcional)" />
-                    <el-date-picker v-model="actionForm.factory.expected_delivery_date" type="date" value-format="YYYY-MM-DD"
-                        placeholder="Selecciona la fecha" class="w-full mt-1" />
-                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    La fecha tentativa de arribo se registra después de asignar las guías de paquetería.
+                </p>
                 <div>
                     <InputLabel value="Notas del pedido" />
                     <textarea v-model="actionForm.factory.notes" rows="3"
@@ -856,11 +948,10 @@
                     <FileUploader format="Todo" :maxFiles="5" :maxFileSize="10"
                         @files-selected="actionForm.docs.product_photos = $event" />
                 </div>
-                <div class="md:col-span-2">
-                    <InputLabel value="Fecha estimada de arribo (opcional)" />
-                    <el-date-picker v-model="actionForm.docs.expected_delivery_date" type="date" value-format="YYYY-MM-DD"
-                        placeholder="Selecciona la fecha" class="w-full mt-1" />
-                </div>
+                <p class="md:col-span-2 text-xs text-gray-500 dark:text-gray-400">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    La fecha tentativa de arribo se registra después de asignar las guías de paquetería.
+                </p>
             </div>
             <template #footer>
                 <div class="flex justify-end space-x-3">
@@ -933,13 +1024,16 @@
             </template>
         </el-dialog>
 
-        <!-- Fecha de entrega -->
-        <el-dialog v-model="modals.delivery" title="Fecha estimada de entrega" width="520" :center="true">
+        <!-- Fecha de entrega / arribo -->
+        <el-dialog v-model="modals.delivery"
+            :title="requisition.type === 'Importación' ? 'Fecha tentativa de arribo' : 'Fecha estimada de entrega'"
+            width="520" :center="true">
             <div class="space-y-4">
                 <div>
-                    <InputLabel value="Fecha estimada *" />
+                    <InputLabel :value="requisition.type === 'Importación' ? 'Fecha tentativa de arribo *' : 'Fecha estimada *'" />
                     <el-date-picker v-model="actionForm.delivery.expected_delivery_date" type="date" value-format="YYYY-MM-DD"
-                        placeholder="Considera los tiempos de transporte" class="w-full mt-1" />
+                        :placeholder="requisition.type === 'Importación' ? 'Con base en las guías asignadas' : 'Considera los tiempos de transporte'"
+                        class="w-full mt-1" />
                 </div>
                 <div>
                     <InputLabel value="Notas" />
@@ -1094,6 +1188,8 @@ const IMPORT_COMPLETED_STEPS = {
     'Pendiente de negociación': 0,
     'Aprobada': 1,
     'Pedido a fábrica': 2,
+    // Con orden de compra vinculada el pedido avanza a documentación.
+    'Documentación': 2,
     'En tránsito': 3,
     'Arribo confirmado': 4,
     'Completada': 5,
@@ -1228,6 +1324,21 @@ const IMPORT_FLOW_GUIDES = {
         actionKeys: ['docs'],
         hint: 'Adjunta al menos un documento; sin packing list la requisición no avanza a «En tránsito».',
     },
+    'Documentación': {
+        tone: 'info',
+        icon: 'fa-solid fa-box-open',
+        title: 'Adjunta la documentación de seguimiento de la fábrica',
+        nextStatus: 'En tránsito',
+        owner: 'Compras/Gerencia de compras',
+        steps: [
+            'La orden de compra ya está vinculada: solicita a la fábrica el packing list, el invoice, las fichas técnicas y las fotos de la mercancía.',
+            'Abre el menú «Acciones» y elige «Documentación de fábrica».',
+            'Adjunta los archivos disponibles; el packing list es indispensable para avanzar.',
+            'Guarda: al cargar el packing list la requisición pasa a «En tránsito».',
+        ],
+        actionKeys: ['docs'],
+        hint: 'Adjunta al menos un documento; sin packing list la requisición no avanza a «En tránsito».',
+    },
     'En tránsito': {
         tone: 'warning',
         icon: 'fa-solid fa-truck-fast',
@@ -1238,11 +1349,15 @@ const IMPORT_FLOW_GUIDES = {
             'Ve a la pestaña «Productos» y marca con las casillas las partidas que viajan juntas.',
             'Presiona «Asignar a guía» y captura número de guía, paquetería, estatus y fecha estimada de arribo. Si el envío es parcial, indica la cantidad que llega en esa guía.',
             'Repite la asignación con el resto de las partidas; puedes reutilizar una guía ya creada.',
+            'Con las guías asignadas ya puedes registrar la fecha tentativa de llegada desde «Acciones» → «Fecha tentativa de arribo».',
             'En la pestaña «Guía», cambia el estatus a «Arribado» cuando la mercancía llegue a destino.',
             'Cuando todas las partidas estén como «Arribado», la requisición pasa a «Arribo confirmado».',
         ],
-        actionKeys: ['shipment', 'docs'],
-        requirements: [{ key: 'packing_list', label: 'Packing list adjunto' }],
+        actionKeys: ['shipment', 'delivery', 'docs'],
+        requirements: [
+            { key: 'packing_list', label: 'Packing list adjunto' },
+            { key: 'shipment', label: 'Guías asignadas' },
+        ],
         hint: 'La asignación de guía requiere seleccionar antes las partidas en la pestaña «Productos».',
     },
     'Arribo confirmado': {
@@ -1447,7 +1562,12 @@ export default {
                 { key: 'invoice', label: 'Adjuntar factura', icon: 'fa-solid fa-file-invoice', show: this.can.upload_invoice },
                 { key: 'payment', label: 'Registrar pago', icon: 'fa-solid fa-money-bill-wave', show: this.can.register_payment },
                 { key: 'shipment', label: 'Asignar guía de paquetería', icon: 'fa-solid fa-truck-fast', show: this.can.manage_arrivals },
-                { key: 'delivery', label: 'Fecha de entrega', icon: 'fa-solid fa-calendar-days', show: this.can.register_delivery },
+                {
+                    key: 'delivery',
+                    label: this.requisition.type === 'Importación' ? 'Fecha tentativa de arribo' : 'Fecha de entrega',
+                    icon: 'fa-solid fa-calendar-days',
+                    show: this.can.register_delivery,
+                },
                 { key: 'complete', label: 'Completar requisición', icon: 'fa-solid fa-flag-checkered', show: this.can.complete },
             ].filter(action => action.show);
         },
@@ -1540,6 +1660,57 @@ export default {
         totalItemsQuantity() {
             return (this.requisition.items ?? []).reduce((total, item) => total + (Number(item.quantity) || 0), 0);
         },
+        // Órdenes de compra vinculadas a la requisición.
+        requisitionPurchases() {
+            return this.requisition.purchases ?? [];
+        },
+        /*
+         * Distribución de la compra por producto: cuánto viaja por avión, por
+         * barco y cuánto se queda en fábrica. Se agrupa por producto para que la
+         * partida de la requisición siempre muestre su reparto.
+         */
+        purchaseDistributionByProduct() {
+            const distribution = {};
+
+            this.requisitionPurchases.forEach(purchase => {
+                (purchase.items ?? []).forEach(item => {
+                    if (!item.product_id) return;
+
+                    const current = distribution[item.product_id] ?? { plane: 0, ship: 0, factory: 0, total: 0 };
+
+                    current.plane += Number(item.plane_stock) || 0;
+                    current.ship += Number(item.ship_stock) || 0;
+                    current.factory += Number(item.additional_stock) || 0;
+                    current.total += Number(item.quantity) || 0;
+
+                    distribution[item.product_id] = current;
+                });
+            });
+
+            return distribution;
+        },
+        // Renglones de la tarjeta "Distribución de la compra".
+        purchaseDistributionRows() {
+            const rows = [];
+
+            this.requisitionPurchases.forEach(purchase => {
+                (purchase.items ?? []).forEach(item => {
+                    rows.push({
+                        key: `${purchase.id}-${item.id}`,
+                        folio: purchase.folio,
+                        name: item.product?.name ?? item.description ?? 'Producto',
+                        code: item.product?.code ?? null,
+                        image_url: item.product?.media?.[0]?.original_url ?? null,
+                        total: Number(item.quantity) || 0,
+                        plane: Number(item.plane_stock) || 0,
+                        ship: Number(item.ship_stock) || 0,
+                        factory: Number(item.additional_stock) || 0,
+                    });
+                });
+            });
+
+            return rows;
+        },
         // Partidas sin guía y con guía, para separarlas visualmente. Con
         // parcialidades, la partida sigue pendiente hasta cubrir su cantidad.
         unassignedItems() {
@@ -1582,6 +1753,15 @@ export default {
 
             if (guide.editAction && this.can.edit) {
                 actions.unshift({ key: 'edit', label: 'Editar requisición', icon: 'fa-solid fa-pen-to-square' });
+            }
+
+            // Atajo para levantar la orden de compra desde la requisición.
+            if (this.can.create_purchase_order) {
+                actions.push({
+                    key: 'purchase_order',
+                    label: 'Crear orden de compra',
+                    icon: 'fa-solid fa-file-invoice',
+                });
             }
 
             return {
@@ -1678,6 +1858,15 @@ export default {
         itemRemainingQuantity(item) {
             return Math.max(0, (Number(item.quantity) || 0) - this.itemShippedQuantity(item));
         },
+        // Reparto de la compra de la partida (avión / barco / fábrica).
+        itemPurchaseDistribution(item) {
+            if (!item?.product_id) return null;
+
+            return this.purchaseDistributionByProduct[item.product_id] ?? null;
+        },
+        hasPurchaseDistribution(distribution) {
+            return Boolean(distribution && (distribution.plane || distribution.ship || distribution.factory));
+        },
         openShipmentModal() {
             if (!this.selectedItems.length) {
                 ElMessage.warning('Selecciona en la tabla los productos que viajan en esta guía.');
@@ -1717,6 +1906,7 @@ export default {
                 'Arribo confirmado': 'success',
                 'Completada': 'success',
                 'Pedido a fábrica': 'primary',
+                'Documentación': 'primary',
                 'En tránsito': 'warning',
             };
             return map[status] ?? 'info';
@@ -1821,7 +2011,16 @@ export default {
                 return;
             }
 
+            if (action === 'purchase_order') {
+                this.createPurchaseOrder();
+                return;
+            }
+
             this.handleFlowCommand(action);
+        },
+        // Levanta la orden de compra enviando el folio de la requisición.
+        createPurchaseOrder() {
+            router.visit(route('purchases.create', { requisition_id: this.requisition.id }));
         },
         // Grupo de acciones del flujo (menú "Acciones").
         async handleFlowCommand(command) {
@@ -1944,7 +2143,6 @@ export default {
         },
         submitFactoryOrder() {
             router.post(route('requisitions.factory-order', this.requisition.id), {
-                expected_delivery_date: this.actionForm.factory.expected_delivery_date,
                 notes: this.actionForm.factory.notes || null,
             }, {
                 onSuccess: () => {
@@ -1968,7 +2166,6 @@ export default {
                 factory_invoices: form.factory_invoices,
                 technical_sheets: form.technical_sheets,
                 product_photos: form.product_photos,
-                expected_delivery_date: form.expected_delivery_date,
             }, {
                 forceFormData: true,
                 onSuccess: () => {
