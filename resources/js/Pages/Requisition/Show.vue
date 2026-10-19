@@ -654,7 +654,7 @@
                 </div>
 
                 <div v-if="actionForm.quotation.items.length" class="space-y-3">
-                    <InputLabel value="Costo unitario por producto" />
+                    <InputLabel value="Piezas requeridas y costo unitario por producto" />
                     <div v-for="item in actionForm.quotation.items" :key="item.id"
                         class="flex flex-col sm:flex-row gap-3 border border-gray-200 dark:border-slate-700 rounded-lg p-3">
                         <el-image v-if="item.image_url" :src="item.image_url" fit="cover"
@@ -675,11 +675,22 @@
                                 <TextInput v-model="item.description" class="w-full mt-1"
                                     placeholder="Ej. Llavero metálico personalizado de 3 cm" />
                             </div>
-                            <div>
-                                <InputLabel value="Costo unitario" />
-                                <TextInput v-model="item.unit_cost" type="number" :min="0" :step="0.01"
-                                    class="w-full mt-1" placeholder="0.00" />
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                                <div>
+                                    <InputLabel value="Cantidad de piezas requeridas" />
+                                    <div class="w-full mt-1 rounded-md border border-gray-200 dark:border-slate-700 bg-gray-100 dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                                        {{ formatQuantity(item.quantity) }} pza(s)
+                                    </div>
+                                </div>
+                                <div>
+                                    <InputLabel value="Costo unitario" />
+                                    <TextInput v-model="item.unit_cost" type="number" :min="0" :step="0.01"
+                                        class="w-full mt-1" placeholder="0.00" />
+                                </div>
                             </div>
+                            <p v-if="hasQuotationUnitCost(item)" class="text-xs text-gray-500 dark:text-gray-400">
+                                Importe: {{ formatCurrency(quotationItemAmount(item), actionForm.quotation.currency) }}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -803,7 +814,7 @@
         <el-dialog v-model="modals.factory" title="Pedido a fábrica" width="520" :center="true">
             <div class="space-y-4">
                 <div>
-                    <InputLabel value="Fecha estimada de arribo" />
+                    <InputLabel value="Fecha estimada de arribo (opcional)" />
                     <el-date-picker v-model="actionForm.factory.expected_delivery_date" type="date" value-format="YYYY-MM-DD"
                         placeholder="Selecciona la fecha" class="w-full mt-1" />
                 </div>
@@ -846,7 +857,7 @@
                         @files-selected="actionForm.docs.product_photos = $event" />
                 </div>
                 <div class="md:col-span-2">
-                    <InputLabel value="Fecha estimada de arribo" />
+                    <InputLabel value="Fecha estimada de arribo (opcional)" />
                     <el-date-picker v-model="actionForm.docs.expected_delivery_date" type="date" value-format="YYYY-MM-DD"
                         placeholder="Selecciona la fecha" class="w-full mt-1" />
                 </div>
@@ -1191,7 +1202,7 @@ const IMPORT_FLOW_GUIDES = {
         icon: 'fa-solid fa-industry',
         title: 'Registra el pedido a fábrica',
         nextStatus: 'Pedido a fábrica',
-        owner: 'Gerencia de compras / Almacén',
+        owner: 'Gerencia de compras',
         steps: [
             'Confirma con la fábrica los productos, cantidades y fechas de producción.',
             'Abre el menú «Acciones» y elige «Pedido a fábrica».',
@@ -1200,14 +1211,14 @@ const IMPORT_FLOW_GUIDES = {
         ],
         actionKeys: ['factory', 'docs'],
         requirements: [{ key: 'quotation', label: 'Cotización adjunta' }],
-        hint: 'Este paso lo registra la gerencia de compras o el área de almacén.',
+        hint: 'Este paso lo registra la gerencia de compras o Usuarios con permiso de gestión de compras.',
     },
     'Pedido a fábrica': {
         tone: 'info',
         icon: 'fa-solid fa-box-open',
         title: 'Adjunta la documentación de seguimiento de la fábrica',
         nextStatus: 'En tránsito',
-        owner: 'Almacén',
+        owner: 'Compras/Gerencia de compras',
         steps: [
             'Solicita a la fábrica el packing list, el invoice, las fichas técnicas y las fotos de la mercancía.',
             'Abre el menú «Acciones» y elige «Documentación de fábrica».',
@@ -1634,9 +1645,17 @@ export default {
                 code: item.product?.code ?? null,
                 image_url: item.product?.media?.[0]?.original_url ?? null,
                 has_catalog_product: Boolean(item.product_id),
+                quantity: Number(item.quantity) || 0,
                 unit_cost: item.unit_cost ?? '',
                 description: item.description ?? '',
             }));
+        },
+        hasQuotationUnitCost(item) {
+            return item.unit_cost !== null && item.unit_cost !== undefined && item.unit_cost !== '';
+        },
+        // Importe de la partida cotizada: piezas requeridas por costo unitario.
+        quotationItemAmount(item) {
+            return (Number(item.unit_cost) || 0) * (Number(item.quantity) || 0);
         },
         itemsInShipment(shipmentId) {
             return (this.requisition.items ?? []).filter(item =>

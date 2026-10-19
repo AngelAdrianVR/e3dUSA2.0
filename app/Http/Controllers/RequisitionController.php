@@ -83,6 +83,20 @@ class RequisitionController extends Controller
             $query->where('priority', $request->input('priority'));
         }
 
+        // Las requisiciones finalizadas (arribadas o completadas) se ocultan por
+        // defecto; el listado ofrece un botón para mostrarlas.
+        // Un estatus finalizado implica mostrarlas para que el filtro no quede vacío.
+        $includeFinished = $request->boolean('finished')
+            || in_array($request->input('status'), ['Completada', 'Arribo confirmado'], true);
+        $finalized = fn ($query) => $query
+            ->where('status', 'Completada')
+            ->orWhere('arrival_status', 'Arribado');
+        $active = fn ($query) => $query
+            ->where('status', '!=', 'Completada')
+            ->where(fn ($inner) => $inner
+                ->whereNull('arrival_status')
+                ->orWhere('arrival_status', '!=', 'Arribado'));
+
         // Accesos rápidos del dashboard.
         if ($request->input('filter') === 'pending_payment') {
             $query->where('status', 'Pendiente de pago');
@@ -107,6 +121,13 @@ class RequisitionController extends Controller
                     $q->orWhere('id', (int) $numeric);
                 }
             });
+        }
+
+        // Total de requisiciones finalizadas que se ocultan con los filtros actuales.
+        $finishedCount = (clone $query)->where($finalized)->count();
+
+        if (! $includeFinished) {
+            $query->where($active);
         }
 
         $requisitions = $query->latest()->paginate(15)->withQueryString();
@@ -143,7 +164,11 @@ class RequisitionController extends Controller
 
         return Inertia::render('Requisition/Index', [
             'requisitions' => $requisitions,
-            'filters' => $request->only(['view', 'type', 'status', 'origin', 'priority', 'search', 'filter']),
+            'filters' => [
+                ...$request->only(['view', 'type', 'status', 'origin', 'priority', 'search', 'filter']),
+                'finished' => $includeFinished,
+            ],
+            'finishedCount' => $finishedCount,
             'statusOptions' => array_values(array_unique(array_merge(Requisition::LOCAL_STATUSES, Requisition::IMPORT_STATUSES))),
             'salesFrequencies' => Requisition::SALES_FREQUENCIES,
             'can' => [
@@ -163,8 +188,13 @@ class RequisitionController extends Controller
             ? Requisition::TYPE_IMPORT
             : Requisition::TYPE_LOCAL;
 
+        // Vías de entrada habilitadas según el rol (Vendedor / almacén-producción).
+        $origins = RequisitionPermissions::allowedOrigins($user);
+
         return Inertia::render('Requisition/Create', [
             'type' => $type,
+            'origins' => $origins,
+            'origin' => $origins[0] ?? Requisition::ORIGIN_SELLER,
             'branches' => Branch::with('parent:id,name,business_name')
                 ->orderBy('name')
                 ->get(['id', 'name', 'business_name', 'parent_branch_id']),
@@ -201,6 +231,11 @@ class RequisitionController extends Controller
     {
         $user = Auth::user();
         abort_unless(RequisitionPermissions::canCreate($user), 403);
+        abort_unless(
+            RequisitionPermissions::canUseOrigin($user, $request->origin),
+            403,
+            'Tu rol no permite levantar este tipo de requisición.'
+        );
 
         $this->validateRequisition($request);
 
@@ -304,6 +339,12 @@ class RequisitionController extends Controller
     {
         $user = Auth::user();
         abort_unless($this->canEditRequisition($requisition, $user), 403);
+        abort_unless(
+            $request->origin === $requisition->origin
+                || RequisitionPermissions::canUseOrigin($user, $request->origin),
+            403,
+            'Tu rol no permite levantar este tipo de requisición.'
+        );
 
         $this->validateRequisition($request, mediaRequired: false);
 

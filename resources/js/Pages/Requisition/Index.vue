@@ -27,33 +27,20 @@
                                     </el-dropdown-menu>
                                 </template>
                             </el-dropdown>
+
+                            <!-- Las requisiciones finalizadas (arribadas) se ocultan por defecto -->
+                            <el-button @click="toggleFinished">
+                                <i class="fa-solid mr-2"
+                                    :class="showFinished ? 'fa-eye-slash text-amber-600' : 'fa-eye text-emerald-600'"></i>
+                                {{ showFinished ? 'Ocultar finalizadas' : 'Mostrar finalizadas' }}
+                                <span v-if="!showFinished && finishedCount"
+                                    class="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-gray-200 dark:bg-slate-700 text-xs font-bold text-gray-700 dark:text-gray-200">
+                                    {{ finishedCount }}
+                                </span>
+                            </el-button>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-3">
-                            <el-select v-model="filtersForm.type" @change="applyFilters" placeholder="Tipo" style="width: 165px;">
-                                <el-option label="Todos los tipos" value="" />
-                                <el-option label="Local" value="Local" />
-                                <el-option label="Importación" value="Importación" />
-                            </el-select>
-
-                            <el-select v-model="filtersForm.status" @change="applyFilters" placeholder="Estatus" style="width: 210px;" filterable>
-                                <el-option label="Todos los estatus" value="" />
-                                <el-option v-for="status in statusOptions" :key="status" :label="status" :value="status" />
-                            </el-select>
-
-                            <el-select v-model="filtersForm.origin" @change="applyFilters" placeholder="Vía" style="width: 150px;">
-                                <el-option label="Todas las vías" value="" />
-                                <el-option label="Vendedor" value="Vendedor" />
-                                <el-option label="Almacén" value="Almacén" />
-                            </el-select>
-
-                            <el-select v-model="filtersForm.priority" @change="applyFilters" placeholder="Prioridad" style="width: 150px;">
-                                <el-option label="Toda prioridad" value="" />
-                                <el-option label="Baja" value="Baja" />
-                                <el-option label="Media" value="Media" />
-                                <el-option label="Urgente" value="Urgente" />
-                            </el-select>
-
                             <div v-if="can.view_all"
                                 class="flex items-center px-3 py-1.5 bg-gray-100 dark:bg-slate-800 rounded-full shadow-sm border border-gray-200 dark:border-slate-700">
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 mr-2">Mías</span>
@@ -61,11 +48,57 @@
                                     style="--el-switch-on-color: #10b981; --el-switch-off-color: #3b82f6;" />
                                 <span class="text-sm font-medium text-gray-600 dark:text-gray-300 ml-2">Todas</span>
                             </div>
-                        </div>
 
-                        <SearchInput v-model="search" @keyup.enter="applyFilters" @cleanSearch="applyFilters"
-                            :searchProps="['Folio', 'Cliente', 'Producto', 'Solicitante', 'Razón social']" />
+                            <!-- Los filtros están ocultos por defecto -->
+                            <el-button @click="showFilters = !showFilters">
+                                <i class="fa-solid fa-filter mr-2 text-blue-600"></i>
+                                {{ showFilters ? 'Ocultar filtros' : 'Mostrar filtros' }}
+                                <span v-if="activeFiltersCount"
+                                    class="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-blue-600 text-xs font-bold text-white">
+                                    {{ activeFiltersCount }}
+                                </span>
+                            </el-button>
+
+                            <SearchInput v-model="search" @keyup.enter="applyFilters" @cleanSearch="applyFilters"
+                                :searchProps="['Folio', 'Cliente', 'Producto', 'Solicitante', 'Razón social']" />
+                        </div>
                     </div>
+
+                    <el-collapse-transition>
+                        <div v-show="showFilters" class="mb-6 rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <el-select v-model="filtersForm.type" @change="applyFilters" placeholder="Tipo" class="w-full">
+                                    <el-option label="Todos los tipos" value="" />
+                                    <el-option label="Local" value="Local" />
+                                    <el-option label="Importación" value="Importación" />
+                                </el-select>
+
+                                <el-select v-model="filtersForm.status" @change="applyFilters" placeholder="Estatus" class="w-full" filterable>
+                                    <el-option label="Todos los estatus" value="" />
+                                    <el-option v-for="status in statusOptions" :key="status" :label="status" :value="status" />
+                                </el-select>
+
+                                <el-select v-model="filtersForm.origin" @change="applyFilters" placeholder="Vía" class="w-full">
+                                    <el-option label="Todas las vías" value="" />
+                                    <el-option label="Vendedor" value="Vendedor" />
+                                    <el-option label="Almacén" value="Almacén" />
+                                </el-select>
+
+                                <el-select v-model="filtersForm.priority" @change="applyFilters" placeholder="Prioridad" class="w-full">
+                                    <el-option label="Toda prioridad" value="" />
+                                    <el-option label="Baja" value="Baja" />
+                                    <el-option label="Media" value="Media" />
+                                    <el-option label="Urgente" value="Urgente" />
+                                </el-select>
+                            </div>
+
+                            <div v-if="activeFiltersCount" class="flex justify-end mt-3">
+                                <el-button text type="primary" @click="clearFilters">
+                                    <i class="fa-solid fa-eraser mr-2"></i> Limpiar filtros
+                                </el-button>
+                            </div>
+                        </div>
+                    </el-collapse-transition>
 
                     <div class="relative">
                         <div v-if="loading"
@@ -302,6 +335,10 @@ export default {
     props: {
         requisitions: Object,
         filters: Object,
+        finishedCount: {
+            type: Number,
+            default: 0,
+        },
         statusOptions: {
             type: Array,
             default: () => [],
@@ -320,6 +357,9 @@ export default {
             loading: false,
             search: this.filters.search ?? '',
             showAll: this.filters.view !== 'mias',
+            // Los filtros y las requisiciones finalizadas quedan ocultos por defecto.
+            showFilters: false,
+            showFinished: Boolean(this.filters.finished),
             filtersForm: {
                 type: this.filters.type ?? '',
                 status: this.filters.status ?? '',
@@ -328,11 +368,17 @@ export default {
             },
         };
     },
+    computed: {
+        activeFiltersCount() {
+            return Object.values(this.filtersForm).filter(value => value !== '' && value !== null && value !== undefined).length;
+        },
+    },
     methods: {
         buildParams(page = null) {
             const params = {
                 view: this.showAll ? 'todas' : 'mias',
                 ...this.filtersForm,
+                finished: this.showFinished ? 1 : '',
             };
 
             if (this.search) {
@@ -349,6 +395,11 @@ export default {
             return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '' && value !== null && value !== undefined));
         },
         applyFilters() {
+            // Filtrar por un estatus finalizado muestra las finalizadas.
+            if (['Completada', 'Arribo confirmado'].includes(this.filtersForm.status)) {
+                this.showFinished = true;
+            }
+
             router.get(route('requisitions.index', this.buildParams()), {}, {
                 preserveState: true,
                 replace: true,
@@ -357,6 +408,14 @@ export default {
             });
         },
         toggleView() {
+            this.applyFilters();
+        },
+        toggleFinished() {
+            this.showFinished = !this.showFinished;
+            this.applyFilters();
+        },
+        clearFilters() {
+            this.filtersForm = { type: '', status: '', origin: '', priority: '' };
             this.applyFilters();
         },
         handlePageChange(page) {

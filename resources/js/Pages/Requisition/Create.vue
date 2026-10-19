@@ -18,6 +18,8 @@
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <RequisitionForm
                         :initial-type="type"
+                        :initial-origin="origin"
+                        :allowed-origins="origins"
                         :branches="branches"
                         :products="products"
                         :priorities="priorities"
@@ -49,6 +51,14 @@ export default {
         type: {
             type: String,
             default: 'Local',
+        },
+        origin: {
+            type: String,
+            default: 'Vendedor',
+        },
+        origins: {
+            type: Array,
+            default: () => ['Vendedor', 'Almacén'],
         },
         branches: {
             type: Array,

@@ -35,11 +35,11 @@
             <el-tag :type="form.type === 'Importación' ? 'primary' : 'success'">{{ form.type }}</el-tag>
         </div>
 
-        <!-- Vía de entrada -->
-        <div v-if="showOriginSelector">
+        <!-- Vía de entrada: solo se ofrecen las vías habilitadas para el rol -->
+        <div v-if="showOriginSelector && originOptions.length > 1">
             <InputLabel value="Vía de entrada" />
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                <button type="button" @click="form.origin = 'Vendedor'"
+                <button v-if="originOptions.includes('Vendedor')" type="button" @click="form.origin = 'Vendedor'"
                     :class="form.origin === 'Vendedor'
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-2 ring-blue-500/40'
                         : 'border-gray-200 dark:border-slate-700 hover:border-blue-400'"
@@ -51,7 +51,7 @@
                         Requisición de venta a un cliente con planos y formatos de autorización.
                     </p>
                 </button>
-                <button type="button" @click="form.origin = 'Almacén'"
+                <button v-if="originOptions.includes('Almacén')" type="button" @click="form.origin = 'Almacén'"
                     :class="form.origin === 'Almacén'
                         ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20 ring-2 ring-amber-500/40'
                         : 'border-gray-200 dark:border-slate-700 hover:border-amber-400'"
@@ -375,6 +375,11 @@ export default {
             type: String,
             default: 'Vendedor',
         },
+        // Vías de entrada habilitadas para el rol del usuario.
+        allowedOrigins: {
+            type: Array,
+            default: () => ['Vendedor', 'Almacén'],
+        },
         branches: {
             type: Array,
             default: () => [],
@@ -421,7 +426,7 @@ export default {
         return {
             form: {
                 type: this.requisition?.type ?? this.initialType,
-                origin: this.requisition?.origin ?? this.initialOrigin,
+                origin: this.requisition?.origin ?? this.resolveInitialOrigin(),
                 branch_id: this.requisition?.branch_id ?? null,
                 quantity: this.requisition?.quantity ?? '',
                 sale_specification: this.requisition?.sale_specification ?? '',
@@ -444,6 +449,10 @@ export default {
         };
     },
     computed: {
+        // Vías visibles en el formulario, respetando el orden canónico.
+        originOptions() {
+            return ['Vendedor', 'Almacén'].filter(origin => this.allowedOrigins.includes(origin));
+        },
         selectedBranch() {
             return this.branches.find(branch => branch.id === this.form.branch_id) ?? null;
         },
@@ -476,6 +485,14 @@ export default {
         },
     },
     methods: {
+        // Si la vía por defecto no está permitida para el rol, se toma la primera habilitada.
+        resolveInitialOrigin() {
+            if (this.allowedOrigins.length && ! this.allowedOrigins.includes(this.initialOrigin)) {
+                return this.allowedOrigins[0];
+            }
+
+            return this.initialOrigin;
+        },
         /**
          * Partidas iniciales: las existentes al editar; al crear se agregan
          * los productos desde el selector de alta.

@@ -83,6 +83,22 @@ class RequisitionPermissions
     ];
 
     /**
+     * Roles que solo levantan requisiciones de venta (producto nuevo).
+     */
+    public const SELLER_ONLY_ROLES = [
+        'Vendedor',
+    ];
+
+    /**
+     * Roles que solo levantan requisiciones de resurtido (almacén / producción).
+     */
+    public const WAREHOUSE_ONLY_ROLES = [
+        'Almacenista',
+        'Jefe de producción',
+        'Samuel',
+    ];
+
+    /**
      * Cualquier permiso del módulo habilita el acceso al listado.
      */
     public static function all(): array
@@ -105,6 +121,35 @@ class RequisitionPermissions
     public static function canCreate(User $user): bool
     {
         return $user->hasAnyPermission(self::CREATE);
+    }
+
+    /**
+     * Vías de entrada que el usuario puede elegir al levantar una requisición.
+     *
+     * Vendedor solo levanta requisiciones de venta (producto nuevo) y
+     * almacén / producción solo levanta resurtidos.
+     */
+    public static function allowedOrigins(User $user): array
+    {
+        $origins = [
+            Requisition::ORIGIN_SELLER,
+            Requisition::ORIGIN_WAREHOUSE,
+        ];
+
+        if ($user->hasAnyRole(self::SELLER_ONLY_ROLES)) {
+            $origins = array_values(array_diff($origins, [Requisition::ORIGIN_WAREHOUSE]));
+        }
+
+        if ($user->hasAnyRole(self::WAREHOUSE_ONLY_ROLES)) {
+            $origins = array_values(array_diff($origins, [Requisition::ORIGIN_SELLER]));
+        }
+
+        return $origins;
+    }
+
+    public static function canUseOrigin(User $user, ?string $origin): bool
+    {
+        return in_array($origin, self::allowedOrigins($user), true);
     }
 
     public static function canEdit(User $user): bool
