@@ -142,6 +142,9 @@ const generalNotifications = computed(() =>
     allNotifications.value.filter(n => !taskClasses.includes(n.type))
 );
 
+// Conteo de pendientes por categoría (notificaciones generales).
+const notificationCategories = computed(() => page.props.auth.user?.notification_categories || []);
+
 // 2. COMPUTED PARA LAS ALERTAS ACTIVAS (¡ESTA ES LA FORMA CORRECTA!)
 const activeAlerts = computed(() => page.props.auth.user?.active_alerts || {});
 const hasEmployeeDetails = computed(() => !!page.props.auth.user?.employee_detail); // Para saber si mostrar el tracker
@@ -421,7 +424,7 @@ onMounted(() => {
                                 <TaskNotificationsDropdown :notifications="taskNotifications" />
 
                                 <!-- Notificaciones GENERALES -->
-                                <NotificationsDropdown :notifications="generalNotifications" />
+                                <NotificationsDropdown :notifications="generalNotifications" :categories="notificationCategories" />
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
@@ -548,7 +551,7 @@ onMounted(() => {
                                 <TaskNotificationsDropdown :notifications="taskNotifications" />
 
                                 <!-- Notificaciones GENERALES -->
-                                <NotificationsDropdown :notifications="generalNotifications" />
+                                <NotificationsDropdown :notifications="generalNotifications" :categories="notificationCategories" />
 
                                 <button
                                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-200 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out z-50"

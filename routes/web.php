@@ -110,6 +110,8 @@ Route::get('/global-search', [AppLayoutController::class, 'globalSearch'])->midd
 
 
 // Rutas de Notificaciones (Añade la nueva ruta en este bloque)
+Route::get('/notifications', [NotificationController::class, 'index'])->middleware('auth')->name('notifications.index');
+Route::get('/notifications/dropdown', [NotificationController::class, 'dropdown'])->middleware('auth')->name('notifications.dropdown');
 Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
 
