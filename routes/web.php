@@ -36,6 +36,8 @@ use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ProductionCostController;
 use App\Http\Controllers\ProductionTaskController;
 use App\Http\Controllers\PurchaseController;
+use App\Http\Controllers\RequisitionController;
+use App\Http\Controllers\RequisitionShipmentController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\ReleaseController;
 use App\Http\Controllers\ReportController;
@@ -108,6 +110,8 @@ Route::get('/global-search', [AppLayoutController::class, 'globalSearch'])->midd
 
 
 // Rutas de Notificaciones (Añade la nueva ruta en este bloque)
+Route::get('/notifications', [NotificationController::class, 'index'])->middleware('auth')->name('notifications.index');
+Route::get('/notifications/dropdown', [NotificationController::class, 'dropdown'])->middleware('auth')->name('notifications.dropdown');
 Route::patch('/notifications/{notification}/read', [NotificationController::class, 'read'])->middleware('auth')->name('notifications.read');
 Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->middleware('auth')->name('notifications.read-all');
 
@@ -193,6 +197,9 @@ Route::post('branches/{branch}/children', [BranchController::class, 'addChildren
 // --- Datos fiscales propios del cliente ---
 Route::patch('branches/{branch}/fiscal', [BranchController::class, 'updateFiscalData'])->middleware('auth')->name('branches.fiscal.update');
 
+// --- Vendedor asignado al cliente ---
+Route::patch('branches/{branch}/account-manager', [BranchController::class, 'updateAccountManager'])->middleware('auth')->name('branches.account-manager.update');
+
 
 // ------- CRM(Notas importantes de clientes Routes)  ---------
 Route::get('/branches/{branch}/notes', [BranchNoteController::class, 'index'])->name('branch-notes.index');
@@ -252,6 +259,7 @@ Route::put('quotes/{quote}/payment-terms-notice', [QuoteController::class, 'upda
 // ------- CRM(Ordenes de venta Routes)  ---------
 Route::resource('sales', SaleController::class)->middleware('auth');
 Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
+Route::post('sales/{sale}/oce-media', [SaleController::class, 'uploadOceMedia'])->middleware('auth')->name('sales.oce-media');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::put('sales/unauthorize/{sale}', [SaleController::class, 'unauthorizeSale'])->middleware('auth')->name('sales.unauthorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
@@ -363,6 +371,31 @@ Route::put('/purchases/{purchase}/status', [PurchaseController::class, 'updateSt
 Route::post('purchases-send-email/{purchase}', [PurchaseController::class, 'sendEmail'])->name('purchases.send-email');
 Route::get('purchases-download-report', [PurchaseController::class, 'downloadReport'])->middleware('auth')->name('purchases.download-report');
 Route::post('purchases/{purchase}/receive-products', [PurchaseController::class, 'receiveProducts'])->middleware('auth')->name('purchases.receive-products');
+
+
+// ------- (Rutas de requisiciones de material)  ---------
+Route::resource('requisitions', RequisitionController::class)->middleware('auth');
+Route::post('requisitions/{requisition}/quotations', [RequisitionController::class, 'uploadQuotation'])->middleware('auth')->name('requisitions.upload-quotation');
+Route::put('requisitions/{requisition}/authorize', [RequisitionController::class, 'authorizeRequisition'])->middleware('auth')->name('requisitions.authorize');
+Route::post('requisitions/{requisition}/factory-order', [RequisitionController::class, 'markFactoryOrder'])->middleware('auth')->name('requisitions.factory-order');
+Route::post('requisitions/{requisition}/factory-docs', [RequisitionController::class, 'uploadFactoryDocs'])->middleware('auth')->name('requisitions.factory-docs');
+Route::post('requisitions/{requisition}/invoices', [RequisitionController::class, 'uploadInvoice'])->middleware('auth')->name('requisitions.upload-invoice');
+Route::post('requisitions/{requisition}/payment', [RequisitionController::class, 'registerPayment'])->middleware('auth')->name('requisitions.payment');
+Route::post('requisitions/{requisition}/delivery-date', [RequisitionController::class, 'registerDeliveryDate'])->middleware('auth')->name('requisitions.delivery-date');
+Route::post('requisitions/{requisition}/complete', [RequisitionController::class, 'complete'])->middleware('auth')->name('requisitions.complete');
+Route::post('requisitions/{requisition}/comments', [RequisitionController::class, 'addComment'])->middleware('auth')->name('requisitions.comments');
+Route::patch('requisitions/{requisition}/sale-frequency', [RequisitionController::class, 'updateSaleFrequency'])->middleware('auth')->name('requisitions.sale-frequency');
+Route::post('requisitions/{requisition}/media', [RequisitionController::class, 'uploadMedia'])->middleware('auth')->name('requisitions.upload-media');
+Route::put('requisition-items/{item}/arrival-status', [RequisitionController::class, 'updateItemArrivalStatus'])->middleware('auth')->name('requisition-items.arrival-status');
+
+// Guías de paquetería (arribos de mercancía)
+Route::post('requisitions/{requisition}/shipments', [RequisitionShipmentController::class, 'assign'])->middleware('auth')->name('requisitions.assign-shipment');
+Route::post('requisition-shipments', [RequisitionShipmentController::class, 'store'])->middleware('auth')->name('requisition-shipments.store');
+Route::put('requisition-shipments/{shipment}', [RequisitionShipmentController::class, 'update'])->middleware('auth')->name('requisition-shipments.update');
+Route::put('requisition-shipments/{shipment}/status', [RequisitionShipmentController::class, 'updateStatus'])->middleware('auth')->name('requisition-shipments.update-status');
+Route::post('requisition-shipments/{shipment}/events', [RequisitionShipmentController::class, 'storeEvent'])->middleware('auth')->name('requisition-shipments.store-event');
+Route::delete('requisition-shipment-events/{event}', [RequisitionShipmentController::class, 'destroyEvent'])->middleware('auth')->name('requisition-shipment-events.destroy');
+Route::delete('requisition-shipments/{shipment}', [RequisitionShipmentController::class, 'destroy'])->middleware('auth')->name('requisition-shipments.destroy');
 
 
 // ------- (Ruta Index de reposicion de stock)  ---------

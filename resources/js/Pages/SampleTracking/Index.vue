@@ -204,7 +204,12 @@
                                                     <i class="fa-solid fa-file-invoice mr-2 text-emerald-500 w-4"></i>Ver OM-{{ scope.row.sale_id.toString().padStart(4, '0') }}
                                                 </el-dropdown-item>
                                                 <el-dropdown-item
-                                                    v-else-if="!scope.row.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                                                    v-if="!scope.row.sale_id && !scope.row.will_be_returned && !scope.row.authorized_at && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
+                                                    disabled>
+                                                    <i class="fa-solid fa-lock mr-2 text-gray-400 w-4"></i>Crear Orden de Venta (requiere autorización)
+                                                </el-dropdown-item>
+                                                <el-dropdown-item
+                                                    v-else-if="!scope.row.sale_id && !scope.row.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
                                                     :command="'createSale-' + scope.row.id">
                                                     <i class="fa-solid fa-gift mr-2 text-emerald-500 w-4"></i>Crear Orden de Venta
                                                 </el-dropdown-item>

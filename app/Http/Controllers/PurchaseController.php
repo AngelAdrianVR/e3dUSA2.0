@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Comment;
 use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
+use App\Models\Requisition;
 use App\Models\StockMovement;
+use App\Support\RequisitionPermissions;
 // use App\Models\Storage;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Supplier;
@@ -14,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use App\Mail\EmailSupplierTemplateMarkdownMail;
 use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -58,11 +62,12 @@ class PurchaseController extends Controller
         // Se envían solo los proveedores activos.
         $suppliers = Supplier::select('id', 'name')->get();
 
-        // Recibir datos para pre-llenado desde StockReposition
+        // Recibir datos para pre-llenado desde StockReposition y desde requisiciones
         $prefill = [
             'supplier_id' => $request->query('prefill_supplier_id'),
             'product_id' => $request->query('prefill_product_id'),
             'quantity' => $request->query('prefill_quantity'),
+            'requisition_id' => $request->query('requisition_id'),
         ];
         
         // Si hay un producto preseleccionado, cargamos sus datos básicos para mostrarlos en el frontend
@@ -82,9 +87,51 @@ class PurchaseController extends Controller
 
         return Inertia::render('Purchase/Create', [
             'suppliers' => $suppliers,
+            'requisitions' => $this->openRequisitions(),
             'prefill' => $prefill, // Enviamos los datos para llenar el formulario
             'preselectedProduct' => $preselectedProduct,
         ]);
+    }
+
+    /**
+     * Requisiciones abiertas que todavía no tienen orden de compra.
+     * Se envían con sus partidas para poder precargar la orden.
+     */
+    private function openRequisitions()
+    {
+        return Requisition::query()
+            ->whereNotIn('status', ['Completada', 'Rechazada'])
+            ->whereDoesntHave('purchases')
+            ->with([
+                'branch:id,name',
+                'items:id,requisition_id,product_id,description,quantity,unit_cost',
+                'items.product:id,name,code,measure_unit',
+                'items.product.media',
+            ])
+            ->latest()
+            ->get()
+            ->map(fn (Requisition $requisition) => [
+                'id' => $requisition->id,
+                'folio' => $requisition->folio,
+                'type' => $requisition->type,
+                'origin' => $requisition->origin,
+                'status' => $requisition->status,
+                'quantity' => (float) $requisition->quantity,
+                'sale_specification' => $requisition->sale_specification,
+                'business_name' => $requisition->business_name,
+                'branch' => $requisition->branch?->name,
+                'items' => $requisition->items->map(fn ($item) => [
+                    'id' => $item->id,
+                    'product_id' => $item->product_id,
+                    'name' => $item->product?->name,
+                    'code' => $item->product?->code,
+                    'measure_unit' => $item->product?->measure_unit,
+                    'image_url' => $item->product?->media->first()?->original_url,
+                    'quantity' => (float) $item->quantity,
+                    'description' => $item->description,
+                    'unit_cost' => $item->unit_cost !== null ? (float) $item->unit_cost : null,
+                ])->values(),
+            ]);
     }
 
     public function store(Request $request)
@@ -94,7 +141,8 @@ class PurchaseController extends Controller
             'supplier_id' => 'required|exists:suppliers,id',
             'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
-            'expected_delivery_date' => 'required|date',
+            'requisition_id' => 'nullable|exists:requisitions,id',
+            'expected_delivery_date' => 'nullable|date',
             'currency' => 'required|string|max:3',
             'notes' => 'nullable|string|max:1000',
             'is_spanish_template' => 'required|boolean',
@@ -112,11 +160,30 @@ class PurchaseController extends Controller
             'total' => 'required|numeric',
         ]);
 
+        // Los productos precargados desde una requisición deben traer su
+        // distribución (avión / barco / fábrica) antes de crear la orden.
+        if ($request->filled('requisition_id')) {
+            $undistributed = collect($request->items)->contains(function (array $item) {
+                $assigned = (float) ($item['plane_stock'] ?? 0)
+                    + (float) ($item['ship_stock'] ?? 0)
+                    + (float) ($item['additional_stock'] ?? 0);
+
+                return abs($assigned - (float) $item['quantity']) > 0.0001;
+            });
+
+            if ($undistributed) {
+                throw ValidationException::withMessages([
+                    'items' => 'Define la vía de envío (avión, barco y fábrica) de cada producto antes de crear la orden.',
+                ]);
+            }
+        }
+
         try {
             DB::beginTransaction();
 
             // 1. Crear la orden de compra principal con todos los datos
             $purchase = Purchase::create([
+                'requisition_id' => $request->requisition_id,
                 'supplier_id' => $request->supplier_id,
                 'user_id' => auth()->id(),
                 'supplier_contact_id' => $request->supplier_contact_id,
@@ -170,7 +237,13 @@ class PurchaseController extends Controller
                     $purchase->addMedia($file)->toMediaCollection();
                 }
             }
-            
+
+            // 4. La requisición vinculada deja de estar en "Pedido a fábrica":
+            // con la orden de compra en mano el siguiente paso es la documentación.
+            if ($purchase->requisition_id) {
+                $this->syncRequisitionOnPurchase($purchase);
+            }
+
             DB::commit();
             
             // Redirigir al index con un mensaje de éxito
@@ -184,6 +257,31 @@ class PurchaseController extends Controller
         }
     }
 
+    /**
+     * Ajusta la requisición que originó la orden de compra.
+     */
+    private function syncRequisitionOnPurchase(Purchase $purchase): void
+    {
+        $requisition = Requisition::find($purchase->requisition_id);
+
+        if (! $requisition) {
+            return;
+        }
+
+        // Importaciones: la orden de compra reemplaza el registro del pedido a
+        // fábrica, por lo que la requisición pasa directo a documentación.
+        if ($requisition->type === Requisition::TYPE_IMPORT
+            && in_array($requisition->status, ['Aprobada', 'Pedido a fábrica'], true)) {
+            $requisition->update(['status' => 'Documentación']);
+        }
+
+        $comment = new Comment();
+        $comment->content = "Orden de compra {$purchase->folio} vinculada a la requisición.";
+        $comment->user_id = auth()->id();
+        $comment->mentioned_user_ids = [];
+        $requisition->comments()->save($comment);
+    }
+
     public function show(Purchase $purchase)
     {
         $purchase->load([
@@ -194,12 +292,17 @@ class PurchaseController extends Controller
             'contact.details',
             'items.product.media',
             'bankAccount',
+            // Requisición que originó la orden (si existe).
+            'requisition:id,type,origin,status,quantity,branch_id,business_name,user_id',
+            'requisition.branch:id,name',
+            'requisition.user:id,name',
             'media' // Cargar los archivos adjuntos (evidencia)
         ]);
 
         // return $purchase;
         return Inertia::render('Purchase/Show', [
             'purchase' => $purchase,
+            'canViewRequisition' => RequisitionPermissions::canViewDetails(auth()->user()),
         ]);
     }
 
@@ -224,7 +327,7 @@ class PurchaseController extends Controller
             'supplier_id' => 'required|exists:suppliers,id',
             'supplier_contact_id' => 'nullable|exists:contacts,id',
             'supplier_bank_account_id' => 'nullable|exists:supplier_bank_accounts,id',
-            'expected_delivery_date' => 'required|date',
+            'expected_delivery_date' => 'nullable|date',
             'currency' => 'required|string|max:3',
             'notes' => 'nullable|string|max:1000',
             'is_spanish_template' => 'required|boolean',

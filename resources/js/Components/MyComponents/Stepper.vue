@@ -63,6 +63,15 @@ export default {
             type: Boolean,
             default: false
         },
+        /*
+         * Número de pasos ya completados. Cuando se define, tiene prioridad sobre
+         * `currentStatus`: los pasos previos se marcan como hechos y el siguiente
+         * queda como el paso en proceso.
+         */
+        completedCount: {
+            type: Number,
+            default: null
+        },
     },
     computed: {
         // Devuelve el índice del estado actual en el arreglo de pasos.
@@ -72,6 +81,10 @@ export default {
 
         // Devuelve el índice del último paso que se considera "completado".
         completedStepIndex() {
+            if (this.completedCount !== null) {
+                return Math.min(Math.max(this.completedCount, 0), this.steps.length) - 1;
+            }
+
             const currentIndex = this.currentIndex;
 
             // --- MODIFICADO: Lógica para tratar el paso actual como completado ---

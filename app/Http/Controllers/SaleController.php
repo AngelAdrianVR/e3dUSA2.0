@@ -139,6 +139,14 @@ class SaleController extends Controller
 
         $quoteToConvertId = intval($request->input('quote_id'));
 
+        // La Orden de Venta de muestra/regalo solo puede crearse desde un seguimiento autorizado.
+        if ($request->input('sample_tracking_id')
+            && !SampleTracking::whereKey($request->input('sample_tracking_id'))->whereNotNull('authorized_at')->exists()) {
+            throw ValidationException::withMessages([
+                'sample_tracking_id' => 'El seguimiento de muestra debe estar autorizado antes de crear su Orden de Venta.',
+            ]);
+        }
+
         // --- ORDEN DE MUESTRA/REGALO: datos del seguimiento de muestra (para prellenar el form) ---
         $sampleTrackingData = $this->getSampleTrackingDataForSale($request->input('sample_tracking_id'));
 
@@ -307,6 +315,12 @@ class SaleController extends Controller
             if ($sampleTrackingForSale?->sale_id) {
                 throw ValidationException::withMessages([
                     'sample_tracking_id' => 'Este seguimiento de muestra ya tiene una Orden de Venta vinculada; no se puede crear otra.',
+                ]);
+            }
+
+            if ($sampleTrackingForSale && !$sampleTrackingForSale->authorized_at) {
+                throw ValidationException::withMessages([
+                    'sample_tracking_id' => 'El seguimiento de muestra debe estar autorizado antes de crear su Orden de Venta.',
                 ]);
             }
         }
@@ -894,6 +908,47 @@ class SaleController extends Controller
             Log::error($e->getTraceAsString());
             return back()->withInput()->withErrors(['generic_error' => 'Ocurrió un error inesperado al actualizar la orden.']);
         }
+    }
+
+    /**
+     * Adjunta archivos de OCE (Orden de Compra de Exterior) desde el detalle de la venta.
+     * Los archivos se eliminan con la ruta general `media.delete-file`.
+     */
+    public function uploadOceMedia(Request $request, Sale $sale)
+    {
+        $user = Auth::user();
+
+        $canUpload = $user->hasAnyPermission(['Editar ordenes de venta', 'Crear ordenes de venta'])
+            || (int) $sale->user_id === (int) $user->id;
+
+        abort_unless($canUpload, 403);
+
+        $request->validate([
+            'oce_name' => ['nullable', 'string', 'max:255', 'unique:sales,oce_name,' . $sale->id],
+            'oce_media' => ['required', 'array', 'max:3'],
+            'oce_media.*' => ['file', 'mimes:jpg,jpeg,png,pdf,doc,docx,xml,txt,webp', 'max:10000'],
+        ]);
+
+        $currentCount = $sale->getMedia('oce_media')->count();
+        $incoming = count($request->file('oce_media') ?? []);
+
+        if ($currentCount + $incoming > 3) {
+            return back()->withErrors([
+                'oce_media' => 'Máximo 3 archivos de OCE por orden. Elimina alguno antes de subir otro.',
+            ]);
+        }
+
+        $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
+            $fileAdder->toMediaCollection('oce_media');
+        });
+
+        if ($request->filled('oce_name')) {
+            $sale->update(['oce_name' => $request->oce_name]);
+        }
+
+        Log::info("Archivos de OCE adjuntados a la órden #{$sale->id} por el usuario " . auth()->id());
+
+        return back()->with('success', 'Archivo(s) de OCE adjuntados correctamente.');
     }
 
     /**

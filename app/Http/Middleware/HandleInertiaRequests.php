@@ -10,6 +10,7 @@ use App\Models\ProjectTask;
 use App\Models\Quote;
 use App\Models\Release; // Importante: Importar el modelo Release
 use App\Models\Sale;
+use App\Support\NotificationCategories;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -196,7 +197,10 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'permissions' => $user->getAllPermissions()->pluck('name'),
                     'profile_photo_url' => $user->profile_photo_url,
-                    'notifications' => $user->notifications()->latest()->take(30)->get(),
+                    'notifications' => $user->notifications()->latest()->take(30)->get()
+                        ->map(fn ($notification) => NotificationCategories::serialize($notification))
+                        ->values(),
+                    'notification_categories' => NotificationCategories::meta($user),
                     'active_alerts' => $user->active_alerts ?? [],
                     'role' => $user->roles->first()?->name,
                     // Incluimos los detalles del empleado para tenerlos a mano.

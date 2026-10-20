@@ -15,7 +15,7 @@
 
         <!-- Contenedor del formulario -->
         <div ref="formContainer" class="py-7">
-            <div class="max-w-5xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[72rem] mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6 md:p-8">
                     
                     <form @submit.prevent="store">
@@ -33,6 +33,16 @@
                                 </div>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
+                                <!-- Requisición que origina la orden (opcional) -->
+                                <div>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="requisition">Requisición vinculada</label>
+                                    <el-select v-model="form.requisition_id" filterable clearable placeholder="Sin requisición"
+                                        class="!w-full" @change="onRequisitionChange">
+                                        <el-option v-for="requisition in requisitions" :key="requisition.id" :value="requisition.id"
+                                            :label="`${requisition.folio} · ${requisition.origin} · ${requisition.branch ?? requisition.business_name ?? 'Sin cliente'}`" />
+                                    </el-select>
+                                    <InputError :message="form.errors.requisition_id" />
+                                </div>
                                 <!-- Selector de Proveedor -->
                                 <div>
                                     <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="supplier">Proveedor*</label>
@@ -66,9 +76,9 @@
                                     </el-select>
                                     <InputError :message="form.errors.currency" />
                                 </div>
-                                <!-- Selector de Fecha de Entrega -->
+                                <!-- Selector de Fecha de Entrega (opcional) -->
                                 <div>
-                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada*</label>
+                                    <label class="text-gray-700 dark:text-gray-100 text-sm ml-1" for="delivery_date">Fecha de entrega esperada (opcional)</label>
                                     <el-date-picker v-model="form.expected_delivery_date" type="date" placeholder="Selecciona una fecha" format="YYYY/MM/DD" value-format="YYYY-MM-DD" :disabled-date="disabledDate" class="!w-full" />
                                     <InputError :message="form.errors.expected_delivery_date" />
                                 </div>
@@ -89,6 +99,98 @@
                                         placeholder="Notas internas o para el proveedor" />
                                 </div>
                                 
+                            </div>
+
+                            <!-- Detalle de la requisición vinculada -->
+                            <div v-if="selectedRequisition"
+                                class="mt-5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4 space-y-3">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <p class="font-bold text-gray-800 dark:text-gray-100 font-mono">{{
+                                        selectedRequisition.folio }}</p>
+                                    <el-tag size="small" :type="selectedRequisition.type === 'Importación' ? 'primary' : 'success'">
+                                        {{ selectedRequisition.type }}
+                                    </el-tag>
+                                    <el-tag size="small" :type="selectedRequisition.origin === 'Vendedor' ? 'primary' : 'warning'">
+                                        {{ selectedRequisition.origin }}
+                                    </el-tag>
+                                    <el-tag size="small" type="info">{{ selectedRequisition.status }}</el-tag>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                        {{ selectedRequisition.branch ?? selectedRequisition.business_name ?? 'Sin cliente' }}
+                                    </span>
+                                </div>
+
+                                <!-- Resurtido: productos de catálogo que ya se precargaron -->
+                                <div v-if="selectedRequisition.origin === 'Almacén'" class="space-y-2">
+                                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                        <i class="fa-solid fa-boxes-stacked mr-1"></i>
+                                        Productos solicitados (se precargaron en la orden)
+                                    </p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <div v-for="item in selectedRequisition.items" :key="item.id"
+                                            class="flex items-center gap-3 rounded-lg border border-blue-200/70 dark:border-slate-700 bg-white/80 dark:bg-slate-900/40 p-2">
+                                            <img v-if="item.image_url" :src="item.image_url" :alt="item.name"
+                                                class="size-12 rounded object-cover border border-gray-200 dark:border-slate-700" />
+                                            <div v-else class="size-12 rounded border border-dashed border-gray-300 dark:border-slate-700 flex items-center justify-center text-gray-300">
+                                                <i class="fa-regular fa-image"></i>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">
+                                                    {{ item.name ?? 'Producto de catálogo' }}
+                                                </p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                    {{ item.code ?? 'Sin código' }}
+                                                </p>
+                                                <p class="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                                    Requerido: {{ formatRequisitionQuantity(item.quantity) }} {{ item.measure_unit ?? '' }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Indicación: la distribución es obligatoria antes de crear la orden -->
+                                    <div class="rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+                                        <p class="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                            Define la vía de envío de cada producto precargado
+                                        </p>
+                                        <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                            Edita cada producto de la lista con el ícono del lápiz y captura cuántas piezas
+                                            viajan por <strong>avión</strong>, cuántas por <strong>barco</strong> y cuántas se
+                                            <strong>quedan en fábrica</strong>. La suma debe ser igual a la cantidad solicitada;
+                                            sin ese dato no se puede crear la orden de compra.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Producto nuevo: información capturada en la requisición -->
+                                <div v-else class="space-y-2">
+                                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                        <i class="fa-solid fa-circle-info mr-1"></i>
+                                        Información del producto nuevo
+                                    </p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Cantidad requerida</p>
+                                            <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                                {{ formatRequisitionQuantity(selectedRequisition.quantity) }} pieza(s)
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Características / especificación</p>
+                                            <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                                {{ selectedRequisition.sale_specification || 'Sin especificación registrada' }}
+                                            </p>
+                                        </div>
+                                        <div v-if="newProductDescriptions.length" class="sm:col-span-2">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Descripción de la partida</p>
+                                            <p class="text-gray-800 dark:text-gray-100">{{ newProductDescriptions.join(' · ') }}</p>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        <i class="fa-solid fa-circle-info mr-1"></i>
+                                        La requisición es de producto nuevo: agrega el producto de catálogo cuando exista para poder comprarlo.
+                                    </p>
+                                </div>
                             </div>
                         </section>
 
@@ -153,15 +255,15 @@
 
                                     <!-- Distribución de stock -->
                                     <div v-if="form.type === 'Venta'" class="md:col-span-full">
-                                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Distribución de stock</p>
+                                        <p class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Vía de envío y cantidad que viaja</p>
                                         <div class="grid grid-cols-3 gap-x-2 border p-3 rounded-md" :class="{
                                                 'border-red-500': stockRemaining < 0,
                                                 'border-green-500': stockRemaining === 0,
                                                 'border-amber-500': stockRemaining > 0
                                         }">
-                                            <TextInput label="Stock Avión" v-model.number="productForm.plane_stock" type="numeric-stepper" placeholder="0" />
-                                            <TextInput label="Stock Barco" v-model.number="productForm.ship_stock" type="numeric-stepper" placeholder="0" />
-                                            <TextInput label="Stock Favor" v-model.number="productForm.additional_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Por avión" v-model.number="productForm.plane_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Por barco" v-model.number="productForm.ship_stock" type="numeric-stepper" placeholder="0" />
+                                            <TextInput label="Se queda en fábrica" v-model.number="productForm.additional_stock" type="numeric-stepper" placeholder="0" />
                                         </div>
                                         <p v-if="stockRemaining !== 0" :class="stockRemaining < 0 ? 'text-red-500' : 'text-amber-500'" class="text-xs mt-1">
                                             <i class="fa-solid fa-circle-info mr-1"></i> Cantidad por asignar: {{ stockRemaining }}
@@ -211,6 +313,20 @@
                                     </div>
                                 </div>
 
+                                <!-- Distribución pendiente: bloquea la creación de la orden -->
+                                <div v-if="missingDistribution.length"
+                                    class="mt-4 rounded-lg border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-900/20 px-4 py-3">
+                                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                        <i class="fa-solid fa-triangle-exclamation mr-2"></i>
+                                        Falta la distribución de {{ missingDistribution.length }} producto(s)
+                                    </p>
+                                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                                        Edita cada producto de la lista con el ícono del lápiz y captura cuántas piezas viajan
+                                        por avión, cuántas por barco y cuántas se quedan en fábrica. La suma debe ser igual a
+                                        la cantidad solicitada para poder crear la orden.
+                                    </p>
+                                </div>
+
                                 <!-- Tabla de productos agregados -->
                                 <div class="mt-4 overflow-x-auto">
                                     <el-table :data="form.items" stripe class="!w-full">
@@ -224,6 +340,28 @@
                                             </template>
                                         </el-table-column>
                                         <el-table-column prop="quantity" label="Cantidad" width="100" />
+                                        <el-table-column label="Vía de envío" min-width="170">
+                                            <template #default="scope">
+                                                <div class="flex flex-wrap gap-1 text-[11px]">
+                                                    <span v-if="scope.row.plane_stock"
+                                                        class="rounded bg-sky-50 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300 px-1.5 py-0.5">
+                                                        Avión: {{ formatRequisitionQuantity(scope.row.plane_stock) }}
+                                                    </span>
+                                                    <span v-if="scope.row.ship_stock"
+                                                        class="rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 px-1.5 py-0.5">
+                                                        Barco: {{ formatRequisitionQuantity(scope.row.ship_stock) }}
+                                                    </span>
+                                                    <span v-if="scope.row.additional_stock"
+                                                        class="rounded bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5">
+                                                        Fábrica: {{ formatRequisitionQuantity(scope.row.additional_stock) }}
+                                                    </span>
+                                                    <span v-if="!hasDistribution(scope.row)"
+                                                        class="font-semibold text-red-600 dark:text-red-400">
+                                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> Falta distribuir
+                                                    </span>
+                                                </div>
+                                            </template>
+                                        </el-table-column>
                                         <el-table-column prop="unit_price" label="Precio Unitario" width="120">
                                             <template #default="scope">
                                                 <span v-if="scope.row.unit_price && scope.row.unit_price > 0">{{ formatCurrency(scope.row.unit_price) }}</span>
@@ -294,8 +432,12 @@
                         </section>
                         
                         <!-- Botón de envío -->
-                        <div class="flex justify-end mt-8 col-span-full">
-                            <SecondaryButton :loading="form.processing" :disabled="form.items.length === 0">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 mt-8 col-span-full">
+                            <p v-if="missingDistribution.length" class="text-xs font-semibold text-red-600 dark:text-red-400 text-right">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                Completa la vía de envío de {{ missingDistribution.length }} producto(s) para poder crear la orden.
+                            </p>
+                            <SecondaryButton :loading="form.processing" :disabled="!canSubmitPurchase">
                                 Crear Órden de Compra
                             </SecondaryButton>
                         </div>
@@ -324,6 +466,7 @@ export default {
     data() {
         // Objeto principal del formulario
         const form = useForm({
+            requisition_id: null,
             supplier_id: null,
             supplier_contact_id: null,
             supplier_bank_account_id: null,
@@ -381,10 +524,20 @@ export default {
     props: {
         suppliers: Array,
         products: Array,
+        // Requisiciones abiertas que aún no tienen orden de compra.
+        requisitions: {
+            type: Array,
+            default: () => [],
+        },
         prefill: Object, // Nuevo prop para datos precargados
         preselectedProduct: Object, // Nuevo prop para detalles del producto precargado
     },
     async mounted() {
+        // Requisición de origen (botón «Crear orden de compra» desde su detalle).
+        if (this.prefill?.requisition_id) {
+            this.form.requisition_id = parseInt(this.prefill.requisition_id);
+        }
+
         // Verificar si hay datos precargados para llenar el formulario
         if (this.prefill?.supplier_id) {
             this.form.supplier_id = parseInt(this.prefill.supplier_id);
@@ -428,8 +581,23 @@ export default {
                 ElMessage.info('Producto precargado desde alerta de stock.');
             }
         }
+
+        // Requisición seleccionada sin proveedor: se precargan sus partidas.
+        this.applyRequisitionItems();
     },
     computed: {
+        // Requisición vinculada a la orden.
+        selectedRequisition() {
+            if (!this.form.requisition_id) return null;
+
+            return this.requisitions.find(requisition => requisition.id === this.form.requisition_id) ?? null;
+        },
+        // Descripciones capturadas para las partidas de producto nuevo.
+        newProductDescriptions() {
+            return (this.selectedRequisition?.items ?? [])
+                .map(item => item.description)
+                .filter(Boolean);
+        },
         // Calcula los totales de la orden
         totals() {
             const hasUndefinedPrice = this.form.items.some(item => !item.unit_price || item.unit_price <= 0);
@@ -451,10 +619,37 @@ export default {
                                (this.productForm.additional_stock || 0);
             return (this.productForm.quantity || 0) - totalStock;
         },
+        /*
+         * Partidas cuya distribución (avión + barco + fábrica) no coincide con
+         * la cantidad. Las precargadas desde la requisición entran aquí hasta
+         * que se editan y se captura la vía de envío.
+         */
+        missingDistribution() {
+            return this.form.items.filter(item => !this.hasDistribution(item));
+        },
+        canSubmitPurchase() {
+            return this.form.items.length > 0 && this.missingDistribution.length === 0;
+        },
     },
     methods: {
+        /**
+         * Indica si la partida ya tiene repartida su cantidad entre avión,
+         * barco y lo que se queda en fábrica.
+         */
+        hasDistribution(item) {
+            const assigned = (Number(item.plane_stock) || 0)
+                + (Number(item.ship_stock) || 0)
+                + (Number(item.additional_stock) || 0);
+
+            return Math.abs(assigned - (Number(item.quantity) || 0)) < 0.0001;
+        },
         // Enviar el formulario para crear la orden
         store() {
+            if (this.missingDistribution.length) {
+                ElMessage.error('Define la vía de envío (avión, barco y fábrica) de cada producto antes de crear la orden.');
+                return;
+            }
+
             this.form.subtotal = this.totals.subtotal;
             this.form.tax = this.totals.tax;
             this.form.total = this.totals.total;
@@ -485,10 +680,67 @@ export default {
                     label: `${product.name} (${product.code})`,
                     ...product // Al usar spread, la propiedad 'pivot' queda disponible en availableProducts
                 }));
+
+                // El cambio de proveedor limpia las partidas: se vuelven a cargar las de la requisición.
+                this.applyRequisitionItems();
             } catch (error) {
                 console.error("Error al obtener detalles del proveedor:", error);
                 ElMessage.error("No se pudieron cargar los datos del proveedor.");
             }
+        },
+        // Al cambiar la requisición se recargan sus partidas.
+        onRequisitionChange() {
+            this.form.items = [];
+            this.cancelEdit();
+            this.applyRequisitionItems();
+        },
+        /**
+         * Precarga en la orden las partidas de la requisición cuando es de
+         * resurtido (productos de catálogo). El producto nuevo solo se muestra
+         * como referencia porque todavía no existe en el catálogo.
+         */
+        applyRequisitionItems() {
+            const requisition = this.selectedRequisition;
+
+            if (!requisition || requisition.origin !== 'Almacén') return;
+
+            requisition.items.forEach(item => {
+                if (!item.product_id) return;
+
+                const productInList = this.availableProducts.find(product => product.value === item.product_id);
+                const price = productInList?.pivot?.last_price
+                    ? parseFloat(productInList.pivot.last_price)
+                    : (productInList?.cost ?? 0);
+
+                const existingIndex = this.form.items.findIndex(purchaseItem => purchaseItem.product_id === item.product_id);
+
+                if (existingIndex !== -1) {
+                    this.form.items[existingIndex] = {
+                        ...this.form.items[existingIndex],
+                        quantity: item.quantity,
+                    };
+                    return;
+                }
+
+                this.form.items.push({
+                    product_id: item.product_id,
+                    product_name: item.name
+                        ? `${item.name}${item.code ? ` (${item.code})` : ''}`
+                        : (item.description ?? 'Producto de catálogo'),
+                    quantity: item.quantity,
+                    unit_price: price,
+                    additional_stock: 0,
+                    plane_stock: 0,
+                    ship_stock: 0,
+                    type: 'Venta',
+                    needs_mold: false,
+                    mold_price: 0,
+                    notes: '',
+                });
+            });
+        },
+        formatRequisitionQuantity(value) {
+            return (Number(value) || 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
         },
         // Seleccionar un producto del listado
         onProductSelect(productId) {

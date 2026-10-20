@@ -71,9 +71,34 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Estatus:</span>
                             <el-tag :type="branch.status === 'Cliente' ? 'success' : 'info'" size="small">{{ branch.status }}</el-tag>
                         </li>
-                        <li class="flex justify-between">
-                            <span class="font-semibold text-gray-600 dark:text-gray-400">Vendedor:</span>
-                            <span>{{ branch.account_manager?.name ?? 'No asignado' }}</span>
+                        <li class="flex flex-col">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-600 dark:text-gray-400">Vendedor:</span>
+                                <el-tag v-if="mainSellerIsInactive" type="danger" size="small" effect="light">Ya no está activo</el-tag>
+                            </div>
+                            <el-select
+                                v-model="selectedSeller"
+                                filterable
+                                clearable
+                                size="small"
+                                placeholder="Sin vendedor asignado"
+                                class="!w-full mt-1"
+                                :teleported="false"
+                                :disabled="!canEditSeller"
+                                :loading="savingSeller"
+                                @change="assignSeller"
+                            >
+                                <el-option v-for="seller in sellers" :key="seller.id" :label="seller.name" :value="seller.id" />
+                                <el-option v-if="mainSellerIsInactive"
+                                    :key="`inactive-${branch.account_manager.id}`"
+                                    :label="`${branch.account_manager.name} (inactivo)`"
+                                    :value="branch.account_manager.id"
+                                    disabled />
+                            </el-select>
+                            <span v-if="mainSellerIsInactive" class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                                <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                Este vendedor ya no está activo en el sistema. Asigna uno nuevo.
+                            </span>
                         </li>
                         <li class="flex flex-col">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Grupo:</span>
@@ -175,10 +200,9 @@
                     </div>
 
                     <div v-if="branch.children && branch.children.length" class="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                        <Link v-for="child in branch.children" :key="child.id" :href="route('branches.show', child.id)"
+                        <div v-for="child in branch.children" :key="child.id"
                               class="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-slate-700/50 bg-gray-50/50 dark:bg-slate-900/30 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors group">
-                            
-                            <div class="flex items-center space-x-3 overflow-hidden">
+                            <Link :href="route('branches.show', child.id)" class="flex items-center space-x-3 overflow-hidden flex-1 min-w-0">
                                 <div class="shrink-0 size-9 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs border border-blue-200 dark:border-blue-800">
                                     {{ child.id }}
                                 </div>
@@ -190,13 +214,27 @@
                                         <i class="fa-solid fa-location-dot mr-1 opacity-70"></i>
                                         {{ child.address || 'Sin dirección' }}
                                     </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                        <i class="fa-solid fa-user-tie mr-1 opacity-70"></i>
+                                        {{ child.account_manager?.name ?? 'Sin vendedor' }}
+                                        <span v-if="isSellerInactive(child)" class="font-semibold text-red-500">(inactivo)</span>
+                                    </p>
                                 </div>
-                            </div>
-                            
-                            <div class="shrink-0 pl-2">
+                            </Link>
+
+                            <div class="flex items-center gap-1 shrink-0 pl-2">
+                                <el-tooltip v-if="isSellerInactive(child)" content="El vendedor asignado ya no está activo en el sistema" placement="top">
+                                    <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xs"></i>
+                                </el-tooltip>
+                                <el-tooltip v-if="canEditSeller" content="Cambiar vendedor asignado" placement="top">
+                                    <button type="button" @click="openSellerModal(child)"
+                                        class="size-7 flex items-center justify-center rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
+                                        <i class="fa-solid fa-pencil text-xs"></i>
+                                    </button>
+                                </el-tooltip>
                                 <i class="fa-solid fa-chevron-right text-gray-400 group-hover:text-primary transition-colors text-xs"></i>
                             </div>
-                        </Link>
+                        </div>
                     </div>
                     <p v-else class="text-sm text-gray-500 dark:text-gray-400 italic text-center">
                         Esta matriz aún no tiene sucursales.
@@ -312,9 +350,16 @@
                                             <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
                                                 <i class="fa-solid fa-user-tie mr-1 opacity-70"></i>
                                                 {{ member.account_manager?.name ?? 'Sin vendedor' }}
+                                                <span v-if="isSellerInactive(member)" class="font-semibold text-red-500">(inactivo)</span>
                                             </p>
                                         </div>
                                     </Link>
+                                    <el-tooltip v-if="canEditSeller" content="Cambiar vendedor asignado" placement="top">
+                                        <button type="button" @click="openSellerModal(member)"
+                                            class="shrink-0 size-7 flex items-center justify-center rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
+                                            <i class="fa-solid fa-pencil text-xs"></i>
+                                        </button>
+                                    </el-tooltip>
                                     <el-button size="small" type="danger" plain
                                         :loading="removingGroupId === member.id"
                                         @click="removeGroupMember(member)">
@@ -338,9 +383,16 @@
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
                                                     <i class="fa-solid fa-user-tie mr-1 opacity-70"></i>
                                                     {{ child.account_manager?.name ?? 'Sin vendedor' }}
+                                                    <span v-if="isSellerInactive(child)" class="font-semibold text-red-500">(inactivo)</span>
                                                 </p>
                                             </div>
                                         </Link>
+                                        <el-tooltip v-if="canEditSeller" content="Cambiar vendedor asignado" placement="top">
+                                            <button type="button" @click="openSellerModal(child)"
+                                                class="shrink-0 size-7 flex items-center justify-center rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
+                                                <i class="fa-solid fa-pencil text-xs"></i>
+                                            </button>
+                                        </el-tooltip>
                                     </div>
                                 </div>
                             </div>
@@ -528,6 +580,44 @@
                 </div>
             </template>
         </DialogModal>
+        <!-- Modal para cambiar el vendedor asignado de un cliente -->
+        <DialogModal :show="showSellerModal" maxWidth="md" @close="closeSellerModal">
+            <template #title>
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                    <i class="fa-solid fa-user-tie mr-2"></i> Vendedor asignado
+                </h2>
+            </template>
+            <template #content>
+                <div class="space-y-4">
+                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                        Cliente: <span class="font-semibold">{{ sellerForm.branchName }}</span>
+                    </p>
+                    <p v-if="sellerForm.currentSellerInactive" class="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
+                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                        <span>
+                            {{ sellerForm.currentSellerName }} ya no está activo en el sistema.
+                            Asigna un vendedor diferente para este cliente.
+                        </span>
+                    </p>
+                    <el-select v-if="canEditSeller" v-model="sellerForm.account_manager_id"
+                        filterable clearable placeholder="Sin vendedor asignado" class="!w-full" :teleported="false">
+                        <el-option v-for="seller in sellers" :key="seller.id" :label="seller.name" :value="seller.id" />
+                    </el-select>
+                    <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                        No tienes permiso para editar clientes.
+                    </p>
+                </div>
+            </template>
+            <template #footer>
+                <div class="flex space-x-2">
+                    <CancelButton @click="closeSellerModal">Cancelar</CancelButton>
+                    <PrimaryButton @click="saveSeller" :disabled="savingSeller || !canEditSeller">
+                        <span v-if="savingSeller">Guardando...</span>
+                        <span v-else>Guardar</span>
+                    </PrimaryButton>
+                </div>
+            </template>
+        </DialogModal>
     </AppLayout>
 </template>
 
@@ -610,6 +700,17 @@ export default {
             groupSearching: false,
             removingGroupId: null,
             savingGroup: false,
+            // --- Vendedor asignado ---
+            selectedSeller: this.branch.account_manager_id ?? null,
+            savingSeller: false,
+            showSellerModal: false,
+            sellerForm: {
+                branchId: null,
+                branchName: '',
+                account_manager_id: null,
+                currentSellerName: null,
+                currentSellerInactive: false,
+            },
             expandedMembers: {},
             // --- Sucursales hijas ---
             showAddChild: false,
@@ -670,10 +771,21 @@ export default {
             type: Array,
             default: () => [],
         },
+        sellers: {
+            type: Array,
+            default: () => [],
+        },
     },
     computed: {
         groupsList() {
             return this.groups ?? [];
+        },
+        canEditSeller() {
+            return this.$page.props.auth.user.permissions.includes('Editar clientes');
+        },
+        // El vendedor asignado al cliente mostrado ya no está activo en el sistema.
+        mainSellerIsInactive() {
+            return this.isSellerInactive(this.branch);
         },
         // Total de clientes/sucursales en el grupo (matrices + sus sucursales hijas).
         groupMembersTotal() {
@@ -952,6 +1064,62 @@ export default {
                 only: ['branch', 'groups', 'groupName', 'groupBranchId', 'groupBranchName', 'groupBranchIsChild', 'groupMembers'],
                 preserveScroll: true,
             });
+        },
+        // --- Vendedor asignado ---
+        // Indica si el vendedor asignado ya no está activo en el sistema.
+        isSellerInactive(branch) {
+            return !!branch?.account_manager && branch.account_manager.is_active === false;
+        },
+        // Cambia el vendedor del cliente mostrado en la página.
+        async assignSeller(value) {
+            const accountManagerId = (value === '' || value === undefined) ? null : value;
+
+            this.savingSeller = true;
+            try {
+                const response = await axios.patch(route('branches.account-manager.update', this.branch.id), {
+                    account_manager_id: accountManagerId,
+                });
+                ElMessage.success(response.data?.message ?? 'Vendedor asignado correctamente.');
+                this.selectedSeller = response.data?.account_manager?.id ?? null;
+                this.$inertia.reload({ only: ['branch'], preserveScroll: true });
+            } catch (error) {
+                console.error(error);
+                ElMessage.error(error.response?.data?.errors?.account_manager_id?.[0] ?? 'No se pudo asignar el vendedor');
+                this.selectedSeller = this.branch.account_manager_id ?? null;
+            } finally {
+                this.savingSeller = false;
+            }
+        },
+        openSellerModal(branch) {
+            this.sellerForm = {
+                branchId: branch.id,
+                branchName: branch.name,
+                account_manager_id: branch.account_manager_id ?? null,
+                currentSellerName: branch.account_manager?.name ?? null,
+                currentSellerInactive: this.isSellerInactive(branch),
+            };
+            this.showSellerModal = true;
+        },
+        closeSellerModal() {
+            if (this.savingSeller) return;
+            this.showSellerModal = false;
+        },
+        async saveSeller() {
+            this.savingSeller = true;
+            try {
+                const response = await axios.patch(route('branches.account-manager.update', this.sellerForm.branchId), {
+                    account_manager_id: this.sellerForm.account_manager_id ?? null,
+                });
+                ElMessage.success(response.data?.message ?? 'Vendedor asignado correctamente.');
+                this.showSellerModal = false;
+                // Recarga para reflejar el vendedor de la matriz o de su sucursal.
+                this.$inertia.reload({ preserveScroll: true });
+            } catch (error) {
+                console.error(error);
+                ElMessage.error(error.response?.data?.errors?.account_manager_id?.[0] ?? 'No se pudo asignar el vendedor');
+            } finally {
+                this.savingSeller = false;
+            }
         },
         async assignGroup(value) {
             if (!value) {

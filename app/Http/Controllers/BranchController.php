@@ -76,12 +76,7 @@ class BranchController extends Controller
             ->values();
 
         // Vendedores disponibles para el filtro
-        $sellers = User::where('is_active', true)
-            ->where('id', '!=', 1)
-            ->role(['Vendedor', 'Super Administrador'])
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
+        $sellers = $this->availableSellers();
 
         return Inertia::render('Branch/Index', [
             'branches' => $branches,
@@ -175,7 +170,7 @@ class BranchController extends Controller
         // Pasamos los datos necesarios para los selects del formulario
         return Inertia::render('Branch/Create', [
             // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
-            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            'users' => $this->availableSellers(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
         ]);
@@ -354,8 +349,8 @@ class BranchController extends Controller
     {
         // Cargamos las relaciones directas de la sucursal
         $branch->load([
-            'children', 
-            'accountManager:id,name', 
+            'children.accountManager:id,name,is_active', 
+            'accountManager:id,name,is_active', 
             'parent:id,name,group_name,business_name,rfc', 
             'contacts.details',
             'media',
@@ -405,7 +400,7 @@ class BranchController extends Controller
         $groupMembers = $groupBranch->group_name
             ? Branch::whereNull('parent_branch_id')
                 ->where('group_name', $groupBranch->group_name)
-                ->with(['accountManager:id,name', 'children.accountManager:id,name'])
+                ->with(['accountManager:id,name,is_active', 'children.accountManager:id,name,is_active'])
                 ->orderBy('name')
                 ->get(['id', 'name', 'rfc', 'business_name', 'group_name', 'parent_branch_id', 'account_manager_id'])
             : collect();
@@ -416,6 +411,8 @@ class BranchController extends Controller
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'consumptionData' => $consumptionData, 
             'groups' => $groups,
+            // Vendedores disponibles para reasignar desde el detalle del cliente.
+            'sellers' => $this->availableSellers(),
             'groupName' => $groupBranch->group_name,
             'groupBranchId' => $groupBranch->id,
             'groupBranchName' => $groupBranch->name,
@@ -578,7 +575,7 @@ class BranchController extends Controller
             'formattedContacts' => $formattedContacts,
             'formattedProducts' => $formattedProducts,
             // Se excluye al usuario Soporte DTW (id: 1) de la selección de vendedores
-            'users' => User::where('is_active', true)->where('id', '!=', 1)->role(['Vendedor', 'Super Administrador'])->select('id', 'name')->get(),
+            'users' => $this->availableSellers(),
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
@@ -884,6 +881,46 @@ class BranchController extends Controller
         }
 
         return response()->json(['message' => 'Datos fiscales actualizados correctamente.']);
+    }
+
+    /**
+     * Vendedores activos disponibles para asignar a un cliente.
+     * Se excluye al usuario Soporte DTW (id: 1).
+     */
+    private function availableSellers()
+    {
+        return User::where('is_active', true)
+            ->where('id', '!=', 1)
+            ->role(['Vendedor', 'Super Administrador'])
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * Reasigna el vendedor de un cliente desde su detalle.
+     * No se permite asignar vendedores que ya no están activos en el sistema.
+     */
+    public function updateAccountManager(Request $request, Branch $branch)
+    {
+        $validated = $request->validate([
+            'account_manager_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $sellerId = $validated['account_manager_id'] ?? null;
+
+        if ($sellerId && !User::whereKey($sellerId)->where('is_active', true)->exists()) {
+            throw ValidationException::withMessages([
+                'account_manager_id' => 'El vendedor seleccionado ya no está activo en el sistema.',
+            ]);
+        }
+
+        $branch->update(['account_manager_id' => $sellerId]);
+
+        return response()->json([
+            'message' => 'Vendedor asignado correctamente.',
+            'account_manager' => $branch->load('accountManager:id,name,is_active')->accountManager,
+        ]);
     }
 
     public function removeProduct(Branch $branch, Product $product)

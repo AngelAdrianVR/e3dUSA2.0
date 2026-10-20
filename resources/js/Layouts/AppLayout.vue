@@ -44,10 +44,26 @@ watch(showingNavigationDropdown, (isOpen) => {
 
 
 // --- LÓGICA DEL BUSCADOR GLOBAL ---
+// Filtros por módulo disponibles en el panel de resultados.
+// "all" recupera un máximo de resultados de cada módulo.
+const searchModuleFilters = [
+    { key: 'all', label: 'Todos' },
+    { key: 'products', label: 'Productos' },
+    { key: 'branches', label: 'Clientes' },
+    { key: 'sales', label: 'Ventas' },
+    { key: 'design_orders', label: 'Diseño' },
+    { key: 'machines', label: 'Máquinas' },
+    { key: 'users', label: 'Usuarios' },
+];
+
 const searchQuery = ref('');
-const searchResults = ref(null);
+const searchResults = ref([]);
 const isSearching = ref(false);
+const selectedSearchModule = ref('all');
 let searchTimeout = null;
+
+// El panel indica "sin resultados" solo cuando todos los módulos vienen vacíos.
+const hasSearchResults = computed(() => searchResults.value.some(module => module.items?.length));
 
 // Observador para el campo de búsqueda con debounce
 watch(searchQuery, (newQuery) => {
@@ -58,19 +74,31 @@ watch(searchQuery, (newQuery) => {
             performSearch(newQuery);
         }, 300); // Espera 300ms antes de buscar
     } else {
-        searchResults.value = null;
+        searchResults.value = [];
         isSearching.value = false;
+    }
+});
+
+// Al cambiar el módulo se repite la búsqueda en curso con el nuevo filtro.
+watch(selectedSearchModule, () => {
+    if (searchQuery.value.length > 1) {
+        clearTimeout(searchTimeout);
+        isSearching.value = true;
+        performSearch(searchQuery.value);
     }
 });
 
 // Función para realizar la llamada a la API
 const performSearch = async (term) => {
     try {
-        const response = await axios.get(route('global.search', { term }));
-        searchResults.value = response.data;
+        const response = await axios.get(route('global.search', {
+            term,
+            module: selectedSearchModule.value === 'all' ? undefined : selectedSearchModule.value,
+        }));
+        searchResults.value = response.data.modules ?? [];
     } catch (error) {
         console.error('Error en la búsqueda global:', error);
-        searchResults.value = null;
+        searchResults.value = [];
     } finally {
         isSearching.value = false;
     }
@@ -87,7 +115,7 @@ const closeSearch = () => {
     setTimeout(() => {
         isFocused.value = false;
         searchQuery.value = '';
-        searchResults.value = null;
+        searchResults.value = [];
     }, 200);
 };
 
@@ -113,6 +141,9 @@ const taskNotifications = computed(() =>
 const generalNotifications = computed(() =>
     allNotifications.value.filter(n => !taskClasses.includes(n.type))
 );
+
+// Conteo de pendientes por categoría (notificaciones generales).
+const notificationCategories = computed(() => page.props.auth.user?.notification_categories || []);
 
 // 2. COMPUTED PARA LAS ALERTAS ACTIVAS (¡ESTA ES LA FORMA CORRECTA!)
 const activeAlerts = computed(() => page.props.auth.user?.active_alerts || {});
@@ -393,7 +424,7 @@ onMounted(() => {
                                 <TaskNotificationsDropdown :notifications="taskNotifications" />
 
                                 <!-- Notificaciones GENERALES -->
-                                <NotificationsDropdown :notifications="generalNotifications" />
+                                <NotificationsDropdown :notifications="generalNotifications" :categories="notificationCategories" />
 
                                 <!-- Buscador global -->
                                 <div class="relative flex items-center justify-end pl-5 border-l border-gray-200 dark:border-slate-700">
@@ -414,33 +445,52 @@ onMounted(() => {
                                             </svg>
                                         </div>
                                         
-                                        <div v-if="isFocused && searchQuery.length > 1"
+                                        <div v-if="isFocused"
                                             class="absolute top-14 left-0 w-full bg-white dark:bg-zinc-800 rounded-lg shadow-2xl border dark:border-zinc-700 overflow-hidden z-50">
-                                            <div v-if="isSearching" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            <!-- Filtro por módulo (mousedown.prevent evita que el input pierda el foco) -->
+                                            <div class="flex flex-wrap gap-1.5 p-2.5 border-b border-gray-100 dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50"
+                                                @mousedown.prevent>
+                                                <button v-for="module in searchModuleFilters" :key="module.key" type="button"
+                                                    @click="selectedSearchModule = module.key"
+                                                    class="px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors"
+                                                    :class="selectedSearchModule === module.key
+                                                        ? 'bg-blue-600 border-blue-600 text-white'
+                                                        : 'bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-zinc-700'">
+                                                    {{ module.label }}
+                                                </button>
+                                            </div>
+
+                                            <div v-if="searchQuery.length < 2" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                Escribe al menos 2 caracteres para buscar.
+                                            </div>
+                                            <div v-else-if="isSearching" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 Buscando...
                                             </div>
-                                            <div v-else-if="!Object.keys(searchResults || {}).length" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            <div v-else-if="!hasSearchResults" class="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 No se encontraron resultados para "{{ searchQuery }}"
                                             </div>
                                             <div v-else class="max-h-96 overflow-y-auto">
-                                                <div v-for="(results, category) in searchResults" :key="category">
-                                                    <h3 class="text-xs font-semibold text-gray-400 uppercase p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50">{{ category }}</h3>
+                                                <div v-for="module in searchResults" :key="module.key">
+                                                    <h3 class="text-xs font-semibold text-gray-400 uppercase p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50">{{ module.label }}</h3>
                                                     <ul>
-                                                        <li v-for="item in results" :key="item.id">
-                                                            <Link :href="item.url" class="flex items-center p-3 hover:bg-blue-50 dark:hover:bg-zinc-700 transition-colors duration-150">
-                                                                <div class="flex-shrink-0 mr-3">
-                                                                    <svg v-if="category === 'Usuarios'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-                                                                    <svg v-if="category === 'Productos'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                                                                    <svg v-if="category === 'Sucursales'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1m-1 4h1"></path></svg>
-                                                                    <svg v-if="category === 'Ventas'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                                                                    <svg v-if="category === 'Máquinas'" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                        <li v-for="item in module.items" :key="`${module.key}-${item.id}`">
+                                                            <Link :href="item.url" class="flex items-center gap-3 p-3 hover:bg-blue-50 dark:hover:bg-zinc-700 transition-colors duration-150">
+                                                                <div class="flex-shrink-0 flex items-center justify-center w-5 text-gray-500 dark:text-gray-400">
+                                                                    <svg v-if="module.key === 'products'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                                                    <svg v-else-if="module.key === 'branches'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-4h1m-1 4h1m-1-4h1m-1 4h1"></path></svg>
+                                                                    <svg v-else-if="module.key === 'sales'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                                                                    <svg v-else-if="module.key === 'design_orders'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"></path></svg>
+                                                                    <svg v-else-if="module.key === 'machines'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                                                    <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
                                                                 </div>
-                                                                <div class="flex-grow">
-                                                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ item.name || `Venta #${item.id}` }}</p>
-                                                                    <p v-if="item.code || item.email || item.status" class="text-xs text-gray-500 dark:text-gray-400">
-                                                                        {{ item.code || item.email || item.status }}
-                                                                    </p>
+                                                                <div class="flex-grow min-w-0">
+                                                                    <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ item.title }}</p>
+                                                                    <p v-if="item.subtitle" class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ item.subtitle }}</p>
                                                                 </div>
+                                                                <span v-if="item.badge"
+                                                                    class="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-gray-300">
+                                                                    {{ item.badge }}
+                                                                </span>
                                                             </Link>
                                                         </li>
                                                     </ul>
@@ -501,7 +551,7 @@ onMounted(() => {
                                 <TaskNotificationsDropdown :notifications="taskNotifications" />
 
                                 <!-- Notificaciones GENERALES -->
-                                <NotificationsDropdown :notifications="generalNotifications" />
+                                <NotificationsDropdown :notifications="generalNotifications" :categories="notificationCategories" />
 
                                 <button
                                     class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 dark:text-gray-200 hover:text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out z-50"

@@ -102,6 +102,16 @@
                 <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
                     <h3 class="text-lg font-semibold border-b dark:border-gray-600 pb-3 mb-4">Detalles de la Compra</h3>
                     <ul class="space-y-3 text-sm">
+                        <!-- Requisición vinculada -->
+                        <li v-if="purchase.requisition" class="flex justify-between items-center">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Requisición:</span>
+                            <Link v-if="canViewRequisition" :href="route('requisitions.show', purchase.requisition.id)"
+                                class="font-mono font-semibold text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline">
+                                {{ purchase.requisition.folio }}
+                                <i class="fa-solid fa-up-right-from-square text-[10px] ml-1"></i>
+                            </Link>
+                            <span v-else class="font-mono font-semibold">{{ purchase.requisition.folio }}</span>
+                        </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Creado por:</span>
                             <span>{{ purchase.user?.name ?? 'N/A' }}</span>
@@ -472,6 +482,11 @@ export default {
     },
     props: {
         purchase: Object,
+        // Solo quien puede abrir el detalle de la requisición ve el enlace.
+        canViewRequisition: {
+            type: Boolean,
+            default: false,
+        },
     },
     data() {
         return {

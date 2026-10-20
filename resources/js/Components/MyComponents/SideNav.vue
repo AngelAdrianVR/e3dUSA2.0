@@ -509,6 +509,7 @@ export default {
                     active:
                         route().current('suppliers.*')
                         || route().current('purchases.*')
+                        || route().current('requisitions.*')
                         || route().current('stock-projection.*')
                         || route().current('stock-reposition.*'),
                     options: [
@@ -537,6 +538,12 @@ export default {
                             active: route().current('stock-reposition.*'),
                             show: this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock'),
                         },
+                        {
+                            label: 'Requisiciones',
+                            route: 'requisitions.index',
+                            active: route().current('requisitions.*'),
+                            show: this.canAccessRequisitions(),
+                        },
 
                     ],
                     dropdown: true,
@@ -544,6 +551,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver ordenes de compra')
                         || this.$page.props.auth.user.permissions.includes('Ver productos con bajo stock')
                         || this.$page.props.auth.user.permissions.includes('Ver proyección de compras')
+                        || this.canAccessRequisitions()
                 },
                 {
                     label: 'Logistica',
@@ -843,6 +851,28 @@ export default {
         },
     },
     methods: {
+        /**
+         * El módulo de requisiciones acepta tanto los permisos granulares
+         * (Ver/Crear/Editar...) como los definidos en la especificación
+         * (Gestión de almacén, Gestión de compras, Gerencia de compras, Hacer pagos).
+         */
+        canAccessRequisitions() {
+            const permissions = this.$page.props.auth.user.permissions ?? [];
+            const accepted = [
+                'Ver requisiciones de compra',
+                'Crear requisiciones de compra',
+                'Editar requisiciones de compra',
+                'Autorizar requisiciones de compra',
+                'Registrar pagos de requisiciones de compra',
+                'Gestionar arribos de requisiciones',
+                'Gestión de almacén',
+                'Gestión de compras',
+                'Gerencia de compras',
+                'Hacer pagos',
+            ];
+
+            return permissions.some(permission => accepted.includes(permission));
+        },
         formatCurrency(value) {
             if (typeof value !== 'number') {
                 return '$0.00';

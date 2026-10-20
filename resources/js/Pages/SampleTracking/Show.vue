@@ -27,20 +27,26 @@
                 </button>
             </el-tooltip>
 
-            <!-- Orden de Venta de muestra/regalo (solo si la muestra no será devuelta) -->
-            <el-tooltip v-if="!sampleTracking.sale_id && !sampleTracking.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')"
-                content="Crear Orden de Venta (Muestra/Regalo)" placement="top">
-                <button @click="createSampleSale" class="h-9 px-3 flex items-center justify-center rounded-lg bg-emerald-300 hover:bg-emerald-400 dark:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors text-sm font-medium">
-                    <i class="fa-solid fa-gift mr-2"></i> Crear Orden de Venta
-                </button>
-            </el-tooltip>
-            <!-- Si ya existe una OV vinculada, el botón se deshabilita y se indica al usuario -->
-            <el-tooltip v-else-if="sampleTracking.sale_id"
+            <!-- Orden de Venta de muestra/regalo: requiere que el seguimiento esté autorizado -->
+            <el-tooltip v-if="sampleTracking.sale_id"
                 content="Ya existe una Orden de Venta vinculada a este seguimiento. Puedes verla en 'Más Acciones'."
                 placement="top">
                 <button disabled
                     class="h-9 px-3 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-medium cursor-not-allowed opacity-80">
                     <i class="fa-solid fa-lock mr-2"></i> Ya existe una OV vinculada
+                </button>
+            </el-tooltip>
+            <el-tooltip v-else-if="canCreateSampleSale && !sampleTracking.authorized_at"
+                content="Autoriza el seguimiento de muestra para poder crear la Orden de Venta" placement="top">
+                <button disabled
+                    class="h-9 px-3 flex items-center justify-center rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-gray-400 text-sm font-medium cursor-not-allowed opacity-80">
+                    <i class="fa-solid fa-lock mr-2"></i> Crear Orden de Venta
+                </button>
+            </el-tooltip>
+            <el-tooltip v-else-if="canCreateSampleSale"
+                content="Crear Orden de Venta (Muestra/Regalo)" placement="top">
+                <button @click="createSampleSale" class="h-9 px-3 flex items-center justify-center rounded-lg bg-emerald-300 hover:bg-emerald-400 dark:bg-emerald-800 dark:hover:bg-emerald-700 transition-colors text-sm font-medium">
+                    <i class="fa-solid fa-gift mr-2"></i> Crear Orden de Venta
                 </button>
             </el-tooltip>
 
@@ -63,11 +69,18 @@
                     <DropdownLink v-if="$page.props.auth.user.permissions.includes('Crear muestras')" @click="$inertia.visit(route('sample-trackings.create'))" as="button">
                         <i class="fa-solid fa-plus w-4 mr-2"></i> Crear nuevo seguimiento
                     </DropdownLink>
-                    <DropdownLink v-if="!sampleTracking.sale_id && !sampleTracking.will_be_returned && $page.props.auth.user.permissions.includes('Crear ordenes de venta')" @click="createSampleSale" as="button">
-                        <i class="fa-solid fa-gift w-4 mr-2 text-emerald-500"></i> Crear Orden de Venta (Muestra/Regalo)
-                    </DropdownLink>
-                    <DropdownLink v-else-if="sampleTracking.sale_id" @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))" as="button">
+                    <DropdownLink v-if="sampleTracking.sale_id" @click="$inertia.visit(route('sales.show', sampleTracking.sale_id))" as="button">
                         <i class="fa-solid fa-file-invoice w-4 mr-2 text-emerald-500"></i> Ver Orden de Venta OM-{{ sampleTracking.sale_id.toString().padStart(4, '0') }}
+                    </DropdownLink>
+                    <div v-else-if="canCreateSampleSale && !sampleTracking.authorized_at"
+                        class="pointer-events-none opacity-50 cursor-not-allowed"
+                        title="Autoriza el seguimiento de muestra para poder crear la Orden de Venta">
+                        <DropdownLink as="button">
+                            <i class="fa-solid fa-lock w-4 mr-2"></i> Crear Orden de Venta (requiere autorización)
+                        </DropdownLink>
+                    </div>
+                    <DropdownLink v-else-if="canCreateSampleSale" @click="createSampleSale" as="button">
+                        <i class="fa-solid fa-gift w-4 mr-2 text-emerald-500"></i> Crear Orden de Venta (Muestra/Regalo)
                     </DropdownLink>
                     <div class="border-t border-gray-200 dark:border-gray-600" />
                     <DropdownLink v-if="$page.props.auth.user.permissions.includes('Eliminar muestras')" @click="showConfirmModal = true" as="button" class="text-red-500 hover:!bg-red-50 dark:hover:!bg-red-900/50">
@@ -378,6 +391,12 @@ export default {
         sampleTracking: Object,
     },
     computed: {
+        // La Orden de Venta de muestra/regalo solo aplica si la muestra no será devuelta
+        // y el usuario tiene permiso para crearla.
+        canCreateSampleSale() {
+            return !this.sampleTracking.will_be_returned
+                && this.$page.props.auth.user.permissions.includes('Crear ordenes de venta');
+        },
         // Productos nuevos del seguimiento que aún no están registrados en "Muestras y regalos"
         pendingProposalItems() {
             return (this.sampleTracking.items || [])
