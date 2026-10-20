@@ -163,6 +163,7 @@ class NotificationCategories
         $types = $user->unreadNotifications()
             ->select('type', DB::raw('count(*) as total'))
             ->groupBy('type')
+            ->reorder()
             ->pluck('total', 'type');
 
         foreach ($types as $type => $total) {
