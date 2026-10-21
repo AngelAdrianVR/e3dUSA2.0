@@ -15,11 +15,15 @@
                 <div class="flex items-center gap-4 border-l border-gray-300 dark:border-gray-600 pl-4">
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-flag text-gray-500 dark:text-gray-400"></i>
-                        <span class="text-sm text-gray-600 dark:text-gray-300">Registro de guía / seguimiento</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Fecha tentativa de arribo</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <i class="fa-solid fa-truck-fast text-gray-500 dark:text-gray-400"></i>
-                        <span class="text-sm text-gray-600 dark:text-gray-300">Actualización / evento</span>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Registro de guía / actualización</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-flag-checkered text-gray-500 dark:text-gray-400"></i>
+                        <span class="text-sm text-gray-600 dark:text-gray-300">Fecha de arribo</span>
                     </div>
                 </div>
                 <!-- <p class="text-xs text-gray-400 dark:text-gray-500 ml-auto">
@@ -168,11 +172,6 @@
                                     {{ creatorNames.join(' · ') }}
                                 </p>
                             </div>
-                            <div v-if="canManage" class="flex justify-end pt-2">
-                                <el-button type="danger" plain size="small" :loading="deleting" @click="deleteEvent(selectedEntry)">
-                                    <i class="fa-solid fa-trash-can mr-2"></i> Eliminar actualización
-                                </el-button>
-                            </div>
                         </div>
 
                         <!-- Guía de paquetería -->
@@ -201,9 +200,13 @@
                                 </p>
                             </div>
                             <div>
-                                <p class="text-gray-500 dark:text-gray-400">Arribo confirmado</p>
+                                <p class="text-gray-500 dark:text-gray-400">Fecha de arribo</p>
                                 <p class="dark:text-gray-200">
-                                    {{ selectedEntry.arrived_at ? formatDateTime(selectedEntry.arrived_at) : 'Pendiente' }}
+                                    <template v-if="selectedEntry.arrived_at">
+                                        <i class="fa-solid fa-flag-checkered text-emerald-500 mr-1"></i>
+                                        {{ formatDate(selectedEntry.arrived_at) }}
+                                    </template>
+                                    <span v-else class="text-gray-400">Pendiente</span>
                                 </p>
                             </div>
                             <div v-if="creatorNames.length" class="col-span-2">
@@ -234,6 +237,13 @@
                                     hasta que se capture una nueva actualización.
                                 </p>
                             </div>
+                        </div>
+
+                        <!-- Eliminar la actualización/evento que se está consultando -->
+                        <div v-if="canManage && deletableEventId" class="flex justify-end pt-3">
+                            <el-button type="danger" plain size="small" :loading="deleting" @click="deleteEvent(deletableEventId)">
+                                <i class="fa-solid fa-trash-can mr-2"></i> Eliminar actualización
+                            </el-button>
                         </div>
                     </el-collapse-item>
 
@@ -324,14 +334,19 @@
                         </ul>
                     </el-collapse-item>
 
-                    <!-- Actualización del arribo (requiere permiso de gestión de arribos) -->
-                    <el-collapse-item v-if="canManage && selectedEntry.kind !== 'event'" name="update">
+                    <!-- Actualización del arribo (cualquier registro: guía, evento o partida) -->
+                    <el-collapse-item v-if="canManage" name="update">
                         <template #title>
                             <span class="flex items-center gap-2">
                                 <i class="fa-solid fa-pen-to-square text-gray-400"></i> Actualizar arribo
                             </span>
                         </template>
                         <div class="space-y-4 px-1">
+                            <p v-if="selectedEntry.kind === 'event'"
+                                class="text-[11px] text-gray-400 dark:text-gray-500">
+                                <i class="fa-solid fa-circle-info mr-1"></i>
+                                El estatus y la fecha tentativa se actualizan en la guía {{ selectedEntry.title }}.
+                            </p>
                             <div class="grid grid-cols-2 gap-3">
                                 <div>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Estatus</p>
@@ -349,24 +364,50 @@
                                         placeholder="Selecciona la fecha" class="w-full" />
                                 </div>
                             </div>
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                    {{ selectedEntry.kind === 'shipment' ? 'Notas de la guía' : 'Notas del arribo' }}
+
+                            <!-- Fecha real de arribo: solo al marcar como arribado -->
+                            <div v-if="showsArrivalDate">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha de arribo *</p>
+                                <el-date-picker v-model="arrivalForm.arrived_at" type="date" value-format="YYYY-MM-DD"
+                                    placeholder="Selecciona la fecha" class="w-full" />
+                                <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                                    <i class="fa-solid fa-lock mr-1"></i>
+                                    Al confirmar el arribo, el estatus de la guía queda cerrado y ya no podrá cambiarse.
                                 </p>
+                            </div>
+
+                            <!-- Partidas sin guía: nota propia del arribo -->
+                            <div v-if="selectedEntry.kind === 'item'">
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Notas del arribo</p>
                                 <textarea v-model="arrivalForm.notes" rows="2"
                                     class="w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
                                     placeholder="Ej. Contiene 3 cajas, pendiente de aduana..."></textarea>
                                 <p class="text-[11px] text-gray-400 mt-1">
-                                    <template v-if="selectedEntry.kind === 'shipment'">
-                                        La nota se muestra junto al número de guía en el calendario.
-                                    </template>
-                                    <template v-else>
-                                        La nota se muestra junto a la fecha tentativa de arribo en el calendario.
-                                    </template>
+                                    La nota se muestra junto a la fecha tentativa de arribo en el calendario.
                                 </p>
                             </div>
+
+                            <!-- Guías y eventos: la descripción se guarda como actualización con su fecha -->
+                            <div v-else class="space-y-3">
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Fecha de la actualización</p>
+                                    <el-date-picker v-model="arrivalForm.event_date" type="date" value-format="YYYY-MM-DD"
+                                        placeholder="Selecciona la fecha" class="w-full" />
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">Descripción de la actualización</p>
+                                    <textarea v-model="arrivalForm.event_description" rows="2"
+                                        class="w-full rounded-md border-gray-300 dark:border-slate-700 dark:bg-slate-800 dark:text-gray-200 text-sm"
+                                        placeholder="Ej. Comienza producción"></textarea>
+                                    <p class="text-[11px] text-gray-400 mt-1">
+                                        <i class="fa-solid fa-clock-rotate-left mr-1"></i>
+                                        Cada descripción se guarda con su fecha y queda en el historial del seguimiento.
+                                    </p>
+                                </div>
+                            </div>
                             <div class="flex justify-end">
-                                <el-button type="primary" :loading="saving" @click="saveArrival">Guardar cambios</el-button>
+                                <el-button type="primary" :loading="saving" :disabled="arrivalStatusLocked"
+                                    @click="saveArrival">Guardar cambios</el-button>
                             </div>
                         </div>
                     </el-collapse-item>
@@ -393,6 +434,36 @@
                     <label class="text-sm text-gray-600 dark:text-gray-300">Fecha del evento *</label>
                     <el-date-picker v-model="eventForm.event_date" type="date" value-format="YYYY-MM-DD"
                         placeholder="Selecciona la fecha" class="w-full mt-1" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-sm text-gray-600 dark:text-gray-300">Estatus de arribo</label>
+                        <el-select v-model="eventForm.status" clearable class="w-full mt-1"
+                            :disabled="eventShipmentLocked" placeholder="Sin cambio">
+                            <el-option v-for="status in statuses" :key="status" :label="status" :value="status" />
+                        </el-select>
+                        <p v-if="eventShipmentLocked" class="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                            <i class="fa-solid fa-lock mr-1"></i>
+                            La guía ya fue marcada como arribada; su estatus no puede cambiarse.
+                        </p>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-600 dark:text-gray-300">Fecha tentativa de arribo</label>
+                        <el-date-picker v-model="eventForm.estimated_arrival_date" type="date" value-format="YYYY-MM-DD"
+                            placeholder="Selecciona la fecha" class="w-full mt-1" />
+                    </div>
+                </div>
+
+                <!-- El evento también puede confirmar el arribo con su fecha real -->
+                <div v-if="eventShowsArrivalDate">
+                    <label class="text-sm text-gray-600 dark:text-gray-300">Fecha de arribo *</label>
+                    <el-date-picker v-model="eventForm.arrived_at" type="date" value-format="YYYY-MM-DD"
+                        placeholder="Selecciona la fecha" class="w-full mt-1" />
+                    <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                        <i class="fa-solid fa-lock mr-1"></i>
+                        Al confirmar el arribo, el estatus de la guía queda cerrado y ya no podrá cambiarse.
+                    </p>
                 </div>
 
                 <div>
@@ -451,7 +522,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { router } from '@inertiajs/vue3';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 
 export default {
     props: {
@@ -471,8 +542,24 @@ export default {
             deleting: false,
             savingEvent: false,
             eventModal: false,
-            eventForm: { shipment_id: null, event_date: null, location: '', custom_location: '', description: '' },
-            arrivalForm: { status: 'Pendiente', date: null, notes: '' },
+            eventForm: {
+                shipment_id: null,
+                event_date: null,
+                location: '',
+                custom_location: '',
+                description: '',
+                status: null,
+                estimated_arrival_date: null,
+                arrived_at: null,
+            },
+            arrivalForm: {
+                status: 'Pendiente',
+                date: null,
+                arrived_at: null,
+                notes: '',
+                event_date: null,
+                event_description: '',
+            },
             // Secciones abiertas del drawer: las actualizaciones quedan plegadas.
             openSections: ['general', 'products'],
             // Última entrada abierta por enlace directo (notificaciones).
@@ -496,7 +583,33 @@ export default {
         },
         // Una guía arribada queda cerrada: su estatus ya no se puede modificar.
         arrivalStatusLocked() {
-            return this.selectedEntry?.kind === 'shipment' && this.selectedEntry?.status === 'Arribado';
+            return this.selectedEntry?.kind !== 'item' && this.selectedEntry?.status === 'Arribado';
+        },
+        // Actualización/evento que se muestra (registro propio o estado arrastrado).
+        deletableEventId() {
+            const entry = this.selectedEntry;
+
+            if (!entry) return null;
+            if (entry.kind === 'event') return entry.id;
+            if (entry.state_kind === 'event') return entry.state_id ?? null;
+
+            return null;
+        },
+        // La fecha real solo se captura al pasar a "Arribado".
+        showsArrivalDate() {
+            return this.selectedEntry?.kind !== 'item'
+                && this.arrivalForm.status === 'Arribado'
+                && this.selectedEntry?.status !== 'Arribado';
+        },
+        // Guía elegida en el formulario de actualización / evento.
+        eventShipmentOption() {
+            return this.shipmentOptions.find(option => option.id === this.eventForm.shipment_id) ?? null;
+        },
+        eventShipmentLocked() {
+            return this.eventShipmentOption?.status === 'Arribado';
+        },
+        eventShowsArrivalDate() {
+            return this.eventForm.status === 'Arribado' && this.eventShipmentOption?.status !== 'Arribado';
         },
         productImages() {
             return (this.selectedEntry?.items ?? []).map(item => item.image_url).filter(Boolean);
@@ -519,7 +632,8 @@ export default {
         canSubmitEvent() {
             return Boolean(this.eventForm.shipment_id)
                 && Boolean(this.eventForm.event_date)
-                && Boolean(this.eventLocation || this.eventForm.description?.trim());
+                && Boolean(this.eventLocation || this.eventForm.description?.trim())
+                && (!this.eventShowsArrivalDate || Boolean(this.eventForm.arrived_at));
         },
         // Quién levantó las requisiciones del arribo (sin repetir nombres).
         creatorNames() {
@@ -565,9 +679,37 @@ export default {
         selectedEntry(entry) {
             this.arrivalForm.status = entry?.status ?? 'Pendiente';
             this.arrivalForm.date = entry?.estimated_arrival_date ?? null;
+            this.arrivalForm.arrived_at = entry?.arrived_at
+                ? format(parseISO(entry.arrived_at), 'yyyy-MM-dd')
+                : null;
             this.arrivalForm.notes = entry?.notes ?? '';
+            // La descripción nueva se registra en el día que se está consultando.
+            this.arrivalForm.event_date = entry?.date ?? format(new Date(), 'yyyy-MM-dd');
+            this.arrivalForm.event_description = '';
             // Cada apertura reinicia las secciones plegadas.
             this.openSections = ['general', 'products'];
+        },
+        // Al elegir una guía en el evento se precargan estatus y fechas vigentes.
+        'eventForm.shipment_id'(id) {
+            const option = this.shipmentOptions.find(item => item.id === id);
+
+            if (!option) return;
+
+            this.eventForm.status = option.status ?? null;
+            this.eventForm.estimated_arrival_date = option.estimated_arrival_date ?? null;
+            this.eventForm.arrived_at = null;
+        },
+        // Al marcar el arribo se propone la fecha del evento (o hoy).
+        'eventForm.status'(status) {
+            if (status === 'Arribado' && !this.eventForm.arrived_at) {
+                this.eventForm.arrived_at = this.eventForm.event_date ?? format(new Date(), 'yyyy-MM-dd');
+            }
+        },
+        // La fecha de arribo se propone con el día seleccionado en el calendario.
+        'arrivalForm.status'(status) {
+            if (status === 'Arribado' && !this.arrivalForm.arrived_at) {
+                this.arrivalForm.arrived_at = this.selectedEntry?.date ?? format(new Date(), 'yyyy-MM-dd');
+            }
         },
         // Enlaces directos desde notificaciones (misma página reutilizada por Inertia).
         '$page.url'() {
@@ -603,6 +745,10 @@ export default {
             this.highlightEntry(entry);
             this.selectedEntry = entry;
         },
+        // Cierra el detalle del arribo (lo usa el calendario al cambiar de pestaña).
+        closeDrawer() {
+            this.selectedEntry = null;
+        },
         changeMonth(offset) {
             this.currentMonth = addMonths(this.currentMonth, offset);
         },
@@ -630,7 +776,9 @@ export default {
 
             // Se señala el primer registro del folio: el día más antiguo del
             // seguimiento (alta de la guía), sin importar el orden del listado.
-            const matches = dated.filter(candidate => this.matchesSearch(candidate, normalized));
+            // La fecha tentativa no cuenta como primer registro.
+            const matches = dated.filter(candidate =>
+                candidate.kind !== 'estimate' && this.matchesSearch(candidate, normalized));
             const entry = matches.length
                 ? matches.reduce((earliest, candidate) => (!earliest || candidate.date < earliest.date ? candidate : earliest), null)
                 : undated.find(candidate => this.matchesSearch(candidate, normalized));
@@ -711,8 +859,8 @@ export default {
                 return `${entry.title} · ${this.truncateText(entry.description)}`;
             }
 
-            // En los días repetidos se muestra el último estado registrado.
-            const note = (entry.state_label ?? entry.notes ?? '').trim();
+            // En los días repetidos se muestra la última actualización registrada.
+            const note = (entry.state_label ?? '').trim();
 
             return note ? `${entry.title} · ${this.truncateText(note)}` : entry.title;
         },
@@ -726,28 +874,43 @@ export default {
         previewIndex(item) {
             return Math.max(this.productImages.indexOf(item.image_url), 0);
         },
-        // Distinción visual: bandera = registro de guía, coche = actualización/evento.
+        // Distinción visual: bandera = fecha tentativa de arribo, bandera a cuadros
+        // = fecha de arribo, coche = registro de guía, actualizaciones y eventos.
         entryIcon(entry) {
-            if (entry.kind === 'event' || entry.state_kind === 'event') return 'fa-solid fa-truck-fast';
+            const kind = entry.carried ? entry.state_kind : entry.kind;
 
-            return entry.arrived_at ? 'fa-solid fa-flag-checkered' : 'fa-solid fa-flag';
+            if (kind === 'arrival') return 'fa-solid fa-flag-checkered';
+
+            return kind === 'estimate' || kind === 'item'
+                ? 'fa-solid fa-flag'
+                : 'fa-solid fa-truck-fast';
         },
         entryTooltip(entry) {
             if (entry.kind === 'event') {
                 return `Actualización/evento · ${entry.description ?? ''}`;
             }
 
+            if (entry.kind === 'estimate') {
+                return `Fecha tentativa de arribo · ${entry.title}${entry.date ? ' · ' + this.formatDate(entry.date) : ''}`;
+            }
+
+            if (entry.kind === 'arrival') {
+                return `Fecha de arribo · ${entry.title}${entry.date ? ' · ' + this.formatDate(entry.date) : ''}`;
+            }
+
             if (entry.kind === 'item') {
                 return `Fecha tentativa de arribo · ${entry.subtitle ?? 'Mercancía'}`;
             }
 
-            const state = (entry.state_label ?? entry.notes ?? '').trim();
+            const state = (entry.state_label ?? '').trim();
             const status = entry.arrived_at ? 'Arribo confirmado' : 'Registro de guía';
 
             return state ? `${status} · ${state}` : status;
         },
         kindLabel(entry) {
             if (entry.kind === 'event') return 'Actualización / evento';
+            if (entry.kind === 'estimate') return 'Fecha tentativa de arribo';
+            if (entry.kind === 'arrival') return 'Fecha de arribo';
             if (entry.kind === 'shipment') return 'Guía de paquetería';
 
             return entry.kind === 'item' ? 'Producto' : 'Requisición';
@@ -755,6 +918,7 @@ export default {
         kindTagType(entry) {
             if (entry.kind === 'event') return 'warning';
             if (entry.kind === 'shipment') return 'primary';
+            if (entry.kind === 'arrival') return 'success';
 
             return 'info';
         },
@@ -762,19 +926,38 @@ export default {
         openEventDialog(date = null) {
             if (!this.canManage) return;
 
-            this.eventForm.shipment_id = this.selectedEntry?.kind === 'shipment'
-                ? this.selectedEntry.id
+            const entry = this.selectedEntry;
+            const shipmentId = entry && entry.kind !== 'item'
+                ? (entry.shipment_id ?? (entry.kind === 'shipment' ? entry.id : null))
                 : null;
+
+            this.eventForm.shipment_id = shipmentId;
             this.eventForm.event_date = date;
             this.eventForm.location = '';
             this.eventForm.custom_location = '';
             this.eventForm.description = '';
+            this.eventForm.status = shipmentId ? (entry?.status ?? null) : null;
+            this.eventForm.estimated_arrival_date = shipmentId ? (entry?.estimated_arrival_date ?? null) : null;
+            this.eventForm.arrived_at = null;
             this.eventModal = true;
         },
         submitEvent() {
-            const form = this.eventForm;
-
             if (!this.canSubmitEvent) return;
+
+            if (!this.eventShowsArrivalDate) {
+                this.postEvent();
+
+                return;
+            }
+
+            ElMessageBox.confirm(
+                'Al confirmar el arribo, el estatus de la guía quedará cerrado y ya no podrá cambiarse. ¿Continuar?',
+                'Confirmar arribo',
+                { confirmButtonText: 'Confirmar arribo', cancelButtonText: 'Cancelar', type: 'warning' }
+            ).then(() => this.postEvent()).catch(() => {});
+        },
+        postEvent() {
+            const form = this.eventForm;
 
             this.savingEvent = true;
 
@@ -782,20 +965,24 @@ export default {
                 event_date: form.event_date,
                 location: this.eventLocation || null,
                 description: form.description?.trim() || null,
+                status: form.status || null,
+                estimated_arrival_date: form.estimated_arrival_date || null,
+                arrived_at: this.eventShowsArrivalDate ? form.arrived_at : null,
             }, {
                 preserveScroll: true,
                 onSuccess: () => {
                     this.eventModal = false;
+                    this.selectedEntry = null;
                     ElMessage.success('Actualización registrada.');
                 },
-                onError: () => ElMessage.error('No se pudo registrar la actualización.'),
+                onError: (errors) => ElMessage.error(Object.values(errors ?? {})[0] ?? 'No se pudo registrar la actualización.'),
                 onFinish: () => (this.savingEvent = false),
             });
         },
-        deleteEvent(entry) {
+        deleteEvent(eventId) {
             this.deleting = true;
 
-            router.delete(route('requisition-shipment-events.destroy', entry.id), {
+            router.delete(route('requisition-shipment-events.destroy', eventId), {
                 preserveScroll: true,
                 onSuccess: () => {
                     this.selectedEntry = null;
@@ -810,9 +997,31 @@ export default {
 
             if (!entry) return;
 
+            if (this.showsArrivalDate && !this.arrivalForm.arrived_at) {
+                ElMessage.warning('Captura la fecha de arribo.');
+
+                return;
+            }
+
+            if (!this.showsArrivalDate) {
+                this.persistArrival(entry);
+
+                return;
+            }
+
+            ElMessageBox.confirm(
+                'Al confirmar el arribo, el estatus de la guía quedará cerrado y ya no podrá cambiarse. ¿Continuar?',
+                'Confirmar arribo',
+                { confirmButtonText: 'Confirmar arribo', cancelButtonText: 'Cancelar', type: 'warning' }
+            ).then(() => this.persistArrival(entry)).catch(() => {});
+        },
+        persistArrival(entry) {
             const status = this.arrivalForm.status;
             const date = this.arrivalForm.date || null;
             const notes = this.arrivalForm.notes || '';
+            const arrivedAt = status === 'Arribado' ? this.arrivalForm.arrived_at : null;
+            // Descripción nueva: se guarda como actualización con su propia fecha.
+            const description = this.arrivalForm.event_description?.trim() || null;
 
             const options = {
                 preserveScroll: true,
@@ -821,32 +1030,47 @@ export default {
                     // Se refleja el cambio en el detalle abierto sin cerrar el panel.
                     entry.status = status;
                     entry.estimated_arrival_date = date;
+                    entry.arrived_at = arrivedAt;
                     entry.color = this.legend[status] ?? '#9CA3AF';
-                    entry.notes = notes;
-                    ElMessage.success('Arribo actualizado.');
+
+                    if (entry.kind === 'item') {
+                        entry.notes = notes;
+                    }
+
+                    // Con una descripción nueva se cierra el detalle para ver el
+                    // registro recién agregado en el calendario.
+                    if (description) {
+                        this.selectedEntry = null;
+                    }
+
+                    ElMessage.success(description
+                        ? 'Actualización registrada en el historial.'
+                        : 'Arribo actualizado.');
                 },
-                onError: () => ElMessage.error('No se pudo actualizar el arribo.'),
+                onError: (errors) => ElMessage.error(Object.values(errors ?? {})[0] ?? 'No se pudo actualizar el arribo.'),
                 onFinish: () => (this.saving = false),
             };
 
             this.saving = true;
 
-            // Las guías tienen estatus, fecha y notas propias; las partidas sin
-            // guía actualizan su estatus, la fecha tentativa y sus notas.
-            if (entry.kind === 'shipment') {
-                router.put(route('requisition-shipments.update-status', entry.id), {
-                    status,
-                    estimated_arrival_date: date,
-                    notes,
+            // Las partidas sin guía actualizan su estatus, la fecha tentativa y notas.
+            if (entry.kind === 'item') {
+                router.put(route('requisition-items.arrival-status', entry.id), {
+                    arrival_status: status,
+                    expected_delivery_date: date,
+                    arrival_notes: notes,
                 }, options);
 
                 return;
             }
 
-            router.put(route('requisition-items.arrival-status', entry.id), {
-                arrival_status: status,
-                expected_delivery_date: date,
-                arrival_notes: notes,
+            // Guías y eventos actualizan la guía a la que pertenecen.
+            router.put(route('requisition-shipments.update-status', entry.shipment_id ?? entry.id), {
+                status,
+                estimated_arrival_date: date,
+                arrived_at: arrivedAt,
+                event_date: this.arrivalForm.event_date,
+                event_description: description,
             }, options);
         },
         formatDate(dateString) {

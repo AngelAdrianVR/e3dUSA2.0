@@ -38,14 +38,29 @@
 
             <!-- BOTÓN FLOTANTE PARA HISTORIAL (SOLO PRODUCTOS DE CATÁLOGO) -->
             <div class="absolute bottom-1 right-1 z-20 print:hidden" v-if="item.product">
-                 <el-popover placement="right" :width="280" trigger="click">
+                 <el-popover placement="right" :width="300" trigger="click">
                     <template #reference>
-                        <button class="text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-md transition-colors px-2 py-1 flex items-center justify-center ring-2 ring-white" title="Ver historial y actualizar precio">
-                            Historial de precios
+                        <button class="text-xs bg-sky-600 hover:bg-sky-500 text-white rounded-full shadow-md transition-colors px-2 py-1 flex items-center justify-center ring-2 ring-white" title="Ver historial de precios y de ventas">
+                            Historial
                         </button>
                     </template>
                     
                     <div class="text-xs text-gray-700">
+                         <!-- Selector entre historial de precios y de ventas -->
+                         <div class="flex items-center gap-1 mb-2 rounded-lg bg-gray-100 p-1">
+                            <button type="button" @click="historyTab = 'prices'"
+                                class="flex-1 rounded-md px-2 py-1 font-bold transition-colors"
+                                :class="historyTab === 'prices' ? 'bg-white text-sky-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                                <i class="fa-solid fa-tag mr-1"></i> Precios
+                            </button>
+                            <button type="button" @click="historyTab = 'sales'"
+                                class="flex-1 rounded-md px-2 py-1 font-bold transition-colors"
+                                :class="historyTab === 'sales' ? 'bg-white text-sky-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                                <i class="fa-solid fa-receipt mr-1"></i> Ventas
+                            </button>
+                         </div>
+
+                         <div v-if="historyTab === 'prices'">
                          <div class="flex justify-between items-center mb-2 border-b pb-1">
                             <h4 class="font-bold dark:text-gray-300">Historial de Precios</h4>
                             <i class="fa-solid fa-clock-rotate-left" :class="lastUpdateInfo?.colorClass" :title="lastUpdateInfo?.text"></i>
@@ -107,6 +122,39 @@
                          </button>
                          
                          <p v-if="!item.product?.price_history?.length" class="text-[9px] text-gray-400 text-center mt-1">Ir a productos del cliente</p>
+                         </div>
+
+                         <!-- Historial de ventas (últimas 10 del cliente/grupo) -->
+                         <div v-else>
+                            <div class="flex justify-between items-center mb-2 border-b pb-1">
+                                <h4 class="font-bold dark:text-gray-300">Historial de Ventas</h4>
+                                <i class="fa-solid fa-receipt text-sky-600" title="Últimas 10 ventas"></i>
+                            </div>
+
+                            <div v-if="!productSales.length" class="text-gray-500 italic text-center py-4 bg-gray-50 rounded border border-gray-100">
+                                <i class="fa-solid fa-circle-info text-blue-400 mb-2 text-lg block"></i>
+                                Este producto aún no cuenta con ventas registradas para este cliente.
+                            </div>
+
+                            <ul v-else class="max-h-48 overflow-y-auto space-y-1 pr-1">
+                                <li v-for="sale in productSales" :key="sale.sale_id" class="bg-gray-50 p-1.5 rounded border border-gray-100">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-500 text-[10px]">{{ formatDate(sale.created_at) }}</span>
+                                        <span class="font-bold text-gray-800">${{ formatNumber(sale.price) }} {{ sale.currency }}</span>
+                                    </div>
+                                    <div class="text-[9px] text-gray-500 mt-0.5 truncate" :title="sale.branch_name">
+                                        <i class="fa-solid fa-store mr-1 text-gray-400"></i>{{ sale.branch_name }}
+                                    </div>
+                                    <div class="text-[9px] text-gray-400 truncate" :title="sale.user_name || 'Sistema'">
+                                        <i class="fa-solid fa-user mr-1"></i>{{ sale.user_name || 'Sistema' }}
+                                    </div>
+                                </li>
+                            </ul>
+
+                            <p v-if="productSales.length" class="text-[9px] text-gray-400 text-center mt-2">
+                                Últimas {{ productSales.length }} ventas del cliente y su grupo.
+                            </p>
+                         </div>
                     </div>
                  </el-popover>
             </div>
@@ -335,7 +383,9 @@ export default {
         quote: { type: Object, required: true },
         showAdditionalElements: { type: Boolean, default: true },
         labelChanged: { type: Boolean, default: false },
-        showVariantToggles: { type: Boolean, default: false }
+        showVariantToggles: { type: Boolean, default: false },
+        // Últimas ventas por producto de catálogo, indexadas por product_id.
+        salesHistories: { type: Object, default: () => ({}) }
     },
     emits: ['update-status'],
     data() {
@@ -359,11 +409,17 @@ export default {
             // Toggles independientes: true = mostrando variante
             imageToggles: {},
             nameToggles: {},
+            // Pestaña activa del historial: 'prices' | 'sales'
+            historyTab: 'prices',
         }
     },
     computed: {
         productMedia() {
             return this.item.product ? this.item.product.media : this.item.media;
+        },
+        productSales() {
+            const sales = this.salesHistories?.[this.item.product_id];
+            return Array.isArray(sales) ? sales : [];
         },
         canBypassPriceRule() {
             return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;

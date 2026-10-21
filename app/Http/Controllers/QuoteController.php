@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\QuoteProduct;
+use App\Models\SaleProduct;
 use App\Models\User;
 use App\Notifications\ApprovalQuoteNotification;
 use App\Notifications\NewQuoteForApprovalNotification;
@@ -243,9 +244,16 @@ class QuoteController extends Controller
 
     public function show(Quote $quote)
     {
-        $quote->load('branch');
+        $quote->load('branch.parent');
         // Misma sucursal (matriz o líder de grupo) donde se escriben los precios.
         $productSourceBranch = $this->branchGroups->getProductTargetBranch($quote->branch);
+
+        // Las sucursales hijas heredan la razón social de su matriz cuando no
+        // cuentan con una propia.
+        if ($quote->branch) {
+            $quote->branch->business_name = $this->branchGroups->resolveBusinessName($quote->branch);
+            $quote->branch->unsetRelation('parent');
+        }
 
         $quote->load([
             'user', 
@@ -290,7 +298,67 @@ class QuoteController extends Controller
             'prev_version_id' => $prev_version_id,
             'next_quote' => $nextQuote->id,
             'prev_quote' => $prevQuote->id,
+            'salesHistories' => $this->getProductSalesHistory($quote),
         ]);
+    }
+
+    /**
+     * Últimas 10 ventas de cada producto de catálogo incluido en la cotización.
+     *
+     * El historial se comparte entre las sucursales que comparten catálogo con el
+     * cliente (miembros del mismo grupo y sucursales de la misma familia), ya que
+     * todas manejan los mismos productos.
+     *
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    private function getProductSalesHistory(Quote $quote): array
+    {
+        $productIds = $quote->quoteProducts
+            ->pluck('product_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($productIds->isEmpty() || !$quote->branch) {
+            return [];
+        }
+
+        $branchIds = $this->branchGroups->getRelatedBranchIds($quote->branch);
+
+        return $productIds->mapWithKeys(function ($productId) use ($branchIds) {
+            $sales = SaleProduct::query()
+                ->join('sales', 'sales.id', '=', 'sale_products.sale_id')
+                ->join('branches', 'branches.id', '=', 'sales.branch_id')
+                ->leftJoin('users', 'users.id', '=', 'sales.user_id')
+                ->where('sale_products.product_id', $productId)
+                ->whereIn('sales.branch_id', $branchIds)
+                ->where('sales.type', 'venta')
+                ->where('sales.status', '!=', 'Cancelada')
+                ->orderByDesc('sales.created_at')
+                ->limit(10)
+                ->get([
+                    'sale_products.quantity',
+                    'sale_products.price',
+                    'sales.id as sale_id',
+                    'sales.created_at',
+                    'sales.currency',
+                    'branches.name as branch_name',
+                    'users.name as user_name',
+                ])
+                ->map(fn ($sale) => [
+                    'sale_id' => $sale->sale_id,
+                    'quantity' => (float) $sale->quantity,
+                    'price' => (float) $sale->price,
+                    'currency' => $sale->currency,
+                    'created_at' => Carbon::parse($sale->created_at)->toIso8601String(),
+                    'branch_name' => $sale->branch_name,
+                    'user_name' => $sale->user_name,
+                ])
+                ->values()
+                ->all();
+
+            return [$productId => $sales];
+        })->all();
     }
 
     public function edit(Quote $quote)

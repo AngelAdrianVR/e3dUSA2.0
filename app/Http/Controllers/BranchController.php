@@ -1187,23 +1187,7 @@ class BranchController extends Controller
 
         // Sucursales cuyos productos forman parte del catálogo visible: el destino,
         // todos los miembros del grupo (si pertenece a uno) y las sucursales hijas.
-        $branchIds = collect([$productSourceBranch->id]);
-
-        $groupName = $this->branchGroups->resolveGroupName($branch);
-
-        if ($groupName) {
-            $groupBranchIds = Branch::where('group_name', $groupName)->pluck('id');
-
-            $branchIds = $branchIds
-                ->merge($groupBranchIds)
-                ->merge(Branch::whereIn('parent_branch_id', $groupBranchIds)->pluck('id'));
-        }
-
-        // Incluimos también las sucursales hijas del destino (por si conservan productos propios).
-        $branchIds = $branchIds
-            ->merge(Branch::where('parent_branch_id', $productSourceBranch->id)->pluck('id'))
-            ->unique()
-            ->values();
+        $branchIds = $this->branchGroups->getRelatedBranchIds($branch);
 
         // Unión de los IDs de producto de todas esas sucursales, sin duplicar.
         $productIds = DB::table('branch_product')

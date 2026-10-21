@@ -71,9 +71,11 @@ class CalendarController extends Controller
     /**
      * Arribos de mercancía para la pestaña del calendario.
      *
-     * Cada guía de paquetería genera UNA sola entrada (agrupa todos los productos
-     * que viajan en ella). Los productos con fecha estimada que aún no tienen guía
-     * se muestran como entradas individuales.
+     * Cada guía de paquetería agrupa todos los productos que viajan en ella. Su
+     * alta se marca el día en que se registró y, si tiene fecha tentativa de
+     * arribo, se agrega un registro extra (bandera) en esa fecha. Los productos
+     * con fecha estimada que aún no tienen guía se muestran como entradas
+     * individuales.
      */
     private function requisitionArrivals(): array
     {
@@ -139,8 +141,9 @@ class CalendarController extends Controller
 
             /*
              * Registros base del seguimiento: el alta de la guía (con la nota
-             * capturada al asignarla) y cada actualización / evento. La guía se
-             * ancla al día en que se asignó, no a la fecha tentativa de arribo.
+             * capturada al asignarla), la fecha tentativa de arribo y cada
+             * actualización / evento. La guía se ancla al día en que se asignó y
+             * la tentativa de arribo a su propia fecha.
              */
             $records = collect();
 
@@ -151,6 +154,30 @@ class CalendarController extends Controller
                     'id' => $shipment->id,
                     'date' => $shipment->created_at->toDateString(),
                     'label' => $shipment->notes,
+                    'created_by_name' => null,
+                ]);
+            }
+
+            // La tentativa solo se marca mientras la mercancía no haya arribado;
+            // una vez confirmado el arribo esa fecha se reemplaza por la real.
+            if ($shipment->estimated_arrival_date && ! $shipment->arrived_at) {
+                $records->push([
+                    'key' => 'shipment-estimate-' . $shipment->id,
+                    'kind' => 'estimate',
+                    'id' => $shipment->id,
+                    'date' => $shipment->estimated_arrival_date->toDateString(),
+                    'label' => 'Fecha tentativa de arribo',
+                    'created_by_name' => null,
+                ]);
+            }
+
+            if ($shipment->arrived_at) {
+                $records->push([
+                    'key' => 'shipment-arrival-' . $shipment->id,
+                    'kind' => 'arrival',
+                    'id' => $shipment->id,
+                    'date' => $shipment->arrived_at->toDateString(),
+                    'label' => 'Fecha de arribo',
                     'created_by_name' => null,
                 ]);
             }
@@ -171,6 +198,10 @@ class CalendarController extends Controller
             }
 
             $records = $records->sortBy('date')->values();
+
+            // La fecha tentativa es un hito informativo: no se arrastra como
+            // "último estado" en los días intermedios.
+            $stateRecords = $records->reject(fn (array $record) => $record['kind'] === 'estimate')->values();
 
             $entry = [
                 'id' => $shipment->id,
@@ -210,11 +241,19 @@ class CalendarController extends Controller
                 continue;
             }
 
-            // Se repite el último estado conocido hasta el arribo (o hasta hoy).
+            // Se repite el último estado conocido desde el alta de la guía hasta su
+            // fecha tentativa de arribo (o hasta hoy si no tiene tentativa).
             $today = now()->startOfDay();
             $end = $shipment->arrived_at?->copy()->startOfDay() ?? $today;
 
-            if ($end->gt($today)) {
+            if (! $shipment->arrived_at) {
+                $estimate = $shipment->estimated_arrival_date?->copy()->startOfDay();
+
+                if ($estimate && $estimate->gt($end)) {
+                    $end = $estimate;
+                }
+            } elseif ($end->gt($today)) {
+                // Un arribo con fecha futura no debe proyectar la guía más allá de hoy.
                 $end = $today->copy();
             }
 
@@ -271,16 +310,22 @@ class CalendarController extends Controller
                     ];
                 }
 
-                if ($dayRecords->isNotEmpty()) {
+                // La fecha tentativa no rompe la continuidad del estado: solo el
+                // alta de la guía o una actualización sustituyen el día.
+                if ($dayRecords->contains(fn (array $record) => $record['kind'] !== 'estimate')) {
                     continue;
                 }
 
                 // Días intermedios: se arrastra el último estado registrado.
-                $current = $records->filter(fn (array $record) => $record['date'] <= $date)->last();
+                $current = $stateRecords->filter(fn (array $record) => $record['date'] <= $date)->last();
 
                 if (! $current) {
                     continue;
                 }
+
+                // Solo las actualizaciones describen el estado del día; las notas
+                // generales de la guía no se repiten en todos los registros.
+                $stateLabel = $current['kind'] === 'event' ? $current['label'] : null;
 
                 $arrivals[] = [
                     ...$entry,
@@ -288,9 +333,11 @@ class CalendarController extends Controller
                     'kind' => 'shipment',
                     'id' => $shipment->id,
                     'date' => $date,
-                    'description' => $current['label'],
-                    'state_label' => $current['label'],
+                    'description' => $stateLabel,
+                    'state_label' => $stateLabel,
                     'state_kind' => $current['kind'],
+                    // Id del registro repetido, para poder operar sobre él.
+                    'state_id' => $current['id'],
                     'state_date' => $current['date'],
                     'carried' => true,
                     'created_by_name' => $current['created_by_name'],
@@ -366,7 +413,7 @@ class CalendarController extends Controller
             // Guías disponibles para registrar actualizaciones / eventos.
             'shipment_options' => $canManage
                 ? RequisitionShipment::orderByDesc('created_at')
-                    ->get(['id', 'tracking_number', 'carrier', 'delivery_method', 'status', 'estimated_arrival_date'])
+                    ->get(['id', 'tracking_number', 'carrier', 'delivery_method', 'status', 'estimated_arrival_date', 'arrived_at'])
                     ->map(fn (RequisitionShipment $shipment) => [
                         'id' => $shipment->id,
                         'tracking_number' => $shipment->tracking_number,
@@ -375,6 +422,7 @@ class CalendarController extends Controller
                         'carrier' => $shipment->carrier,
                         'status' => $shipment->status,
                         'estimated_arrival_date' => $shipment->estimated_arrival_date?->toDateString(),
+                        'arrived_at' => $shipment->arrived_at?->toDateString(),
                     ])
                     ->values()
                     ->all()
