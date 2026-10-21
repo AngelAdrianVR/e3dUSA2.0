@@ -63,7 +63,7 @@ class RequisitionController extends Controller
             'branch.parent:id,name,business_name',
             'items:id,requisition_id,product_id,quantity,arrival_status',
             'items.product:id,name,code',
-            'shipments:id,tracking_number,delivery_method,status',
+            'shipments:id,tracking_number,delivery_method,status,estimated_arrival_date,arrived_at',
         ]);
 
         if ($view === 'mias') {
@@ -299,7 +299,7 @@ class RequisitionController extends Controller
             'comments.user:id,name',
             'items.product.media',
             'items.shipments:id,tracking_number,delivery_method,carrier,status',
-            'shipments:id,tracking_number,delivery_method,carrier,status,estimated_arrival_date,notes,created_at',
+            'shipments:id,tracking_number,delivery_method,carrier,status,estimated_arrival_date,arrived_at,notes,created_at',
             // Órdenes de compra vinculadas: distribuyen la mercancía por vía de envío.
             'purchases.supplier:id,name',
             'purchases.items.product:id,name,code,measure_unit',
@@ -411,7 +411,28 @@ class RequisitionController extends Controller
         abort_unless($this->canDeleteRequisition($requisition, $user), 403);
 
         $folio = $requisition->folio;
-        $requisition->delete();
+
+        DB::transaction(function () use ($requisition) {
+            // Guías ligadas a las partidas de esta requisición.
+            $shipments = $requisition->shipments()->get();
+
+            // La requisición se elimina en lógico, así que se desligan sus partidas
+            // de las guías para que no queden entradas fantasma en el calendario.
+            DB::table('requisition_item_shipment')
+                ->where('requisition_id', $requisition->id)
+                ->delete();
+
+            $requisition->delete();
+
+            foreach ($shipments as $shipment) {
+                // Una guía compartida con otras requisiciones se conserva; si quedó
+                // sin partidas, se elimina junto con sus actualizaciones para que
+                // desaparezca del calendario de arribos.
+                if (! $shipment->items()->exists()) {
+                    $shipment->delete();
+                }
+            }
+        });
 
         return redirect()->route('requisitions.index')->with('success', "Requisición {$folio} eliminada.");
     }

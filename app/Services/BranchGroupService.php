@@ -85,6 +85,57 @@ class BranchGroupService
     }
 
     /**
+     * Razón social efectiva de una sucursal.
+     *
+     * Las sucursales hijas suelen heredar la razón social de su matriz cuando
+     * no cuentan con una propia.
+     */
+    public function resolveBusinessName(Branch $branch): ?string
+    {
+        if (!empty($branch->business_name)) {
+            return $branch->business_name;
+        }
+
+        if ($branch->parent_branch_id) {
+            $branch->loadMissing('parent');
+
+            return $branch->parent?->business_name ?: null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Sucursales que comparten catálogo e historial con la sucursal dada.
+     *
+     * Incluye la sucursal destino de productos (matriz o líder del grupo), los
+     * miembros del grupo, sus sucursales hijas (que heredan el grupo) y las
+     * hijas del destino.
+     *
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    public function getRelatedBranchIds(Branch $branch): \Illuminate\Support\Collection
+    {
+        $target = $this->getProductTargetBranch($branch);
+        $branchIds = collect([$target->id]);
+
+        $groupName = $this->resolveGroupName($branch);
+
+        if ($groupName) {
+            $groupBranchIds = Branch::where('group_name', $groupName)->pluck('id');
+
+            $branchIds = $branchIds
+                ->merge($groupBranchIds)
+                ->merge(Branch::whereIn('parent_branch_id', $groupBranchIds)->pluck('id'));
+        }
+
+        return $branchIds
+            ->merge(Branch::where('parent_branch_id', $target->id)->pluck('id'))
+            ->unique()
+            ->values();
+    }
+
+    /**
      * Consolida en el líder del grupo la unión de los productos (e historial de
      * precios vigente) de todos los miembros, sin duplicar productos.
      *

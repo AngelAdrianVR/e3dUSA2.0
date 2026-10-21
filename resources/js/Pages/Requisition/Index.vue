@@ -240,20 +240,38 @@
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Guía / entrega" width="140">
+                            <el-table-column label="Guía / entrega" width="165">
                                 <template #default="scope">
-                                    <div v-if="scope.row.shipments?.length" class="text-xs">
+                                    <div v-if="scope.row.shipments?.length" class="text-xs space-y-0.5">
                                         <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="font-semibold">
                                             {{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}
+                                            <span v-if="shipment.arrived_at"
+                                                class="block font-normal text-[10px] text-emerald-600 dark:text-emerald-400">
+                                                <i class="fa-solid fa-flag-checkered mr-1"></i>
+                                                Arribó {{ formatDate(shipment.arrived_at) }}
+                                            </span>
                                         </p>
                                     </div>
                                     <span v-else class="text-xs text-gray-400">—</span>
                                 </template>
                             </el-table-column>
 
-                            <el-table-column label="Entrega estimada" width="150">
+                            <el-table-column label="Entrega estimada" width="200">
                                 <template #default="scope">
-                                    {{ scope.row.expected_delivery_date ? formatDate(scope.row.expected_delivery_date) : '—' }}
+                                    <!-- Cada guía tiene su propia fecha estimada de arribo -->
+                                    <div v-if="scope.row.shipments?.length" class="text-xs space-y-0.5">
+                                        <p v-for="shipment in scope.row.shipments" :key="shipment.id">
+                                            <span class="font-mono font-semibold">
+                                                {{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}
+                                            </span>
+                                            <span class="text-gray-500 dark:text-gray-400">
+                                                · {{ shipment.estimated_arrival_date ? formatDate(shipment.estimated_arrival_date) : 'Sin definir' }}
+                                            </span>
+                                        </p>
+                                    </div>
+                                    <span v-else class="text-xs">
+                                        {{ scope.row.expected_delivery_date ? formatDate(scope.row.expected_delivery_date) : 'Sin definir' }}
+                                    </span>
                                 </template>
                             </el-table-column>
 

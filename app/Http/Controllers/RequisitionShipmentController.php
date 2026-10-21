@@ -11,6 +11,7 @@ use App\Models\StockMovement;
 use App\Notifications\RequisitionArrivalScheduledNotification;
 use App\Notifications\RequisitionShipmentStatusNotification;
 use App\Support\RequisitionPermissions;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,7 @@ class RequisitionShipmentController extends Controller
             'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['required', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
+            'arrived_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'item_ids' => ['nullable', 'array'],
             'item_ids.*' => ['exists:requisition_items,id'],
@@ -64,7 +66,11 @@ class RequisitionShipmentController extends Controller
                 'delivery_method' => $deliveryMethod,
                 'status' => $request->status,
                 'estimated_arrival_date' => $request->estimated_arrival_date,
-                'arrived_at' => $request->status === 'Arribado' ? now() : null,
+                'arrived_at' => $request->status === 'Arribado'
+                    ? ($request->filled('arrived_at')
+                        ? Carbon::parse($request->arrived_at)->startOfDay()
+                        : now()->startOfDay())
+                    : null,
                 'notes' => $request->notes,
                 'created_by' => $user->id,
             ]);
@@ -108,6 +114,7 @@ class RequisitionShipmentController extends Controller
             'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['nullable', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
+            'arrived_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -148,10 +155,14 @@ class RequisitionShipmentController extends Controller
             if ($existingShipment) {
                 $shipment = $existingShipment;
 
-                // La nota de la entrega alimenta el registro del calendario de arribos.
+                // La nota de la entrega alimenta el registro del calendario de arribos
+                // y la fecha tentativa capturada se refleja en el mismo calendario.
                 $shipment->fill([
                     'notes' => $request->filled('notes') ? $request->notes : $shipment->notes,
                     'carrier' => $request->filled('carrier') ? $request->carrier : $shipment->carrier,
+                    'estimated_arrival_date' => $request->filled('estimated_arrival_date')
+                        ? $request->estimated_arrival_date
+                        : $shipment->estimated_arrival_date,
                     'delivery_method' => $request->filled('delivery_method')
                         ? $deliveryMethod
                         : $shipment->delivery_method,
@@ -165,11 +176,21 @@ class RequisitionShipmentController extends Controller
                         'delivery_method' => $deliveryMethod,
                         'status' => $request->status ?? 'Pendiente',
                         'estimated_arrival_date' => $request->estimated_arrival_date,
-                        'arrived_at' => $request->status === 'Arribado' ? now() : null,
+                        'arrived_at' => $request->status === 'Arribado'
+                            ? ($request->filled('arrived_at')
+                                ? Carbon::parse($request->arrived_at)->startOfDay()
+                                : now()->startOfDay())
+                            : null,
                         'notes' => $request->notes,
                         'created_by' => $user->id,
                     ]
                 );
+
+                // Si la guía ya existía, se conserva pero se actualiza la fecha
+                // tentativa capturada (se refleja en el calendario de arribos).
+                if (! $shipment->wasRecentlyCreated && $request->filled('estimated_arrival_date')) {
+                    $shipment->update(['estimated_arrival_date' => $request->estimated_arrival_date]);
+                }
             } else {
                 // Entregas sin guía: proveedor o transporte propio de la empresa.
                 $shipment = RequisitionShipment::create([
@@ -178,7 +199,11 @@ class RequisitionShipmentController extends Controller
                     'delivery_method' => $deliveryMethod,
                     'status' => $request->status ?? 'Pendiente',
                     'estimated_arrival_date' => $request->estimated_arrival_date,
-                    'arrived_at' => $request->status === 'Arribado' ? now() : null,
+                    'arrived_at' => $request->status === 'Arribado'
+                        ? ($request->filled('arrived_at')
+                            ? Carbon::parse($request->arrived_at)->startOfDay()
+                            : now()->startOfDay())
+                        : null,
                     'notes' => $request->notes,
                     'created_by' => $user->id,
                 ]);
@@ -233,6 +258,7 @@ class RequisitionShipmentController extends Controller
             'delivery_method' => ['nullable', Rule::in(RequisitionShipment::DELIVERY_METHODS)],
             'status' => ['required', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
+            'arrived_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'item_ids' => ['nullable', 'array'],
             'item_ids.*' => ['exists:requisition_items,id'],
@@ -290,7 +316,11 @@ class RequisitionShipmentController extends Controller
                 'delivery_method' => $deliveryMethod,
                 'status' => $request->status,
                 'estimated_arrival_date' => $request->estimated_arrival_date,
-                'arrived_at' => $request->status === 'Arribado' ? ($shipment->arrived_at ?? now()) : null,
+                'arrived_at' => $request->status === 'Arribado'
+                    ? ($request->filled('arrived_at')
+                        ? Carbon::parse($request->arrived_at)->startOfDay()
+                        : ($shipment->arrived_at ?? now()->startOfDay()))
+                    : null,
                 'notes' => $request->notes,
             ]);
 
@@ -327,6 +357,12 @@ class RequisitionShipmentController extends Controller
         $request->validate([
             'status' => ['required', Rule::in(RequisitionShipment::STATUSES)],
             'estimated_arrival_date' => ['nullable', 'date'],
+            // Fecha real de arribo: editable, por defecto el día del cambio de estatus.
+            'arrived_at' => ['nullable', 'date'],
+            // Descripción de la actualización: se guarda como evento con su fecha
+            // para conservar el histórico del seguimiento.
+            'event_date' => ['nullable', 'date'],
+            'event_description' => ['nullable', 'string', 'max:2000'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -337,13 +373,31 @@ class RequisitionShipmentController extends Controller
             return back()->withErrors(['status' => 'La guía ya fue marcada como arribada y su estatus no puede cambiarse.']);
         }
 
-        DB::transaction(function () use ($request, $shipment, $previousStatus) {
+        $arrivedAt = $request->status === 'Arribado'
+            ? ($request->filled('arrived_at')
+                ? Carbon::parse($request->arrived_at)->startOfDay()
+                : ($shipment->arrived_at ?? now()->startOfDay()))
+            : null;
+
+        DB::transaction(function () use ($request, $shipment, $arrivedAt, $previousStatus, $user) {
             $shipment->update([
                 'status' => $request->status,
                 'estimated_arrival_date' => $request->input('estimated_arrival_date', $shipment->estimated_arrival_date),
-                'arrived_at' => $request->status === 'Arribado' ? ($shipment->arrived_at ?? now()) : null,
+                'arrived_at' => $arrivedAt,
                 'notes' => $request->has('notes') ? $request->notes : $shipment->notes,
             ]);
+
+            // Cada descripción capturada en el calendario queda como una
+            // actualización independiente, con su propia fecha y descripción.
+            if ($request->filled('event_description')) {
+                $shipment->events()->create([
+                    'event_date' => $request->filled('event_date')
+                        ? $request->event_date
+                        : now()->toDateString(),
+                    'description' => $request->event_description,
+                    'created_by' => $user->id,
+                ]);
+            }
 
             // El primer cambio a "Arribado" registra la entrada al inventario y
             // sincroniza las piezas recibidas de la orden de compra vinculada.
@@ -409,16 +463,67 @@ class RequisitionShipmentController extends Controller
             // Ubicación / etapa: China, GDL, Aduanas u otra capturada libremente.
             'location' => ['nullable', 'string', 'max:100'],
             'description' => ['nullable', 'string', 'max:2000', 'required_without:location'],
+            // La actualización también puede mover el estatus y la fecha tentativa.
+            'status' => ['nullable', Rule::in(RequisitionShipment::STATUSES)],
+            'estimated_arrival_date' => ['nullable', 'date'],
+            'arrived_at' => ['nullable', 'date'],
         ], [
             'description.required_without' => 'Selecciona una ubicación o escribe una descripción.',
         ]);
 
-        $shipment->events()->create([
-            'event_date' => $validated['event_date'],
-            'location' => $validated['location'] ?? null,
-            'description' => $validated['description'] ?? null,
-            'created_by' => $user->id,
-        ]);
+        $previousStatus = $shipment->status;
+        $status = $validated['status'] ?? null;
+
+        // Una guía arribada queda cerrada: no admite cambios de estatus.
+        if ($previousStatus === 'Arribado' && $status && $status !== 'Arribado') {
+            return back()->withErrors(['status' => 'La guía ya fue marcada como arribada; su estatus no puede cambiarse.']);
+        }
+
+        DB::transaction(function () use ($request, $validated, $shipment, $user, $status, $previousStatus) {
+            $shipment->events()->create([
+                'event_date' => $validated['event_date'],
+                'location' => $validated['location'] ?? null,
+                'description' => $validated['description'] ?? null,
+                'created_by' => $user->id,
+            ]);
+
+            $changes = [];
+
+            if ($status) {
+                $changes['status'] = $status;
+
+                if ($status === 'Arribado') {
+                    $changes['arrived_at'] = ! empty($validated['arrived_at'])
+                        ? Carbon::parse($validated['arrived_at'])->startOfDay()
+                        : ($shipment->arrived_at ?? Carbon::parse($validated['event_date'])->startOfDay());
+                } else {
+                    $changes['arrived_at'] = null;
+                }
+            }
+
+            if ($request->has('estimated_arrival_date')) {
+                $changes['estimated_arrival_date'] = $validated['estimated_arrival_date'] ?? null;
+            }
+
+            if (! empty($changes)) {
+                $shipment->update($changes);
+            }
+
+            // El primer cambio a "Arribado" registra la entrada al inventario.
+            if ($status === 'Arribado' && $previousStatus !== 'Arribado') {
+                $this->registerArrivalStock($shipment);
+            }
+        });
+
+        if ($status && $status !== $previousStatus) {
+            $shipment->load('items');
+            $this->syncItemsStatus($shipment->items, $shipment);
+            $shipment->load('items.requisition', 'requisitions');
+            $this->notifyShipment($shipment, $user);
+        }
+
+        // Solo avisa si la fecha tentativa cambió con la actualización.
+        $this->notifyArrivalDate($shipment, $user);
 
         return back()->with('success', "Actualización registrada en la entrega {$shipment->display_name}.");
     }

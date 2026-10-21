@@ -247,11 +247,20 @@
                             <p class="text-gray-500 dark:text-gray-400">Fecha de alta</p>
                             <p class="font-semibold text-gray-800 dark:text-gray-100">{{ formatDateTime(requisition.created_at) }}</p>
                         </div>
-                        <div>
-                            <p class="text-gray-500 dark:text-gray-400">
-                                {{ requisition.type === 'Importación' ? 'Arribo tentativo' : 'Entrega estimada' }}
-                            </p>
-                            <p class="font-semibold text-gray-800 dark:text-gray-100">
+                        <div :class="requisition.shipments?.length ? 'col-span-2' : ''">
+                            <p class="text-gray-500 dark:text-gray-400">Fecha estimada por guía</p>
+                            <!-- Cada guía generada tiene su propia fecha estimada de arribo -->
+                            <div v-if="requisition.shipments?.length" class="space-y-0.5">
+                                <p v-for="shipment in requisition.shipments" :key="shipment.id"
+                                    class="font-semibold text-gray-800 dark:text-gray-100">
+                                    <span class="font-mono">
+                                        {{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}
+                                    </span>
+                                    <span class="font-normal text-gray-400"> · </span>
+                                    {{ shipment.estimated_arrival_date ? formatDate(shipment.estimated_arrival_date) : 'Sin definir' }}
+                                </p>
+                            </div>
+                            <p v-else class="font-semibold text-gray-800 dark:text-gray-100">
                                 {{ requisition.expected_delivery_date ? formatDate(requisition.expected_delivery_date) : 'Sin definir' }}
                             </p>
                         </div>
@@ -557,15 +566,23 @@
                                     <span v-else class="text-xs text-gray-400">—</span>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Guía de paquetería" min-width="220">
+                            <el-table-column label="Guía de paquetería" min-width="240">
                                 <template #default="scope">
                                     <div class="space-y-1">
-                                        <p v-for="shipment in scope.row.shipments" :key="shipment.id" class="text-xs">
-                                            <span class="font-mono font-semibold">{{ shipment.tracking_number }}</span>
+                                        <p v-for="shipment in scope.row.shipments" :key="shipment.id"
+                                            class="text-xs flex items-center flex-wrap gap-1">
+                                            <span class="font-mono font-semibold">{{ shipment.tracking_number ?? shipment.delivery_method ?? 'Sin guía' }}</span>
                                             <span class="text-gray-500 dark:text-gray-400"> · {{ shipment.carrier ?? 'N/A' }}</span>
                                             <span class="text-gray-600 dark:text-gray-300">
                                                 · {{ formatQuantity(shipmentItemQuantity(scope.row, shipment)) }} pza(s)
                                             </span>
+                                            <el-tooltip content="Ver en el calendario de arribos" placement="top">
+                                                <button type="button" @click.stop="goToArrivalCalendar(shipment)"
+                                                    class="inline-flex items-center justify-center size-5 rounded border border-sky-300 text-sky-600 hover:bg-sky-50 dark:border-sky-700 dark:text-sky-400 dark:hover:bg-sky-900/40 transition-colors"
+                                                    :aria-label="`Ver la guía ${shipment.tracking_number ?? shipment.delivery_method} en el calendario de arribos`">
+                                                    <i class="fa-solid fa-calendar-days text-[10px]"></i>
+                                                </button>
+                                            </el-tooltip>
                                         </p>
                                     </div>
                                 </template>
@@ -660,10 +677,19 @@
                                 </div>
                                 <div class="flex items-center gap-2 justify-end">
                                     <div class="text-right mr-2">
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">Arribo estimado</p>
-                                        <p class="text-sm dark:text-gray-200">
-                                            {{ shipment.estimated_arrival_date ? formatDate(shipment.estimated_arrival_date) : 'Sin definir' }}
-                                        </p>
+                                        <template v-if="shipment.arrived_at">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Fecha de arribo</p>
+                                            <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                                                <i class="fa-solid fa-flag-checkered mr-1"></i>
+                                                {{ formatDate(shipment.arrived_at) }}
+                                            </p>
+                                        </template>
+                                        <template v-else>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">Arribo estimado</p>
+                                            <p class="text-sm dark:text-gray-200">
+                                                {{ shipment.estimated_arrival_date ? formatDate(shipment.estimated_arrival_date) : 'Sin definir' }}
+                                            </p>
+                                        </template>
                                     </div>
                                     <!-- La guía arribada queda cerrada: su estatus ya no se puede cambiar -->
                                     <el-tooltip v-if="can.manage_arrivals && shipment.status === 'Arribado'"
@@ -1172,9 +1198,19 @@
                         </el-select>
                     </div>
                     <div>
-                        <InputLabel value="Arribo estimado" />
+                        <InputLabel value="Fecha tentativa de arribo" />
                         <el-date-picker v-model="actionForm.shipment.estimated_arrival_date" type="date"
                             value-format="YYYY-MM-DD" placeholder="Selecciona la fecha" class="w-full mt-1" />
+                    </div>
+                    <!-- Al registrar la entrega ya arribada se captura la fecha real -->
+                    <div v-if="actionForm.shipment.status === 'Arribado'">
+                        <InputLabel value="Fecha de arribo *" />
+                        <el-date-picker v-model="actionForm.shipment.arrived_at" type="date"
+                            value-format="YYYY-MM-DD" placeholder="Selecciona la fecha" class="w-full mt-1" />
+                        <p class="text-[11px] text-amber-600 dark:text-amber-400 mt-1">
+                            <i class="fa-solid fa-lock mr-1"></i>
+                            La guía quedará cerrada; su estatus ya no podrá cambiarse.
+                        </p>
                     </div>
                 </div>
 
@@ -1185,7 +1221,7 @@
                         placeholder="Ej. En China / Entrega en bodega"></textarea>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         <i class="fa-solid fa-circle-info mr-1"></i>
-                        Se muestra en el calendario de arribos desde el día en que se registra la entrega.
+                        Se muestra en el calendario de arribos desde el día en que se registra la entrega; la fecha tentativa de arribo aparece con bandera.
                     </p>
                 </div>
             </div>
@@ -1194,6 +1230,38 @@
                     <el-button @click="modals.shipment = false">Cancelar</el-button>
                     <el-button type="primary" :disabled="!canSubmitShipment" @click="submitShipment">
                         Asignar {{ selectedItems.length }} producto(s)
+                    </el-button>
+                </div>
+            </template>
+        </el-dialog>
+
+        <!-- Confirmación del arribo: fecha real editable y cierre del estatus -->
+        <el-dialog v-model="modals.arrival" title="Confirmar arribo" width="460" :center="true" :close-on-click-modal="false">
+            <div class="space-y-4 text-sm">
+                <p class="text-gray-700 dark:text-gray-300">
+                    Vas a marcar la entrega
+                    <span class="font-mono font-semibold">{{ arrivalPrompt.label }}</span>
+                    como <strong>Arribado</strong>.
+                </p>
+                <p class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                    <i class="fa-solid fa-lock mr-1"></i>
+                    Al confirmar el arribo, el estatus de la guía queda cerrado y ya no podrá cambiarse.
+                </p>
+                <div>
+                    <InputLabel value="Fecha de arribo *" />
+                    <el-date-picker v-model="arrivalPrompt.date" type="date" value-format="YYYY-MM-DD"
+                        placeholder="Selecciona la fecha" class="!w-full mt-1" />
+                    <p class="text-[11px] text-gray-400 mt-1">
+                        Por defecto se propone el día de hoy; puedes ajustarla a la fecha real de llegada.
+                    </p>
+                </div>
+            </div>
+            <template #footer>
+                <div class="flex justify-end space-x-3">
+                    <el-button @click="modals.arrival = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="arrivalPrompt.saving" :disabled="!arrivalPrompt.date"
+                        @click="confirmArrival">
+                        Confirmar arribo
                     </el-button>
                 </div>
             </template>
@@ -1564,6 +1632,14 @@ export default {
                 payment: false,
                 delivery: false,
                 shipment: false,
+                // Confirmación del arribo con su fecha (por defecto hoy).
+                arrival: false,
+            },
+            arrivalPrompt: {
+                shipmentId: null,
+                label: '',
+                date: null,
+                saving: false,
             },
             actionForm: {
                 quotation: {
@@ -1593,6 +1669,7 @@ export default {
                     delivery_method: 'Guía',
                     status: 'Pendiente',
                     estimated_arrival_date: null,
+                    arrived_at: null,
                     notes: '',
                 },
             },
@@ -1607,6 +1684,25 @@ export default {
         // Al navegar entre requisiciones se vuelve a evaluar la pestaña de la URL.
         '$page.url'(url) {
             this.activeTab = this.resolveTab(url);
+        },
+        // Al elegir una guía existente se precarga su fecha tentativa de arribo
+        // para confirmarla o corregirla al ligar más productos.
+        // Al registrar la entrega como arribada se propone la fecha de hoy.
+        'actionForm.shipment.status'(status) {
+            if (status === 'Arribado' && !this.actionForm.shipment.arrived_at) {
+                this.actionForm.shipment.arrived_at = format(new Date(), 'yyyy-MM-dd');
+            }
+        },
+        'actionForm.shipment.shipment_id'(id) {
+            const option = this.shipmentOptions.find(item => item.id === id);
+
+            // Solo se ajusta al elegir una guía (al cambiar de forma de entrega
+            // se conserva lo que el usuario haya capturado).
+            if (!option) return;
+
+            this.actionForm.shipment.estimated_arrival_date = option.estimated_arrival_date
+                ? format(new Date(option.estimated_arrival_date), 'yyyy-MM-dd')
+                : null;
         },
     },
     computed: {
@@ -1726,6 +1822,10 @@ export default {
         // La entrega por proveedor o transporte propio no requiere número de guía.
         canSubmitShipment() {
             if (!this.selectedItems.length) return false;
+
+            if (this.actionForm.shipment.status === 'Arribado' && !this.actionForm.shipment.arrived_at) {
+                return false;
+            }
 
             if (this.actionForm.shipment.delivery_method !== 'Guía') return true;
 
@@ -2334,6 +2434,7 @@ export default {
                 delivery_method: form.delivery_method,
                 status: form.status,
                 estimated_arrival_date: form.estimated_arrival_date,
+                arrived_at: form.status === 'Arribado' ? form.arrived_at : null,
                 notes: form.notes || null,
             }, {
                 onSuccess: () => {
@@ -2345,16 +2446,58 @@ export default {
                     form.tracking_number = '';
                     form.carrier = '';
                     form.delivery_method = 'Guía';
+                    form.estimated_arrival_date = null;
+                    form.arrived_at = null;
                     this.handleSuccess('Entrega registrada para los producto(s).');
                 },
                 onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo registrar la entrega.'),
             });
         },
         updateShipmentStatus(shipmentId, status) {
+            // Marcar el arribo pide la fecha real y confirma que el estatus se cierra.
+            if (status === 'Arribado') {
+                const shipment = (this.requisition.shipments ?? []).find(item => item.id === shipmentId);
+                const today = format(new Date(), 'yyyy-MM-dd');
+
+                this.arrivalPrompt = {
+                    shipmentId,
+                    label: shipment?.tracking_number ?? shipment?.delivery_method ?? 'Sin guía',
+                    date: shipment?.arrived_at ? format(new Date(shipment.arrived_at), 'yyyy-MM-dd') : today,
+                    saving: false,
+                };
+                this.modals.arrival = true;
+
+                return;
+            }
+
             router.put(route('requisition-shipments.update-status', shipmentId), { status }, {
                 onSuccess: () => this.handleSuccess(`Guía actualizada a "${status}".`),
                 onError: () => ElMessage.error('No se pudo actualizar la guía.'),
             });
+        },
+        confirmArrival() {
+            const prompt = this.arrivalPrompt;
+
+            if (!prompt.shipmentId || !prompt.date) return;
+
+            prompt.saving = true;
+
+            router.put(route('requisition-shipments.update-status', prompt.shipmentId), {
+                status: 'Arribado',
+                arrived_at: prompt.date,
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.modals.arrival = false;
+                    this.handleSuccess('Arribo confirmado; el estatus de la guía quedó cerrado.');
+                },
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo confirmar el arribo.'),
+                onFinish: () => (prompt.saving = false),
+            });
+        },
+        // Abre el calendario de arribos señalando la guía indicada.
+        goToArrivalCalendar(shipment) {
+            router.visit(`${route('calendar.index')}?tab=arrivals&entry=shipment-${shipment.id}`);
         },
         completeRequisition() {
             router.post(route('requisitions.complete', this.requisition.id), {}, {

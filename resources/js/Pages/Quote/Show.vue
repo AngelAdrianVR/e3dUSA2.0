@@ -88,7 +88,8 @@
                 <section class="flex justify-between items-start mb-8">
                     <div class="w-2/3">
                         <p class="text-sm text-gray-500 mb-1">{{ quote.is_spanish_template ? 'Atención a' : 'Attention to' }}:</p>
-                        <p class="text-lg font-bold text-gray-900">{{ quote.branch?.name }}</p>
+                        <span class="text-lg font-bold text-gray-900">{{ quote.branch?.name }}</span>
+                        <span v-if="quote.branch?.business_name" class="text-lg font-bold text-gray-900"> - {{ quote.branch.business_name }}</span>
                         <p class="text-gray-700">{{ quote.receiver }} - {{ quote.department }}</p>
                     </div>
                     <div class="text-right relative" v-if="$page.props.auth.user?.permissions?.includes('Autorizar cotizaciones')">
@@ -187,6 +188,7 @@
                                 :show-additional-elements="showAdditionalElements"
                                 :label-changed="labelChanged"
                                 :show-variant-toggles="showVariantToggles"
+                                :sales-histories="salesHistories"
                                 @update-status="updateProductStatus" 
                             />
                         </div>
@@ -296,6 +298,8 @@ export default {
         prev_version_id: Number,
         next_quote: Number,
         prev_quote: Number,
+        // Últimas ventas por producto de catálogo, indexadas por product_id.
+        salesHistories: { type: Object, default: () => ({}) },
     },
     data() {
         return {

@@ -8,14 +8,14 @@
 
       <!-- Pestañas del calendario -->
       <div v-if="requisitionArrivals?.enabled" class="flex items-center gap-2 mt-4 border-b border-gray-300 dark:border-gray-600">
-        <button @click="activeTab = 'activities'"
+        <button @click="setTab('activities')"
           :class="activeTab === 'activities'
             ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
             : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
           class="px-4 py-2 text-sm transition-colors">
           <i class="fa-solid fa-calendar-days mr-2"></i> Actividades
         </button>
-        <button @click="activeTab = 'arrivals'"
+        <button @click="setTab('arrivals')"
           :class="activeTab === 'arrivals'
             ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 font-semibold'
             : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
@@ -80,7 +80,7 @@
 
       <!-- Pestaña: arribos de mercancía (guías de paquetería) -->
       <ArrivalsCalendar v-if="requisitionArrivals?.enabled" v-show="activeTab === 'arrivals'"
-        :arrivals="requisitionArrivals" />
+        ref="arrivalsCalendar" :arrivals="requisitionArrivals" />
     </div>
 
     <!-- Drawer para ver detalles -->
@@ -272,6 +272,37 @@ export default {
           if (!dateTimeString) return '';
           return format(parseISO(dateTimeString), 'dd MMM yy, hh:mm a', { locale: es });
       },
+    // Cambia de pestaña y la deja en la URL para conservarla al recargar.
+    setTab(tab) {
+      const target = tab === 'arrivals' ? 'arrivals' : 'activities';
+
+      if (this.activeTab === target) return;
+
+      this.activeTab = target;
+
+      // Al salir de arribos se cierra el detalle de la guía que estuviera abierto.
+      if (target === 'activities') {
+        this.$refs.arrivalsCalendar?.closeDrawer();
+      }
+
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', target);
+        // El detalle de una guía solo aplica a la pestaña de arribos.
+        url.searchParams.delete('entry');
+
+        const state = window.history.state;
+
+        // Se mantiene sincronizada la URL que Inertia guarda en el historial.
+        if (state?.page) {
+          state.page.url = `${url.pathname}${url.search}${url.hash}`;
+        }
+
+        window.history.replaceState(state, '', url);
+      } catch (error) {
+        // Sin historial disponible se conserva la pestaña en memoria.
+      }
+    },
     changeMonth(offset) { this.currentDate = addMonths(this.currentDate, offset); },
     createEntry(date) { router.get(route('calendar.create', { date })); },
     openDetailDrawer(entry) {
