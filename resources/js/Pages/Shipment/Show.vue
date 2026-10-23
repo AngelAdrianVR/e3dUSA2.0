@@ -628,6 +628,7 @@ export default {
 
                 // Popular arreglo reactivo para que Vue genere las plantillas ocultas
                 this.printLabelsData.push({
+                    labelIndex: this.printLabelsData.length, // Posición real de la etiqueta impresa
                     boxNumber,
                     totalBoxes,
                     totalPieces,
@@ -646,27 +647,40 @@ export default {
             // Extraer el HTML ya formado por el componente hijo
             const allLabelsHtml = this.$refs.printContainer.innerHTML;
 
-            // Inyectarlo en la nueva ventana
-            const printWindow = window.open('', '_blank', 'width=1056,height=816');
+            // Inyectarlo en la nueva ventana (hoja carta vertical, 2 etiquetas por hoja)
+            const printWindow = window.open('', '_blank', 'width=850,height=1100');
             printWindow.document.write(`
                 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Etiquetas ${this.sale.type === 'muestra' ? 'OM-' : 'OV-'}${this.sale.id}</title>
                 <script src="https://cdn.tailwindcss.com"><\/script>
                 <style>
+                    @page { size: letter portrait; margin: 0; }
+                    html, body { margin: 0; padding: 0; }
                     @media print { 
                         body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
-                        @page { margin: 0.2in; size: letter landscape; } 
-                        .page-break { page-break-before: always; } 
                     } 
-                    /* Estilos para preservar proporciones al imprimir */
+                    /* Cada etiqueta ocupa media hoja carta vertical: 2 etiquetas por hoja */
                     .label-container { 
-                        width: 10.5in; 
-                        height: 8in; 
+                        width: 8.5in; 
+                        height: 5.4in; 
+                        box-sizing: border-box;
+                        overflow: hidden;
                         page-break-inside: avoid; 
+                        break-inside: avoid;
                         margin: 0 auto; 
                         display: flex; 
                         flex-direction: column; 
-                        justify-content: center; 
+                        justify-content: space-between; 
                     }
+                    /* Salto de página cada 2 etiquetas */
+                    .label-page-break { 
+                        page-break-before: always; 
+                        break-before: page;
+                    } 
+                    .page-break { 
+                        page-break-before: always; 
+                        break-before: page;
+                        height: 0;
+                    } 
                 </style>
                 </head><body>
                 ${allLabelsHtml}
