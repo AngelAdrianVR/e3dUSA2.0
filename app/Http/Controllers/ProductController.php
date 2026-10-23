@@ -744,6 +744,85 @@ class ProductController extends Controller
         return redirect()->back()->with('message', 'Los productos seleccionados han sido actualizados.');
     }
 
+    /**
+     * Desvincula una o varias variantes de su producto padre para convertirlas en productos
+     * independientes (productos padre), conservando lo que heredaban: componentes, procesos
+     * de producción e imagen.
+     */
+    public function detachVariants(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|exists:products,id',
+        ]);
+
+        $variants = Product::whereIn('id', $validated['ids'])
+            ->whereNotNull('parent_id')
+            ->with(['parent.components', 'parent.productionCosts', 'components', 'productionCosts'])
+            ->get();
+
+        if ($variants->isEmpty()) {
+            return back()->withErrors(['variants' => 'Las variantes seleccionadas ya no pertenecen a un producto padre.']);
+        }
+
+        DB::transaction(function () use ($variants) {
+            foreach ($variants as $variant) {
+                $parent = $variant->parent;
+
+                if ($parent) {
+                    if ($variant->components->isEmpty() && $parent->components->isNotEmpty()) {
+                        $variant->components()->sync(
+                            $parent->components->mapWithKeys(fn ($component) => [
+                                $component->id => [
+                                    'quantity' => $component->pivot->quantity,
+                                    'cost' => $component->pivot->cost,
+                                ],
+                            ])->all()
+                        );
+                    }
+
+                    if ($variant->productionCosts->isEmpty() && $parent->productionCosts->isNotEmpty()) {
+                        $variant->productionCosts()->sync(
+                            $parent->productionCosts->mapWithKeys(fn ($process) => [
+                                $process->id => [
+                                    'order' => $process->pivot->order,
+                                    'cost' => $process->pivot->cost,
+                                ],
+                            ])->all()
+                        );
+                    }
+
+                    // Si la variante no tiene imagen propia, conservar la que mostraba desde el padre.
+                    if (! $variant->media()->exists() && $parent->media()->exists()) {
+                        $parentMedia = $parent->getFirstMedia();
+
+                        if ($parentMedia) {
+                            $parentMedia->copy($variant, $parentMedia->collection_name);
+                        }
+                    }
+
+                    // Datos descriptivos que la variante pudiera tener vacíos y antes tomaba del padre.
+                    $variant->fill(array_filter([
+                        'brand_id' => $variant->brand_id ?: $parent->brand_id,
+                        'product_family_id' => $variant->product_family_id ?: $parent->product_family_id,
+                        'material' => $variant->material ?: $parent->material,
+                        'measure_unit' => $variant->measure_unit ?: $parent->measure_unit,
+                        'currency' => $variant->currency ?: $parent->currency,
+                    ], fn ($value) => $value !== null));
+                }
+
+                $variant->parent_id = null;
+                $variant->save();
+            }
+        });
+
+        $count = $variants->count();
+
+        return back()->with('success', $count === 1
+            ? 'La variante ahora es un producto independiente.'
+            : "{$count} variantes ahora son productos independientes.");
+    }
+
     public function simpleUpdate(Request $request, Product $product)
     {
         $request->validate([

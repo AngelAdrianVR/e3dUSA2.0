@@ -125,15 +125,28 @@
                                     </span>
                                 </template>
                                 <template #default="props">
-                                    <div class="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg ml-12 mr-4 my-2 border border-gray-200 dark:border-slate-700">
+                                    <div class="p-4 bg-gray-50 dark:bg-slate-800/50 rounded-lg ml-12 mr-4 my-2 border border-gray-200 dark:border-slate-700" @click.stop>
                                         <div class="flex justify-between items-center mb-3">
                                             <h4 class="font-semibold text-gray-700 dark:text-gray-300">
                                                 <i class="fa-solid fa-layer-group mr-2"></i>
                                                 Variantes ({{ props.row.variants?.length || 0 }})
                                             </h4>
+                                            <el-button
+                                                v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos') && props.row.variants?.length"
+                                                size="small"
+                                                type="warning"
+                                                plain
+                                                :disabled="!variantSelections[props.row.id]?.length"
+                                                @click.stop="detachVariants(variantSelections[props.row.id] || [], props.row)"
+                                            >
+                                                <i class="fa-solid fa-link-slash mr-1"></i>
+                                                Desvincular seleccionadas ({{ variantSelections[props.row.id]?.length || 0 }})
+                                            </el-button>
                                         </div>
                                         
-                                        <el-table :data="props.row.variants" :show-header="true" size="small" border v-if="props.row.variants?.length">
+                                        <el-table :data="props.row.variants" row-key="id" :show-header="true" size="small" border v-if="props.row.variants?.length"
+                                            @selection-change="handleVariantSelectionChange(props.row.id, $event)">
+                                            <el-table-column type="selection" width="40" align="center" />
                                             <el-table-column label="Foto" width="70" align="center">
                                                 <template #default="scope">
                                                     <img :src="scope.row.media?.[0]?.original_url" 
@@ -145,7 +158,7 @@
                                             <el-table-column prop="code" label="Código" width="160" />
                                             <el-table-column prop="name" label="Nombre" />
                                             
-                                            <el-table-column align="right" width="160">
+                                            <el-table-column align="right" width="205">
                                                 <template #default="scope">
                                                     <!-- Botón editar -->
                                                     <el-button
@@ -156,6 +169,18 @@
                                                         @click.stop="handleCommand('edit-' + scope.row.id)"
                                                     >
                                                         <i class="fas fa-edit"></i>
+                                                    </el-button>
+
+                                                    <!-- Botón desvincular del producto padre -->
+                                                    <el-button
+                                                        v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')"
+                                                        size="small"
+                                                        type="info"
+                                                        circle
+                                                        title="Desvincular del producto padre"
+                                                        @click.stop="detachVariants([scope.row], props.row)"
+                                                    >
+                                                        <i class="fa-solid fa-link-slash"></i>
                                                     </el-button>
 
                                                     <!-- Botón obsoleto -->
@@ -572,6 +597,8 @@ export default {
             familyId: this.filters.family_id ?? null,
             selectedItems: [],
             showMassiveEditModal: false,
+            // Selección de variantes por producto padre (para desvincular en lote)
+            variantSelections: {},
             productTypes: [
                 { value: 'Producto', label: 'Productos' },
                 { value: 'Insumo', label: 'Insumos' },
@@ -851,6 +878,47 @@ export default {
         },
         handleSelectionChange(selection) {
             this.selectedItems = selection;
+        },
+        handleVariantSelectionChange(parentId, selection) {
+            this.variantSelections[parentId] = selection;
+        },
+        /**
+         * Desvincula variantes del producto padre para convertirlas en productos independientes.
+         * @param {Array} variants Variantes a desvincular.
+         * @param {Object|null} parent Producto padre (solo para el mensaje de confirmación).
+         */
+        detachVariants(variants, parent = null) {
+            const list = (variants || []).filter(variant => variant?.id);
+            if (!list.length) return;
+
+            const parentName = parent ? `"${parent.name}"` : 'su producto padre';
+            const message = list.length === 1
+                ? `La variante "${list[0].name}" dejará de pertenecer a ${parentName} y se convertirá en un producto independiente. Conservará los materiales, procesos de producción e imagen que heredaba.`
+                : `Las ${list.length} variantes seleccionadas dejarán de pertenecer a ${parentName} y se convertirán en productos independientes. Conservarán los materiales, procesos de producción e imagen que heredaban.`;
+
+            ElMessageBox.confirm(message, 'Desvincular variantes', {
+                confirmButtonText: 'Sí, desvincular',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => {
+                router.post(route('catalog-products.detach-variants'), {
+                    ids: list.map(variant => variant.id),
+                }, {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        if (parent) {
+                            delete this.variantSelections[parent.id];
+                            this.variantSelections = { ...this.variantSelections };
+                        }
+                        ElMessage.success(list.length === 1
+                            ? 'Variante desvinculada correctamente'
+                            : `${list.length} variantes desvinculadas correctamente`);
+                    },
+                    onError: () => {
+                        ElMessage.error('No se pudieron desvincular las variantes.');
+                    },
+                });
+            }).catch(() => {});
         },
         handleRowClick(row) {
             // La categoría "Muestras y regalos" no tiene vista de detalle (show).
