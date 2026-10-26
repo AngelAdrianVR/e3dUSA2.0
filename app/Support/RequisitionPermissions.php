@@ -59,6 +59,11 @@ class RequisitionPermissions
     ];
 
     /**
+     * Rol que recibe por correo el aviso de las etapas de compras y pagos.
+     */
+    public const SUPER_ADMIN_ROLE = 'Super Administrador';
+
+    /**
      * Roles que siguen la fecha tentativa de arribo de la mercancía.
      */
     public const ARRIVAL_TRACKING_ROLES = [
@@ -245,6 +250,25 @@ class RequisitionPermissions
         }
 
         return $users->values();
+    }
+
+    /**
+     * Etapas cuya notificación también se avisa por correo a los Super
+     * Administradores (gerencia de compras y pagos).
+     */
+    public static function requiresSuperAdminEmail(array $permissions): bool
+    {
+        return array_intersect($permissions, array_merge(self::AUTHORIZE, self::PAY)) !== [];
+    }
+
+    /**
+     * Super Administradores activos con correo registrado.
+     */
+    public static function superAdmins(?User $exclude = null): Collection
+    {
+        return self::usersWithRoles([self::SUPER_ADMIN_ROLE], $exclude)
+            ->filter(fn (User $user) => filled($user->email))
+            ->values();
     }
 
     /**

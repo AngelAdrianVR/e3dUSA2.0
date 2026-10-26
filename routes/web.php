@@ -466,6 +466,8 @@ Route::post('holidays/massive-delete', [HolidayController::class, 'massiveDelete
 
 // ------- Historial de acciones rutas  ---------
 Route::get('/audits', [AuditController::class, 'index'])->middleware('auth')->name('audits.index');
+// Solo el usuario autorizado (id=1) puede eliminar registros de cambios en nómina.
+Route::delete('/audits/{audit}', [AuditController::class, 'destroy'])->middleware('auth')->name('audits.destroy');
 
 
 // ------- Roles rutas  ---------
