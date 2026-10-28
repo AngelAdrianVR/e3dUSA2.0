@@ -66,6 +66,20 @@ class AuditController extends Controller
     }
 
     /**
+     * Elimina un registro del historial de modificaciones de horas en nómina.
+     * Solo el usuario autorizado puede hacerlo y únicamente sobre ese tipo de registro.
+     */
+    public function destroy(Audit $audit)
+    {
+        abort_unless(auth()->id() === self::HOURS_AUDIT_USER_ID, 403);
+        abort_unless($audit->event === 'hours_updated', 403);
+
+        $audit->delete();
+
+        return back()->with('success', 'Registro de cambios en nómina eliminado correctamente.');
+    }
+
+    /**
      * Oculta las modificaciones de horas en nómina a los usuarios no autorizados.
      */
     private function applyVisibilityScope(Builder $query, bool $canViewHoursAudits): Builder

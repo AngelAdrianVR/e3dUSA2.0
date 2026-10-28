@@ -68,6 +68,63 @@
                         </template>
                         <span v-else class="text-gray-500 dark:text-gray-400">No cargada</span>
                     </div>
+
+                    <!-- Archivos de la factura (PDF / XML) -->
+                    <div class="col-span-2 border-t border-gray-200 dark:border-gray-700 pt-3">
+                        <span class="text-gray-500 dark:text-gray-400 block text-xs uppercase font-bold mb-2">Archivos de Factura (PDF / XML)</span>
+
+                        <div class="grid grid-cols-1 gap-2">
+                            <!-- PDF -->
+                            <div class="flex items-center justify-between gap-3 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i v-if="invoicePdf" class="fa-solid fa-circle-check text-emerald-500"></i>
+                                    <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
+                                    <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">PDF</span>
+                                    <a v-if="invoicePdf" :href="invoicePdf.original_url" target="_blank"
+                                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                        :title="invoicePdf.file_name">
+                                        {{ invoicePdf.file_name }}
+                                    </a>
+                                    <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                </div>
+                                <template v-if="canUploadInvoiceFiles">
+                                    <input ref="invoicePdfInput" type="file" accept=".pdf,application/pdf" class="hidden"
+                                        @change="uploadInvoiceFile('pdf', $event)" />
+                                    <el-button size="small" :loading="uploadingFile === 'pdf'"
+                                        @click="$refs.invoicePdfInput.click()">
+                                        {{ invoicePdf ? 'Reemplazar' : 'Subir PDF' }}
+                                    </el-button>
+                                </template>
+                            </div>
+
+                            <!-- XML -->
+                            <div class="flex items-center justify-between gap-3 rounded-md border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2">
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <i v-if="invoiceXml" class="fa-solid fa-circle-check text-emerald-500"></i>
+                                    <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
+                                    <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">XML</span>
+                                    <a v-if="invoiceXml" :href="invoiceXml.original_url" target="_blank"
+                                        class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                        :title="invoiceXml.file_name">
+                                        {{ invoiceXml.file_name }}
+                                    </a>
+                                    <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                </div>
+                                <template v-if="canUploadInvoiceFiles">
+                                    <input ref="invoiceXmlInput" type="file" accept=".xml,text/xml,application/xml" class="hidden"
+                                        @change="uploadInvoiceFile('xml', $event)" />
+                                    <el-button size="small" :loading="uploadingFile === 'xml'"
+                                        @click="$refs.invoiceXmlInput.click()">
+                                        {{ invoiceXml ? 'Reemplazar' : 'Subir XML' }}
+                                    </el-button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <p v-if="!canUploadInvoiceFiles" class="text-[11px] text-gray-500 dark:text-gray-400 mt-2">
+                            Solo el personal encargado de facturas puede subir estos archivos.
+                        </p>
+                    </div>
                 </div>
             </div>
 
@@ -263,7 +320,7 @@
 
 <script>
 import FileView from "@/Components/MyComponents/FileView.vue";
-import { useForm } from "@inertiajs/vue3";
+import { useForm, router } from "@inertiajs/vue3";
 import { ElMessage } from 'element-plus';
 
 export default {
@@ -273,10 +330,19 @@ export default {
         show: Boolean,
         sale: Object,
     },
-    emits: ['update:show', 'saved'],
+    emits: ['update:show', 'saved', 'sale-updated'],
     computed: {
         oceMediaFiles() {
             return (this.sale?.media || []).filter(m => m.collection_name === 'oce_media');
+        },
+        invoicePdf() {
+            return (this.sale?.media || []).find(m => m.collection_name === 'invoice_pdf') || null;
+        },
+        invoiceXml() {
+            return (this.sale?.media || []).find(m => m.collection_name === 'invoice_xml') || null;
+        },
+        canUploadInvoiceFiles() {
+            return this.$page.props.auth.user?.permissions?.includes('Crear facturas') ?? false;
         },
         csfMedia() {
             return (this.sale?.branch?.media || []).find(m => m.collection_name === 'csf') || null;
@@ -309,13 +375,19 @@ export default {
             // Objeto para trackear el toggle padre/variante por saleProduct.id
             // true = mostrando variante (toggle activado), false/undefined = mostrando padre (default)
             parentToggles: {},
+            // Tipo de archivo de factura que se está subiendo ('pdf' | 'xml' | null)
+            uploadingFile: null,
         };
     },
     watch: {
         sale: {
             immediate: true,
-            handler(newVal) {
+            handler(newVal, oldVal) {
                 if (newVal) {
+                    // Si se actualizó la misma venta (p. ej. al subir un archivo de factura),
+                    // conservamos los folios capturados por el usuario.
+                    if (oldVal && oldVal.id === newVal.id) return;
+
                     // Convertimos la cadena separada por comas de la BD en un array para el input múltiple
                     this.folios.pre_invoice = newVal.pre_invoice_folio 
                         ? newVal.pre_invoice_folio.split(',').map(s => s.trim()).filter(s => s) 
@@ -378,6 +450,32 @@ export default {
         
         formatCurrency(value) {
             return parseFloat(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        },
+        /**
+         * Sube (o reemplaza) el archivo de factura indicado: 'pdf' o 'xml'.
+         */
+        uploadInvoiceFile(kind, event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            const field = kind === 'pdf' ? 'invoice_pdf' : 'invoice_xml';
+            this.uploadingFile = kind;
+
+            router.post(route('sales.invoice-media', this.sale.id), { [field]: file }, {
+                forceFormData: true,
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: (page) => {
+                    const updated = (page.props.salesForBilling?.data || []).find(s => s.id === this.sale.id);
+                    if (updated) this.$emit('sale-updated', updated);
+                    ElMessage.success('Archivo de factura actualizado correctamente.');
+                },
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo subir el archivo.'),
+                onFinish: () => {
+                    this.uploadingFile = null;
+                    event.target.value = '';
+                },
+            });
         },
         formatDate(value) {
             if (!value) return 'N/A';

@@ -222,6 +222,7 @@
             v-model:show="detailsModalVisible" 
             :sale="selectedSale" 
             @saved="handleModalSaved"
+            @sale-updated="selectedSale = $event"
         />
 
         <!-- Modal para Generar Reporte -->

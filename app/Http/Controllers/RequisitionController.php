@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\RequisitionNotificationMail;
 use App\Models\Branch;
 use App\Models\Comment;
 use App\Models\Product;
@@ -21,9 +22,12 @@ use App\Support\RequisitionPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Throwable;
 
 class RequisitionController extends Controller
 {
@@ -591,6 +595,7 @@ class RequisitionController extends Controller
         $this->notify(
             $isLocal ? RequisitionPermissions::AUTHORIZE : RequisitionPermissions::EDIT,
             $user,
+            $requisition,
             new RequisitionQuotationUploadedNotification($requisition, $isLocal)
         );
 
@@ -676,7 +681,7 @@ class RequisitionController extends Controller
 
         $this->storeComment($requisition, $user, "Pedido realizado a fábrica ({$status}). Se solicita documentación de seguimiento (packing list, invoice, fichas técnicas, fotos).");
 
-        $this->notify(RequisitionPermissions::EDIT, $user, new RequisitionAuthorizedNotification($requisition));
+        $this->notify(RequisitionPermissions::EDIT, $user, $requisition, new RequisitionAuthorizedNotification($requisition));
 
         return back()->with('success', $status === 'Documentación'
             ? 'Pedido a fábrica registrado; la requisición pasa a documentación.'
@@ -735,7 +740,7 @@ class RequisitionController extends Controller
 
         $this->storeComment($requisition, $user, 'Documentación de fábrica adjuntada (packing list, invoice, fichas técnicas y/o fotos).');
 
-        $this->notify(RequisitionPermissions::EDIT, $user, new RequisitionAuthorizedNotification($requisition));
+        $this->notify(RequisitionPermissions::EDIT, $user, $requisition, new RequisitionAuthorizedNotification($requisition));
 
         return back()->with('success', 'Documentación de seguimiento adjuntada.');
     }
@@ -767,7 +772,7 @@ class RequisitionController extends Controller
 
         $this->storeComment($requisition, $user, 'Factura del proveedor adjuntada; se notificó a pagos.');
 
-        $this->notify(RequisitionPermissions::PAY, $user, new RequisitionInvoiceUploadedNotification($requisition));
+        $this->notify(RequisitionPermissions::PAY, $user, $requisition, new RequisitionInvoiceUploadedNotification($requisition));
 
         return back()->with('success', 'Factura adjuntada. Se notificó a tesorería.');
     }
@@ -1231,19 +1236,54 @@ class RequisitionController extends Controller
             ? RequisitionPermissions::AUTHORIZE
             : array_merge(['Ver requisiciones de compra', 'Gestión de almacén'], RequisitionPermissions::EDIT);
 
-        $this->notify($permissions, $author, new RequisitionCreatedNotification($requisition));
+        $this->notify($permissions, $author, $requisition, new RequisitionCreatedNotification($requisition));
     }
 
     /**
      * Envía una notificación a los usuarios activos con los permisos indicados,
-     * excluyendo al autor de la acción.
+     * excluyendo al autor de la acción. Cuando la etapa destino es la gerencia
+     * de compras o pagos, además se avisa por correo a los Super Administradores.
      */
-    private function notify(array $permissions, User $author, $notification): void
+    private function notify(array $permissions, User $author, Requisition $requisition, $notification): void
     {
         $recipients = $this->notifiedUsers($permissions, $author);
 
         if ($recipients->isNotEmpty()) {
             Notification::send($recipients, $notification);
+        }
+
+        if (RequisitionPermissions::requiresSuperAdminEmail($permissions)) {
+            $this->emailSuperAdmins($requisition, $notification);
+        }
+    }
+
+    /**
+     * Correo con la misma información que recibe la gerencia de compras o pagos.
+     * Un fallo de SMTP no debe interrumpir el flujo de la requisición.
+     */
+    private function emailSuperAdmins(Requisition $requisition, $notification): void
+    {
+        $superAdmins = RequisitionPermissions::superAdmins();
+
+        if ($superAdmins->isEmpty()) {
+            return;
+        }
+
+        $payload = $notification->toArray($superAdmins->first());
+
+        try {
+            Mail::to($superAdmins->pluck('email')->all())
+                ->send(new RequisitionNotificationMail(
+                    requisition: $requisition,
+                    title: $payload['title'] ?? 'Actualización de requisición',
+                    bodyHtml: $payload['message'] ?? '',
+                    actionUrl: route('requisitions.show', ['requisition' => $requisition->id]),
+                ));
+        } catch (Throwable $e) {
+            Log::error('No se pudo enviar el correo de requisición a los Super Administradores.', [
+                'requisition_id' => $requisition->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

@@ -347,5 +347,10 @@ class Sale extends Model implements HasMedia, Auditable
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('oce_media');
+
+        // Archivos de la factura (PDF y XML). Cada colección admite un único archivo,
+        // por lo que al subir uno nuevo se reemplaza automáticamente el anterior.
+        $this->addMediaCollection('invoice_pdf')->singleFile();
+        $this->addMediaCollection('invoice_xml')->singleFile();
     }
 }

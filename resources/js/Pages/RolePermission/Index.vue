@@ -101,6 +101,46 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- ================= CONFIGURACIONES ================= -->
+                    <div class="border-t border-gray-200 dark:border-slate-700 p-5">
+                        <div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+                            <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100">
+                                <i class="fa-solid fa-gear mr-2"></i>Configuraciones
+                            </h3>
+                            <el-tag v-if="!canManageSettings" type="info" size="small" effect="plain">
+                                <i class="fa-solid fa-lock mr-1"></i> Solo Super Administrador
+                            </el-tag>
+                        </div>
+
+                        <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                            <div class="flex-1">
+                                <p class="font-semibold text-gray-800 dark:text-gray-100">
+                                    Permitir contactos repetidos entre áreas
+                                </p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                    Al crear o editar un cliente, el sistema impide registrar el mismo teléfono o correo
+                                    en más de un contacto (por ejemplo, Comercial y Pagos). Activa esta opción para quitar
+                                    ese candado y permitir que una misma persona atienda varias áreas.
+                                </p>
+                                <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                                    Si está desactivada, los usuarios verán un mensaje indicándoles que contacten con
+                                    Dirección para que se les habilite la creación del cliente.
+                                    Solo el rol Super Administrador puede activar o desactivar esta configuración.
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2 sm:pt-1">
+                                <el-switch
+                                    :model-value="!!settings?.allow_duplicate_contacts"
+                                    :disabled="!canManageSettings || settingForm.processing"
+                                    active-text="Activo"
+                                    inactive-text="Inactivo"
+                                    inline-prompt
+                                    @change="updateSetting('allow_duplicate_contacts', $event)"
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -181,6 +221,14 @@ export default {
     props: {
         roles: Array,
         permissions: Object,
+        settings: {
+            type: Object,
+            default: () => ({}),
+        },
+        canManageSettings: {
+            type: Boolean,
+            default: false,
+        },
     },
     setup() {
         // Lógica de permisos del usuario logueado
@@ -216,6 +264,9 @@ export default {
             showPermissionModal: false,
             isEditingPermission: false,
             isCreatingGroup: false,
+
+            // Configuraciones globales
+            settingForm: useForm({ value: null }),
         };
     },
     methods: {
@@ -308,6 +359,23 @@ export default {
             this.$inertia.delete(route('permissions.destroy', permission.id), {
                 onSuccess: () => ElMessage.success('Permiso eliminado.'),
                 preserveState: false, // Cambiado a false para recargar permisos
+            });
+        },
+
+        // --- Settings Methods ---
+        updateSetting(key, value) {
+            if (!this.canManageSettings) return;
+
+            this.settingForm.value = value ? 1 : 0;
+            this.settingForm.put(route('settings.update', key), {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => ElMessage.success('Configuración actualizada.'),
+                onError: () => {
+                    ElMessage.error('No se pudo actualizar la configuración.');
+                    // Restaura el switch al valor real del servidor
+                    this.$inertia.reload({ only: ['settings'] });
+                },
             });
         },
 

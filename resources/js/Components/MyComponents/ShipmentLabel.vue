@@ -24,11 +24,11 @@
                             </tr>
                             <tr>
                                 <td class="border-2 border-black px-2 py-2 font-bold text-center">Guía</td>
-                                <td class="border-2 border-black px-2 py-2 font-semibold text-center text-gray-800">{{ shipment.tracking_guide ?? 'N/A' }}</td>
+                                <td class="border-2 border-black px-2 py-2 font-semibold text-center text-gray-800 break-all">{{ trackingGuide }}</td>
                             </tr>
                             <tr>
                                 <td class="border-2 border-black px-2 py-2 font-bold text-center">Factura</td>
-                                <td class="border-2 border-black px-2 py-2 font-semibold text-center text-gray-800">{{ sale.invoice_id ?? 'Pendiente' }}</td>
+                                <td class="border-2 border-black px-2 py-2 font-semibold text-center text-gray-800 break-all">{{ invoiceFolio }}</td>
                             </tr>
                             <tr>
                                 <td class="border-2 border-black px-2 py-2 font-bold text-center">Orden de Compra</td>
@@ -112,6 +112,37 @@ export default {
             }
 
             return labelIndex > 0 && labelIndex % LABELS_PER_PAGE === 0;
+        },
+        /**
+         * Guía de la venta: se usa la de la parcialidad que se imprime y, si aún no tiene
+         * una capturada, la primera guía registrada en los envíos de la orden.
+         */
+        trackingGuide() {
+            const ownGuide = String(this.shipment?.tracking_guide ?? '').trim();
+            if (ownGuide) return ownGuide;
+
+            const saleGuide = (this.sale?.shipments ?? [])
+                .map(shipment => String(shipment?.tracking_guide ?? '').trim())
+                .find(guide => guide !== '');
+
+            return saleGuide || 'N/A';
+        },
+        /**
+         * Factura de la venta: folio timbrado, en su defecto la pre-factura y, por último,
+         * la primera factura registrada en el módulo de facturación.
+         */
+        invoiceFolio() {
+            const candidates = [
+                this.sale?.stamped_invoice_folio,
+                this.sale?.pre_invoice_folio,
+                (this.sale?.invoices ?? [])[0]?.folio,
+            ];
+
+            const folio = candidates
+                .map(value => (typeof value === 'string' ? value.trim() : value))
+                .find(value => value !== null && value !== undefined && value !== '');
+
+            return folio ? String(folio) : 'Pendiente';
         }
     },
     data() {

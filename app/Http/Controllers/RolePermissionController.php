@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Spatie\Permission\Models\Role;
@@ -9,13 +10,19 @@ use Spatie\Permission\Models\Permission;
 
 class RolePermissionController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         return Inertia::render('RolePermission/Index', [
             // Carga los roles con sus permisos (solo id y name para optimizar)
             'roles' => Role::with('permissions:id,name')->get(),
             // Carga todos los permisos y los agrupa por el campo 'module'
             'permissions' => Permission::all()->groupBy('module'),
+            // Configuraciones globales del sistema
+            'settings' => [
+                Setting::ALLOW_DUPLICATE_CONTACTS => Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS),
+            ],
+            // Solo el Super Administrador puede activar/desactivar configuraciones
+            'canManageSettings' => $request->user()?->hasRole('Super Administrador') ?? false,
         ]);
     }
 

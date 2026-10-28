@@ -166,6 +166,8 @@ class ShipmentController extends Controller
             'contact:id,name,prefix',
             'contact.details', 
             'user:id,name', 
+            // Se usa en la etiqueta de envío para mostrar el folio de factura de la venta.
+            'invoices:id,sale_id,folio',
             'shipments' => function ($query) {
                 $query->with([
                     'shipmentProducts.saleProduct.product:id,name,code,measure_unit,product_type,archived_at',

@@ -137,6 +137,13 @@
                                     </div>
                                 </div>
 
+                                <!-- Eliminar registro: solo cambios en nómina y usuario autorizado -->
+                                <button v-if="canDeleteAudit(audit)" @click.stop="deleteAudit(audit)"
+                                    class="self-center size-8 flex-shrink-0 flex items-center justify-center rounded-full text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                                    title="Eliminar registro del historial">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+
                                 <!-- Indicador de detalle disponible -->
                                 <i v-if="isClickable(audit)" class="self-center fa-solid fa-chevron-right text-gray-300 dark:text-gray-600"></i>
                             </div>
@@ -212,6 +219,10 @@
                 </div>
             </template>
             <template #footer>
+                <el-button v-if="selectedAudit && canDeleteAudit(selectedAudit)" type="danger" plain class="!mr-3"
+                    @click="deleteAudit(selectedAudit, true)">
+                    <i class="fa-solid fa-trash-can mr-1"></i> Eliminar registro
+                </el-button>
                 <CancelButton @click="closeDetailsModal">Cerrar</CancelButton>
             </template>
         </DialogModal>
@@ -223,7 +234,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import DialogModal from '@/Components/DialogModal.vue';
 import CancelButton from '@/Components/MyComponents/CancelButton.vue';
 import Empty from '@/Components/MyComponents/Empty.vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { router } from '@inertiajs/vue3';
 
 // Nombres legibles para los campos más comunes de las auditorías
 const FIELD_LABELS = {
@@ -369,6 +381,35 @@ export default {
         },
         isClickable(audit) {
             return ['created', 'updated', 'deleted', 'authorized', 'hours_updated'].includes(audit.event);
+        },
+        /**
+         * Solo el usuario autorizado puede eliminar registros y únicamente los de nómina.
+         */
+        canDeleteAudit(audit) {
+            return !!this.canViewHoursAudits && audit?.event === 'hours_updated';
+        },
+        deleteAudit(audit, fromModal = false) {
+            ElMessageBox.confirm(
+                '¿Eliminar este registro del historial de cambios en nómina? Esta acción no se puede deshacer.',
+                'Eliminar registro',
+                {
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                    iconColor: '#EF4444',
+                }
+            ).then(() => {
+                router.delete(route('audits.destroy', audit.id), {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        if (fromModal) this.closeDetailsModal();
+                        ElMessage.success('Registro eliminado correctamente');
+                    },
+                    onError: () => {
+                        ElMessage.error('No se pudo eliminar el registro');
+                    },
+                });
+            }).catch(() => {});
         },
         formatKey(key) {
             if (!key) return '';
