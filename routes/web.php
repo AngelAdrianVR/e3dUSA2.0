@@ -45,6 +45,7 @@ use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SalesAnalysisController;
 use App\Http\Controllers\SampleTrackingController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShippingRateController;
 use App\Http\Controllers\SparePartController;
@@ -261,6 +262,7 @@ Route::put('quotes/{quote}/payment-terms-notice', [QuoteController::class, 'upda
 Route::resource('sales', SaleController::class)->middleware('auth');
 Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
 Route::post('sales/{sale}/oce-media', [SaleController::class, 'uploadOceMedia'])->middleware('auth')->name('sales.oce-media');
+Route::post('sales/{sale}/invoice-media', [SaleController::class, 'uploadInvoiceMedia'])->middleware('auth')->name('sales.invoice-media');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::put('sales/unauthorize/{sale}', [SaleController::class, 'unauthorizeSale'])->middleware('auth')->name('sales.unauthorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');
@@ -481,6 +483,12 @@ Route::resource('role-permissions', RolePermissionController::class)
 Route::resource('permissions', PermissionController::class)
     ->only(['store', 'update', 'destroy'])
     ->middleware(['auth', 'verified']);
+
+
+// ------- Configuraciones globales (solo Super Administrador) ---------
+Route::put('/settings/{key}', [SettingController::class, 'update'])
+    ->middleware(['auth', 'verified'])
+    ->name('settings.update');
 
 
 // ------- tutorials & manuals routes  -------------

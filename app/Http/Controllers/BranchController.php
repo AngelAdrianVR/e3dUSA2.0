@@ -7,6 +7,7 @@ use App\Models\BranchPriceHistory;
 use App\Models\BranchVolumePrice;
 use App\Models\Contact;
 use App\Models\Product;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\BranchGroupService;
 use App\Services\BranchVolumePriceService;
@@ -173,6 +174,7 @@ class BranchController extends Controller
             'users' => $this->availableSellers(),
             'branches' => Branch::select('id', 'name')->whereNull('parent_branch_id')->get(), // Solo matrices
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
+            'allowDuplicateContacts' => Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS),
         ]);
     }
 
@@ -579,6 +581,7 @@ class BranchController extends Controller
             'branches' => Branch::where('id', '!=', $branch->id)->whereNull('parent_branch_id')->select('id', 'name', 'business_name', 'rfc')->get(),
             'catalog_products' => Product::where('is_sellable', true)->whereNull('archived_at')->select('id', 'name')->get(),
             'suggestedProductIds' => $suggestedProductIds,
+            'allowDuplicateContacts' => Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS),
         ]);
     }
 
@@ -759,13 +762,15 @@ class BranchController extends Controller
     /**
      * Reglas adicionales para los contactos:
      * - Cada contacto debe tener al menos un medio de contacto (teléfono o correo).
-     * - No se permite repetir el mismo teléfono ni el mismo correo entre contactos.
+     * - No se permite repetir el mismo teléfono ni el mismo correo entre contactos,
+     *   salvo que el Super Administrador haya desactivado el candado en Configuraciones.
      */
     private function validateContactRules(array $contacts): void
     {
         $errors = [];
         $phones = [];
         $emails = [];
+        $allowDuplicateContacts = Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS);
 
         foreach ($contacts as $index => $contact) {
             $phone = trim((string) ($contact['phone'] ?? ''));
@@ -775,9 +780,13 @@ class BranchController extends Controller
                 $errors["contacts.$index.phone"] = 'Cada contacto debe tener al menos un medio de contacto (teléfono o correo).';
             }
 
+            if ($allowDuplicateContacts) {
+                continue;
+            }
+
             if ($phone !== '') {
                 if (isset($phones[$phone])) {
-                    $errors["contacts.$index.phone"] = 'Este teléfono ya está registrado en otro contacto.';
+                    $errors["contacts.$index.phone"] = 'Este teléfono ya está registrado en otro contacto. Contacta con Dirección para que se te habilite la creación de este cliente.';
                 }
                 $phones[$phone] = true;
             }
@@ -785,7 +794,7 @@ class BranchController extends Controller
             if ($email !== '') {
                 $key = strtolower($email);
                 if (isset($emails[$key])) {
-                    $errors["contacts.$index.email"] = 'Este correo ya está registrado en otro contacto.';
+                    $errors["contacts.$index.email"] = 'Este correo ya está registrado en otro contacto. Contacta con Dirección para que se te habilite la creación de este cliente.';
                 }
                 $emails[$key] = true;
             }

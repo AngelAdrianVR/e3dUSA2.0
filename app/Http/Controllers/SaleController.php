@@ -541,7 +541,8 @@ class SaleController extends Controller
         $priceSourceBranch = $this->branchGroups->getProductTargetBranch($sale->branch);
 
         $sale->load([
-            'branch:id,name,rfc,address,post_code,status',
+            'branch:id,name,rfc,business_name,address,post_code,status,parent_branch_id',
+            'branch.parent:id,name,rfc,business_name',
             'media',
             'user:id,name',
             'productions.tasks', 
@@ -949,6 +950,40 @@ class SaleController extends Controller
         Log::info("Archivos de OCE adjuntados a la órden #{$sale->id} por el usuario " . auth()->id());
 
         return back()->with('success', 'Archivo(s) de OCE adjuntados correctamente.');
+    }
+
+    /**
+     * Adjunta (o reemplaza) el PDF y el XML de la factura de la orden.
+     * Solo el personal con el permiso "Crear facturas" puede subirlos.
+     */
+    public function uploadInvoiceMedia(Request $request, Sale $sale)
+    {
+        $user = Auth::user();
+
+        abort_unless($user->hasPermissionTo('Crear facturas'), 403, 'Solo el personal encargado de facturas puede subir estos archivos.');
+
+        $request->validate([
+            'invoice_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
+            'invoice_xml' => ['nullable', 'file', 'mimes:xml,txt', 'max:10240'],
+        ]);
+
+        if (!$request->hasFile('invoice_pdf') && !$request->hasFile('invoice_xml')) {
+            return back()->withErrors([
+                'invoice_files' => 'Selecciona al menos un archivo (PDF o XML).',
+            ]);
+        }
+
+        if ($request->hasFile('invoice_pdf')) {
+            $sale->addMediaFromRequest('invoice_pdf')->toMediaCollection('invoice_pdf');
+        }
+
+        if ($request->hasFile('invoice_xml')) {
+            $sale->addMediaFromRequest('invoice_xml')->toMediaCollection('invoice_xml');
+        }
+
+        Log::info("Archivos de factura adjuntados a la órden #{$sale->id} por el usuario " . $user->id);
+
+        return back()->with('success', 'Archivos de factura actualizados correctamente.');
     }
 
     /**

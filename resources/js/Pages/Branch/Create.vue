@@ -186,7 +186,13 @@
                             <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Contactos por Área</h3>
                         </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                            Haz clic en un área para desplegar sus contactos. Los contactos de <strong>Comercial</strong> y <strong>Pagos</strong> son obligatorios; el de <strong>Finanzas</strong> es opcional. Cada contacto requiere Nombre, Teléfono y Email, y no se pueden repetir entre contactos.
+                            Haz clic en un área para desplegar sus contactos. Los contactos de <strong>Comercial</strong> y <strong>Pagos</strong> son obligatorios; el de <strong>Finanzas</strong> es opcional. Cada contacto requiere Nombre, Teléfono y Email.
+                            <template v-if="allowDuplicateContacts">
+                                Los contactos pueden repetirse entre áreas (configuración habilitada por Dirección).
+                            </template>
+                            <template v-else>
+                                No se pueden repetir el mismo teléfono o correo entre contactos. Si necesitas que una misma persona atienda varias áreas, contacta con Dirección para que se te habilite la creación de este cliente.
+                            </template>
                         </p>
 
                         <el-collapse v-model="activeContactGroups" class="contacts-accordion">
@@ -562,6 +568,10 @@ export default {
         users: Array,
         branches: Array,
         catalog_products: Array,
+        allowDuplicateContacts: {
+            type: Boolean,
+            default: false,
+        },
     },
     computed: {
         groupedContacts() {

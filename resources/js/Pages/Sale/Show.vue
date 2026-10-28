@@ -398,6 +398,16 @@
                                 {{ sale.product_exchanges.length }}
                             </span>
                         </button>
+                        <button 
+                            @click="activeTab = 'fiscal'" 
+                            class="pb-2 text-sm font-semibold transition-colors relative flex items-center gap-2"
+                            :class="activeTab === 'fiscal' ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                        >
+                            Información Fiscal
+                            <span v-if="invoiceFiles.length" class="bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-xs px-1.5 py-0.5 rounded-full">
+                                {{ invoiceFiles.length }}/2
+                            </span>
+                        </button>
                     </div>
 
                     <!-- TAB 1: LISTA ORIGINAL DE PRODUCTOS -->
@@ -501,6 +511,88 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: INFORMACIÓN FISCAL -->
+                    <div v-if="activeTab === 'fiscal'" class="space-y-4 max-h-[65vh] overflow-auto">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 dark:bg-slate-700/40 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                            <div>
+                                <span class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400 block">Razón Social</span>
+                                <span class="text-sm font-medium text-gray-800 dark:text-gray-100 uppercase">{{ fiscalBusinessName }}</span>
+                            </div>
+                            <div>
+                                <span class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400 block">RFC</span>
+                                <span class="text-sm font-mono font-medium text-gray-800 dark:text-gray-100 uppercase">{{ fiscalRfc }}</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 border-b dark:border-gray-600 pb-1">
+                                <i class="fa-solid fa-file-invoice-dollar mr-2"></i>Archivos de la Factura
+                            </h4>
+
+                            <div class="space-y-2">
+                                <!-- PDF -->
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <i v-if="invoicePdf" class="fa-solid fa-circle-check text-emerald-500"></i>
+                                        <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
+                                        <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">PDF</span>
+                                        <a v-if="invoicePdf" :href="invoicePdf.original_url" target="_blank"
+                                            class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                            :title="invoicePdf.file_name">
+                                            {{ invoicePdf.file_name }}
+                                        </a>
+                                        <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                    </div>
+                                    <template v-if="canUploadInvoiceFiles">
+                                        <input ref="invoicePdfInput" type="file" accept=".pdf,application/pdf" class="hidden"
+                                            @change="uploadInvoiceFile('pdf', $event)" />
+                                        <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'pdf'" @click="$refs.invoicePdfInput.click()">
+                                            <i class="fa-solid fa-upload mr-1"></i>
+                                            {{ invoicePdf ? 'Reemplazar PDF' : 'Subir PDF' }}
+                                        </SecondaryButton>
+                                    </template>
+                                </div>
+
+                                <!-- XML -->
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <i v-if="invoiceXml" class="fa-solid fa-circle-check text-emerald-500"></i>
+                                        <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
+                                        <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">XML</span>
+                                        <a v-if="invoiceXml" :href="invoiceXml.original_url" target="_blank"
+                                            class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                            :title="invoiceXml.file_name">
+                                            {{ invoiceXml.file_name }}
+                                        </a>
+                                        <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                    </div>
+                                    <template v-if="canUploadInvoiceFiles">
+                                        <input ref="invoiceXmlInput" type="file" accept=".xml,text/xml,application/xml" class="hidden"
+                                            @change="uploadInvoiceFile('xml', $event)" />
+                                        <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'xml'" @click="$refs.invoiceXmlInput.click()">
+                                            <i class="fa-solid fa-upload mr-1"></i>
+                                            {{ invoiceXml ? 'Reemplazar XML' : 'Subir XML' }}
+                                        </SecondaryButton>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <p v-if="!canUploadInvoiceFiles" class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                                <i class="fa-solid fa-lock mr-1"></i>
+                                <template v-if="!invoiceFiles.length">
+                                    Aún no hay archivos de factura cargados. Solo el personal encargado de facturas puede subirla.
+                                </template>
+                                <template v-else>
+                                    Solo el personal encargado de facturas puede subir o reemplazar estos archivos.
+                                </template>
+                            </p>
+                            <p v-else class="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                                <i class="fa-solid fa-circle-info mr-1"></i>
+                                Puedes subir el PDF y el XML de la factura. Si ya existe uno, se reemplazará por el nuevo archivo.
+                            </p>
                         </div>
                     </div>
 
@@ -736,6 +828,7 @@ export default {
             sampleStatusSteps: ['Autorizado', 'Enviado', 'Devuelto', 'Aprobado', 'Completado'],
 
             activeTab: 'products',
+            uploadingInvoiceFile: null,
             showExchangeModal: false,
             evidencePreviews: [], 
             exchangeForm: useForm({
@@ -792,6 +885,30 @@ export default {
         },
         oceMediaFiles() {
             return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
+        },
+        // Archivos de la factura subidos desde el modal de facturación (o desde esta pestaña)
+        invoicePdf() {
+            return (this.sale.media || []).find(m => m.collection_name === 'invoice_pdf') || null;
+        },
+        invoiceXml() {
+            return (this.sale.media || []).find(m => m.collection_name === 'invoice_xml') || null;
+        },
+        invoiceFiles() {
+            return [this.invoicePdf, this.invoiceXml].filter(Boolean);
+        },
+        // Solo el personal con el permiso "Crear facturas" puede subir estos archivos
+        canUploadInvoiceFiles() {
+            return this.$page.props.auth.user?.permissions?.includes('Crear facturas') ?? false;
+        },
+        fiscalBusinessName() {
+            const branch = this.sale.branch;
+            if (!branch) return 'N/A';
+            return branch.business_name || branch.parent?.business_name || branch.parent?.name || branch.name || 'N/A';
+        },
+        fiscalRfc() {
+            const branch = this.sale.branch;
+            if (!branch) return 'Sin RFC';
+            return branch.rfc || branch.parent?.rfc || 'Sin RFC';
         },
         // Permiso para adjuntar OCE: edición/creación de órdenes o el propio vendedor dueño de la orden.
         canUploadOce() {
@@ -912,6 +1029,27 @@ export default {
         },
         triggerOceInput() {
             this.$refs.oceInput?.click();
+        },
+        /**
+         * Sube (o reemplaza) el PDF o XML de la factura desde la pestaña de Información Fiscal.
+         */
+        uploadInvoiceFile(kind, event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            const field = kind === 'pdf' ? 'invoice_pdf' : 'invoice_xml';
+            this.uploadingInvoiceFile = kind;
+
+            router.post(route('sales.invoice-media', this.sale.id), { [field]: file }, {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Archivo de factura actualizado correctamente.'),
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo subir el archivo.'),
+                onFinish: () => {
+                    this.uploadingInvoiceFile = null;
+                    event.target.value = '';
+                },
+            });
         },
         handleOceUpload(event) {
             const files = Array.from(event.target.files || []);
