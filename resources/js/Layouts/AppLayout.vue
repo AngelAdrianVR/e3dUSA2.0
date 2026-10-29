@@ -65,6 +65,19 @@ let searchTimeout = null;
 // El panel indica "sin resultados" solo cuando todos los módulos vienen vacíos.
 const hasSearchResults = computed(() => searchResults.value.some(module => module.items?.length));
 
+// Clientes del buscador asignados a un vendedor distinto al usuario logueado.
+const branchesFromOtherVendors = computed(() => {
+    const module = searchResults.value.find(section => section.key === 'branches');
+    const currentUserId = page.props.auth?.user?.id;
+
+    return (module?.items ?? []).filter(item => item.vendor_id && item.vendor_id !== currentUserId).length;
+});
+
+// Indica si el cliente del resultado está asignado a otro vendedor.
+const isFromOtherVendor = (item) => Boolean(
+    item.vendor_id && item.vendor_id !== page.props.auth?.user?.id,
+);
+
 // Observador para el campo de búsqueda con debounce
 watch(searchQuery, (newQuery) => {
     clearTimeout(searchTimeout);
@@ -471,7 +484,15 @@ onMounted(() => {
                                             </div>
                                             <div v-else class="max-h-96 overflow-y-auto">
                                                 <div v-for="module in searchResults" :key="module.key">
-                                                    <h3 class="text-xs font-semibold text-gray-400 uppercase p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50">{{ module.label }}</h3>
+                                                    <div class="flex items-center justify-between gap-2 p-3 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-900/50">
+                                                        <h3 class="text-xs font-semibold text-gray-400 uppercase">{{ module.label }}</h3>
+                                                        <!-- Aviso: hay clientes del resultado que no están vinculados al usuario -->
+                                                        <span v-if="module.key === 'branches' && branchesFromOtherVendors"
+                                                            class="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                                            {{ branchesFromOtherVendors }} asignado(s) a otro vendedor
+                                                        </span>
+                                                    </div>
                                                     <ul>
                                                         <li v-for="item in module.items" :key="`${module.key}-${item.id}`">
                                                             <Link :href="item.url" class="flex items-center gap-3 p-3 hover:bg-blue-50 dark:hover:bg-zinc-700 transition-colors duration-150">
@@ -486,6 +507,13 @@ onMounted(() => {
                                                                 <div class="flex-grow min-w-0">
                                                                     <p class="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{{ item.title }}</p>
                                                                     <p v-if="item.subtitle" class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ item.subtitle }}</p>
+                                                                    <p v-if="item.vendor" class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                                                        <i class="fa-solid fa-user-tie text-[10px] flex-shrink-0"></i>
+                                                                        <span class="truncate">{{ item.vendor }}</span>
+                                                                        <i v-if="module.key === 'branches' && isFromOtherVendor(item)"
+                                                                            class="fa-solid fa-triangle-exclamation flex-shrink-0 text-[10px] text-amber-500 dark:text-amber-400"
+                                                                            title="Este cliente no está vinculado a ti"></i>
+                                                                    </p>
                                                                 </div>
                                                                 <span v-if="item.badge"
                                                                     class="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-zinc-700 text-gray-500 dark:text-gray-300">

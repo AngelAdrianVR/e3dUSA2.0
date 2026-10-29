@@ -115,14 +115,20 @@ class AppLayoutController extends Controller
                     ->orWhere('client_number', 'like', $this->like($term))
                     ->orWhere('group_name', 'like', $this->like($term));
             })
+            ->with('accountManager:id,name')
             ->orderByRaw('CASE WHEN name = ? THEN 0 WHEN name LIKE ? THEN 1 ELSE 2 END', [$term, $this->prefix($term)])
             ->orderBy('name')
             ->take($limit)
-            ->get(['id', 'name', 'status', 'group_name', 'business_name', 'parent_branch_id'])
+            ->get(['id', 'name', 'status', 'group_name', 'business_name', 'parent_branch_id', 'account_manager_id'])
             ->map(fn ($branch) => [
                 'id' => $branch->id,
                 'title' => $branch->name,
                 'subtitle' => $this->branchSubtitle($branch),
+                'vendor' => $branch->accountManager?->name
+                    ? "Vendedor: {$branch->accountManager->name}"
+                    : 'Sin vendedor asignado',
+                // Permite al frontend avisar cuando el cliente no pertenece al usuario logueado.
+                'vendor_id' => $branch->account_manager_id,
                 'badge' => $branch->status,
                 'url' => route('branches.show', $branch->id),
             ])

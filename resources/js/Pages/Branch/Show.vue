@@ -618,6 +618,13 @@
                 </div>
             </template>
         </DialogModal>
+        <!-- Aviso: el cliente está asignado a otro vendedor -->
+        <VendorAssignmentAlert
+            :show="vendorAlert.show"
+            :client-name="vendorAlert.clientName"
+            :vendor-name="vendorAlert.vendorName"
+            @close="vendorAlert.show = false"
+        />
     </AppLayout>
 </template>
 
@@ -647,6 +654,7 @@ import DropdownLink from "@/Components/DropdownLink.vue";
 import TextInput from "@/Components/TextInput.vue";
 import InputError from "@/Components/InputError.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import VendorAssignmentAlert from "@/Components/MyComponents/VendorAssignmentAlert.vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
@@ -717,6 +725,12 @@ export default {
             childToAdd: null,
             childCandidates: [],
             searchingChildren: false,
+            // --- Aviso de vendedor asignado ---
+            vendorAlert: {
+                show: false,
+                clientName: '',
+                vendorName: '',
+            },
         };
     },
     components: {
@@ -734,6 +748,7 @@ export default {
         TextInput,
         InputError,
         FileUploader,
+        VendorAssignmentAlert,
         Products,
         Quotes,
         Sales,
@@ -1066,6 +1081,20 @@ export default {
             });
         },
         // --- Vendedor asignado ---
+        // Avisa cuando el cliente pertenece a otro vendedor. Los clientes sin
+        // vendedor asignado no generan aviso.
+        checkVendorAssignment() {
+            const vendor = this.branch.account_manager;
+            this.vendorAlert = { show: false, clientName: '', vendorName: '' };
+
+            if (!vendor || vendor.id === this.$page.props.auth.user.id) return;
+
+            this.vendorAlert = {
+                show: true,
+                clientName: this.branch.name,
+                vendorName: vendor.name,
+            };
+        },
         // Indica si el vendedor asignado ya no está activo en el sistema.
         isSellerInactive(branch) {
             return !!branch?.account_manager && branch.account_manager.is_active === false;
@@ -1251,6 +1280,7 @@ export default {
                 this.childCandidates = [];
                 this.fetchQuotes();
                 this.fetchSales();
+                this.checkVendorAssignment();
             }
         },
         groupName(newName) {
@@ -1260,6 +1290,7 @@ export default {
     mounted() {
         this.fetchQuotes();
         this.fetchSales();
+        this.checkVendorAssignment();
     }
 };
 </script>

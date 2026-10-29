@@ -150,7 +150,9 @@ class SaleController extends Controller
         // --- ORDEN DE MUESTRA/REGALO: datos del seguimiento de muestra (para prellenar el form) ---
         $sampleTrackingData = $this->getSampleTrackingDataForSale($request->input('sample_tracking_id'));
 
-        $branches = Branch::select('id', 'name')->with('contacts')->get();
+        $branches = Branch::select('id', 'name', 'account_manager_id')
+            ->with(['contacts', 'accountManager:id,name'])
+            ->get();
 
         // Excluir familias de cotizaciones donde ALGUNA versión ya tiene OV vinculada
         $familiesWithSale = Quote::whereNotNull('sale_id')->pluck('root_quote_id')->unique()->filter();

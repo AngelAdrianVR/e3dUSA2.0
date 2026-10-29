@@ -740,6 +740,14 @@
             </template>
         </el-dialog>
 
+        <!-- Aviso: el cliente elegido está asignado a otro vendedor -->
+        <VendorAssignmentAlert
+            :show="vendorAlert.show"
+            :client-name="vendorAlert.clientName"
+            :vendor-name="vendorAlert.vendorName"
+            @close="vendorAlert.show = false"
+        />
+
     </AppLayout>
 </template>
 
@@ -763,6 +771,7 @@ import { useForm, router } from "@inertiajs/vue3";
 import axios from 'axios';
 import Editor from '@tinymce/tinymce-vue';
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
+import VendorAssignmentAlert from "@/Components/MyComponents/VendorAssignmentAlert.vue";
 
 export default {
     data() {
@@ -852,12 +861,19 @@ export default {
             firstProductionDaysList: ['Inmediata', '1 a 2 días', '2 a 3 días', '3 a 4 días', '4 a 5 días', '5 a 6 días', '1 semana', '1 a 2 semanas', '3 a 4 semanas', '5 a 6 semanas', '7 a 8 semanas', '9 a 10 semanas', '11 a 12 semanas', '13 a 14 semanas', '15 a 16 semanas', '17 a 18 semanas'],
             firstProductionDaysListEnglish: ['Immediate', '1 to 2 days', '2 to 3 days', '3 to 4 days', '4 to 5 days', '5 to 6 days', '1 to 2 weeks', '3 to 4 weeks', '5 to 6 weeks', '7 to 8 weeks', '9 to 10 weeks', '11 to 12 weeks', '13 to 14 weeks', '15 to 16 weeks', '17 to 18 weeks'],
             tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
+
+            // Aviso cuando el cliente elegido pertenece a otro vendedor.
+            vendorAlert: {
+                show: false,
+                clientName: '',
+                vendorName: '',
+            },
         };
     },
     components: {
         Back, Editor, Checkbox, TextInput, AppLayout, InputError, InputLabel, BranchNotes,
         CancelButton, PrimaryButton, LoadingIsoLogo, SecondaryButton, ConfirmationModal,
-        ClientProductsDrawer,
+        ClientProductsDrawer, VendorAssignmentAlert,
     },
     props: {
         catalogProducts: Array,
@@ -1247,6 +1263,25 @@ export default {
         },
         handleBranchChange(branchId) { /* ... Lógica existente de contactos ... */ },
         handleContactChange(contactId) { /* ... Lógica existente de contactos ... */ },
+
+        // Avisa cuando el cliente seleccionado está asignado a otro vendedor.
+        // Los clientes sin vendedor asignado no generan aviso.
+        checkVendorAssignment(branchId) {
+            this.vendorAlert = { show: false, clientName: '', vendorName: '' };
+
+            if (!branchId) return;
+
+            const branch = this.localBranches.find(b => b.id === branchId);
+            const vendor = branch?.account_manager;
+
+            if (!vendor || vendor.id === this.$page.props.auth.user.id) return;
+
+            this.vendorAlert = {
+                show: true,
+                clientName: branch.name,
+                vendorName: vendor.name,
+            };
+        },
         
         async storeQuickBranch() {
             this.quickBranchForm.processing = true;
@@ -1281,6 +1316,7 @@ export default {
             this.clientProducts = [];
             this.handleBranchChange(newVal);
             if (newVal) this.fetchClientProducts(newVal);
+            this.checkVendorAssignment(newVal);
         },
         productSource() {
             if (this.selectedBaseProductId && !this.selectableBaseProducts.some(p => p.id === this.selectedBaseProductId)) {
