@@ -477,6 +477,13 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Se agregarán a la categoría "Muestras y regalos". No cierres esta ventana.</p>
             </div>
         </div>
+        <!-- Aviso: el cliente elegido está asignado a otro vendedor -->
+        <VendorAssignmentAlert
+            :show="vendorAlert.show"
+            :client-name="vendorAlert.clientName"
+            :vendor-name="vendorAlert.vendorName"
+            @close="vendorAlert.show = false"
+        />
     </AppLayout>
 </template>
 
@@ -494,6 +501,7 @@ import FileUploader from "@/Components/MyComponents/FileUploader.vue";
 import SaleProductManager from "@/Pages/Sale/Components/SaleProductManager.vue";
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
 import MuestraProductsStockModal from "@/Components/MyComponents/MuestraProductsStockModal.vue";
+import VendorAssignmentAlert from "@/Components/MyComponents/VendorAssignmentAlert.vue";
 import { ElMessage } from 'element-plus';
 import { useForm, router } from "@inertiajs/vue3"; // IMPORTANTE: Agregar router
 import axios from 'axios';
@@ -513,6 +521,7 @@ export default {
         SaleProductManager,
         ClientProductsDrawer,
         MuestraProductsStockModal,
+        VendorAssignmentAlert,
     },
     props: {
         branches: Array,
@@ -591,6 +600,13 @@ export default {
             shippingCompanies: [
                 'DHL', 'UPS', 'LOCAL', 'FEDEX', 'ESTAFETA', 'PAQUETEXPRESS', 'THINY PACK', 'ELLOS RECOLECTAN', 'JR', 'POTOSINOS', 'ENVÍO PROPIO', 'OTRO',
             ],
+
+            // Aviso cuando el cliente elegido pertenece a otro vendedor.
+            vendorAlert: {
+                show: false,
+                clientName: '',
+                vendorName: '',
+            },
         };
     },
     computed: {
@@ -932,9 +948,29 @@ export default {
             const selectedBranch = this.localBranches.find(b => b.id === branchId);
             this.availableContacts = selectedBranch ? selectedBranch.contacts : [];
 
+            this.checkVendorAssignment(branchId);
+
             await this.fetchClientProducts();
 
             return true;
+        },
+        // Avisa cuando el cliente seleccionado está asignado a otro vendedor.
+        // Los clientes sin vendedor asignado no generan aviso.
+        checkVendorAssignment(branchId) {
+            this.vendorAlert = { show: false, clientName: '', vendorName: '' };
+
+            if (!branchId) return;
+
+            const branch = this.localBranches.find(b => b.id === branchId);
+            const vendor = branch?.account_manager;
+
+            if (!vendor || vendor.id === this.$page.props.auth.user.id) return;
+
+            this.vendorAlert = {
+                show: true,
+                clientName: branch.name,
+                vendorName: vendor.name,
+            };
         },
         async fetchClientProducts() {
             if (!this.form.branch_id) return;

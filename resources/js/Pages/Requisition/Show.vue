@@ -803,6 +803,16 @@
                         @files-selected="actionForm.quotation.file = $event[0] ?? null" />
                 </div>
 
+                <!-- Ya existe una cotización: la nueva carga reemplaza la vigente -->
+                <div v-if="hasQuotation"
+                    class="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 p-3 text-xs text-amber-700 dark:text-amber-300">
+                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                    <span>
+                        Esta requisición ya tiene una cotización adjunta.
+                        El archivo que subas ahora reemplazará a la cotización vigente.
+                    </span>
+                </div>
+
                 <div v-if="actionForm.quotation.items.length" class="space-y-3">
                     <InputLabel value="Piezas requeridas y costo unitario por producto" />
                     <div v-for="item in actionForm.quotation.items" :key="item.id"
@@ -899,8 +909,9 @@
             <template #footer>
                 <div class="flex justify-end space-x-3">
                     <el-button @click="modals.quotation = false">Cancelar</el-button>
-                    <el-button type="primary" :disabled="!actionForm.quotation.file" @click="submitQuotation">
-                        Guardar y enviar a autorización
+                    <el-button type="primary" :loading="quotationSubmitting"
+                        :disabled="!actionForm.quotation.file || quotationSubmitting" @click="submitQuotation">
+                        {{ hasQuotation ? 'Reemplazar cotización' : 'Guardar y enviar a autorización' }}
                     </el-button>
                 </div>
             </template>
@@ -1674,6 +1685,8 @@ export default {
                 },
             },
             commentForm: useForm({ content: '', mentioned_user_ids: [] }),
+            // Evita reenviar la cotización mientras el archivo se está subiendo.
+            quotationSubmitting: false,
         };
     },
     created() {
@@ -1718,8 +1731,13 @@ export default {
         // Acciones del flujo disponibles según la etapa y los permisos.
         flowActions() {
             return [
-                // La cotización se captura una sola vez: si ya hay archivo, no se ofrece.
-                { key: 'quotation', label: 'Adjuntar cotización', icon: 'fa-solid fa-file-invoice-dollar', show: this.canQuoteNow },
+                // La cotización vigente se puede adjuntar o reemplazar según la etapa.
+                {
+                    key: 'quotation',
+                    label: this.hasQuotation ? 'Reemplazar cotización' : 'Adjuntar cotización',
+                    icon: 'fa-solid fa-file-invoice-dollar',
+                    show: this.canQuoteNow,
+                },
                 { key: 'authorize', label: 'Validar (Pass / Fail)', icon: 'fa-solid fa-gavel', show: this.can.authorize },
                 { key: 'factory', label: 'Pedido a fábrica', icon: 'fa-solid fa-industry', show: this.can.factory_order },
                 { key: 'docs', label: 'Documentación de fábrica', icon: 'fa-solid fa-box-open', show: this.can.upload_factory_docs },
@@ -1832,13 +1850,11 @@ export default {
             return Boolean(this.actionForm.shipment.shipment_id || this.actionForm.shipment.tracking_number);
         },
         /*
-         * El servidor habilita la captura por etapa y permisos; si la cotización
-         * previa se eliminó desde Documentos, se vuelve a ofrecer el reemplazo.
+         * El servidor habilita la captura por etapa y permisos; si ya existe una
+         * cotización, la acción permite reemplazarla por una versión actualizada.
          */
         canQuoteNow() {
-            if (this.hasQuotation) return false;
-
-            return Boolean(this.can.upload_quotation || this.can.quoted);
+            return Boolean(this.can.upload_quotation);
         },
         totalItemsQuantity() {
             return (this.requisition.items ?? []).reduce((total, item) => total + (Number(item.quantity) || 0), 0);
@@ -2294,8 +2310,13 @@ export default {
             ElMessage.success(message);
         },
         submitQuotation() {
+            if (this.quotationSubmitting) return;
+
             const quotation = this.actionForm.quotation;
             const taxRate = quotation.tax_rate === '' || quotation.tax_rate === null ? 16 : quotation.tax_rate;
+            const isReplacement = this.hasQuotation;
+
+            this.quotationSubmitting = true;
 
             router.post(route('requisitions.upload-quotation', this.requisition.id), {
                 quotation: quotation.file,
@@ -2312,11 +2333,17 @@ export default {
                 forceFormData: true,
                 onSuccess: () => {
                     this.modals.quotation = false;
+                    quotation.file = null;
                     quotation.tax_enabled = false;
                     quotation.tax_rate = 16;
-                    this.handleSuccess('Cotización adjuntada.');
+                    this.handleSuccess(isReplacement ? 'Cotización reemplazada.' : 'Cotización adjuntada.');
                 },
-                onError: () => ElMessage.error('No se pudo subir la cotización.'),
+                onError: (errors) => ElMessage.error(
+                    errors?.quotation ?? 'No se pudo subir la cotización.',
+                ),
+                onFinish: () => {
+                    this.quotationSubmitting = false;
+                },
             });
         },
         submitAuthorize() {

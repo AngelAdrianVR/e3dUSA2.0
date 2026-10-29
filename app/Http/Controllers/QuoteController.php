@@ -117,7 +117,9 @@ class QuoteController extends Controller
             }, 'variants.media'])
             ->get();
 
-        $branches = Branch::select('id', 'name', 'status')->get();
+        $branches = Branch::select('id', 'name', 'status', 'account_manager_id')
+            ->with('accountManager:id,name')
+            ->get();
 
         return Inertia::render('Quote/Create', [
             'catalogProducts' => $catalogProducts,

@@ -546,13 +546,19 @@ class RequisitionController extends Controller
             403
         );
 
-        abort_if($this->hasQuotation($requisition), 409, 'La requisición ya tiene una cotización adjunta.');
-
         $quotableStatuses = $isLocal
             ? ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización']
             : ['Pendiente de negociación', 'Rechazada', 'Aprobada'];
 
-        abort_unless(in_array($requisition->status, $quotableStatuses, true), 409, 'La requisición no está en etapa de cotización.');
+        // La cotización vigente se puede corregir o reemplazar mientras la etapa lo
+        // permita (p. ej. tras un rechazo de gerencia o al adjuntar el archivo correcto).
+        if (! in_array($requisition->status, $quotableStatuses, true)) {
+            return back()->withErrors([
+                'quotation' => 'La requisición no está en etapa de cotización.',
+            ]);
+        }
+
+        $hadQuotation = $this->hasQuotation($requisition);
 
         $request->validate([
             'quotation' => ['required', 'file', 'max:10240'],
@@ -569,7 +575,15 @@ class RequisitionController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $requisition, $isLocal) {
-            $requisition->addMediaFromRequest('quotation')->toMediaCollection('quotations');
+            $quotation = $requisition->addMediaFromRequest('quotation')->toMediaCollection('quotations');
+
+            // Solo se conserva la cotización vigente: la carga nueva reemplaza
+            // el archivo anterior (o los archivos que se hayan cargado desde Documentos).
+            $requisition->media()
+                ->where('collection_name', 'quotations')
+                ->where('id', '!=', $quotation->id)
+                ->get()
+                ->each(fn ($previous) => $previous->delete());
 
             $payload = [
                 'quoted_cost' => $request->quoted_cost,
@@ -588,9 +602,11 @@ class RequisitionController extends Controller
             $this->storeQuotationItems($requisition, $request->items ?? []);
         });
 
-        $this->storeComment($requisition, $user, $isLocal
-            ? 'Cotización adjuntada; enviada a autorización.'
-            : 'Cotización adjuntada por la gerencia de compras.');
+        $this->storeComment($requisition, $user, match (true) {
+            $hadQuotation => 'Cotización reemplazada por una versión actualizada.',
+            $isLocal => 'Cotización adjuntada; enviada a autorización.',
+            default => 'Cotización adjuntada por la gerencia de compras.',
+        });
 
         $this->notify(
             $isLocal ? RequisitionPermissions::AUTHORIZE : RequisitionPermissions::EDIT,
@@ -599,9 +615,11 @@ class RequisitionController extends Controller
             new RequisitionQuotationUploadedNotification($requisition, $isLocal)
         );
 
-        return back()->with('success', $isLocal
-            ? 'Cotización adjuntada. Se notificó a la gerencia de compras.'
-            : 'Cotización adjuntada.');
+        return back()->with('success', match (true) {
+            $hadQuotation => 'Cotización reemplazada correctamente.',
+            $isLocal => 'Cotización adjuntada. Se notificó a la gerencia de compras.',
+            default => 'Cotización adjuntada.',
+        });
     }
 
     /**
@@ -1135,7 +1153,7 @@ class RequisitionController extends Controller
         // En importaciones la fecha tentativa de llegada se define con las guías en mano.
         $hasShipments = $requisition->shipments()->exists();
 
-        // La cotización se captura una sola vez por requisición.
+        // La cotización vigente se puede reemplazar mientras la etapa lo permita.
         $canQuote = $isLocal
             ? RequisitionPermissions::canEdit($user)
                 && in_array($requisition->status, ['Pendiente de cotización', 'Rechazada', 'Pendiente de autorización'], true)
@@ -1145,7 +1163,7 @@ class RequisitionController extends Controller
         return [
             'edit' => $canEdit,
             'delete' => $this->canDeleteRequisition($requisition, $user),
-            'upload_quotation' => $canQuote && ! $hasQuotation,
+            'upload_quotation' => $canQuote,
             'quoted' => $hasQuotation,
             'authorize' => $canAuthorize && in_array($requisition->status, $this->authorizableStatuses($isLocal), true),
             'factory_order' => ($canAuthorize || $canManageArrivals) && ! $isLocal && $requisition->status === 'Aprobada',
