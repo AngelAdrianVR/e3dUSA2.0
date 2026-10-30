@@ -27,30 +27,113 @@
                                 Subir Formato
                             </button>
 
-                            <!-- Branch Filter -->
-                             <el-select
-                                v-model="filters.branch_id"
-                                filterable
-                                clearable
-                                placeholder="Filtrar por sucursal"
-                                class="!w-full sm:!w-52"
+                            <!-- Dropdown de Filtros -->
+                            <div ref="filtersDropdownRef" class="relative w-full sm:w-auto">
+                                <button
+                                    type="button"
+                                    @click="filtersOpen = !filtersOpen"
+                                    class="w-full sm:w-auto px-4 py-2 rounded-md text-sm font-semibold border transition flex items-center justify-center gap-2"
+                                    :class="activeFiltersCount > 0
+                                        ? 'border-indigo-500 text-indigo-600 dark:border-sky-500 dark:text-sky-400 bg-indigo-50 dark:bg-sky-500/10'
+                                        : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'"
+                                    :aria-expanded="filtersOpen"
                                 >
-                                <el-option v-for="branch in branches" :key="branch.id" :label="branch.name" :value="branch.id" />
-                            </el-select>
-                            
-                            <!-- Search Input -->
-                            <div class="relative w-full sm:w-64">
-                                <input
-                                    v-model="filters.search"
-                                    type="text"
-                                    placeholder="Buscar por nombre..."
-                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-indigo-500 dark:focus:ring-sky-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 transition"
-                                />
-                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                    </svg>
-                                </div>
+                                    <i class="fa-solid fa-sliders"></i>
+                                    Filtros
+                                    <span
+                                        v-if="activeFiltersCount > 0"
+                                        class="inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full bg-indigo-600 dark:bg-sky-500 text-white text-[11px] font-bold"
+                                    >
+                                        {{ activeFiltersCount }}
+                                    </span>
+                                    <i
+                                        class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200"
+                                        :class="{ 'rotate-180': filtersOpen }"
+                                    ></i>
+                                </button>
+
+                                <transition
+                                    enter-active-class="transition ease-out duration-150"
+                                    enter-from-class="opacity-0 translate-y-1"
+                                    enter-to-class="opacity-100 translate-y-0"
+                                    leave-active-class="transition ease-in duration-100"
+                                    leave-from-class="opacity-100 translate-y-0"
+                                    leave-to-class="opacity-0 translate-y-1"
+                                >
+                                    <div
+                                        v-if="filtersOpen"
+                                        class="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] z-30 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl p-4 space-y-4"
+                                    >
+                                        <!-- Búsqueda -->
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                                Buscar por nombre
+                                            </label>
+                                            <div class="relative">
+                                                <input
+                                                    v-model="filters.search"
+                                                    type="text"
+                                                    placeholder="Nombre del archivo..."
+                                                    class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 dark:focus:ring-sky-500"
+                                                />
+                                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Sucursal -->
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                                Sucursal
+                                            </label>
+                                            <SearchableSelect
+                                                v-model="filters.branch_id"
+                                                :options="branchOptions"
+                                                placeholder="Todas las sucursales"
+                                                search-placeholder="Buscar sucursal..."
+                                                empty-option-label="Todas las sucursales"
+                                                clearable
+                                            />
+                                        </div>
+
+                                        <!-- Peso del archivo -->
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                                Peso del archivo
+                                            </label>
+                                            <SearchableSelect
+                                                v-model="filters.sort"
+                                                :options="sizeSortOptions"
+                                                :filterable="false"
+                                                placeholder="Sin orden específico"
+                                                empty-option-label="Sin orden específico"
+                                                clearable
+                                            />
+                                        </div>
+
+                                        <!-- Acciones -->
+                                        <div class="flex items-center justify-between gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                            <button
+                                                type="button"
+                                                @click="resetFilters"
+                                                :disabled="activeFiltersCount === 0"
+                                                class="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                                            >
+                                                Limpiar filtros
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="filtersOpen = false"
+                                                class="px-3 py-1.5 text-sm font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition"
+                                            >
+                                                Listo
+                                            </button>
+                                        </div>
+                                    </div>
+                                </transition>
                             </div>
                         </div>
                     </header>
@@ -64,7 +147,11 @@
                                     <span>Diseños Terminados ({{ completedFiles.total }})</span>
                                 </span>
                             </template>
-                            <FileGrid :files="completedFiles.data" />
+                            <FileGrid
+                                :files="completedFiles.data"
+                                :can-delete="canDeleteFiles"
+                                @delete="confirmDelete"
+                            />
                             <Pagination :links="completedFiles.links" class="mt-6"/>
                         </el-tab-pane>
 
@@ -75,7 +162,11 @@
                                     <span>Recursos de Órdenes ({{ designOrderFiles.total }})</span>
                                 </span>
                             </template>
-                            <FileGrid :files="designOrderFiles.data" />
+                            <FileGrid
+                                :files="designOrderFiles.data"
+                                :can-delete="canDeleteFiles"
+                                @delete="confirmDelete"
+                            />
                              <Pagination :links="designOrderFiles.links" class="mt-6"/>
                         </el-tab-pane>
 
@@ -106,17 +197,7 @@
                                     <a :href="file.original_url" target="_blank" class="flex-1 flex flex-col cursor-pointer">
                                         <!-- Preview -->
                                         <div class="h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden relative">
-                                            <img 
-                                                v-if="file.mime_type.startsWith('image/')" 
-                                                :src="file.preview_url || file.original_url" 
-                                                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                            />
-                                            <div v-else class="text-gray-400 dark:text-gray-500">
-                                                <i class="fa-solid fa-file-pdf text-5xl" v-if="file.mime_type === 'application/pdf'"></i>
-                                                <i class="fa-solid fa-file-word text-5xl" v-else-if="file.mime_type.includes('word')"></i>
-                                                <i class="fa-solid fa-file-excel text-5xl" v-else-if="file.mime_type.includes('sheet')"></i>
-                                                <i class="fa-solid fa-file-lines text-5xl" v-else></i>
-                                            </div>
+                                            <FileThumbnail :file="file" class="transition-transform duration-500 group-hover:scale-105" />
                                             
                                             <!-- Overlay al Hover -->
                                             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300"></div>
@@ -182,14 +263,12 @@
 
                                     <a :href="file.original_url" target="_blank" class="flex-1 flex flex-col cursor-pointer">
                                         <div class="h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden relative">
-                                            <img 
-                                                v-if="file.mime_type.startsWith('image/')" 
-                                                :src="file.preview_url || file.original_url" 
-                                                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            <FileThumbnail
+                                                :file="file"
+                                                icon="fa-solid fa-file-shield text-5xl text-red-400/70"
+                                                :preview-pdf="false"
+                                                class="transition-transform duration-500 group-hover:scale-105"
                                             />
-                                            <div v-else class="text-gray-400 dark:text-gray-500">
-                                                <i class="fa-solid fa-file-shield text-5xl text-red-400/70"></i>
-                                            </div>
                                              <div class="absolute inset-0 bg-red-500/0 group-hover:bg-red-500/5 transition-colors duration-300"></div>
                                         </div>
 
@@ -278,11 +357,13 @@
 </template>
 
 <script>
-import { defineComponent, ref, reactive, watch } from 'vue';
-import { router, useForm } from '@inertiajs/vue3'; // Importar useForm
+import { defineComponent, ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue';
+import { router, useForm, usePage } from '@inertiajs/vue3'; // Importar useForm
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ElTabs, ElTabPane, ElSelect, ElOption, ElDialog, ElSwitch, ElMessage, ElMessageBox } from 'element-plus';
+import { ElTabs, ElTabPane, ElDialog, ElSwitch, ElMessage, ElMessageBox } from 'element-plus';
 import FileGrid from '@/Components/MyComponents/FileGrid.vue';
+import FileThumbnail from '@/Components/MyComponents/FileThumbnail.vue';
+import SearchableSelect from '@/Components/MyComponents/SearchableSelect.vue';
 import Pagination from '@/Components/MyComponents/Pagination.vue';
 import throttle from 'lodash/throttle';
 
@@ -291,11 +372,11 @@ export default defineComponent({
         AppLayout,
         ElTabs,
         ElTabPane,
-        ElSelect,
-        ElOption,
         ElDialog,
         ElSwitch,
         FileGrid,
+        FileThumbnail,
+        SearchableSelect,
         Pagination,
     },
     props: {
@@ -307,12 +388,72 @@ export default defineComponent({
         filters: Object,
     },
     setup(props) {
-        const activeTab = ref(props.filters.tab || 'completed');
+        // Laravel serializa un arreglo vacío como [] (array de JS), no como objeto
+        const initialFilters = Array.isArray(props.filters) ? {} : (props.filters || {});
+
+        const activeTab = ref(initialFilters.tab || 'completed');
         const uploadModalVisible = ref(false);
+        const filtersOpen = ref(false);
+        const filtersDropdownRef = ref(null);
 
         const filters = reactive({
-            search: props.filters.search || '',
-            branch_id: props.filters.branch_id || null,
+            search: initialFilters.search || '',
+            branch_id: initialFilters.branch_id || null,
+            sort: initialFilters.sort || null,
+        });
+
+        const page = usePage();
+
+        const canDeleteFiles = computed(() =>
+            page.props.auth.user.permissions.includes('Eliminar formatos')
+        );
+
+        const activeFiltersCount = computed(() => {
+            let count = 0;
+            if (filters.search) count++;
+            if (filters.branch_id) count++;
+            if (filters.sort) count++;
+            return count;
+        });
+
+        const branchOptions = computed(() =>
+            (props.branches || []).map((branch) => ({ value: branch.id, label: branch.name }))
+        );
+
+        const sizeSortOptions = [
+            { value: 'size_desc', label: 'Mayor a menor peso' },
+            { value: 'size_asc', label: 'Menor a mayor peso' },
+        ];
+
+        const resetFilters = () => {
+            filters.search = '';
+            filters.branch_id = null;
+            filters.sort = null;
+        };
+
+        const closeFiltersOnOutsideClick = (event) => {
+            if (!filtersOpen.value) return;
+
+            // Clicks within the panel (including the selects inside it)
+            if (filtersDropdownRef.value && filtersDropdownRef.value.contains(event.target)) return;
+
+            filtersOpen.value = false;
+        };
+
+        const closeFiltersOnEscape = (event) => {
+            if (event.key === 'Escape') {
+                filtersOpen.value = false;
+            }
+        };
+
+        onMounted(() => {
+            document.addEventListener('click', closeFiltersOnOutsideClick);
+            document.addEventListener('keydown', closeFiltersOnEscape);
+        });
+
+        onUnmounted(() => {
+            document.removeEventListener('click', closeFiltersOnOutsideClick);
+            document.removeEventListener('keydown', closeFiltersOnEscape);
         });
 
         const form = useForm({
@@ -365,8 +506,8 @@ export default defineComponent({
         // --- Manejo de Eliminación con Confirmación ---
         const confirmDelete = (file) => {
             ElMessageBox.confirm(
-                `¿Estás seguro de que deseas eliminar el formato "${file.name}"? Esta acción no se puede deshacer.`,
-                'Eliminar Formato',
+                `¿Estás seguro de que deseas eliminar el archivo "${file.name}"? Esta acción no se puede deshacer.`,
+                'Eliminar Archivo',
                 {
                     confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
@@ -390,6 +531,13 @@ export default defineComponent({
             activeTab,
             filters,
             onTabChange,
+            filtersOpen,
+            filtersDropdownRef,
+            activeFiltersCount,
+            branchOptions,
+            sizeSortOptions,
+            resetFilters,
+            canDeleteFiles,
             uploadModalVisible,
             form,
             openUploadModal,

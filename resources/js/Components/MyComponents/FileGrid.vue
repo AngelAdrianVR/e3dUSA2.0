@@ -5,11 +5,18 @@
             :key="file.id"
             class="group relative bg-white cursor-pointer dark:bg-gray-700/50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-200 dark:border-gray-700"
         >
+            <button
+                v-if="canDelete"
+                type="button"
+                @click.stop="emit('delete', file)"
+                aria-label="Eliminar archivo"
+                class="absolute top-2 right-2 z-10 p-2 bg-white/90 dark:bg-gray-800/90 text-gray-400 hover:text-red-600 rounded-full shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110"
+                title="Eliminar archivo"
+            >
+                <i class="fa-regular fa-trash-can text-lg"></i>
+            </button>
             <div class="h-40 flex items-center justify-center bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                <img v-if="isImage(file.mime_type)" :src="file.preview_url" alt="File preview" class="h-full w-full object-cover">
-                <div v-else class="text-center text-gray-500 dark:text-gray-400">
-                     <i :class="getFileIcon(file.mime_type)" class="text-5xl"></i>
-                </div>
+                <FileThumbnail :file="file" />
             </div>
             <div class="p-4">
                 <p class="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-indigo-600 dark:group-hover:text-sky-400" :title="file.name">
@@ -41,22 +48,17 @@
 </template>
 
 <script setup>
+import FileThumbnail from '@/Components/MyComponents/FileThumbnail.vue';
+
 defineProps({
     files: Array,
+    canDelete: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const isImage = (mimeType) => mimeType.startsWith('image/');
-
-const getFileIcon = (mimeType) => {
-    if (isImage(mimeType)) return 'fa-regular fa-file-image';
-    if (mimeType.includes('pdf')) return 'fa-regular fa-file-pdf';
-    if (mimeType.includes('zip') || mimeType.includes('rar')) return 'fa-regular fa-file-zipper';
-    if (mimeType.includes('word')) return 'fa-regular fa-file-word';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-regular fa-file-excel';
-    if (mimeType.includes('illustrator') || mimeType.includes('ai')) return 'fa-solid fa-pen-ruler';
-    if (mimeType.includes('photoshop') || mimeType.includes('psd')) return 'fa-solid fa-camera-retro';
-    return 'fa-regular fa-file';
-};
+const emit = defineEmits(['delete']);
 
 const openFile = (file) => {
     window.open(file, '_blank')

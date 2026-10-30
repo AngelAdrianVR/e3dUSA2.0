@@ -14,8 +14,9 @@ class MediaLibraryController extends Controller
 {
     public function index(Request $request)
     {
-        $filters = $request->only('search', 'branch_id', 'tab');
+        $filters = $request->only('search', 'branch_id', 'tab', 'sort');
         $searchTerm = $filters['search'] ?? null;
+        $sort = $filters['sort'] ?? null;
 
         // --- 1. Diseños Terminados ---
         $completedFilesQuery = Media::query()
@@ -62,12 +63,12 @@ class MediaLibraryController extends Controller
         }
 
         return Inertia::render('MediaLibrary/Index', [
-            'completedFiles' => $this->paginateAndFormat($completedFilesQuery, 'completed_page', 'design'),
-            'designOrderFiles' => $this->paginateAndFormat($designOrderFilesQuery, 'resources_page', 'order'),
-            'publicFormats' => $this->paginateAndFormat($publicFormatsQuery, 'public_page', 'format'),
-            'restrictedFormats' => $this->paginateAndFormat($restrictedFormatsQuery, 'restricted_page', 'format'),
+            'completedFiles' => $this->paginateAndFormat($completedFilesQuery, 'completed_page', 'design', $sort),
+            'designOrderFiles' => $this->paginateAndFormat($designOrderFilesQuery, 'resources_page', 'order', $sort),
+            'publicFormats' => $this->paginateAndFormat($publicFormatsQuery, 'public_page', 'format', $sort),
+            'restrictedFormats' => $this->paginateAndFormat($restrictedFormatsQuery, 'restricted_page', 'format', $sort),
             'branches' => Branch::orderBy('name')->get(['id', 'name']),
-            'filters' => $filters,
+            'filters' => (object) $filters,
         ]);
     }
 
@@ -112,10 +113,17 @@ class MediaLibraryController extends Controller
 
     // --- Helpers ---
 
-    protected function paginateAndFormat($query, $pageName, $type)
+    protected function paginateAndFormat($query, $pageName, $type, ?string $sort = null)
     {
-        return $query->latest()
-            ->paginate(15, ['*'], $pageName)
+        if ($sort === 'size_asc') {
+            $query->orderBy('size', 'asc');
+        } elseif ($sort === 'size_desc') {
+            $query->orderBy('size', 'desc');
+        } else {
+            $query->latest();
+        }
+
+        return $query->paginate(15, ['*'], $pageName)
             ->withQueryString()
             ->through(fn ($media) => $this->formatMedia($media, $type));
     }
