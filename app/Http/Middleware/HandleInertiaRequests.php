@@ -18,6 +18,11 @@ use Inertia\Middleware;
 class HandleInertiaRequests extends Middleware
 {
     /**
+     * Semanas de nómina visibles en el selector global del layout.
+     */
+    private const PAYROLL_PERIODS_LIMIT = 10;
+
+    /**
      * The root template that's loaded on the first page visit.
      *
      * @see https://inertiajs.com/server-side-setup#root-template
@@ -108,8 +113,11 @@ class HandleInertiaRequests extends Middleware
 
                 $attendanceStatus = ['status' => $status, 'timestamp' => $timestamp];
 
-                // 2. Obtener todos los periodos de nómina disponibles.
-                $payrollPeriods = Payroll::orderBy('start_date', 'desc')->get();
+                // 2. Obtener los periodos de nómina disponibles. Se limita a las
+                // últimas 10 semanas para no exponer el historial completo en el layout.
+                $payrollPeriods = Payroll::orderBy('start_date', 'desc')
+                    ->take(self::PAYROLL_PERIODS_LIMIT)
+                    ->get();
             }
         }
 

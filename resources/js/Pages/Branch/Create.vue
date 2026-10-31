@@ -299,8 +299,8 @@
                                         />
                                     </el-select>
                                 </div>
-                                <TextInput label="Precio Especial (Opcional)" v-model="currentProduct.price"
-                                    :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                                <TextInput label="Precio referencia (Opcional)" v-model="currentProduct.price"
+                                    :helpContent="'Si no agregas precio referencia se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
 
                                 <div>
                                     <label>Moneda*</label>
@@ -377,7 +377,7 @@
                                         Costo base:
                                         <strong>{{ product.base_price != null ? '$' + Number(product.base_price).toFixed(2) : 'N/A' }}</strong>
                                         <span class="mx-2">|</span>
-                                        Precio especial:
+                                        Precio referencia:
                                         <strong>{{ product.price != null ? '$' + Number(product.price).toFixed(2) : 'N/A' }}</strong>
                                         <span class="ml-2">{{ product.currency ?? 'MXN' }}</span>
                                     </p>
@@ -410,7 +410,7 @@
 
                         <div>
                             <el-tooltip
-                                content="Selecciona productos que podrían interesarle a este cliente en el futuro, aunque no se les asigne un precio especial ahora."
+                                content="Selecciona productos que podrían interesarle a este cliente en el futuro, aunque no se les asigne un precio referencia ahora."
                                 placement="top-start"
                             >
                                 <label class="text-gray-700 dark:text-gray-100 text-sm ml-3 flex items-center space-x-2">

@@ -100,7 +100,7 @@
                                     </el-tag>
                                 </template>
                             </el-table-column>
-                            <el-table-column label="Autorizado" width="100" align="center">
+                            <el-table-column label="Autorizado" width="175" align="center">
                                 <template #default="scope">
                                     <el-tooltip v-if="scope.row.authorized_at" placement="top">
                                         <template #content>
@@ -109,7 +109,9 @@
                                         </template>
                                         <i class="fa-solid fa-check-double text-green-500 text-lg"></i>
                                     </el-tooltip>
-                                    <p v-else>No autorizada</p>
+                                    <el-tag v-else type="warning" effect="light" size="small" disable-transitions>
+                                        Esperando autorización
+                                    </el-tag>
                                 </template>
                             </el-table-column>
                              <el-table-column label="Cliente" width="180">
