@@ -99,6 +99,36 @@
                                             />
                                         </div>
 
+                                        <!-- Estatus de la orden -->
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                                Estatus de la orden
+                                            </label>
+                                            <SearchableSelect
+                                                v-model="filters.status"
+                                                :options="statusFilterOptions"
+                                                :filterable="false"
+                                                placeholder="Cualquier estatus"
+                                                empty-option-label="Cualquier estatus"
+                                                clearable
+                                            />
+                                        </div>
+
+                                        <!-- Diseñador asignado -->
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+                                                Diseñador asignado
+                                            </label>
+                                            <SearchableSelect
+                                                v-model="filters.designer_id"
+                                                :options="designerOptions"
+                                                placeholder="Cualquier diseñador"
+                                                search-placeholder="Buscar diseñador..."
+                                                empty-option-label="Cualquier diseñador"
+                                                clearable
+                                            />
+                                        </div>
+
                                         <!-- Peso del archivo -->
                                         <div>
                                             <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
@@ -147,10 +177,21 @@
                                     <span>Diseños Terminados ({{ completedFiles.total }})</span>
                                 </span>
                             </template>
+                            <MediaSelectionBar
+                                :selectable="canDeleteFiles"
+                                :total="completedFiles.data.length"
+                                :selected-count="selectedIds.length"
+                                @toggle-all="toggleSelectAll"
+                                @clear="clearSelection"
+                                @delete="confirmMassiveDelete"
+                            />
                             <FileGrid
                                 :files="completedFiles.data"
                                 :can-delete="canDeleteFiles"
+                                :selectable="canDeleteFiles"
+                                :selected-ids="selectedIds"
                                 @delete="confirmDelete"
+                                @select="toggleSelection"
                             />
                             <Pagination :links="completedFiles.links" class="mt-6"/>
                         </el-tab-pane>
@@ -162,10 +203,21 @@
                                     <span>Recursos de Órdenes ({{ designOrderFiles.total }})</span>
                                 </span>
                             </template>
+                            <MediaSelectionBar
+                                :selectable="canDeleteFiles"
+                                :total="designOrderFiles.data.length"
+                                :selected-count="selectedIds.length"
+                                @toggle-all="toggleSelectAll"
+                                @clear="clearSelection"
+                                @delete="confirmMassiveDelete"
+                            />
                             <FileGrid
                                 :files="designOrderFiles.data"
                                 :can-delete="canDeleteFiles"
+                                :selectable="canDeleteFiles"
+                                :selected-ids="selectedIds"
                                 @delete="confirmDelete"
+                                @select="toggleSelection"
                             />
                              <Pagination :links="designOrderFiles.links" class="mt-6"/>
                         </el-tab-pane>
@@ -179,10 +231,28 @@
                                 </span>
                             </template>
                             
+                            <MediaSelectionBar
+                                :selectable="canDeleteFiles"
+                                :total="publicFormats.data.length"
+                                :selected-count="selectedIds.length"
+                                @toggle-all="toggleSelectAll"
+                                @clear="clearSelection"
+                                @delete="confirmMassiveDelete"
+                            />
+
                             <!-- Grid Personalizada con Botón de Borrar -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                <div v-for="file in publicFormats.data" :key="file.id" class="group relative bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
-                                    
+                                <div v-for="file in publicFormats.data" :key="file.id" class="group relative bg-white dark:bg-gray-700 border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+                                    :class="isSelected(file.id)
+                                        ? 'border-indigo-500 dark:border-sky-500 ring-2 ring-indigo-500/40 dark:ring-sky-500/40'
+                                        : 'border-gray-200 dark:border-gray-600'"
+                                >
+                                    <FileSelectToggle
+                                        v-if="canDeleteFiles"
+                                        :selected="isSelected(file.id)"
+                                        @toggle="toggleSelection(file.id)"
+                                    />
+
                                     <!-- Botón Eliminar Flotante -->
                                     <button 
                                         v-if="$page.props.auth.user.permissions.includes('Eliminar formatos')"
@@ -242,9 +312,27 @@
                                 </span>
                             </template>
                             
+                            <MediaSelectionBar
+                                :selectable="canDeleteFiles"
+                                :total="restrictedFormats.data.length"
+                                :selected-count="selectedIds.length"
+                                @toggle-all="toggleSelectAll"
+                                @clear="clearSelection"
+                                @delete="confirmMassiveDelete"
+                            />
+
                             <!-- Misma Grid Personalizada -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                                <div v-for="file in restrictedFormats.data" :key="file.id" class="group relative bg-white dark:bg-gray-700 border border-red-100 dark:border-red-900/30 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col">
+                                <div v-for="file in restrictedFormats.data" :key="file.id" class="group relative bg-white dark:bg-gray-700 border rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col"
+                                    :class="isSelected(file.id)
+                                        ? 'border-red-500 dark:border-red-500 ring-2 ring-red-500/40'
+                                        : 'border-red-100 dark:border-red-900/30'"
+                                >
+                                    <FileSelectToggle
+                                        v-if="canDeleteFiles"
+                                        :selected="isSelected(file.id)"
+                                        @toggle="toggleSelection(file.id)"
+                                    />
                                     
                                     <!-- Badge Restringido -->
                                     <!-- <div class="absolute top-2 left-2 z-10 bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">
@@ -363,6 +451,8 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { ElTabs, ElTabPane, ElDialog, ElSwitch, ElMessage, ElMessageBox } from 'element-plus';
 import FileGrid from '@/Components/MyComponents/FileGrid.vue';
 import FileThumbnail from '@/Components/MyComponents/FileThumbnail.vue';
+import FileSelectToggle from '@/Components/MyComponents/FileSelectToggle.vue';
+import MediaSelectionBar from '@/Components/MyComponents/MediaSelectionBar.vue';
 import SearchableSelect from '@/Components/MyComponents/SearchableSelect.vue';
 import Pagination from '@/Components/MyComponents/Pagination.vue';
 import throttle from 'lodash/throttle';
@@ -376,6 +466,8 @@ export default defineComponent({
         ElSwitch,
         FileGrid,
         FileThumbnail,
+        FileSelectToggle,
+        MediaSelectionBar,
         SearchableSelect,
         Pagination,
     },
@@ -385,6 +477,8 @@ export default defineComponent({
         publicFormats: Object,     // Nuevo prop
         restrictedFormats: Object, // Nuevo prop
         branches: Array,
+        designers: Array,
+        statusOptions: Array,
         filters: Object,
     },
     setup(props) {
@@ -399,6 +493,8 @@ export default defineComponent({
         const filters = reactive({
             search: initialFilters.search || '',
             branch_id: initialFilters.branch_id || null,
+            status: initialFilters.status || null,
+            designer_id: initialFilters.designer_id || null,
             sort: initialFilters.sort || null,
         });
 
@@ -412,6 +508,8 @@ export default defineComponent({
             let count = 0;
             if (filters.search) count++;
             if (filters.branch_id) count++;
+            if (filters.status) count++;
+            if (filters.designer_id) count++;
             if (filters.sort) count++;
             return count;
         });
@@ -420,14 +518,66 @@ export default defineComponent({
             (props.branches || []).map((branch) => ({ value: branch.id, label: branch.name }))
         );
 
+        const designerOptions = computed(() =>
+            (props.designers || []).map((designer) => ({ value: designer.id, label: designer.name }))
+        );
+
+        const statusFilterOptions = computed(() =>
+            (props.statusOptions || []).map((status) => ({ value: status, label: status }))
+        );
+
         const sizeSortOptions = [
             { value: 'size_desc', label: 'Mayor a menor peso' },
             { value: 'size_asc', label: 'Menor a mayor peso' },
         ];
 
+        // --- Selección múltiple ---
+        const selectedIds = ref([]);
+
+        const currentTabFiles = computed(() => {
+            switch (activeTab.value) {
+                case 'resources':
+                    return props.designOrderFiles?.data || [];
+                case 'public_formats':
+                    return props.publicFormats?.data || [];
+                case 'restricted_formats':
+                    return props.restrictedFormats?.data || [];
+                default:
+                    return props.completedFiles?.data || [];
+            }
+        });
+
+        const isSelected = (id) => selectedIds.value.includes(id);
+
+        const toggleSelection = (id) => {
+            selectedIds.value = isSelected(id)
+                ? selectedIds.value.filter((selectedId) => selectedId !== id)
+                : [...selectedIds.value, id];
+        };
+
+        const toggleSelectAll = () => {
+            const pageIds = currentTabFiles.value.map((file) => file.id);
+
+            selectedIds.value = pageIds.every((id) => selectedIds.value.includes(id))
+                ? []
+                : pageIds;
+        };
+
+        const clearSelection = () => {
+            selectedIds.value = [];
+        };
+
+        // La selección solo aplica a los archivos visibles de la pestaña actual
+        watch(
+            () => [activeTab.value, props.completedFiles, props.designOrderFiles, props.publicFormats, props.restrictedFormats],
+            clearSelection,
+        );
+
         const resetFilters = () => {
             filters.search = '';
             filters.branch_id = null;
+            filters.status = null;
+            filters.designer_id = null;
             filters.sort = null;
         };
 
@@ -526,7 +676,37 @@ export default defineComponent({
                 // Cancelado por el usuario
             });
         };
-        
+
+        const confirmMassiveDelete = () => {
+            const count = selectedIds.value.length;
+
+            if (count === 0) return;
+
+            ElMessageBox.confirm(
+                `¿Estás seguro de que deseas eliminar ${count} archivo${count === 1 ? '' : 's'}? Esta acción no se puede deshacer.`,
+                'Eliminar Archivos',
+                {
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    type: 'warning',
+                    confirmButtonClass: 'bg-red-600 border-red-600 hover:bg-red-700',
+                }
+            )
+            .then(() => {
+                router.post(route('media-library.massive-delete'), { ids: selectedIds.value }, {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        selectedIds.value = [];
+                        ElMessage.success('Archivos eliminados correctamente');
+                    },
+                    onError: () => ElMessage.error('No se pudieron eliminar los archivos. Verifica tus permisos.'),
+                });
+            })
+            .catch(() => {
+                // Cancelado por el usuario
+            });
+        };
+
         return {
             activeTab,
             filters,
@@ -535,15 +715,23 @@ export default defineComponent({
             filtersDropdownRef,
             activeFiltersCount,
             branchOptions,
+            designerOptions,
+            statusFilterOptions,
             sizeSortOptions,
             resetFilters,
             canDeleteFiles,
+            selectedIds,
+            isSelected,
+            toggleSelection,
+            toggleSelectAll,
+            clearSelection,
             uploadModalVisible,
             form,
             openUploadModal,
             handleFileChange,
             submitUpload,
-            confirmDelete
+            confirmDelete,
+            confirmMassiveDelete
         };
     }
 });

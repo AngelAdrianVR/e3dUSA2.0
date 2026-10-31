@@ -3,8 +3,16 @@
         <div @click="openFile(file.original_url)"
             v-for="file in files"
             :key="file.id"
-            class="group relative bg-white cursor-pointer dark:bg-gray-700/50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-200 dark:border-gray-700"
+            class="group relative bg-white cursor-pointer dark:bg-gray-700/50 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden border"
+            :class="isSelected(file.id)
+                ? 'border-indigo-500 dark:border-sky-500 ring-2 ring-indigo-500/40 dark:ring-sky-500/40'
+                : 'border-gray-200 dark:border-gray-700'"
         >
+            <FileSelectToggle
+                v-if="selectable"
+                :selected="isSelected(file.id)"
+                @toggle="toggleSelection(file.id)"
+            />
             <button
                 v-if="canDelete"
                 type="button"
@@ -33,6 +41,34 @@
                         <strong>Solicitante:</strong> {{ file.requester }}
                     </p>
                 </div>
+
+                <!-- Datos de la orden de diseño -->
+                <div v-if="file.order_folio" class="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/60 space-y-1.5">
+                    <div class="flex items-center justify-between gap-2">
+                        <a
+                            :href="file.order_url"
+                            target="_blank"
+                            rel="noopener"
+                            @click.stop
+                            class="text-xs font-bold text-indigo-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1"
+                            :title="`Abrir orden ${file.order_folio}`"
+                        >
+                            <i class="fa-solid fa-palette text-[10px]"></i>
+                            {{ file.order_folio }}
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[9px] opacity-70"></i>
+                        </a>
+                        <span
+                            class="px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap"
+                            :class="statusClasses(file.order_status)"
+                        >
+                            {{ file.order_status }}
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate" :title="file.order_designer || 'Sin diseñador asignado'">
+                        <i class="fa-solid fa-user-pen mr-1"></i>
+                        {{ file.order_designer || 'Sin diseñador' }}
+                    </p>
+                </div>
             </div>
             <!-- <div class="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <a :href="file.original_url" target="_blank" class="h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors" title="Descargar">
@@ -49,20 +85,43 @@
 
 <script setup>
 import FileThumbnail from '@/Components/MyComponents/FileThumbnail.vue';
+import FileSelectToggle from '@/Components/MyComponents/FileSelectToggle.vue';
 
-defineProps({
+const props = defineProps({
     files: Array,
     canDelete: {
         type: Boolean,
         default: false,
     },
+    selectable: {
+        type: Boolean,
+        default: false,
+    },
+    selectedIds: {
+        type: Array,
+        default: () => [],
+    },
 });
 
-const emit = defineEmits(['delete']);
+const emit = defineEmits(['delete', 'select']);
+
+const isSelected = (id) => props.selectedIds.includes(id);
+
+const toggleSelection = (id) => emit('select', id);
 
 const openFile = (file) => {
     window.open(file, '_blank')
 };
+
+const STATUS_CLASSES = {
+    'Pendiente': 'bg-gray-100 text-gray-700 dark:bg-gray-600/40 dark:text-gray-300',
+    'Autorizada': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300',
+    'En proceso': 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    'Terminada': 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-300',
+    'Cancelada': 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+};
+
+const statusClasses = (status) => STATUS_CLASSES[status] || STATUS_CLASSES['Pendiente'];
 
 const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';

@@ -128,6 +128,7 @@ Route::post('/notifications/destroy-selected', [NotificationController::class, '
 Route::post('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index');
 Route::get('/media-library', [MediaLibraryController::class, 'index'])->middleware('auth')->name('media-library.index.get'); // También es buena idea tener una ruta GET para la carga inicial
 Route::post('/media-library/store', [MediaLibraryController::class, 'store'])->name('media-library.store');
+Route::post('/media-library/massive-delete', [MediaLibraryController::class, 'massiveDelete'])->name('media-library.massive-delete');
 Route::delete('/media-library/{media}', [MediaLibraryController::class, 'destroy'])->name('media-library.destroy');
 
 
