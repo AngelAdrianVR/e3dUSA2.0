@@ -20,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -955,7 +956,7 @@ class SaleController extends Controller
     }
 
     /**
-     * Adjunta (o reemplaza) el PDF y el XML de la factura de la orden.
+     * Adjunta uno o varios PDF / XML de factura a la orden.
      * Solo el personal con el permiso "Crear facturas" puede subirlos.
      */
     public function uploadInvoiceMedia(Request $request, Sale $sale)
@@ -964,28 +965,57 @@ class SaleController extends Controller
 
         abort_unless($user->hasPermissionTo('Crear facturas'), 403, 'Solo el personal encargado de facturas puede subir estos archivos.');
 
-        $request->validate([
-            'invoice_pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
-            'invoice_xml' => ['nullable', 'file', 'mimes:xml,txt', 'max:10240'],
-        ]);
+        // Se normalizan los archivos a arreglos para aceptar tanto una selección
+        // múltiple como la subida de un solo archivo.
+        $toFilesArray = fn ($files) => is_array($files) ? array_values(array_filter($files)) : ($files ? [$files] : []);
 
-        if (!$request->hasFile('invoice_pdf') && !$request->hasFile('invoice_xml')) {
+        $pdfFiles = $toFilesArray($request->file('invoice_pdf'));
+        $xmlFiles = $toFilesArray($request->file('invoice_xml'));
+
+        Validator::make(
+            ['invoice_pdf' => $pdfFiles, 'invoice_xml' => $xmlFiles],
+            [
+                'invoice_pdf' => ['array'],
+                'invoice_pdf.*' => ['file', 'mimes:pdf', 'max:10240'],
+                'invoice_xml' => ['array'],
+                'invoice_xml.*' => ['file', 'mimes:xml,txt', 'max:10240'],
+            ]
+        )->validate();
+
+        if (empty($pdfFiles) && empty($xmlFiles)) {
             return back()->withErrors([
                 'invoice_files' => 'Selecciona al menos un archivo (PDF o XML).',
             ]);
         }
 
-        if ($request->hasFile('invoice_pdf')) {
-            $sale->addMediaFromRequest('invoice_pdf')->toMediaCollection('invoice_pdf');
+        foreach (['invoice_pdf' => $pdfFiles, 'invoice_xml' => $xmlFiles] as $collection => $files) {
+            foreach ($files as $file) {
+                $sale->addMedia($file)->toMediaCollection($collection);
+            }
         }
 
-        if ($request->hasFile('invoice_xml')) {
-            $sale->addMediaFromRequest('invoice_xml')->toMediaCollection('invoice_xml');
-        }
+        Log::info("Archivos de factura adjuntados a la órden #{$sale->id} por el usuario {$user->id}");
 
-        Log::info("Archivos de factura adjuntados a la órden #{$sale->id} por el usuario " . $user->id);
+        return back()->with('success', 'Archivos de factura adjuntados correctamente.');
+    }
 
-        return back()->with('success', 'Archivos de factura actualizados correctamente.');
+    /**
+     * Elimina un archivo (PDF o XML) de las facturas adjuntas a la orden.
+     */
+    public function destroyInvoiceMedia(Sale $sale, int $media)
+    {
+        abort_unless(Auth::user()->hasPermissionTo('Crear facturas'), 403, 'Solo el personal encargado de facturas puede eliminar estos archivos.');
+
+        $invoiceMedia = $sale->media()
+            ->whereKey($media)
+            ->whereIn('collection_name', ['invoice_pdf', 'invoice_xml'])
+            ->firstOrFail();
+
+        $invoiceMedia->delete();
+
+        Log::info("Archivo de factura #{$media} eliminado de la órden #{$sale->id} por el usuario " . Auth::id());
+
+        return back()->with('success', 'Archivo de factura eliminado correctamente.');
     }
 
     /**

@@ -534,49 +534,73 @@
 
                             <div class="space-y-2">
                                 <!-- PDF -->
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
-                                    <div class="flex items-center gap-2 min-w-0">
-                                        <i v-if="invoicePdf" class="fa-solid fa-circle-check text-emerald-500"></i>
-                                        <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
-                                        <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">PDF</span>
-                                        <a v-if="invoicePdf" :href="invoicePdf.original_url" target="_blank"
-                                            class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
-                                            :title="invoicePdf.file_name">
-                                            {{ invoicePdf.file_name }}
-                                        </a>
-                                        <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <i :class="invoicePdfs.length ? 'fa-solid fa-circle-check text-emerald-500' : 'fa-regular fa-circle text-gray-300 dark:text-gray-600'"></i>
+                                            <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">PDF</span>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ invoicePdfs.length ? `${invoicePdfs.length} archivo(s)` : 'Sin archivo' }}
+                                            </span>
+                                        </div>
+                                        <template v-if="canUploadInvoiceFiles">
+                                            <input ref="invoicePdfInput" type="file" multiple accept=".pdf,application/pdf" class="hidden"
+                                                @change="uploadInvoiceFile('pdf', $event)" />
+                                            <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'pdf'" @click="$refs.invoicePdfInput.click()">
+                                                <i class="fa-solid fa-upload mr-1"></i>
+                                                Subir PDF(s)
+                                            </SecondaryButton>
+                                        </template>
                                     </div>
-                                    <template v-if="canUploadInvoiceFiles">
-                                        <input ref="invoicePdfInput" type="file" accept=".pdf,application/pdf" class="hidden"
-                                            @change="uploadInvoiceFile('pdf', $event)" />
-                                        <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'pdf'" @click="$refs.invoicePdfInput.click()">
-                                            <i class="fa-solid fa-upload mr-1"></i>
-                                            {{ invoicePdf ? 'Reemplazar PDF' : 'Subir PDF' }}
-                                        </SecondaryButton>
-                                    </template>
+
+                                    <ul v-if="invoicePdfs.length" class="mt-2 space-y-1">
+                                        <li v-for="file in invoicePdfs" :key="file.id" class="flex items-center justify-between gap-2">
+                                            <a :href="file.original_url" target="_blank"
+                                                class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                                :title="file.file_name">
+                                                <i class="fa-regular fa-file-pdf mr-1"></i>{{ file.file_name }}
+                                            </a>
+                                            <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
+                                                class="text-gray-400 hover:text-red-500 shrink-0" @click="deleteInvoiceFile(file)">
+                                                <i class="fa-solid fa-trash-can text-xs"></i>
+                                            </button>
+                                        </li>
+                                    </ul>
                                 </div>
 
                                 <!-- XML -->
-                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
-                                    <div class="flex items-center gap-2 min-w-0">
-                                        <i v-if="invoiceXml" class="fa-solid fa-circle-check text-emerald-500"></i>
-                                        <i v-else class="fa-regular fa-circle text-gray-300 dark:text-gray-600"></i>
-                                        <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">XML</span>
-                                        <a v-if="invoiceXml" :href="invoiceXml.original_url" target="_blank"
-                                            class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
-                                            :title="invoiceXml.file_name">
-                                            {{ invoiceXml.file_name }}
-                                        </a>
-                                        <span v-else class="text-xs text-gray-400 italic">Sin archivo</span>
+                                <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-slate-700/40 px-3 py-2">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div class="flex items-center gap-2 min-w-0">
+                                            <i :class="invoiceXmls.length ? 'fa-solid fa-circle-check text-emerald-500' : 'fa-regular fa-circle text-gray-300 dark:text-gray-600'"></i>
+                                            <span class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">XML</span>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400">
+                                                {{ invoiceXmls.length ? `${invoiceXmls.length} archivo(s)` : 'Sin archivo' }}
+                                            </span>
+                                        </div>
+                                        <template v-if="canUploadInvoiceFiles">
+                                            <input ref="invoiceXmlInput" type="file" multiple accept=".xml,text/xml,application/xml" class="hidden"
+                                                @change="uploadInvoiceFile('xml', $event)" />
+                                            <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'xml'" @click="$refs.invoiceXmlInput.click()">
+                                                <i class="fa-solid fa-upload mr-1"></i>
+                                                Subir XML(s)
+                                            </SecondaryButton>
+                                        </template>
                                     </div>
-                                    <template v-if="canUploadInvoiceFiles">
-                                        <input ref="invoiceXmlInput" type="file" accept=".xml,text/xml,application/xml" class="hidden"
-                                            @change="uploadInvoiceFile('xml', $event)" />
-                                        <SecondaryButton class="!text-xs" :disabled="uploadingInvoiceFile === 'xml'" @click="$refs.invoiceXmlInput.click()">
-                                            <i class="fa-solid fa-upload mr-1"></i>
-                                            {{ invoiceXml ? 'Reemplazar XML' : 'Subir XML' }}
-                                        </SecondaryButton>
-                                    </template>
+
+                                    <ul v-if="invoiceXmls.length" class="mt-2 space-y-1">
+                                        <li v-for="file in invoiceXmls" :key="file.id" class="flex items-center justify-between gap-2">
+                                            <a :href="file.original_url" target="_blank"
+                                                class="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                                :title="file.file_name">
+                                                <i class="fa-regular fa-file-code mr-1"></i>{{ file.file_name }}
+                                            </a>
+                                            <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
+                                                class="text-gray-400 hover:text-red-500 shrink-0" @click="deleteInvoiceFile(file)">
+                                                <i class="fa-solid fa-trash-can text-xs"></i>
+                                            </button>
+                                        </li>
+                                    </ul>
                                 </div>
                             </div>
 
@@ -586,12 +610,12 @@
                                     Aún no hay archivos de factura cargados. Solo el personal encargado de facturas puede subirla.
                                 </template>
                                 <template v-else>
-                                    Solo el personal encargado de facturas puede subir o reemplazar estos archivos.
+                                    Solo el personal encargado de facturas puede subir o eliminar estos archivos.
                                 </template>
                             </p>
                             <p v-else class="text-xs text-gray-500 dark:text-gray-400 mt-3">
                                 <i class="fa-solid fa-circle-info mr-1"></i>
-                                Puedes subir el PDF y el XML de la factura. Si ya existe uno, se reemplazará por el nuevo archivo.
+                                Una orden puede tener varias facturas: sube todos los PDF y XML que necesites.
                             </p>
                         </div>
                     </div>
@@ -774,7 +798,7 @@ import BranchInfoTooltip from "@/Components/MyComponents/BranchInfoTooltip.vue";
 import ShippingTrackingCard from "@/Components/MyComponents/ShippingTrackingCard.vue"; // <-- Tarjeta de envío reutilizable
 import AuthorizedOrderLockedModal from "@/Components/MyComponents/AuthorizedOrderLockedModal.vue";
 import { useForm, router } from "@inertiajs/vue3";
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -886,15 +910,16 @@ export default {
         oceMediaFiles() {
             return (this.sale.media || []).filter(m => m.collection_name === 'oce_media');
         },
-        // Archivos de la factura subidos desde el modal de facturación (o desde esta pestaña)
-        invoicePdf() {
-            return (this.sale.media || []).find(m => m.collection_name === 'invoice_pdf') || null;
+        // Archivos de la factura: una orden puede facturarse en más de una factura,
+        // por lo que cada colección puede contener varios archivos.
+        invoicePdfs() {
+            return (this.sale.media || []).filter(m => m.collection_name === 'invoice_pdf');
         },
-        invoiceXml() {
-            return (this.sale.media || []).find(m => m.collection_name === 'invoice_xml') || null;
+        invoiceXmls() {
+            return (this.sale.media || []).filter(m => m.collection_name === 'invoice_xml');
         },
         invoiceFiles() {
-            return [this.invoicePdf, this.invoiceXml].filter(Boolean);
+            return [...this.invoicePdfs, ...this.invoiceXmls];
         },
         // Solo el personal con el permiso "Crear facturas" puede subir estos archivos
         canUploadInvoiceFiles() {
@@ -1031,25 +1056,38 @@ export default {
             this.$refs.oceInput?.click();
         },
         /**
-         * Sube (o reemplaza) el PDF o XML de la factura desde la pestaña de Información Fiscal.
+         * Sube una o varias facturas (PDF o XML) desde la pestaña de Información Fiscal.
          */
         uploadInvoiceFile(kind, event) {
-            const file = event.target.files?.[0];
-            if (!file) return;
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
 
             const field = kind === 'pdf' ? 'invoice_pdf' : 'invoice_xml';
             this.uploadingInvoiceFile = kind;
 
-            router.post(route('sales.invoice-media', this.sale.id), { [field]: file }, {
+            router.post(route('sales.invoice-media', this.sale.id), { [field]: files }, {
                 forceFormData: true,
                 preserveScroll: true,
-                onSuccess: () => ElMessage.success('Archivo de factura actualizado correctamente.'),
+                onSuccess: () => ElMessage.success('Archivo(s) de factura adjuntados correctamente.'),
                 onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo subir el archivo.'),
                 onFinish: () => {
                     this.uploadingInvoiceFile = null;
                     event.target.value = '';
                 },
             });
+        },
+        deleteInvoiceFile(file) {
+            ElMessageBox.confirm(`¿Eliminar el archivo "${file.file_name}"?`, 'Eliminar archivo', {
+                confirmButtonText: 'Eliminar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => {
+                router.delete(route('sales.invoice-media.destroy', { sale: this.sale.id, media: file.id }), {
+                    preserveScroll: true,
+                    onSuccess: () => ElMessage.success('Archivo de factura eliminado.'),
+                    onError: () => ElMessage.error('No se pudo eliminar el archivo.'),
+                });
+            }).catch(() => {});
         },
         handleOceUpload(event) {
             const files = Array.from(event.target.files || []);
