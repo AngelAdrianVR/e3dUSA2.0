@@ -537,20 +537,12 @@
             </template>
         </ConfirmationModal>
 
-        <ConfirmationModal :show="showConfirmModal" @close="showConfirmModal = false">
-            <template #title>
-                Eliminar Cliente
-            </template>
-            <template #content>
-                ¿Estás seguro de que deseas eliminar permanentemente este cliente? Todos los datos relacionados (contactos, precios, etc.) se perderán. Esta acción no se puede deshacer.
-            </template>
-            <template #footer>
-                <div class="flex space-x-2">
-                    <CancelButton @click="showConfirmModal = false">Cancelar</CancelButton>
-                    <PrimaryButton @click="deleteItem" class="!bg-red-600 hover:!bg-red-700">Eliminar</PrimaryButton>
-                </div>
-            </template>
-        </ConfirmationModal>
+        <DeleteBranchModal
+            :show="showConfirmModal"
+            :branch-ids="[branch.id]"
+            @update:show="showConfirmModal = $event"
+            @deleted="$inertia.visit(route('branches.index'))"
+        />
 
         <!-- Modal para editar los datos fiscales propios del cliente -->
         <DialogModal :show="showFiscalModal" maxWidth="md" @close="closeFiscalModal">
@@ -654,6 +646,7 @@ import DropdownLink from "@/Components/DropdownLink.vue";
 import TextInput from "@/Components/TextInput.vue";
 import InputError from "@/Components/InputError.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
+import DeleteBranchModal from "@/Components/MyComponents/DeleteBranchModal.vue";
 import VendorAssignmentAlert from "@/Components/MyComponents/VendorAssignmentAlert.vue";
 import { Link, useForm, router } from "@inertiajs/vue3";
 import { ElMessage, ElMessageBox } from 'element-plus';
@@ -749,6 +742,7 @@ export default {
         InputError,
         FileUploader,
         VendorAssignmentAlert,
+        DeleteBranchModal,
         Products,
         Quotes,
         Sales,
@@ -980,18 +974,6 @@ export default {
             if (days < 30) return `Hace ${days} días`;
             if (months < 12) return `Hace ${months} mes${months > 1 ? "es" : ""}`;
             return `Hace ${years} año${years > 1 ? "s" : ""}`;
-        },
-        async deleteItem() {
-            try {
-                const response = await axios.delete(route('branches.destroy', this.branch.id));
-                ElMessage.success(response.data?.message || 'Cliente eliminado con éxito.');
-                this.showConfirmModal = false;
-                this.$inertia.visit(route('branches.index'));
-            } catch (err) {
-                ElMessage.error(err.response?.data?.message || 'Ocurrió un error al eliminar el cliente.');
-                console.error(err);
-                this.showConfirmModal = false;
-            }
         },
         async uploadCsf(files) {
             if (!files || !files.length) return;

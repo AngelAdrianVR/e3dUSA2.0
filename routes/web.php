@@ -177,6 +177,8 @@ Route::get('branches-report', [BranchController::class, 'report'])->middleware('
 Route::get('branches-export', [BranchController::class, 'export'])->middleware('auth')->name('branches.export');
 Route::post('branches-get-matches', [BranchController::class, 'getMatches'])->middleware('auth')->name('branches.get-matches');
 Route::post('branches/massive-delete', [BranchController::class, 'massiveDelete'])->middleware('auth')->name('branches.massive-delete');
+Route::get('branches/{branch}/deletion-preview', [BranchController::class, 'deletionPreview'])->middleware('auth')->name('branches.deletion-preview');
+Route::post('branches/deletion-preview', [BranchController::class, 'massiveDeletionPreview'])->middleware('auth')->name('branches.massive-deletion-preview');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 Route::get('branches/{branch}/matrix-data', [BranchController::class, 'getMatrixData'])->middleware('auth')->name('branches.matrix-data');
 Route::post('branches/{branch}/csf', [BranchController::class, 'uploadCsf'])->middleware('auth')->name('branches.csf.store');
@@ -264,6 +266,7 @@ Route::resource('sales', SaleController::class)->middleware('auth');
 Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware('auth')->name('sales.clone');
 Route::post('sales/{sale}/oce-media', [SaleController::class, 'uploadOceMedia'])->middleware('auth')->name('sales.oce-media');
 Route::post('sales/{sale}/invoice-media', [SaleController::class, 'uploadInvoiceMedia'])->middleware('auth')->name('sales.invoice-media');
+Route::delete('sales/{sale}/invoice-media/{media}', [SaleController::class, 'destroyInvoiceMedia'])->middleware('auth')->name('sales.invoice-media.destroy');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::put('sales/unauthorize/{sale}', [SaleController::class, 'unauthorizeSale'])->middleware('auth')->name('sales.unauthorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');

@@ -6,7 +6,15 @@ use App\Models\Branch;
 use App\Models\BranchPriceHistory;
 use App\Models\BranchVolumePrice;
 use App\Models\Contact;
+use App\Models\DesignAuthorization;
+use App\Models\DesignOrder;
+use App\Models\Invoice;
+use App\Models\Opportunity;
 use App\Models\Product;
+use App\Models\Purchase;
+use App\Models\Quote;
+use App\Models\Sale;
+use App\Models\SampleTracking;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\BranchGroupService;
@@ -818,18 +826,49 @@ class BranchController extends Controller
 
     public function destroy(Request $request, Branch $branch)
     {
+        // Los registros que referencian al cliente con llave foránea impiden el borrado:
+        // se informa con precisión en lugar de devolver un error genérico.
+        $blockers = $this->branchDeletionBlockers($branch);
+        $force = $request->boolean('force');
+
+        if (!empty($blockers)) {
+            // Las órdenes de venta y facturas mueven inventario y dinero: no se eliminan
+            // en cascada, deben depurarse desde su propio módulo.
+            $message = $this->branchDeletionBlockersMessage([$branch->name => $blockers]);
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()->withErrors(['error' => $message]);
+        }
+
+        if (!$force) {
+            $linkedDocuments = $this->branchLinkedDocuments($branch);
+
+            if (!empty($linkedDocuments)) {
+                // Sin confirmación explícita no se eliminan cotizaciones ni órdenes de diseño.
+                $message = 'Este cliente tiene registros vinculados que se eliminarían junto con él ('
+                    . implode(', ', $linkedDocuments) . '). '
+                    . 'Confirma la eliminación desde el botón «Eliminar» para borrarlos también.';
+
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $message], 422);
+                }
+
+                return back()->withErrors(['error' => $message]);
+            }
+        }
+
         try {
-            // Usamos una transacción para garantizar la integridad de los datos.
-            // Si algo falla, se revierte toda la operación.
-            DB::transaction(function () use ($branch) {
-                
+            DB::transaction(function () use ($branch, $force) {
                 // 1. Buscamos todas las sucursales "hijas" que apuntan a esta matriz.
                 // 2. Actualizamos su `parent_branch_id` a null para "desvincularlas".
                 Branch::where('parent_branch_id', $branch->id)
                     ->update(['parent_branch_id' => null]);
 
-                // 3. Ahora que no hay hijos apuntando a esta sucursal, podemos eliminarla de forma segura.
-                $branch->delete();
+                // 3. Se eliminan los registros propios del cliente y finalmente la sucursal.
+                $this->deleteBranchRecords($branch, $force);
             });
 
         } catch (\Exception $e) {
@@ -848,6 +887,292 @@ class BranchController extends Controller
         }
 
         return to_route('branches.index');
+    }
+
+    /**
+     * Registros que impiden eliminar el cliente con llave foránea.
+     * Solo los documentos que mueven inventario/dinero exigen depuración manual.
+     *
+     * @return array<string, int>
+     */
+    private function branchDeletionBlockers(Branch $branch): array
+    {
+        $counts = [
+            'orden(es) de venta' => Sale::where('branch_id', $branch->id)->count(),
+            'factura(s)' => Invoice::where('branch_id', $branch->id)->count(),
+        ];
+
+        return array_filter($counts);
+    }
+
+    /**
+     * Mensaje que explica por qué no se puede eliminar un cliente.
+     *
+     * @param  array<string, array<string, int>>  $blockersByBranch  Nombre del cliente => conteos
+     */
+    private function branchDeletionBlockersMessage(array $blockersByBranch): string
+    {
+        $details = collect($blockersByBranch)
+            ->map(function (array $blockers, string $branchName) {
+                $list = collect($blockers)
+                    ->map(fn (int $count, string $label) => "{$count} {$label}")
+                    ->implode(', ');
+
+                return "«{$branchName}»: {$list}";
+            })
+            ->implode(' | ');
+
+        return "No se puede eliminar el cliente porque tiene documentos que mueven inventario o "
+            . "facturación ({$details}). Elimínalos primero desde su módulo y vuelve a intentarlo.";
+    }
+
+    /**
+     * Documentos del cliente que se eliminan solo con confirmación explícita.
+     *
+     * @return array<int, string>
+     */
+    private function branchLinkedDocuments(Branch $branch): array
+    {
+        $documents = [];
+
+        $quotes = Quote::where('branch_id', $branch->id)->count();
+        if ($quotes > 0) {
+            $documents[] = $quotes . ' cotización(es)';
+        }
+
+        $designOrders = DesignOrder::where('branch_id', $branch->id)->count();
+        if ($designOrders > 0) {
+            $documents[] = $designOrders . ' orden(es) de diseño';
+        }
+
+        $opportunities = Opportunity::where('branch_id', $branch->id)->count();
+        if ($opportunities > 0) {
+            $documents[] = $opportunities . ' oportunidad(es)';
+        }
+
+        $sampleTrackings = SampleTracking::where('branch_id', $branch->id)->count();
+        if ($sampleTrackings > 0) {
+            $documents[] = $sampleTrackings . ' seguimiento(s) de muestra';
+        }
+
+        return $documents;
+    }
+
+    /**
+     * Vista previa de lo que se eliminará junto con el cliente.
+     */
+    public function deletionPreview(Branch $branch)
+    {
+        return response()->json($this->buildDeletionPreview(collect([$branch])));
+    }
+
+    /**
+     * Vista previa para la eliminación masiva desde el listado de clientes.
+     */
+    public function massiveDeletionPreview(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'exists:branches,id',
+        ]);
+
+        return response()->json(
+            $this->buildDeletionPreview(Branch::whereIn('id', $validated['ids'])->get())
+        );
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Branch>  $branches
+     */
+    private function buildDeletionPreview($branches): array
+    {
+        $impact = $branches
+            ->map(fn (Branch $branch) => $this->branchDeletionImpact($branch))
+            ->values();
+
+        return [
+            'branches' => $impact,
+            'can_delete' => $impact->every(fn (array $branch) => empty($branch['blockers'])),
+        ];
+    }
+
+    /**
+     * Detalle de los registros que se perderán al eliminar el cliente.
+     */
+    private function branchDeletionImpact(Branch $branch): array
+    {
+        $quotes = Quote::where('branch_id', $branch->id)
+            ->orderBy('root_quote_id')
+            ->orderBy('version')
+            ->get(['id', 'root_quote_id', 'version', 'status']);
+
+        $designOrders = DesignOrder::where('branch_id', $branch->id)
+            ->orderBy('id')
+            ->get(['id', 'order_title', 'status']);
+
+        $designAuthorizations = DesignAuthorization::where('branch_id', $branch->id)->count();
+
+        $opportunities = Opportunity::where('branch_id', $branch->id)
+            ->orderBy('id')
+            ->get(['id', 'name']);
+
+        $sampleTrackings = SampleTracking::where('branch_id', $branch->id)
+            ->orderBy('id')
+            ->get(['id', 'name', 'status']);
+
+        $contacts = $branch->contacts()->orderBy('id')->get(['id', 'name']);
+
+        $sales = Sale::where('branch_id', $branch->id)
+            ->orderBy('id')
+            ->get(['id', 'type', 'status']);
+
+        $invoices = Invoice::where('branch_id', $branch->id)
+            ->orderBy('id')
+            ->get(['id', 'folio']);
+
+        $willDelete = [];
+
+        if ($quotes->isNotEmpty()) {
+            $willDelete[] = [
+                'label' => 'Cotizaciones',
+                'items' => $quotes->map(fn ($quote) => 'COT-' . ($quote->root_quote_id ?: $quote->id)
+                    . ' · v' . $quote->version . ' · ' . $quote->status)->all(),
+            ];
+        }
+
+        if ($designOrders->isNotEmpty()) {
+            $willDelete[] = [
+                'label' => 'Órdenes de diseño',
+                'items' => $designOrders->map(fn ($order) => 'Diseño #' . $order->id
+                    . ($order->order_title ? ' · ' . $order->order_title : '')
+                    . ' · ' . $order->status)->all(),
+            ];
+        }
+
+        if ($designAuthorizations > 0) {
+            $willDelete[] = [
+                'label' => 'Autorizaciones de diseño',
+                'items' => ["{$designAuthorizations} autorización(es) vinculadas a este cliente"],
+            ];
+        }
+
+        if ($opportunities->isNotEmpty()) {
+            $willDelete[] = [
+                'label' => 'Oportunidades',
+                'items' => $opportunities->map(fn ($opportunity) => '#' . $opportunity->id . ' · ' . $opportunity->name)->all(),
+            ];
+        }
+
+        if ($sampleTrackings->isNotEmpty()) {
+            $willDelete[] = [
+                'label' => 'Seguimientos de muestra',
+                'items' => $sampleTrackings->map(fn ($tracking) => 'MUE-' . str_pad((string) $tracking->id, 4, '0', STR_PAD_LEFT)
+                    . ' · ' . $tracking->name . ' · ' . $tracking->status)->all(),
+            ];
+        }
+
+        if ($contacts->isNotEmpty()) {
+            $willDelete[] = [
+                'label' => 'Contactos',
+                'items' => $contacts->map(fn ($contact) => $contact->name)->all(),
+            ];
+        }
+
+        $blockers = [];
+
+        if ($sales->isNotEmpty()) {
+            $blockers[] = [
+                'label' => 'Órdenes de venta (no se eliminan automáticamente)',
+                'items' => $sales->map(fn ($sale) => ($sale->type === 'muestra' ? 'OM-' : 'OV-')
+                    . $sale->id . ' · ' . $sale->status)->all(),
+            ];
+        }
+
+        if ($invoices->isNotEmpty()) {
+            $blockers[] = [
+                'label' => 'Facturas (no se eliminan automáticamente)',
+                'items' => $invoices->map(fn ($invoice) => 'Factura #' . $invoice->id
+                    . ($invoice->folio ? ' · ' . $invoice->folio : ''))->all(),
+            ];
+        }
+
+        return [
+            'id' => $branch->id,
+            'name' => $branch->name,
+            'will_delete' => $willDelete,
+            'blockers' => $blockers,
+            'will_delete_count' => collect($willDelete)->sum(fn (array $group) => count($group['items'])),
+        ];
+    }
+
+    /**
+     * Elimina los registros propios del cliente (no compartidos con otras áreas)
+     * y finalmente la sucursal. Con $force también elimina cotizaciones,
+     * órdenes/autorizaciones de diseño, oportunidades y seguimientos de muestra.
+     */
+    private function deleteBranchRecords(Branch $branch, bool $force = false): void
+    {
+        if ($force) {
+            $this->deleteBranchDocuments($branch);
+        }
+
+        $branch->products()->detach();
+        $branch->suggestedProducts()->detach();
+        $branch->notes()->delete();
+        $branch->priceHistory()->delete();
+        $branch->volumePrices()->delete();
+
+        foreach ($branch->contacts()->get() as $contact) {
+            $this->deleteContactIfUnreferenced($contact);
+        }
+
+        $branch->media()->get()->each(fn ($media) => $media->delete());
+
+        $branch->delete();
+    }
+
+    /**
+     * Elimina los documentos que dependen del cliente: cotizaciones (con sus
+     * productos en cascada), órdenes de diseño (con sus bitácoras,
+     * autorizaciones y pausas en cascada) y autorizaciones sueltas.
+     */
+    private function deleteBranchDocuments(Branch $branch): void
+    {
+        foreach (DesignOrder::where('branch_id', $branch->id)->get() as $designOrder) {
+            $designOrder->media()->get()->each(fn ($media) => $media->delete());
+            $designOrder->delete();
+        }
+
+        DesignAuthorization::where('branch_id', $branch->id)->delete();
+
+        foreach (Quote::where('branch_id', $branch->id)->with('quoteProducts')->get() as $quote) {
+            // Las líneas de la cotización guardan sus imágenes en la biblioteca de medios.
+            foreach ($quote->quoteProducts as $quoteProduct) {
+                $quoteProduct->media()->get()->each(fn ($media) => $media->delete());
+            }
+
+            $quote->delete();
+        }
+    }
+
+    /**
+     * Elimina un contacto del cliente solo si ningún otro registro lo referencia,
+     * para no romper llaves foráneas de compras u otros módulos.
+     */
+    private function deleteContactIfUnreferenced(Contact $contact): void
+    {
+        $isReferenced = DesignOrder::where('contact_id', $contact->id)->exists()
+            || DesignAuthorization::where('contact_id', $contact->id)->exists()
+            || Sale::where('contact_id', $contact->id)->exists()
+            || Purchase::where('contact_id', $contact->id)->exists()
+            || SampleTracking::where('contact_id', $contact->id)->exists();
+
+        if ($isReferenced) {
+            return;
+        }
+
+        $contact->details()->delete();
+        $contact->delete();
     }
 
     /**
@@ -1060,22 +1385,68 @@ class BranchController extends Controller
         ]);
 
         $idsToDelete = $request->input('ids');
+        $force = $request->boolean('force');
+        $branches = Branch::whereIn('id', $idsToDelete)->get();
+
+        // 2. Si algún cliente tiene órdenes de venta o facturas, no se elimina ninguno y
+        //    se explica con precisión en lugar de devolver un error genérico.
+        $blockersByBranch = [];
+
+        foreach ($branches as $branch) {
+            $blockers = $this->branchDeletionBlockers($branch);
+
+            if (!empty($blockers)) {
+                $blockersByBranch[$branch->name] = $blockers;
+            }
+        }
+
+        if (!empty($blockersByBranch)) {
+            throw ValidationException::withMessages([
+                'ids' => $this->branchDeletionBlockersMessage($blockersByBranch),
+            ]);
+        }
+
+        if (!$force) {
+            // Sin confirmación explícita no se eliminan cotizaciones ni órdenes de diseño.
+            $linkedByBranch = [];
+
+            foreach ($branches as $branch) {
+                $documents = $this->branchLinkedDocuments($branch);
+
+                if (!empty($documents)) {
+                    $linkedByBranch[$branch->name] = $documents;
+                }
+            }
+
+            if (!empty($linkedByBranch)) {
+                $details = collect($linkedByBranch)
+                    ->map(fn (array $documents, string $name) => "«{$name}»: " . implode(', ', $documents))
+                    ->implode(' | ');
+
+                throw ValidationException::withMessages([
+                    'ids' => 'Los clientes tienen registros vinculados que se eliminarían junto con ellos '
+                        . "({$details}). Confirma la eliminación desde el botón «Eliminar» para borrarlos también.",
+                ]);
+            }
+        }
 
         try {
-            DB::transaction(function () use ($idsToDelete) {
-                
-                // 2. Desvincular todas las sucursales hijas que apunten a CUALQUIERA
+            DB::transaction(function () use ($idsToDelete, $branches, $force) {
+
+                // 3. Desvincular todas las sucursales hijas que apunten a CUALQUIERA
                 //    de las sucursales que vamos a eliminar.
-                //    Esto se hace en una sola consulta.
                 Branch::whereIn('parent_branch_id', $idsToDelete)
                     ->update(['parent_branch_id' => null]);
 
-                // 3. Eliminar todas las sucursales seleccionadas.
-                //    Esto también se hace en una sola consulta.
-                Branch::whereIn('id', $idsToDelete)->delete();
+                // 4. Eliminar los registros propios de cada cliente y la sucursal.
+                foreach ($branches as $branch) {
+                    $this->deleteBranchRecords($branch, $force);
+                }
             });
         } catch (\Exception $e) {
             // En caso de un error inesperado, retornamos un error 500.
+            Log::error('Error al eliminar clientes: ' . $e->getMessage());
+
             return response()->json(['message' => 'Ocurrió un error al eliminar los clientes.'], 500);
         }
     }

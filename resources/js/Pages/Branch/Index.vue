@@ -95,15 +95,10 @@
                         <!-- BOTONES DERECHA -->
                         <div class="flex items-center space-x-2">
                              <!-- Botón para eliminar seleccionados -->
-                            <el-popconfirm v-if="$page.props.auth.user.permissions.includes('Eliminar clientes')"
-                                confirm-button-text="Sí, eliminar" cancel-button-text="No" icon-color="#EF4444"
-                                title="¿Estás seguro de eliminar los clientes seleccionados?" @confirm="deleteSelections">
-                                <template #reference>
-                                    <el-button type="danger" plain :disabled="!selectedItems.length">
-                                        Eliminar selección
-                                    </el-button>
-                                </template>
-                            </el-popconfirm>
+                            <el-button v-if="$page.props.auth.user.permissions.includes('Eliminar clientes')"
+                                type="danger" plain :disabled="!selectedItems.length" @click="deleteSelections">
+                                Eliminar selección
+                            </el-button>
                         </div>
                         
                         <!-- Input de búsqueda (funcionalidad a futuro) -->
@@ -263,6 +258,13 @@
             :groups="groups"
             @close="showGroupsModal = false"
             @refresh="refreshAfterGroups" />
+
+        <!-- Confirmación de eliminación con el detalle de registros que se perderán -->
+        <DeleteBranchModal
+            :show="showDeleteModal"
+            :branch-ids="deleteIds"
+            @update:show="showDeleteModal = $event"
+            @deleted="refreshAfterDelete" />
     </AppLayout>
 </template>
 
@@ -271,6 +273,7 @@ import AppLayout from "@/Layouts/AppLayout.vue";
 import SecondaryButton from "@/Components/SecondaryButton.vue";
 import SearchInput from '@/Components/MyComponents/SearchInput.vue';
 import LoadingIsoLogo from '@/Components/MyComponents/LoadingIsoLogo.vue';
+import DeleteBranchModal from '@/Components/MyComponents/DeleteBranchModal.vue';
 import ManageGroupsModal from './Modals/ManageGroupsModal.vue';
 import { ElMessage } from 'element-plus';
 import { Link } from "@inertiajs/vue3";
@@ -286,6 +289,8 @@ export default {
             selectedItems: [],
             tableData: this.branches.data,
             showGroupsModal: false,
+            showDeleteModal: false,
+            deleteIds: [],
             SearchProps: ['Nombre', 'Estatus', 'Razón Social', 'Vendedor asignado', 'Grupo'], // Actualizado en las opciones de búsqueda
         };
     },
@@ -295,6 +300,7 @@ export default {
         SearchInput,
         LoadingIsoLogo,
         SecondaryButton,
+        DeleteBranchModal,
         ManageGroupsModal,
     },
     props: {
@@ -363,15 +369,12 @@ export default {
             this.$inertia.get(route(`branches.${action}`, id));
         },
         deleteSelections() {
-            const ids = this.selectedItems.map(item => item.id);
-            this.$inertia.post(route('branches.massive-delete'), { ids }, {
-                onSuccess: () => {
-                    ElMessage.success('Clientes eliminados correctamente');
-                },
-                onError: () => {
-                    ElMessage.error('Ocurrió un error al eliminar los clientes');
-                }
-            });
+            this.deleteIds = this.selectedItems.map(item => item.id);
+            this.showDeleteModal = true;
+        },
+        refreshAfterDelete() {
+            this.selectedItems = [];
+            this.$inertia.reload({ preserveScroll: true });
         },
         handlePageChange(page) {
             this.$inertia.get(route('branches.index', this.buildParams({ page })), {
