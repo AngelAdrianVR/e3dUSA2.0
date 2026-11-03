@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 class ProductionController extends Controller
@@ -170,6 +171,8 @@ class ProductionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
+            'estimated_finish_dates' => 'required|array|min:1',
+            'estimated_finish_dates.*' => 'required|date',
             'products_with_tasks' => 'required|array',
             'products_with_tasks.*.sale_product_id' => 'required|exists:sale_products,id',
             'products_with_tasks.*.tasks' => 'required|array|min:1',
@@ -179,13 +182,27 @@ class ProductionController extends Controller
             'products_with_tasks.*.tasks.*.production_cost_id' => 'nullable|exists:production_costs,id',
         ]);
 
+        // Cada folio de venta involucrado debe tener su propia fecha tentativa de término.
+        $saleIds = SaleProduct::whereIn('id', collect($request->products_with_tasks)->pluck('sale_product_id'))
+            ->pluck('sale_id')
+            ->unique();
+
+        if ($saleIds->contains(fn ($saleId) => blank($request->input("estimated_finish_dates.{$saleId}")))) {
+            throw ValidationException::withMessages([
+                'estimated_finish_dates' => 'Debes asignar una fecha tentativa de término a cada folio de venta.',
+            ]);
+        }
+
         DB::transaction(function () use ($request) {
+            $estimatedFinishDates = $request->input('estimated_finish_dates', []);
+
             foreach ($request->products_with_tasks as $productData) {
                 $saleProduct = \App\Models\SaleProduct::find($productData['sale_product_id']);
 
                 $production = Production::create([
                     'sale_product_id' => $saleProduct->id,
                     'quantity_to_produce' => $saleProduct->quantity_to_produce,
+                    'estimated_finish_at' => $estimatedFinishDates[$saleProduct->sale_id] ?? null,
                     'status' => 'Pendiente',
                     'created_by_user_id' => auth()->id(),
                 ]);

@@ -15,11 +15,19 @@
                        <CalendarWidget :events="calendarEvents" />
                     </div>
 
-                    
-                    <!-- Panel de Órdenes de Venta Autorizadas -->
+                    <!-- Órdenes de venta con seguimiento pendiente (Vendedor / Asistente de director) -->
+                    <PendingFollowUpSales
+                        v-if="showPendingFollowUp"
+                        class="lg:col-span-3 xl:col-span-4"
+                        :sales="pendingFollowUpSales"
+                        :sort="pendingFollowUpSort"
+                        @sort-change="changePendingFollowUpSort"
+                    />
+
+                    <!-- Panel de órdenes por surtir (producción) y tareas de proyectos -->
                     <div class="grid grid-cols-3 gap-5 lg:col-span-3 xl:col-span-4">
                         <OvertimeRequestPanel class="col-span-1" v-if="$page.props.auth.user.role === 'Auxiliar de producción'" :pending-requests="pendingOvertimeRequests" />
-                        <AvailableSalesPanel class="col-span-3" :orders="availableSales" />
+                        <AvailableSalesPanel v-if="!hideAvailableSales" class="col-span-3" :orders="availableSales" />
                         <MyPmsTasks :tasks="myProjectTasks" @view="openTaskModal" class="col-span-3" />
                     </div>
 
@@ -49,7 +57,7 @@
                     
                     <!-- Personal Panels Column -->
                     <div class="flex flex-col lg:col-span-2 gap-5">
-                       <MySalesOrders v-if="this.$page.props.auth.user.permissions.includes('Crear ordenes de venta')" :orders="mySalesOrders" />
+                       <MySalesOrders v-if="!hideMySalesOrders && this.$page.props.auth.user.permissions.includes('Crear ordenes de venta')" :orders="mySalesOrders" />
                        <UpcomingBirthdays :contacts="upcomingBirthdays" />
                     </div>
 
@@ -93,6 +101,7 @@ import TaskModal from '../Projects/Partials/TaskModal.vue';
 import NewsPanel from './Components/NewsPanel.vue';
 import OvertimeRequestPanel from './Components/OvertimeRequestPanel.vue';
 import AvailableSalesPanel from './Components/AvailableSalesPanel.vue';
+import PendingFollowUpSales from './Components/PendingFollowUpSales.vue';
 
 export default {
     components: {
@@ -109,6 +118,7 @@ export default {
         EmployeePerformance,
         AvailableSalesPanel,
         OvertimeRequestPanel,
+        PendingFollowUpSales,
         WarehouseStatusChart,
         ProductionOrdersChart,
     },
@@ -129,6 +139,11 @@ export default {
         designPerformance: Object,
         availableSales: Array,
         pendingOvertimeRequests: Array,
+        pendingFollowUpSales: Array,
+        pendingFollowUpSort: {
+            type: String,
+            default: 'oldest',
+        },
     },
     data() {
         return {
@@ -143,6 +158,21 @@ export default {
     computed: {
         theme() {
             return this.isDark ? 'dark' : 'light';
+        },
+        userRole() {
+            return this.$page.props.auth?.user?.role;
+        },
+        // La sección de seguimiento de órdenes solo aplica a estos roles.
+        showPendingFollowUp() {
+            return ['Vendedor', 'Asistente de director'].includes(this.userRole);
+        },
+        // Roles que no trabajan el panel de órdenes por surtir (producción).
+        hideAvailableSales() {
+            return ['Vendedor', 'Diseñador', 'Asistente de director'].includes(this.userRole);
+        },
+        // Vendedor y Asistente de director ya ven sus pendientes en la sección de seguimiento.
+        hideMySalesOrders() {
+            return ['Vendedor', 'Asistente de director'].includes(this.userRole);
         },
         /**
          * Accesos rápidos: dirección/almacén y los responsables del módulo
@@ -174,6 +204,14 @@ export default {
     methods: {
         toggleTheme() {
             this.isDark = !this.isDark;
+        },
+        // Recarga únicamente la sección de seguimiento respetando el orden elegido.
+        changePendingFollowUpSort(sort) {
+            this.$inertia.get(route('dashboard'), { follow_up_sort: sort }, {
+                preserveState: true,
+                preserveScroll: true,
+                only: ['pendingFollowUpSales', 'pendingFollowUpSort'],
+            });
         },
         openTaskModal(task) {
             this.selectedTask = task;

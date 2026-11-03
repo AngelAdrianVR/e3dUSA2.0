@@ -170,6 +170,7 @@ class Sale extends Model implements HasMedia, Auditable
                 'total_tasks' => 0,
                 'completed_tasks' => 0,
                 'percentage' => 0,
+                'estimated_finish_at' => null,
                 'started_at' => null,
                 'finished_at' => null,
             ];
@@ -178,6 +179,8 @@ class Sale extends Model implements HasMedia, Auditable
         // Obtener la fecha de inicio más temprana y la fecha de finalización más tardía.
         $startedAt = $this->productions->whereNotNull('started_at')->min('started_at');
         $finishedAt = $this->productions->whereNotNull('finished_at')->max('finished_at');
+        // Fecha tentativa de término más lejana: cuando se espera que todo lo de la venta esté producido.
+        $estimatedFinishAt = $this->productions->whereNotNull('estimated_finish_at')->max('estimated_finish_at');
 
         $statuses = $this->productions->pluck('status');
         $totalProductions = $statuses->count();
@@ -209,6 +212,7 @@ class Sale extends Model implements HasMedia, Auditable
             'total_tasks' => $totalTasks,
             'completed_tasks' => $completedTasks,
             'percentage' => $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0,
+            'estimated_finish_at' => $estimatedFinishAt,
             'started_at' => $startedAt,
             'finished_at' => $finishedAt,
         ];

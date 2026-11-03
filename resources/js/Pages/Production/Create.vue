@@ -176,6 +176,46 @@
                                 ¿Deseas continuar?
                             </p>
                         </div>
+
+                        <!-- Fecha tentativa de finalización por folio de venta -->
+                        <div class="bg-white dark:bg-slate-800 border border-primary/20 rounded-xl p-4 mt-4">
+                            <div class="flex items-center gap-3">
+                                <div class="size-10 flex items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400">
+                                    <i class="fa-regular fa-calendar-check"></i>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-800 dark:text-gray-200">
+                                        Fecha tentativa de término de producción <span class="text-red-500">*</span>
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Asigna una fecha por cada folio de venta. Se mostrará en la orden de venta y se usará para su seguimiento.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 space-y-2">
+                                <div v-for="sale in selectedSales" :key="sale.id"
+                                    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2.5 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="font-bold text-primary">{{ getSaleFolio(sale) }}</span>
+                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ sale.branch?.name ?? 'N/A' }}</span>
+                                        <span class="text-xs text-gray-400">({{ sale.sale_products?.length ?? 0 }} producto(s))</span>
+                                    </div>
+                                    <el-date-picker
+                                        v-model="form.estimated_finish_dates[sale.id]"
+                                        :teleported="false"
+                                        type="date"
+                                        value-format="YYYY-MM-DD"
+                                        placeholder="Selecciona una fecha"
+                                        class="!w-full sm:!w-56"
+                                    />
+                                </div>
+                            </div>
+
+                            <p v-if="form.errors.estimated_finish_dates" class="text-xs text-red-500 mt-2">
+                                {{ form.errors.estimated_finish_dates }}
+                            </p>
+                        </div>
                         
                         <!-- Summary of products and tasks -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 max-h-[52vh] overflow-y-auto p-4 mt-2">
@@ -215,7 +255,7 @@
                             <PrimaryButton @click="step = 2"><i class="fa-solid fa-arrow-left mr-2"></i> Volver a Asignar</PrimaryButton>
                             <el-popconfirm confirm-button-text="Sí, crear ahora" cancel-button-text="No" title="¿Confirmar creación de órdenes?" @confirm="store">
                                 <template #reference>
-                                    <SecondaryButton :loading="form.processing">
+                                    <SecondaryButton :loading="form.processing" :disabled="!hasAllEstimatedDates">
                                         Crear Órdenes de Producción
                                     </SecondaryButton>
                                 </template>
@@ -325,6 +365,7 @@ export default {
                 estimated_time_minutes: null,
             },
             form: useForm({
+                estimated_finish_dates: {},
                 products_with_tasks: []
             }),
         };
@@ -343,6 +384,11 @@ export default {
             if (!this.currentProduct) return [];
             const product = this.form.products_with_tasks.find(p => p.sale_product_id === this.currentProduct.id);
             return product ? product.tasks : [];
+        },
+        // Cada folio de venta seleccionado debe tener su fecha tentativa de término.
+        hasAllEstimatedDates() {
+            return this.selectedSales.length > 0
+                && this.selectedSales.every(sale => !!this.form.estimated_finish_dates[sale.id]);
         }
     },
     mounted() {
@@ -380,6 +426,14 @@ export default {
             this.selectedSales = selection;
             const selectedProductIds = this.productsToProduce.map(p => p.id);
             this.form.products_with_tasks = this.form.products_with_tasks.filter(p => selectedProductIds.includes(p.sale_product_id));
+
+            // Conserva únicamente las fechas de los folios que siguen seleccionados.
+            const selectedSaleIds = selection.map(s => String(s.id));
+            Object.keys(this.form.estimated_finish_dates).forEach(saleId => {
+                if (!selectedSaleIds.includes(String(saleId))) {
+                    delete this.form.estimated_finish_dates[saleId];
+                }
+            });
         },
         loadMoreSales() {
             if (this.loading) return; 
@@ -467,6 +521,10 @@ export default {
             const operator = this.operators.find(op => op.id === operatorId);
             return operator ? operator.name : 'N/A';
         },
+        getSaleFolio(sale) {
+            const prefix = sale.type === 'venta' ? 'OV-' : sale.type === 'muestra' ? 'OM-' : 'OS-';
+            return prefix + sale.id.toString().padStart(4, '0');
+        },
         getProductImage(product) {
             return product.media && product.media.length > 0
                 ? product.media[0].original_url
@@ -489,9 +547,11 @@ export default {
             });
         },
         store() {
-            const payload = {
-                products_with_tasks: this.form.products_with_tasks.filter(p => p.tasks.length > 0)
-            };
+            if (!this.hasAllEstimatedDates) {
+                ElMessage.warning('Selecciona la fecha tentativa de término de cada folio de venta.');
+                return;
+            }
+
             this.form.post(route('productions.store'), {
                  onSuccess: () => ElMessage.success('Órdenes de producción creadas exitosamente'),
                  onError: (errors) => {

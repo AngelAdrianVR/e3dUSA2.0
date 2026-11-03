@@ -230,6 +230,14 @@
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Fecha de Creación:</span>
                             <span>{{ formattedDate }}</span>
                         </li>
+                        <li class="flex justify-between gap-2">
+                            <span class="font-semibold text-amber-600 dark:text-amber-400">
+                                Fecha tentativa de término de producción:
+                            </span>
+                            <span class="text-right">
+                                {{ formatDateOnly(sale.production_summary?.estimated_finish_at) }}
+                            </span>
+                        </li>
                         <li class="flex justify-between">
                             <span class="font-semibold text-red-600 dark:text-red-400">
                                 Fecha promesa de embarque:
