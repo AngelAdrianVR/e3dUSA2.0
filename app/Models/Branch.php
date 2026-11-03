@@ -38,7 +38,30 @@ class Branch extends Model implements Auditable, HasMedia
         // --- DATOS FISCALES (CFDI) ---
         'payment_method',    // Método de pago: PPD o PUE
         'payment_submethod', // Sub-método: 99 X DEFINIR, TRANSFERENCIA o CHEQUES
-        'cfdi_use'           // Uso del CFDI
+        'cfdi_use',          // Uso del CFDI
+        // --- ALTA Y AUTORIZACIÓN DE CONTACTOS REPETIDOS ---
+        'created_by',
+        'duplicate_contacts_status',
+        'duplicate_contacts_reason',
+        'duplicate_contacts_ids',
+        'duplicate_contacts_requested_at',
+        'duplicate_contacts_resolved_at',
+        'duplicate_contacts_resolved_by',
+    ];
+
+    /**
+     * Estados posibles para la autorización de contactos repetidos.
+     */
+    public const DUPLICATE_CONTACTS_PENDING = 'Pendiente';
+
+    public const DUPLICATE_CONTACTS_APPROVED = 'Autorizado';
+
+    public const DUPLICATE_CONTACTS_REJECTED = 'Rechazado';
+
+    protected $casts = [
+        'duplicate_contacts_ids' => 'array',
+        'duplicate_contacts_requested_at' => 'datetime',
+        'duplicate_contacts_resolved_at' => 'datetime',
     ];
 
     /**
@@ -137,6 +160,22 @@ class Branch extends Model implements Auditable, HasMedia
     public function accountManager()
     {
         return $this->belongsTo(User::class, 'account_manager_id');
+    }
+
+    /**
+     * Obtiene el usuario que dio de alta al cliente.
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Indica si el cliente tiene contactos repetidos pendientes de autorización.
+     */
+    public function hasPendingDuplicateContacts(): bool
+    {
+        return $this->duplicate_contacts_status === self::DUPLICATE_CONTACTS_PENDING;
     }
 
     /**

@@ -198,6 +198,12 @@ export default {
                 return true;
             }
 
+            // Los autorizadores de contactos de clientes ven su acceso rápido aunque
+            // no pertenezcan al módulo de requisiciones.
+            if (permissions.includes('Autorizar contactos de clientes')) {
+                return true;
+            }
+
             return permissions.some(permission => requisitionPermissions.includes(permission));
         }
     },

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Branch;
 use App\Models\CalendarEntry;
 use App\Models\Contact;
 use App\Models\DesignOrder;
@@ -135,6 +136,16 @@ class DashboardController extends Controller
             ];
         }
         
+        // Clientes con contactos repetidos pendientes de autorización: acceso rápido
+        // visible solo para usuarios con el permiso correspondiente.
+        if ($authUser->checkPermissionTo('Autorizar contactos de clientes')) {
+            $requiredActions = $requiredActions ?? [];
+            $requiredActions['branches_pending_duplicate_contacts'] = Branch::where(
+                'duplicate_contacts_status',
+                Branch::DUPLICATE_CONTACTS_PENDING
+            )->count();
+        }
+
         // Requisiciones de material: accesos rápidos según el permiso del usuario.
         // - Compras ve lo que falta cotizar.
         // - Gerencia de compras lo que falta autorizar.
@@ -258,6 +269,10 @@ class DashboardController extends Controller
                         ->whereNotNull('estimated_finish_at')
                         ->max('estimated_finish_at');
 
+                    $estimatedFinishNote = $sale->productions
+                        ->first(fn ($production) => filled($production->estimated_finish_note))
+                        ?->estimated_finish_note;
+
                     return [
                         'id' => $sale->id,
                         'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
@@ -265,6 +280,7 @@ class DashboardController extends Controller
                         'status' => $sale->status,
                         'created_at' => $sale->created_at?->toDateString(),
                         'estimated_finish_at' => $estimatedFinishAt?->toDateString(),
+                        'estimated_finish_note' => $estimatedFinishNote,
                         'products' => $sale->saleProducts
                             ->map(fn ($saleProduct) => [
                                 'id' => $saleProduct->id,

@@ -182,6 +182,8 @@ Route::get('branches/{branch}/deletion-preview', [BranchController::class, 'dele
 Route::post('branches/deletion-preview', [BranchController::class, 'massiveDeletionPreview'])->middleware('auth')->name('branches.massive-deletion-preview');
 Route::get('branches/{branch}/fetch-products', [BranchController::class, 'fetchBranchProducts'])->middleware('auth')->name('branches.fetch-products');
 Route::get('branches/{branch}/matrix-data', [BranchController::class, 'getMatrixData'])->middleware('auth')->name('branches.matrix-data');
+Route::put('branches/{branch}/duplicate-contacts/approve', [BranchController::class, 'approveDuplicateContacts'])->middleware('auth')->name('branches.duplicate-contacts.approve');
+Route::put('branches/{branch}/duplicate-contacts/reject', [BranchController::class, 'rejectDuplicateContacts'])->middleware('auth')->name('branches.duplicate-contacts.reject');
 Route::post('branches/{branch}/csf', [BranchController::class, 'uploadCsf'])->middleware('auth')->name('branches.csf.store');
 Route::post('/branches/{branch}/add-products', [BranchController::class, 'addProducts'])->middleware('auth')->name('branches.add-products');
 Route::delete('/branches/{branch}/products/{product}', [BranchController::class, 'removeProduct'])->middleware('auth')->name('branches.products.remove');
@@ -322,6 +324,7 @@ Route::get('/billing/invoice-template', [BillingDashboardController::class, 'inv
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
 Route::get('/productions/{sale}', [ProductionController::class, 'show'])->middleware('auth')->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+Route::put('/productions/{sale}/estimated-finish', [ProductionController::class, 'updateEstimatedFinish'])->middleware('auth')->name('productions.updateEstimatedFinish');
 Route::get('productions/print/{sale}', [ProductionController::class, 'print'])->middleware('auth')->name('productions.print');
 
 

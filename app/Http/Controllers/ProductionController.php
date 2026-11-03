@@ -171,8 +171,10 @@ class ProductionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'estimated_finish_dates' => 'required|array|min:1',
-            'estimated_finish_dates.*' => 'required|date',
+            'estimated_finish_dates' => 'nullable|array',
+            'estimated_finish_dates.*' => 'nullable|date',
+            'estimated_finish_notes' => 'nullable|array',
+            'estimated_finish_notes.*' => 'nullable|string|max:255',
             'products_with_tasks' => 'required|array',
             'products_with_tasks.*.sale_product_id' => 'required|exists:sale_products,id',
             'products_with_tasks.*.tasks' => 'required|array|min:1',
@@ -182,19 +184,26 @@ class ProductionController extends Controller
             'products_with_tasks.*.tasks.*.production_cost_id' => 'nullable|exists:production_costs,id',
         ]);
 
-        // Cada folio de venta involucrado debe tener su propia fecha tentativa de término.
+        // Cada folio de venta involucrado debe tener su propia fecha tentativa de término
+        // o, si aún no hay fecha, una nota libre que la describa.
         $saleIds = SaleProduct::whereIn('id', collect($request->products_with_tasks)->pluck('sale_product_id'))
             ->pluck('sale_id')
             ->unique();
 
-        if ($saleIds->contains(fn ($saleId) => blank($request->input("estimated_finish_dates.{$saleId}")))) {
+        $missingEstimatedFinish = $saleIds->contains(fn ($saleId) =>
+            blank($request->input("estimated_finish_dates.{$saleId}"))
+            && blank($request->input("estimated_finish_notes.{$saleId}"))
+        );
+
+        if ($missingEstimatedFinish) {
             throw ValidationException::withMessages([
-                'estimated_finish_dates' => 'Debes asignar una fecha tentativa de término a cada folio de venta.',
+                'estimated_finish_dates' => 'Debes asignar una fecha tentativa de término o una nota para cada folio de venta.',
             ]);
         }
 
         DB::transaction(function () use ($request) {
             $estimatedFinishDates = $request->input('estimated_finish_dates', []);
+            $estimatedFinishNotes = $request->input('estimated_finish_notes', []);
 
             foreach ($request->products_with_tasks as $productData) {
                 $saleProduct = \App\Models\SaleProduct::find($productData['sale_product_id']);
@@ -203,6 +212,7 @@ class ProductionController extends Controller
                     'sale_product_id' => $saleProduct->id,
                     'quantity_to_produce' => $saleProduct->quantity_to_produce,
                     'estimated_finish_at' => $estimatedFinishDates[$saleProduct->sale_id] ?? null,
+                    'estimated_finish_note' => $estimatedFinishNotes[$saleProduct->sale_id] ?? null,
                     'status' => 'Pendiente',
                     'created_by_user_id' => auth()->id(),
                 ]);
@@ -325,6 +335,8 @@ class ProductionController extends Controller
     {
         // Validación del formulario
         $request->validate([
+            'estimated_finish_at' => 'nullable|date',
+            'estimated_finish_note' => 'nullable|string|max:255',
             'products_with_tasks' => 'required|array',
             'products_with_tasks.*.sale_product_id' => 'required|exists:sale_products,id',
             'products_with_tasks.*.tasks' => 'nullable|array',
@@ -414,12 +426,46 @@ class ProductionController extends Controller
                 // Reevaluar estado de la producción
                 $productionModel->updateStatusFromTasks();
             }
-            
+
+            // La fecha tentativa y su nota aplican a todas las producciones de la venta.
+            if ($request->has('estimated_finish_at') || $request->has('estimated_finish_note')) {
+                Production::whereIn('sale_product_id', $production->saleProducts()->pluck('id'))
+                    ->update([
+                        'estimated_finish_at' => $request->input('estimated_finish_at') ?: null,
+                        'estimated_finish_note' => $request->input('estimated_finish_note') ?: null,
+                    ]);
+            }
+
             // Actualizar estado general de la venta
             $production->updateStatus();
         });
 
         return redirect()->route('productions.index');
+    }
+
+    /**
+     * Permite al Jefe de Producción ajustar la fecha tentativa de término
+     * (o su nota libre) de todas las producciones de una venta.
+     */
+    public function updateEstimatedFinish(Request $request, Sale $sale)
+    {
+        abort_unless(
+            auth()->user()?->hasRole(['Jefe de producción', 'Super Administrador', 'Samuel']),
+            403
+        );
+
+        $data = $request->validate([
+            'estimated_finish_at' => 'nullable|date',
+            'estimated_finish_note' => 'nullable|string|max:255',
+        ]);
+
+        Production::whereIn('sale_product_id', $sale->saleProducts()->pluck('id'))
+            ->update([
+                'estimated_finish_at' => $data['estimated_finish_at'] ?? null,
+                'estimated_finish_note' => $data['estimated_finish_note'] ?? null,
+            ]);
+
+        return back();
     }
 
     /*

@@ -19,6 +19,40 @@
                         <p class="text-sm text-gray-500 mt-1">Si hubo cambios en la orden de venta (ej. la cantidad), aquí puedes agregar o quitar tareas correspondientes a la producción.</p>
                     </div>
 
+                    <!-- Fecha tentativa de término (o nota libre) -->
+                    <div class="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <i class="fa-regular fa-calendar-check text-xl text-amber-500"></i>
+                            <div>
+                                <p class="font-semibold text-amber-800 dark:text-amber-300">Fecha tentativa de término de producción</p>
+                                <p class="text-xs text-amber-700 dark:text-amber-400">
+                                    Selecciona una fecha o, si aún no la hay, escribe una nota libre (ej. "Esperando respuesta de fábrica").
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <el-date-picker
+                                v-model="form.estimated_finish_at"
+                                :teleported="false"
+                                type="date"
+                                value-format="YYYY-MM-DD"
+                                placeholder="Fecha tentativa"
+                                clearable
+                                class="!w-full sm:!w-56"
+                            />
+                            <input
+                                v-model="form.estimated_finish_note"
+                                type="text"
+                                maxlength="255"
+                                placeholder="Nota libre (ej. Esperando respuesta de fábrica)"
+                                class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-200 focus:border-primary focus:ring-primary"
+                            >
+                        </div>
+                        <p v-if="form.errors.estimated_finish_at || form.errors.estimated_finish_note" class="text-xs text-red-500 mt-2">
+                            {{ form.errors.estimated_finish_at || form.errors.estimated_finish_note }}
+                        </p>
+                    </div>
+
                     <!-- Lista de Productos a Producir -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-[60vh] overflow-auto pr-2">
                         <div v-for="product in sale.sale_products" :key="product.id" class="bg-gray-50 dark:bg-slate-800 border dark:border-gray-700 rounded-lg p-4 flex flex-col justify-between">
@@ -172,6 +206,8 @@ export default {
             },
             
             form: useForm({
+                estimated_finish_at: null,
+                estimated_finish_note: null,
                 products_with_tasks: []
             }),
         };
@@ -203,6 +239,14 @@ export default {
                 })) : []
             };
         });
+
+        // Fecha tentativa de término (o su nota libre) actual de la venta.
+        const productions = (this.sale.sale_products || []).map(sp => sp.production).filter(Boolean);
+        const withDate = productions.find(p => p.estimated_finish_at);
+        const withNote = productions.find(p => p.estimated_finish_note);
+
+        this.form.estimated_finish_at = withDate ? String(withDate.estimated_finish_at).slice(0, 10) : null;
+        this.form.estimated_finish_note = withNote?.estimated_finish_note ?? null;
     },
     methods: {
         // --- Métodos de Asignación de Tareas ---

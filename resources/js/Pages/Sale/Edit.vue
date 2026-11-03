@@ -138,14 +138,28 @@
                                 
                                 <div>
                                     <InputLabel value="Opción de Flete" />
-                                    <el-select @change="handleFreightOption" v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full">
+                                    <el-select @change="handleFreightOption" v-model="form.freight_option" placeholder="Selecciona el flete" class="!w-full" :disabled="!!form.quote_id">
                                         <el-option label="Por cuenta del cliente" value="Por cuenta del cliente" />
                                         <el-option label="Cargo prorrateado en productos" value="Cargo de flete prorrateado en productos" />
                                         <el-option label="E3D absorbe el costo" value="E3D absorbe el costo de flete" />
                                         <el-option label="El cliente manda la guia" value="El cliente manda la guia" />
                                     </el-select>
+                                    <p v-if="form.quote_id" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                        La opción de flete se define en la cotización
+                                        <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
+                                    </p>
                                 </div>
-                                <TextInput v-if="form.freight_option !== 'El cliente manda la guia'" label="Costo de Flete*" :error="form.errors.freight_option" v-model="form.freight_cost" type="number" :formatAsNumber="true">
+                                <div v-if="form.quote_id">
+                                    <InputLabel value="Costo de Flete" />
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-700 dark:text-gray-200 font-medium">${{ form.freight_cost || '0' }}</span>
+                                    </div>
+                                    <p class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                        El costo de flete se edita desde la cotización
+                                        <a :href="route('quotes.show', form.quote_id)" target="_blank" class="text-blue-500 hover:underline font-medium">COT-{{ form.quote_id }}</a>
+                                    </p>
+                                </div>
+                                <TextInput v-else-if="form.freight_option !== 'El cliente manda la guia'" label="Costo de Flete*" :error="form.errors.freight_option" v-model="form.freight_cost" type="number" :formatAsNumber="true">
                                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                                 </TextInput>
 
