@@ -699,7 +699,8 @@ export default {
                         route().current('manuals.*') ||
                         route().current('sample-trackings.*') ||
                         route().current('media-library.*') ||
-                        route().current('audits.*'),
+                        route().current('audits.*') ||
+                        route().current('stock-movements.*'),
                     options: [
                         {
                             label: 'Tutoriales y manuales',
@@ -733,6 +734,12 @@ export default {
                             show: this.$page.props.auth.user.permissions?.includes('Ver historial de acciones')
                         },
                         {
+                            label: 'Movimientos de inventario',
+                            route: 'stock-movements.index',
+                            active: route().current('stock-movements.*'),
+                            show: this.$page.props.auth.user.permissions?.includes('Ver almacenes')
+                        },
+                        {
                             label: 'Biblioteca de medios',
                             route: 'media-library.index',
                             active: route().current('media-library.*'),
@@ -761,6 +768,7 @@ export default {
                         || this.$page.props.auth.user.permissions.includes('Ver costos de produccion')
                         || this.$page.props.auth.user.permissions.includes('Ver biblioteca de medios')
                         || this.$page.props.auth.user.permissions.includes('Ver muestras')
+                        || this.$page.props.auth.user.permissions.includes('Ver almacenes')
                 },
             ],
             showModal: false,

@@ -49,6 +49,7 @@ use App\Http\Controllers\SettingController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Controllers\ShippingRateController;
 use App\Http\Controllers\SparePartController;
+use App\Http\Controllers\StockMovementController;
 use App\Http\Controllers\StockProjectionController;
 use App\Http\Controllers\StockRepositionController;
 use App\Http\Controllers\StorageController;
@@ -532,6 +533,11 @@ Route::get('spare-parts/create/{selectedMachine}', [SparePartController::class, 
 
 // --------------------- Rutas de almacen -----------------------------
 Route::get('/storages', [StorageController::class, 'index'])->name('storages.index');
+
+// Historial de movimientos de inventario (entradas y salidas)
+Route::get('/stock-movements', [StockMovementController::class, 'index'])->name('stock-movements.index')->middleware('auth');
+Route::delete('/stock-movements/bulk', [StockMovementController::class, 'destroyBulk'])->name('stock-movements.bulk-destroy')->middleware('auth');
+Route::delete('/stock-movements/{stockMovement}', [StockMovementController::class, 'destroy'])->name('stock-movements.destroy')->middleware('auth');
 
 
 // --------------------- Rutas de actualizaciones -----------------------------

@@ -64,6 +64,7 @@ class RoleSeeder extends Seeder
             'Ver scrap',
             'Crear scrap',
             'Crear movimientos de stock',
+            'Eliminar movimientos de stock',
         ]);
 
         // --- Rol: Asistente de director ---
