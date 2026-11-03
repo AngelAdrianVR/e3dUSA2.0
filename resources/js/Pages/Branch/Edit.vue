@@ -205,7 +205,7 @@
                                 Los contactos pueden repetirse entre áreas (configuración habilitada por Dirección).
                             </template>
                             <template v-else>
-                                No se pueden repetir el mismo teléfono o correo entre contactos. Si necesitas que una misma persona atienda varias áreas, contacta con Dirección para que se te habilite la creación de este cliente.
+                                Si un mismo teléfono o correo se repite, deberás justificar el motivo y el cliente quedará pendiente de autorización.
                             </template>
                         </p>
 
@@ -230,7 +230,12 @@
                                 </template>
 
                                 <div class="space-y-4">
-                                    <div v-for="item in group.items" :key="item.index" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 border dark:border-gray-600 rounded-lg p-4 relative">
+                                    <div v-for="item in group.items" :key="item.index" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-4 border dark:border-gray-600 rounded-lg p-4 relative"
+                                        :class="duplicatedIndexes.includes(item.index) ? '!border-red-400 bg-red-50/70 dark:!border-red-500 dark:bg-red-900/20' : ''">
+                                        <p v-if="duplicatedIndexes.includes(item.index)" class="md:col-span-2 lg:col-span-3 text-xs font-semibold text-red-600 dark:text-red-400">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                            Teléfono o correo repetido. Explica la razón más abajo.
+                                        </p>
                                         <!-- Selector de Prefijo -->
                                         <div>
                                             <label class="text-gray-700 dark:text-gray-100 text-sm ml-3">Prefijo</label>
@@ -292,6 +297,44 @@
                             </el-collapse-item>
                         </el-collapse>
                         <InputError :message="form.errors.contacts" />
+
+                        <!-- ALERTA DE CONTACTOS REPETIDOS (validación en vivo) -->
+                        <div v-if="hasDuplicatedContacts && !allowDuplicateContacts" class="mb-4 rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4">
+                            <div class="flex items-start gap-3">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl mt-0.5"></i>
+                                <div class="flex-1">
+                                    <p class="font-bold text-amber-800 dark:text-amber-300">
+                                        Se detectaron contactos repetidos
+                                    </p>
+                                    <ul class="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-200">
+                                        <li v-for="duplicate in duplicatedContacts" :key="duplicate.index">
+                                            <strong>{{ duplicate.name || 'Contacto sin nombre' }}</strong>
+                                            <span v-if="duplicate.area">({{ duplicate.area }})</span>:
+                                            <span v-if="duplicate.phone">teléfono {{ duplicate.phone }}</span>
+                                            <span v-if="duplicate.phone && duplicate.email"> y </span>
+                                            <span v-if="duplicate.email">correo {{ duplicate.email }}</span>
+                                            repetido.
+                                        </li>
+                                    </ul>
+                                    <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
+                                        El cliente se guardará, pero quedará pendiente de autorización hasta que un responsable revise la justificación.
+                                    </p>
+
+                                    <div class="mt-3">
+                                        <InputLabel value="Justificación de por qué se repite el contacto*" />
+                                        <el-input
+                                            v-model="form.duplicate_contacts_reason"
+                                            type="textarea"
+                                            :rows="3"
+                                            maxlength="1000"
+                                            show-word-limit
+                                            placeholder="Ej. Es el mismo gerente de compras y también autoriza pagos."
+                                        />
+                                        <InputError :message="form.errors.duplicate_contacts_reason" class="mt-1" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         </div>
 
                         <!-- ================= PASO 5: PRODUCTOS ================= -->
@@ -516,6 +559,7 @@ export default {
                 cfdi_use: this.branch.cfdi_use,
                 csf: null,
                 contacts: this.formattedContacts,
+                duplicate_contacts_reason: this.branch.duplicate_contacts_reason || '',
                 products: this.formattedProducts,
                 suggested_products: this.suggestedProductIds ?? [],
                 // Necesario para que Laravel reciba el PUT cuando se envian archivos (multipart)
@@ -548,7 +592,7 @@ export default {
                 0: ['parent_branch_id'],
                 1: ['name', 'client_number', 'group_name', 'status', 'account_manager_id', 'meet_way'],
                 2: ['business_name', 'rfc', 'bank_account', 'post_code', 'address', 'payment_method', 'payment_submethod', 'cfdi_use', 'csf'],
-                3: ['contacts'],
+                3: ['contacts', 'duplicate_contacts_reason'],
                 4: ['products', 'suggested_products'],
             },
             months: [
@@ -650,6 +694,43 @@ export default {
 
             return groups;
         },
+        /**
+         * Contactos que repiten teléfono o correo dentro del mismo cliente.
+         * La detección es en vivo, mientras el usuario captura la información.
+         */
+        duplicatedContacts() {
+            const phones = new Set();
+            const emails = new Set();
+            const duplicates = [];
+
+            this.form.contacts.forEach((contact, index) => {
+                const phone = String(contact.phone || '').trim();
+                const email = String(contact.email || '').trim().toLowerCase();
+                const repeatedPhone = phone !== '' && phones.has(phone);
+                const repeatedEmail = email !== '' && emails.has(email);
+
+                if (phone !== '') phones.add(phone);
+                if (email !== '') emails.add(email);
+
+                if (repeatedPhone || repeatedEmail) {
+                    duplicates.push({
+                        index,
+                        name: contact.name,
+                        area: contact.area,
+                        phone: repeatedPhone ? phone : null,
+                        email: repeatedEmail ? email : null,
+                    });
+                }
+            });
+
+            return duplicates;
+        },
+        duplicatedIndexes() {
+            return this.duplicatedContacts.map(item => item.index);
+        },
+        hasDuplicatedContacts() {
+            return this.duplicatedContacts.length > 0;
+        },
         hasErrors() {
             return this.stepsWithErrors.length > 0;
         },
@@ -690,6 +771,19 @@ export default {
             // Se descartan los contactos completamente vacíos antes de enviar
             this.pruneEmptyContacts();
 
+            // Validación de contactos repetidos: se exige la justificación antes de enviar
+            if (this.hasDuplicatedContacts && !this.allowDuplicateContacts
+                && String(this.form.duplicate_contacts_reason || '').trim() === '') {
+                this.currentStep = 3;
+                ElMessage.warning('Debes justificar por qué se repite el contacto para poder continuar.');
+                this.$nextTick(() => {
+                    this.$refs.formContainer?.scrollIntoView({ behavior: 'smooth' });
+                });
+                return;
+            }
+
+            const willRequireAuthorization = this.hasDuplicatedContacts && !this.allowDuplicateContacts;
+
             // Buscamos si existe el parámetro redirect_to en la URL
             const urlParams = new URLSearchParams(window.location.search);
             const redirectTo = urlParams.get('redirect_to');
@@ -712,7 +806,11 @@ export default {
             // por lo que al subir la CSF el request llegaba vacío y fallaban todas las validaciones.
             this.form.post(route("branches.update", routeParams), {
                 onSuccess: () => {
-                    ElMessage.success('Cliente actualizado correctamente');
+                    if (willRequireAuthorization) {
+                        ElMessage.warning('Cliente actualizado. Los contactos repetidos quedaron pendientes de autorización.');
+                    } else {
+                        ElMessage.success('Cliente actualizado correctamente');
+                    }
                 },
                 onError: () => {
                     // Nos posicionamos en el primer paso con errores
@@ -893,6 +991,13 @@ export default {
                 if (!areas.includes('Pagos')) {
                     this.openContactGroup('Pagos');
                     ElMessage.warning('Debes agregar al menos un contacto del área Pagos.');
+                    return false;
+                }
+
+                // Con el candado activo no se puede avanzar sin justificar los contactos repetidos.
+                if (this.hasDuplicatedContacts && !this.allowDuplicateContacts
+                    && String(this.form.duplicate_contacts_reason || '').trim() === '') {
+                    ElMessage.warning('Debes justificar por qué se repite el contacto para poder continuar.');
                     return false;
                 }
             }

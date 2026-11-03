@@ -52,6 +52,10 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
                             Debe incluir al menos un <strong>Teléfono</strong> y un <strong>Correo</strong>.
                         </p>
+                        <p v-if="!allowDuplicateContacts" class="text-xs font-semibold text-amber-600 dark:text-amber-400 mb-3">
+                            <i class="fa-solid fa-lock mr-1"></i>
+                            No se puede repetir el mismo teléfono o correo de otro contacto de este cliente.
+                        </p>
                         <div v-for="(detail, index) in form.details" :key="index" class="flex items-center space-x-2 mb-2">
                              <el-select v-model="detail.type" placeholder="Tipo" :teleported="false" class="!w-1/4">
                                 <el-option label="Teléfono" value="Teléfono" />
@@ -111,6 +115,22 @@ export default {
         // AHORA: Recibimos el ID y el tipo del modelo padre.
         contactableId: Number,
         contactableType: String, // ej. 'App\\Models\\Branch'
+        // Área preseleccionada al agregar un contacto desde el detalle del cliente.
+        defaultArea: {
+            type: String,
+            default: null,
+        },
+        // Candado de contactos repetidos (Configuraciones de Roles y Permisos).
+        // Por defecto se permite: el detalle del cliente envía el valor real.
+        allowDuplicateContacts: {
+            type: Boolean,
+            default: true,
+        },
+        // Contactos actuales del cliente, para validar duplicados al momento de capturar.
+        existingContacts: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -143,8 +163,8 @@ export default {
                         ElMessage.success('Contacto actualizado');
                         this.closeModal();
                     },
-                     onError: () => {
-                        ElMessage.error('Hubo un error al actualizar');
+                     onError: (errors) => {
+                        ElMessage.error(this.firstErrorMessage(errors, 'Hubo un error al actualizar'));
                     }
                 });
             } else {
@@ -155,11 +175,41 @@ export default {
                         ElMessage.success('Contacto creado');
                         this.closeModal();
                     },
-                    onError: () => {
-                        ElMessage.error('Hubo un error al crear el contacto');
+                    onError: (errors) => {
+                        ElMessage.error(this.firstErrorMessage(errors, 'Hubo un error al crear el contacto'));
                     }
                 });
             }
+        },
+        firstErrorMessage(errors, fallback) {
+            const first = Object.values(errors || {})[0];
+            return typeof first === 'string' && first !== '' ? first : fallback;
+        },
+        /**
+         * Devuelve el primer dato repetido contra los demás contactos del cliente,
+         * o null si no hay duplicados.
+         */
+        duplicatedDetailMessage() {
+            if (this.allowDuplicateContacts) return null;
+
+            const others = (this.existingContacts || []).filter(contact => contact.id !== this.form.id);
+            const details = (this.form.details || []).filter(detail => detail.value && String(detail.value).trim() !== '');
+
+            for (const detail of details) {
+                const value = String(detail.value).trim().toLowerCase();
+
+                for (const contact of others) {
+                    const repeated = (contact.details || []).find(other =>
+                        other.type === detail.type && String(other.value || '').trim().toLowerCase() === value
+                    );
+
+                    if (repeated) {
+                        return `El ${String(detail.type).toLowerCase()} ${detail.value} ya está registrado en el contacto «${contact.name}». Corrige el dato para continuar.`;
+                    }
+                }
+            }
+
+            return null;
         },
         validateForm() {
             if (!this.form.name || !String(this.form.name).trim()) {
@@ -185,6 +235,12 @@ export default {
             }
             if (!hasEmail) {
                 ElMessage.warning('Agrega al menos un Correo en los detalles.');
+                return false;
+            }
+
+            const duplicatedMessage = this.duplicatedDetailMessage();
+            if (duplicatedMessage) {
+                ElMessage.error(duplicatedMessage);
                 return false;
             }
 
@@ -231,6 +287,8 @@ export default {
                     this.form.contactable_id = this.contactableId;
                     this.form.contactable_type = this.contactableType;
                     this.form.prefix = 'Ing.';
+                    // Área sugerida según el bloque desde el que se agregó el contacto.
+                    this.form.area = this.defaultArea || '';
                     // Sugerimos un teléfono y un correo por defecto
                     this.form.details = [
                         { type: 'Teléfono', value: '', is_primary: true },

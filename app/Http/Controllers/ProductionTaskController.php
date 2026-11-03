@@ -165,7 +165,12 @@ class ProductionTaskController extends Controller
                 $notes = 'El operador ha reanudado la tarea "' . $production_task->name . '".';
             } elseif ($newStatus === 'Terminada') {
                 $logType = 'progreso';
-                $notes = "Tarea '" . $production_task->name . "' finalizada. Unidades buenas: {$request->input('good_units', 0)}, Merma total: {$request->input('scrap', 0)}.";
+                $goodUnits = (int) $request->input('good_units', 0);
+                $notes = "Tarea '" . $production_task->name . "' finalizada.";
+                if ($goodUnits > 0) {
+                    $notes .= " Unidades buenas: {$goodUnits}.";
+                }
+                $notes .= " Merma total: {$request->input('scrap', 0)}.";
                 if ($request->input('scrap', 0) > 0 && $request->filled('scrap_reason')) {
                      $notes .= " Razón: {$request->input('scrap_reason')}";
                 }

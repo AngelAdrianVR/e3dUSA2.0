@@ -241,6 +241,28 @@ class SaleController extends Controller
         ];
     }
 
+    /**
+     * La opción y el costo de flete de una OV creada desde una cotización no son editables:
+     * siempre se heredan de la cotización (mismo criterio que el costo de herramental).
+     */
+    private function applyQuoteFreight(array $validated, bool $isVentaType): array
+    {
+        if (!$isVentaType || empty($validated['quote_id'])) {
+            return $validated;
+        }
+
+        $quote = Quote::find($validated['quote_id']);
+
+        if (!$quote) {
+            return $validated;
+        }
+
+        $validated['freight_option'] = $quote->freight_option ?: ($validated['freight_option'] ?? null);
+        $validated['freight_cost'] = $quote->freight_cost ?? 0;
+
+        return $validated;
+    }
+
     public function store(Request $request)
     {
         // --- 1. DETERMINAR TIPO Y REGLAS BASE ---
@@ -304,6 +326,9 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        // --- LOGÍSTICA DE FLETE HEREDADA DE LA COTIZACIÓN ---
+        $validated = $this->applyQuoteFreight($validated, $isVentaType);
 
         // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
@@ -706,6 +731,9 @@ class SaleController extends Controller
         }
 
         $validated = $request->validate($rules);
+
+        // --- LOGÍSTICA DE FLETE HEREDADA DE LA COTIZACIÓN ---
+        $validated = $this->applyQuoteFreight($validated, $isVentaType);
 
         // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;

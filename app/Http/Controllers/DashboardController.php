@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Branch;
 use App\Models\CalendarEntry;
 use App\Models\Contact;
 use App\Models\DesignOrder;
@@ -135,6 +136,16 @@ class DashboardController extends Controller
             ];
         }
         
+        // Clientes con contactos repetidos pendientes de autorización: acceso rápido
+        // visible solo para usuarios con el permiso correspondiente.
+        if ($authUser->checkPermissionTo('Autorizar contactos de clientes')) {
+            $requiredActions = $requiredActions ?? [];
+            $requiredActions['branches_pending_duplicate_contacts'] = Branch::where(
+                'duplicate_contacts_status',
+                Branch::DUPLICATE_CONTACTS_PENDING
+            )->count();
+        }
+
         // Requisiciones de material: accesos rápidos según el permiso del usuario.
         // - Compras ve lo que falta cotizar.
         // - Gerencia de compras lo que falta autorizar.

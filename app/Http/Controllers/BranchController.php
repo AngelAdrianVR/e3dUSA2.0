@@ -17,13 +17,17 @@ use App\Models\Sale;
 use App\Models\SampleTracking;
 use App\Models\Setting;
 use App\Models\User;
+use App\Notifications\DuplicateContactsPendingNotification;
+use App\Notifications\DuplicateContactsRejectedNotification;
 use App\Services\BranchGroupService;
 use App\Services\BranchVolumePriceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -40,9 +44,20 @@ class BranchController extends Controller
         $group = $request->input('group');
         $status = $request->input('status');
         $accountManagerId = $request->input('account_manager_id');
+        // Filtro usado por el acceso rápido del dashboard: clientes con contactos
+        // repetidos pendientes de autorización.
+        $pendingContactAuthorization = $request->input('filter') === 'pending_authorization';
 
         // Cargamos solo las matrices (parent_branch_id = null) y sus sucursales hijas
         $branches = Branch::whereNull('parent_branch_id')
+            ->when($pendingContactAuthorization, function ($query) {
+                $query->where(function ($q) {
+                    $q->where('duplicate_contacts_status', Branch::DUPLICATE_CONTACTS_PENDING)
+                      ->orWhereHas('children', function ($childQuery) {
+                          $childQuery->where('duplicate_contacts_status', Branch::DUPLICATE_CONTACTS_PENDING);
+                      });
+                });
+            })
             ->when($group, function ($query) use ($group) {
                 // Se incluyen las matrices del grupo y también aquellas que tengan
                 // sucursales hijas asignadas al grupo.
@@ -95,6 +110,7 @@ class BranchController extends Controller
                 'group' => $group,
                 'status' => $status,
                 'account_manager_id' => $accountManagerId,
+                'filter' => $pendingContactAuthorization ? 'pending_authorization' : null,
             ],
         ]);
     }
@@ -224,6 +240,9 @@ class BranchController extends Controller
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
             'contacts.*.prefix' => 'nullable|string|max:50',
 
+            // Justificación obligatoria cuando el candado de contactos repetidos está activo.
+            'duplicate_contacts_reason' => 'nullable|string|max:1000',
+
             // Validación para productos asignados
             'products' => 'nullable|array',
             'products.*.product_id' => 'required|exists:products,id',
@@ -235,10 +254,16 @@ class BranchController extends Controller
             'suggested_products.*' => 'exists:products,id',
         ]);
 
-        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
-        $this->validateContactRules($validated['contacts'] ?? []);
+        // Reglas adicionales para los contactos (al menos un medio de contacto, áreas
+        // obligatorias y justificación cuando hay contactos repetidos con el candado activo).
+        $duplicatedContacts = $this->duplicatedContactIndexes($validated['contacts'] ?? []);
+        $this->validateContactRules(
+            $validated['contacts'] ?? [],
+            $duplicatedContacts,
+            $validated['duplicate_contacts_reason'] ?? null
+        );
 
-        DB::transaction(function () use ($validated, $request) {
+        DB::transaction(function () use ($validated, $request, $duplicatedContacts, &$branch) {
             // 1. Crear la sucursal (Branch)
             $branch = Branch::create([
                 'name' => $validated['name'],
@@ -255,6 +280,7 @@ class BranchController extends Controller
                 'status' => $validated['status'],
                 'parent_branch_id' => $validated['parent_branch_id'],
                 'account_manager_id' => $validated['account_manager_id'],
+                'created_by' => Auth::id(),
                 'meet_way' => $validated['meet_way'],
 
                 // Datos fiscales (CFDI)
@@ -266,6 +292,9 @@ class BranchController extends Controller
             ]);
 
             // 2. Crear los contactos y sus detalles
+            // Se registran los IDs de los contactos que repiten teléfono o correo para
+            // poder eliminarlos si el responsable rechaza la solicitud.
+            $duplicatedContactIds = [];
             if (!empty($validated['contacts'])) {
                 foreach ($validated['contacts'] as $index => $contactData) {
                     
@@ -284,6 +313,10 @@ class BranchController extends Controller
                         'birthdate' => $birthdate,
                         'is_primary' => $index === 0,
                     ]);
+
+                    if (array_key_exists($index, $duplicatedContacts)) {
+                        $duplicatedContactIds[] = $contact->id;
+                    }
 
                     // Teléfono opcional: basta con tener al menos un medio de contacto
                     if (!empty($contactData['phone'])) {
@@ -350,7 +383,28 @@ class BranchController extends Controller
             // 6. Consolida los productos del grupo al que pertenece la nueva sucursal.
             $this->branchGroups->rebalance($branch->group_name);
 
+            // 7. Contactos repetidos: quedan pendientes de autorización.
+            // El candado desactivado en Roles y Permisos permite repetirlos sin revisión.
+            if (!empty($duplicatedContactIds) && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)) {
+                $branch->update([
+                    'duplicate_contacts_status' => Branch::DUPLICATE_CONTACTS_PENDING,
+                    'duplicate_contacts_reason' => $validated['duplicate_contacts_reason'] ?? null,
+                    'duplicate_contacts_ids' => $duplicatedContactIds,
+                    'duplicate_contacts_requested_at' => now(),
+                    'duplicate_contacts_resolved_at' => null,
+                    'duplicate_contacts_resolved_by' => null,
+                ]);
+            }
         });
+
+        if ($branch?->hasPendingDuplicateContacts()) {
+            $this->notifyDuplicateContactsPending($branch);
+
+            return to_route('branches.index')->with(
+                'warning',
+                'Cliente registrado con contactos repetidos. Quedaron pendientes de autorización por el área correspondiente.'
+            );
+        }
 
         return to_route('branches.index');
     }
@@ -361,6 +415,7 @@ class BranchController extends Controller
         $branch->load([
             'children.accountManager:id,name,is_active', 
             'accountManager:id,name,is_active', 
+            'creator:id,name',
             'parent:id,name,group_name,business_name,rfc', 
             'contacts.details',
             'media',
@@ -428,6 +483,9 @@ class BranchController extends Controller
             'groupBranchName' => $groupBranch->name,
             'groupBranchIsChild' => (bool) $branch->parent_branch_id,
             'groupMembers' => $groupMembers,
+            // Contactos repetidos: candado y permisos para autorizar/rechazar.
+            'allowDuplicateContacts' => Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS),
+            'canAuthorizeDuplicateContacts' => (bool) Auth::user()?->checkPermissionTo('Autorizar contactos de clientes'),
         ]);
     }
 
@@ -646,17 +704,28 @@ class BranchController extends Controller
             // Validación para productos sugeridos
             'suggested_products' => 'nullable|array',
             'suggested_products.*' => 'exists:products,id',
+
+            // Justificación obligatoria cuando el candado de contactos repetidos está activo.
+            'duplicate_contacts_reason' => 'nullable|string|max:1000',
         ]);
 
-        // Reglas adicionales para los contactos (al menos un medio de contacto y sin duplicados)
-        $this->validateContactRules($validated['contacts'] ?? []);
+        // Reglas adicionales para los contactos (al menos un medio de contacto, áreas
+        // obligatorias y justificación cuando hay contactos repetidos con el candado activo).
+        $duplicatedContacts = $this->duplicatedContactIndexes($validated['contacts'] ?? []);
+        $this->validateContactRules(
+            $validated['contacts'] ?? [],
+            $duplicatedContacts,
+            $validated['duplicate_contacts_reason'] ?? null
+        );
 
         // Matriz/grupo del que dependían los productos ANTES de la edición, para detectar
         // si el cliente cambia de destino y, en ese caso, combinar en lugar de reemplazar.
         $branch->loadMissing('parent');
         $oldProductTargetBranch = $this->getProductTargetBranch($branch);
 
-        DB::transaction(function () use ($validated, $branch, $request, $oldProductTargetBranch) {
+        $authorizationRequested = false;
+
+        DB::transaction(function () use ($validated, $branch, $request, $oldProductTargetBranch, $duplicatedContacts, &$authorizationRequested) {
             // Guardamos el grupo anterior para reconsolidarlo si la sucursal cambia de grupo.
             $oldGroup = $branch->group_name;
 
@@ -666,10 +735,11 @@ class BranchController extends Controller
             }
 
             // 1. Actualizar datos de la sucursal (excluimos relaciones y el archivo CSF)
-            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products', 'csf'])->all());
+            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products', 'csf', 'duplicate_contacts_reason'])->all());
 
             // 2. Sincronizar contactos
             $contactIdsToKeep = [];
+            $duplicatedContactIds = [];
             foreach ($validated['contacts'] as $index => $contactData) {
                 $birthdate = null;
                 if (!empty($contactData['birth_month']) && !empty($contactData['birth_day'])) {
@@ -690,6 +760,10 @@ class BranchController extends Controller
                     ]
                 );
 
+                if (array_key_exists($index, $duplicatedContacts)) {
+                    $duplicatedContactIds[] = $contact->id;
+                }
+
                 // Teléfono opcional (basta con tener al menos un medio de contacto)
                 if (!empty($contactData['phone'])) {
                     $contact->details()->updateOrCreate(['type' => 'Teléfono'], ['value' => $contactData['phone'], 'is_primary' => true]);
@@ -706,6 +780,35 @@ class BranchController extends Controller
                 $contactIdsToKeep[] = $contact->id;
             }
             $branch->contacts()->whereNotIn('id', $contactIdsToKeep)->delete();
+
+            // Contactos repetidos: se marca la solicitud pendiente de autorización.
+            // Si ya no hay repetidos se limpia cualquier solicitud anterior.
+            if (!empty($duplicatedContactIds) && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)) {
+                // Si los mismos contactos ya fueron autorizados, no se vuelve a solicitar.
+                $alreadyApproved = $branch->duplicate_contacts_status === Branch::DUPLICATE_CONTACTS_APPROVED
+                    && $this->sameContactIds($branch->duplicate_contacts_ids ?? [], $duplicatedContactIds);
+
+                if (!$alreadyApproved) {
+                    $branch->update([
+                        'duplicate_contacts_status' => Branch::DUPLICATE_CONTACTS_PENDING,
+                        'duplicate_contacts_reason' => $validated['duplicate_contacts_reason'] ?? null,
+                        'duplicate_contacts_ids' => $duplicatedContactIds,
+                        'duplicate_contacts_requested_at' => now(),
+                        'duplicate_contacts_resolved_at' => null,
+                        'duplicate_contacts_resolved_by' => null,
+                    ]);
+                    $authorizationRequested = true;
+                }
+            } elseif ($branch->hasPendingDuplicateContacts()) {
+                $branch->update([
+                    'duplicate_contacts_status' => null,
+                    'duplicate_contacts_reason' => null,
+                    'duplicate_contacts_ids' => null,
+                    'duplicate_contacts_requested_at' => null,
+                    'duplicate_contacts_resolved_at' => null,
+                    'duplicate_contacts_resolved_by' => null,
+                ]);
+            }
             
             // MODIFICADO: Determinar la sucursal matriz / líder de grupo para la gestión de productos
             $branch->load('parent');
@@ -750,6 +853,10 @@ class BranchController extends Controller
             }
         });
 
+        if ($authorizationRequested) {
+            $this->notifyDuplicateContactsPending($branch);
+        }
+
         if ($request->has('redirect_to')) {
             $redirectRoute = $request->query('redirect_to');
 
@@ -768,17 +875,56 @@ class BranchController extends Controller
 
     
     /**
-     * Reglas adicionales para los contactos:
-     * - Cada contacto debe tener al menos un medio de contacto (teléfono o correo).
-     * - No se permite repetir el mismo teléfono ni el mismo correo entre contactos,
-     *   salvo que el Super Administrador haya desactivado el candado en Configuraciones.
+     * Contactos que repiten teléfono o correo dentro del mismo cliente.
+     *
+     * Devuelve un arreglo con el índice del contacto como llave y los valores
+     * repetidos detectados, por ejemplo: [2 => ['phone' => '5551234567']].
      */
-    private function validateContactRules(array $contacts): void
+    private function duplicatedContactIndexes(array $contacts): array
     {
-        $errors = [];
         $phones = [];
         $emails = [];
-        $allowDuplicateContacts = Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS);
+        $duplicates = [];
+
+        foreach ($contacts as $index => $contact) {
+            $phone = trim((string) ($contact['phone'] ?? ''));
+            $email = strtolower(trim((string) ($contact['email'] ?? '')));
+            $repeated = [];
+
+            if ($phone !== '') {
+                if (isset($phones[$phone])) {
+                    $repeated['phone'] = $phone;
+                } else {
+                    $phones[$phone] = true;
+                }
+            }
+
+            if ($email !== '') {
+                if (isset($emails[$email])) {
+                    $repeated['email'] = $email;
+                } else {
+                    $emails[$email] = true;
+                }
+            }
+
+            if (!empty($repeated)) {
+                $duplicates[$index] = $repeated;
+            }
+        }
+
+        return $duplicates;
+    }
+
+    /**
+     * Reglas adicionales para los contactos:
+     * - Cada contacto debe tener al menos un medio de contacto (teléfono o correo).
+     * - Los contactos de Comercial y Pagos son obligatorios.
+     * - Con el candado de contactos repetidos activo, repetir teléfono o correo ya no
+     *   bloquea el registro: se exige una justificación que deberá autorizarse después.
+     */
+    private function validateContactRules(array $contacts, array $duplicatedContacts = [], ?string $justification = null): void
+    {
+        $errors = [];
 
         foreach ($contacts as $index => $contact) {
             $phone = trim((string) ($contact['phone'] ?? ''));
@@ -786,25 +932,6 @@ class BranchController extends Controller
 
             if ($phone === '' && $email === '') {
                 $errors["contacts.$index.phone"] = 'Cada contacto debe tener al menos un medio de contacto (teléfono o correo).';
-            }
-
-            if ($allowDuplicateContacts) {
-                continue;
-            }
-
-            if ($phone !== '') {
-                if (isset($phones[$phone])) {
-                    $errors["contacts.$index.phone"] = 'Este teléfono ya está registrado en otro contacto. Contacta con Dirección para que se te habilite la creación de este cliente.';
-                }
-                $phones[$phone] = true;
-            }
-
-            if ($email !== '') {
-                $key = strtolower($email);
-                if (isset($emails[$key])) {
-                    $errors["contacts.$index.email"] = 'Este correo ya está registrado en otro contacto. Contacta con Dirección para que se te habilite la creación de este cliente.';
-                }
-                $emails[$key] = true;
             }
         }
 
@@ -819,9 +946,117 @@ class BranchController extends Controller
             $errors['contacts.pagos'] = 'Debes registrar al menos un contacto del área Pagos.';
         }
 
+        $hasDuplicates = !empty($duplicatedContacts);
+
+        if ($hasDuplicates && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS) && trim((string) $justification) === '') {
+            $errors['duplicate_contacts_reason'] = 'Debes justificar por qué se repite el contacto. Sin esa justificación no se puede continuar.';
+        }
+
         if (!empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /**
+     * Compara dos listas de IDs de contactos sin importar el orden.
+     */
+    private function sameContactIds(array $current, array $incoming): bool
+    {
+        $current = array_map('intval', $current);
+        $incoming = array_map('intval', $incoming);
+
+        sort($current);
+        sort($incoming);
+
+        return $current === $incoming;
+    }
+
+    /**
+     * Notifica a los usuarios con permiso de autorizar contactos de clientes.
+     */
+    private function notifyDuplicateContactsPending(Branch $branch): void    {
+        $permissionExists = \Spatie\Permission\Models\Permission::where('name', 'Autorizar contactos de clientes')->exists();
+
+        if (!$permissionExists) {
+            return;
+        }
+
+        $authorizers = User::permission('Autorizar contactos de clientes')->get();
+
+        if ($authorizers->isNotEmpty()) {
+            Notification::send($authorizers, new DuplicateContactsPendingNotification($branch));
+        }
+    }
+
+    /**
+     * Autoriza los contactos repetidos: se conservan tal como se registraron.
+     */
+    public function approveDuplicateContacts(Request $request, Branch $branch)
+    {
+        abort_unless(
+            $request->user()?->checkPermissionTo('Autorizar contactos de clientes'),
+            403,
+            'Solo los usuarios autorizados pueden validar contactos repetidos.'
+        );
+
+        if (!$branch->hasPendingDuplicateContacts()) {
+            return back()->with('error', 'Este cliente no tiene contactos repetidos pendientes de autorización.');
+        }
+
+        $branch->update([
+            'duplicate_contacts_status' => Branch::DUPLICATE_CONTACTS_APPROVED,
+            'duplicate_contacts_resolved_at' => now(),
+            'duplicate_contacts_resolved_by' => $request->user()->id,
+        ]);
+
+        return back()->with('success', 'Contactos autorizados. Se conservan tal y como se registraron.');
+    }
+
+    /**
+     * Rechaza los contactos repetidos: se eliminan y se avisa al usuario que dio de alta al cliente.
+     */
+    public function rejectDuplicateContacts(Request $request, Branch $branch)
+    {
+        abort_unless(
+            $request->user()?->checkPermissionTo('Autorizar contactos de clientes'),
+            403,
+            'Solo los usuarios autorizados pueden validar contactos repetidos.'
+        );
+
+        if (!$branch->hasPendingDuplicateContacts()) {
+            return back()->with('error', 'Este cliente no tiene contactos repetidos pendientes de autorización.');
+        }
+
+        $contactIds = collect($branch->duplicate_contacts_ids ?? [])->filter()->all();
+
+        DB::transaction(function () use ($branch, $contactIds, $request) {
+            if (!empty($contactIds)) {
+                $contactsToDelete = $branch->contacts()->whereIn('id', $contactIds)->get();
+
+                foreach ($contactsToDelete as $contact) {
+                    $contact->details()->delete();
+                    $contact->delete();
+                }
+            }
+
+            $branch->update([
+                'duplicate_contacts_status' => Branch::DUPLICATE_CONTACTS_REJECTED,
+                'duplicate_contacts_ids' => null,
+                'duplicate_contacts_resolved_at' => now(),
+                'duplicate_contacts_resolved_by' => $request->user()->id,
+            ]);
+        });
+
+        $recipient = $branch->creator ?: ($branch->account_manager_id ? User::find($branch->account_manager_id) : null);
+
+        if ($recipient) {
+            Notification::send($recipient, new DuplicateContactsRejectedNotification($branch));
+        }
+
+        return back()->with(
+            'success',
+            'Contactos repetidos rechazados y eliminados. El usuario que registró al cliente recibió una notificación para capturarlos de nuevo.'
+        );
     }
 
     public function destroy(Request $request, Branch $branch)

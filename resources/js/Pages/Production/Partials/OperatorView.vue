@@ -261,15 +261,6 @@
         <!-- Modal para finalizar tarea -->
         <el-dialog v-model="finishTaskModalVisible" title="Finalizar Producción" width="600px" class="dark:bg-slate-800">
             <div class="space-y-5">
-                <!-- Unidades Buenas -->
-                <div v-if="remainingToProduceForModal > 0" class="bg-blue-50 dark:bg-sky-900/30 p-4 rounded-lg">
-                    <label class="block text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">
-                        Unidades BUENAS terminadas (Restantes: {{ remainingToProduceForModal }})
-                    </label>
-                    <p class="text-xs text-blue-600 dark:text-blue-400 mb-3">Esta cantidad se sumará al stock de producto terminado.</p>
-                    <el-input-number v-model="finishTaskForm.good_units" :min="0" :max="remainingToProduceForModal" class="w-full sm:w-auto" />
-                </div>
-
                 <!-- Merma -->
                 <div>
                     <h3 class="text-base font-semibold text-gray-800 dark:text-gray-200 mb-1">Reportar Merma (Unidades con defecto)</h3>
@@ -350,10 +341,8 @@ export default {
             // Nuevas variables para el modal de finalizar tarea
             finishTaskModalVisible: false,
             currentTaskToFinish: null,
-            remainingToProduceForModal: 0,
             isSubmittingTask: false,
             finishTaskForm: {
-                good_units: 0,
                 scrap_items: [],
                 scrap_reason: '',
             },
@@ -452,39 +441,20 @@ export default {
         resumeTask(taskId) { this.updateTaskStatus(taskId, 'En Proceso'); },
         
         pauseTask(task) {
-            const quantityToProduce = this.getQuantityToProduce(task);
-            const producedSoFar = task.production?.good_units || 0;
-            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
-
-            ElMessageBox.prompt('Por favor, ingresa la razón de la pausa.', 'Pausar Tarea', {
+            ElMessageBox.prompt(
+                'Por favor, ingresa la razón de la pausa. Si ya llevas piezas hechas, puedes anotar también la cantidad (ej. "Ajuste de máquina, 50 piezas hechas"). Esa cantidad es solo informativa y NO modifica el inventario.',
+                'Pausar Tarea', {
                 confirmButtonText: 'Confirmar Pausa',
                 cancelButtonText: 'Cancelar',
                 inputType: 'textarea',
-                inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina, etc.',
-                inputValidator: (v) => (v && v.trim() !== '') ? true : 'La razón de la pausa es obligatoria.',
+                inputPlaceholder: 'Ej: Cambio de herramienta, ajuste de máquina (50 piezas hechas)...',
+                inputValidator: (v) => {
+                    if (!v || v.trim() === '') return 'La razón de la pausa es obligatoria.';
+                    if (v.length > 250) return 'La razón no puede exceder 250 caracteres.';
+                    return true;
+                },
             }).then(({ value: pause_reason }) => {
-                
-                if (remainingToProduce > 0) {
-                    ElMessageBox.prompt(`Si ya terminaste unidades parciales, ingresa la cantidad (Máximo: ${remainingToProduce}). Si no, ingresa 0. La cantidad se sumará al stock`, 'Unidades Parciales', {
-                        confirmButtonText: 'Confirmar Pausa',
-                        cancelButtonText: 'Omitir',
-                        inputType: 'number',
-                        inputValue: 0,
-                        inputValidator: (v) => {
-                            if (v === null || v === '') return true;
-                            if (v < 0) return 'No puede ser negativo.';
-                            if (v > remainingToProduce) return `No puedes exceder el restante (${remainingToProduce}).`;
-                            return true;
-                        },
-                    }).then(({ value: partial_units }) => {
-                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: Number(partial_units) });
-                    }).catch(() => {
-                        this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
-                    });
-                } else {
-                    this.updateTaskStatus(task.id, 'Pausada', { pause_reason, partial_units: 0 });
-                }
-
+                this.updateTaskStatus(task.id, 'Pausada', { pause_reason });
             }).catch(() => ElMessage.info('Acción cancelada'));
         },
 
@@ -540,11 +510,7 @@ export default {
             const pendingTasks = task.production?.tasks?.filter(t => t.status !== 'Terminada' && t.id !== task.id) || [];
             const isLastTask = pendingTasks.length === 0;
 
-            const quantityToProduce = this.getQuantityToProduce(task);
-            const producedSoFar = task.production?.good_units || 0;
-            const remainingToProduce = Math.max(0, quantityToProduce - producedSoFar);
-
-            // Si no es la última tarea, solo actualizar estatus sin preguntar piezas ni mermas
+            // Si no es la última tarea, solo actualizar estatus sin preguntar mermas
             if (!isLastTask) {
                 this.updateTaskStatus(task.id, 'Terminada');
                 return;
@@ -552,13 +518,11 @@ export default {
 
             // --- CONFIGURACIÓN DEL MODAL (Igual a Show.vue) ---
             this.currentTaskToFinish = task;
-            this.remainingToProduceForModal = remainingToProduce;
             
             const product = task.production?.sale_product?.product;
             
             // Reiniciamos el formulario
             this.finishTaskForm = {
-                good_units: 0,
                 scrap_items: [],
                 scrap_reason: '',
             };
@@ -593,11 +557,6 @@ export default {
         },
 
         submitFinishTask() {
-            if (this.finishTaskForm.good_units < 0 || this.finishTaskForm.good_units > this.remainingToProduceForModal) {
-                ElMessage.error(`Las unidades buenas terminadas no pueden ser menores a 0 ni mayores al restante (${this.remainingToProduceForModal}).`);
-                return;
-            }
-
             // Filtramos solo los items que tengan merma real asignada
             const scrapItemsToReport = this.finishTaskForm.scrap_items
                 .filter(item => item.quantity > 0)
@@ -610,7 +569,6 @@ export default {
             const totalScrap = scrapItemsToReport.reduce((acc, item) => acc + item.quantity, 0);
 
             const payload = {
-                good_units: Number(this.finishTaskForm.good_units),
                 scrap: totalScrap, // Retrocompatibilidad
                 scrap_reason: this.finishTaskForm.scrap_reason,
                 scrap_items: scrapItemsToReport // Arreglo detallado para descontar inventario

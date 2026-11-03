@@ -4,6 +4,15 @@
             Cartera de Clientes
         </h2>
 
+        <div v-if="pendingFilter"
+            class="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+            <i class="fa-solid fa-user-shield"></i>
+            <span>Mostrando solo clientes con contactos repetidos pendientes de autorización.</span>
+            <button type="button" class="ml-auto text-xs font-semibold underline" @click="clearPendingFilter">
+                Quitar filtro
+            </button>
+        </div>
+
         <div class="py-7">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white dark:bg-slate-900 overflow-hidden shadow-xl sm:rounded-lg p-6">
@@ -82,6 +91,12 @@
                                             placeholder="Todos los vendedores" class="!w-full" :teleported="false">
                                             <el-option v-for="seller in sellers" :key="seller.id" :label="seller.name" :value="seller.id" />
                                         </el-select>
+                                    </div>
+                                    <div v-if="canAuthorizeContacts" class="flex items-center justify-between gap-2 pt-1">
+                                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-300">
+                                            Solo contactos pendientes de autorizar
+                                        </label>
+                                        <el-switch v-model="pendingFilter" @change="applyFilters" />
                                     </div>
                                     <div class="flex justify-end pt-1">
                                         <el-button text size="small" :disabled="!activeFiltersCount" @click="clearFilters">
@@ -176,6 +191,12 @@
                                             <i class="fa-solid fa-crown text-yellow-500"></i>
                                         </el-tooltip>
                                         <p class="font-medium">{{ scope.row.name }}</p>
+                                        <el-tooltip v-if="scope.row.duplicate_contacts_status === 'Pendiente'"
+                                            content="Contactos repetidos pendientes de autorización" placement="top">
+                                            <el-tag type="warning" effect="dark" size="small" disable-transitions>
+                                                <i class="fa-solid fa-user-shield mr-1"></i> Por autorizar
+                                            </el-tag>
+                                        </el-tooltip>
                                     </div>
                                 </template>
                             </el-table-column>
@@ -286,6 +307,7 @@ export default {
             groupFilter: this.filters?.group ?? null,
             statusFilter: this.filters?.status ?? null,
             sellerFilter: this.filters?.account_manager_id ?? null,
+            pendingFilter: this.filters?.filter === 'pending_authorization',
             selectedItems: [],
             tableData: this.branches.data,
             showGroupsModal: false,
@@ -319,9 +341,12 @@ export default {
         },
     },
     computed: {
+        canAuthorizeContacts() {
+            return (this.$page.props.auth.user.permissions ?? []).includes('Autorizar contactos de clientes');
+        },
         // Cuenta de filtros activos (para el badge del botón y el botón Limpiar).
         activeFiltersCount() {
-            return [this.groupFilter, this.statusFilter, this.sellerFilter]
+            return [this.groupFilter, this.statusFilter, this.sellerFilter, this.pendingFilter ? 'pending' : null]
                 .filter((value) => value !== null && value !== undefined && value !== '')
                 .length;
         },
@@ -389,6 +414,7 @@ export default {
             if (this.groupFilter) params.group = this.groupFilter;
             if (this.statusFilter) params.status = this.statusFilter;
             if (this.sellerFilter) params.account_manager_id = this.sellerFilter;
+            if (this.pendingFilter) params.filter = 'pending_authorization';
 
             return params;
         },
@@ -402,6 +428,11 @@ export default {
             this.groupFilter = null;
             this.statusFilter = null;
             this.sellerFilter = null;
+            this.pendingFilter = false;
+            this.applyFilters();
+        },
+        clearPendingFilter() {
+            this.pendingFilter = false;
             this.applyFilters();
         },
         handleExport(command) {

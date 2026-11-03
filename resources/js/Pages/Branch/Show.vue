@@ -153,6 +153,10 @@
                             </span>
                         </li>
                         <li class="flex justify-between">
+                            <span class="font-semibold text-gray-600 dark:text-gray-400">Registrado por:</span>
+                            <span class="text-gray-800 dark:text-gray-200">{{ branch.creator?.name ?? 'No registrado' }}</span>
+                        </li>
+                        <li class="flex justify-between">
                             <span class="font-semibold text-gray-600 dark:text-gray-400">Matriz:</span>
                             <span @click="branch.parent?.id ? $inertia.visit(route('branches.show', branch.parent.id)) : null" :class="branch.parent?.id ? 'text-blue-500 hover:underline cursor-pointer' : ''">{{ branch.parent?.name ?? 'N/A' }}</span>
                         </li>
@@ -242,53 +246,129 @@
                 </div>
 
                 <!-- Card de Contactos -->
-                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5">
+                <div class="bg-white dark:bg-slate-800/50 shadow-lg rounded-lg p-5 transition-all"
+                    :class="hasPendingDuplicateContacts
+                        ? 'ring-2 ring-amber-500 border-2 border-amber-400 dark:border-amber-500'
+                        : ''">
                     <div class="flex justify-between items-center border-b dark:border-gray-600 pb-3 mb-4">
-                        <h3 class="text-lg font-semibold">Contactos</h3>
-                        <button @click="openContactModal()" class="text-primary hover:underline text-sm font-bold">
-                            <i class="fa-solid fa-plus mr-1"></i> Nuevo
-                        </button>
+                        <h3 class="text-lg font-semibold flex items-center">
+                            Contactos
+                            <el-tag v-if="hasPendingDuplicateContacts" type="warning" effect="dark" size="small" class="ml-2">
+                                Pendiente de autorización
+                            </el-tag>
+                        </h3>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                            Comercial y Pagos son obligatorios · Finanzas es opcional
+                        </span>
                     </div>
-                    <div v-if="branch.contacts?.length" class="space-y-4">
-                        <div v-for="contact in branch.contacts" :key="contact.id" class="relative">
-                            <div class="absolute top-0 right-0 flex space-x-1 transition-opacity duration-200">
-                                <el-tooltip content="Editar" placement="top">
-                                    <button @click="openContactModal(contact)" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
-                                        <i class="fa-solid fa-pencil text-xs"></i>
-                                    </button>
-                                </el-tooltip>
-                                <el-tooltip content="Eliminar" placement="top">
-                                    <button @click="showConfirmDeleteContact = { show: true, contactId: contact.id }" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
-                                        <i class="fa-regular fa-trash-can text-xs"></i>
-                                    </button>
-                                </el-tooltip>
-                            </div>
 
-                            <p class="font-semibold">
-                                <el-tag v-if="contact.area" size="small" class="mr-2">{{ contact.area }}</el-tag>
-                                <el-tag v-else size="small" type="info" class="mr-2">Por definir</el-tag>
-                                {{ contact.prefix }} {{ contact.name }}
-                            </p>
-                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
-                            <div class="text-sm mt-1 space-y-1">
-                                <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
-                                
-                                <!-- Mostrar todos los teléfonos -->
-                                <template v-if="getContactDetails(contact, 'Teléfono').length">
-                                    <p v-for="phone in getContactDetails(contact, 'Teléfono')" :key="phone.id" class="flex items-center">
-                                        <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
-                                        {{ formatPhone(phone.value) }}
-                                        <el-tag v-if="phone.is_primary" type="success" size="small" class="ml-2 !h-5 !px-1.5 text-[10px]">Principal</el-tag>
-                                    </p>
-                                </template>
-                                
-                                <p v-if="contact.birthdate">
-                                    <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
+                    <!-- SOLICITUD DE AUTORIZACIÓN DE CONTACTOS REPETIDOS -->
+                    <div v-if="hasPendingDuplicateContacts"
+                        class="mb-5 rounded-lg border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 p-4">
+                        <div class="flex items-start gap-3">
+                            <i class="fa-solid fa-user-shield text-amber-500 text-2xl mt-0.5"></i>
+                            <div class="flex-1">
+                                <p class="font-bold text-amber-800 dark:text-amber-300">
+                                    Este cliente tiene contactos repetidos por autorizar
+                                </p>
+                                <p class="mt-1 text-sm text-amber-700 dark:text-amber-200">
+                                    Se registró el mismo teléfono o correo en más de un contacto.
+                                    Al autorizar se conservan tal como se capturaron; al rechazar se eliminan y se notifica
+                                    al usuario que dio de alta al cliente para que los capture de nuevo.
+                                </p>
+                                <p class="mt-3 text-sm text-gray-700 dark:text-gray-200">
+                                    <span class="font-semibold">Justificación:</span>
+                                    {{ branch.duplicate_contacts_reason || 'Sin justificación registrada' }}
+                                </p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    Solicitado el {{ formatDateTime(branch.duplicate_contacts_requested_at) }}
+                                    <span v-if="branch.creator?.name"> por {{ branch.creator.name }}</span>
+                                </p>
+
+                                <div v-if="canAuthorizeDuplicateContacts" class="mt-3 flex flex-wrap gap-2">
+                                    <PrimaryButton type="button" :disabled="resolvingDuplicateContacts"
+                                        class="!bg-emerald-600 hover:!bg-emerald-700"
+                                        @click="resolveDuplicateContacts('approve')">
+                                        <i class="fa-solid fa-check mr-2"></i> Autorizar contactos
+                                    </PrimaryButton>
+                                    <PrimaryButton type="button" :disabled="resolvingDuplicateContacts"
+                                        class="!bg-red-600 hover:!bg-red-700"
+                                        @click="resolveDuplicateContacts('reject')">
+                                        <i class="fa-solid fa-xmark mr-2"></i> Rechazar contactos
+                                    </PrimaryButton>
+                                </div>
+                                <p v-else class="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                    <i class="fa-solid fa-lock mr-1"></i>
+                                    Solo los usuarios con el permiso «Autorizar contactos de clientes» pueden resolver esta solicitud.
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">No hay contactos registrados.</p>
+
+                    <!-- CONTACTOS AGRUPADOS POR ÁREA -->
+                    <div class="space-y-5">
+                        <div v-for="group in contactGroups" :key="group.key">
+                            <div class="flex items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-600 pb-2 mb-3">
+                                <span class="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                                    <i class="fa-solid" :class="groupIcon(group.area)"></i> {{ group.area }}
+                                    <el-tag v-if="isRequiredContactArea(group.area)" type="danger" size="small" effect="plain">Obligatorio</el-tag>
+                                    <el-tag v-else-if="!group.isUndefined" type="info" size="small" effect="plain">Opcional</el-tag>
+                                </span>
+                                <button @click="openContactModal(null, group.isUndefined ? null : group.area)"
+                                    class="text-primary hover:underline text-sm font-bold">
+                                    <i class="fa-solid fa-plus mr-1"></i> Agregar
+                                </button>
+                            </div>
+
+                            <div v-if="group.items.length" class="space-y-4">
+                                <div v-for="contact in group.items" :key="contact.id" class="relative rounded-md p-3"
+                                    :class="duplicatedContactIds.includes(contact.id)
+                                        ? 'border-2 border-red-400 bg-red-50 dark:bg-red-900/20 dark:border-red-500'
+                                        : 'border border-gray-200 dark:border-slate-700'">
+                                    <div class="absolute top-1 right-1 flex space-x-1 transition-opacity duration-200">
+                                        <el-tooltip content="Editar" placement="top">
+                                            <button @click="openContactModal(contact)" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-blue-200 dark:hover:bg-blue-900 transition-colors">
+                                                <i class="fa-solid fa-pencil text-xs"></i>
+                                            </button>
+                                        </el-tooltip>
+                                        <el-tooltip content="Eliminar" placement="top">
+                                            <button @click="showConfirmDeleteContact = { show: true, contactId: contact.id }" class="size-6 rounded-md bg-gray-200 dark:bg-slate-700 hover:bg-red-200 dark:hover:bg-red-900 transition-colors">
+                                                <i class="fa-regular fa-trash-can text-xs"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
+
+                                    <p class="font-semibold pr-16">
+                                        <el-tag v-if="contact.area" size="small" class="mr-2">{{ contact.area }}</el-tag>
+                                        <el-tag v-else size="small" type="info" class="mr-2">Por definir</el-tag>
+                                        {{ contact.prefix }} {{ contact.name }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ contact.charge }}</p>
+                                    <div class="text-sm mt-1 space-y-1">
+                                        <p v-if="getPrimaryDetail(contact, 'Correo')"><i class="fa-solid fa-envelope mr-2 text-gray-400"></i> {{ getPrimaryDetail(contact, 'Correo') }}</p>
+
+                                        <!-- Mostrar todos los teléfonos -->
+                                        <template v-if="getContactDetails(contact, 'Teléfono').length">
+                                            <p v-for="phone in getContactDetails(contact, 'Teléfono')" :key="phone.id" class="flex items-center">
+                                                <i class="fa-solid fa-phone mr-2 text-gray-400"></i>
+                                                {{ formatPhone(phone.value) }}
+                                                <el-tag v-if="phone.is_primary" type="success" size="small" class="ml-2 !h-5 !px-1.5 text-[10px]">Principal</el-tag>
+                                            </p>
+                                        </template>
+
+                                        <p v-if="contact.birthdate">
+                                            <i class="fa-solid fa-cake-candles mr-2 text-gray-400"></i> {{ formatBirthday(contact.birthdate) }}
+                                        </p>
+                                    </div>
+                                    <p v-if="duplicatedContactIds.includes(contact.id)" class="mt-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                                        <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                                        Teléfono o correo repetido en este cliente.
+                                    </p>
+                                </div>
+                            </div>
+                            <p v-else class="text-sm text-gray-500 dark:text-gray-400">No hay contactos registrados en esta área.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Card de Grupo: clientes/sucursales que comparten el grupo -->
@@ -519,7 +599,9 @@
 
         <!-- Modals -->
         <ModalCrearEditarContacto :show="showContactModal" :contactable-id="branch.id" :contact="contactToEdit"
-    :contactable-type="'App\\Models\\Branch'" @close="showContactModal = false" />
+    :contactable-type="'App\\Models\\Branch'" :default-area="contactDefaultArea"
+    :allow-duplicate-contacts="allowDuplicateContacts" :existing-contacts="branch.contacts || []"
+    @close="showContactModal = false" />
         <AddProductsModal :show="showAddProductsModal" :branch="branch" :catalog_products="catalog_products" @close="showAddProductsModal = false" />
 
         <ConfirmationModal :show="showConfirmDeleteContact.show" @close="showConfirmDeleteContact.show = false">
@@ -724,6 +806,10 @@ export default {
                 clientName: '',
                 vendorName: '',
             },
+            // --- Contactos ---
+            contactDefaultArea: null,
+            resolvingDuplicateContacts: false,
+            contactAreas: ['Comercial', 'Finanzas', 'Pagos'],
         };
     },
     components: {
@@ -784,6 +870,15 @@ export default {
             type: Array,
             default: () => [],
         },
+        // Candado de contactos repetidos (Configuraciones de Roles y Permisos).
+        allowDuplicateContacts: {
+            type: Boolean,
+            default: false,
+        },
+        canAuthorizeDuplicateContacts: {
+            type: Boolean,
+            default: false,
+        },
     },
     computed: {
         groupsList() {
@@ -818,6 +913,71 @@ export default {
             const ext = name.split('.').pop().toLowerCase();
             return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
         },
+        hasPendingDuplicateContacts() {
+            return this.branch.duplicate_contacts_status === 'Pendiente';
+        },
+        // Contactos agrupados por área (misma lógica que el formulario de creación).
+        contactGroups() {
+            const groups = this.contactAreas.map(area => ({
+                key: area,
+                area,
+                isUndefined: false,
+                items: [],
+            }));
+
+            (this.branch.contacts || []).forEach(contact => {
+                const area = contact.area || null;
+                let group = area ? groups.find(g => g.area === area) : groups.find(g => g.isUndefined);
+
+                if (!group && !area) {
+                    group = { key: 'Por definir', area: 'Por definir', isUndefined: true, items: [] };
+                    groups.push(group);
+                } else if (!group) {
+                    group = { key: area, area, isUndefined: false, items: [] };
+                    groups.push(group);
+                }
+
+                group.items.push(contact);
+            });
+
+            return groups;
+        },
+        // IDs de contactos que repiten teléfono o correo dentro del cliente.
+        // Una vez autorizados ya no se marcan como repetidos.
+        duplicatedContactIds() {
+            if (this.branch.duplicate_contacts_status === 'Autorizado') {
+                return [];
+            }
+
+            const phones = new Set();
+            const emails = new Set();
+            const duplicated = [];
+
+            (this.branch.contacts || []).forEach(contact => {
+                const details = contact.details || [];
+                let isDuplicated = false;
+
+                details.forEach(detail => {
+                    const value = String(detail.value || '').trim();
+                    if (value === '') return;
+
+                    if (detail.type === 'Teléfono') {
+                        if (phones.has(value)) isDuplicated = true;
+                        phones.add(value);
+                    }
+
+                    if (detail.type === 'Correo') {
+                        const email = value.toLowerCase();
+                        if (emails.has(email)) isDuplicated = true;
+                        emails.add(email);
+                    }
+                });
+
+                if (isDuplicated) duplicated.push(contact.id);
+            });
+
+            return duplicated;
+        },
     },
     methods: {
         formatPhone(number) {
@@ -827,9 +987,59 @@ export default {
             // Agrupamos cada 2 dígitos y unimos con guiones
             return digits.match(/.{1,2}/g)?.join('-') || '';
         },
-        openContactModal(contact = null) {
+        openContactModal(contact = null, area = null) {
             this.contactToEdit = contact;
+            this.contactDefaultArea = contact ? (contact.area || null) : area;
             this.showContactModal = true;
+        },
+        groupIcon(area) {
+            const icons = {
+                Comercial: 'fa-briefcase',
+                Finanzas: 'fa-coins',
+                Pagos: 'fa-money-check-dollar',
+                'Por definir': 'fa-circle-question',
+            };
+            return icons[area] || 'fa-user';
+        },
+        isRequiredContactArea(area) {
+            return area === 'Comercial' || area === 'Pagos';
+        },
+        formatDateTime(dateString) {
+            if (!dateString) return 'Sin registro';
+            return format(new Date(dateString), "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
+        },
+        resolveDuplicateContacts(action) {
+            const isApprove = action === 'approve';
+            const message = isApprove
+                ? 'Se conservarán los contactos repetidos tal y como se registraron. ¿Deseas autorizarlos?'
+                : 'Se eliminarán los contactos repetidos y se notificará al usuario que registró al cliente para que los capture de nuevo. ¿Deseas rechazarlos?';
+
+            ElMessageBox.confirm(message, isApprove ? 'Autorizar contactos' : 'Rechazar contactos', {
+                confirmButtonText: isApprove ? 'Sí, autorizar' : 'Sí, rechazar',
+                cancelButtonText: 'Cancelar',
+                type: isApprove ? 'success' : 'warning',
+            }).then(() => {
+                this.resolvingDuplicateContacts = true;
+
+                const routeName = isApprove
+                    ? 'branches.duplicate-contacts.approve'
+                    : 'branches.duplicate-contacts.reject';
+
+                router.put(route(routeName, this.branch.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        ElMessage.success(isApprove
+                            ? 'Contactos autorizados correctamente.'
+                            : 'Contactos repetidos rechazados y eliminados.');
+                    },
+                    onError: () => {
+                        ElMessage.error('No se pudo procesar la solicitud. Inténtalo de nuevo.');
+                    },
+                    onFinish: () => {
+                        this.resolvingDuplicateContacts = false;
+                    },
+                });
+            }).catch(() => {});
         },
         openFiscalModal() {
             this.fiscalForm.clearErrors();

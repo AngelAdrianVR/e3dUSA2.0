@@ -31,7 +31,7 @@ class PermissionSeeder extends Seeder
             'Maquinaria' => ['Ver maquinas', 'Crear maquinas', 'Editar maquinas', 'Eliminar maquinas'],
             'Mantenimiento' => ['Ver mantenimientos', 'Crear mantenimientos', 'Editar mantenimientos', 'Eliminar mantenimientos', 'Validar mantenimiento de maquinas'],
             'Refacciones' => ['Ver refacciones', 'Crear refacciones', 'Editar refacciones', 'Eliminar refacciones'],
-            'Clientes' => ['Ver clientes', 'Crear clientes', 'Editar clientes', 'Eliminar clientes'],
+            'Clientes' => ['Ver clientes', 'Crear clientes', 'Editar clientes', 'Eliminar clientes', 'Autorizar contactos de clientes'],
             'Catálogo de productos' => ['Ver catalogo de productos', 'Crear catalogo de productos', 'Editar catalogo de productos', 'Eliminar catalogo de productos'],
             'Materia prima' => ['Ver materia prima', 'Crear materia prima', 'Editar materia prima', 'Eliminar materia prima'],
             'Insumos' => ['Ver insumos', 'Crear insumos', 'Editar insumos', 'Eliminar insumos'],

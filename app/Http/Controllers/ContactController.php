@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contact;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -44,6 +45,9 @@ class ContactController extends Controller
             
             // Buscamos la instancia del modelo padre (ej. la sucursal o el cliente).
             $contactable = $contactableModelClass::findOrFail($request->contactable_id);
+
+            // Candado de contactos repetidos (desde el detalle del cliente o proveedor).
+            $this->validateNoDuplicatedContactDetails($contactable, $request->input('details', []));
 
             DB::transaction(function () use ($request, $contactable) {
                 // Creamos el contacto usando la relación polimórfica.
@@ -87,6 +91,9 @@ class ContactController extends Controller
         // Validamos que exista al menos un teléfono y un correo en los detalles.
         $this->validateContactDetails($request->input('details', []));
 
+        // Candado de contactos repetidos: se ignora el propio contacto al editar.
+        $this->validateNoDuplicatedContactDetails($contact->contactable, $request->input('details', []), $contact->id);
+
         DB::transaction(function () use ($request, $contact) {
             $contact->update($request->only('name', 'charge', 'birthdate', 'prefix', 'area'));
             
@@ -125,6 +132,59 @@ class ContactController extends Controller
             throw ValidationException::withMessages([
                 'details' => 'Debes agregar al menos ' . implode(' y ', $missing) . ' en los detalles de contacto.',
             ]);
+        }
+    }
+
+    /**
+     * Impide repetir el mismo teléfono o correo en otro contacto del mismo cliente
+     * cuando el candado está activo (Configuraciones de Roles y Permisos).
+     */
+    private function validateNoDuplicatedContactDetails(?object $contactable, array $details, ?int $ignoreContactId = null): void
+    {
+        // El candado aplica a los clientes (branches); otros contactables no se modifican.
+        if (!$contactable instanceof \App\Models\Branch || Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)) {
+            return;
+        }
+
+        $phones = collect($details)
+            ->where('type', 'Teléfono')
+            ->map(fn ($detail) => trim((string) ($detail['value'] ?? '')))
+            ->filter()
+            ->values()
+            ->all();
+
+        $emails = collect($details)
+            ->where('type', 'Correo')
+            ->map(fn ($detail) => strtolower(trim((string) ($detail['value'] ?? ''))))
+            ->filter()
+            ->values()
+            ->all();
+
+        if (empty($phones) && empty($emails)) {
+            return;
+        }
+
+        $siblings = $contactable->contacts()
+            ->when($ignoreContactId, fn ($query) => $query->where('id', '!=', $ignoreContactId))
+            ->with('details')
+            ->get();
+
+        foreach ($siblings as $sibling) {
+            foreach ($sibling->details as $detail) {
+                $value = trim((string) $detail->value);
+
+                if ($detail->type === 'Teléfono' && in_array($value, $phones, true)) {
+                    throw ValidationException::withMessages([
+                        'details' => "El teléfono {$value} ya está registrado en el contacto «{$sibling->name}». Corrige el dato para continuar.",
+                    ]);
+                }
+
+                if ($detail->type === 'Correo' && in_array(strtolower($value), $emails, true)) {
+                    throw ValidationException::withMessages([
+                        'details' => "El correo {$value} ya está registrado en el contacto «{$sibling->name}». Corrige el dato para continuar.",
+                    ]);
+                }
+            }
         }
     }
 

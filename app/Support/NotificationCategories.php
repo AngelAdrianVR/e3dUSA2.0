@@ -55,6 +55,8 @@ class NotificationCategories
             'App\Notifications\NewSampleTrackingNotification',
             'App\Notifications\SampleAuthorizedNotification',
             'App\Notifications\InactiveClientsNotification',
+            'App\Notifications\DuplicateContactsPendingNotification',
+            'App\Notifications\DuplicateContactsRejectedNotification',
         ],
         self::PRODUCCION => [
             'App\Notifications\PmsTaskAssignedNotification',
