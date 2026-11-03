@@ -234,6 +234,49 @@ class DashboardController extends Controller
             ];
         });
 
+        // 2.1 Órdenes de venta con seguimiento pendiente (Vendedor y Asistente de director).
+        // Se muestran los folios propios que aún no se completan, junto con su fecha
+        // tentativa de término de producción.
+        $pendingFollowUpSort = request()->query('follow_up_sort') === 'newest' ? 'newest' : 'oldest';
+        $pendingFollowUpSales = collect();
+        if ($authUser->hasRole(['Vendedor', 'Asistente de director'])) {
+            $pendingFollowUpSales = Sale::where('user_id', $authUserId)
+                ->whereIn('status', ['Pendiente', 'Autorizada', 'En Proceso', 'En Producción', 'Preparando Envío'])
+                ->with([
+                    'branch:id,name',
+                    'saleProducts:id,sale_id,product_id,quantity',
+                    'saleProducts.product:id,name',
+                    'saleProducts.product.media',
+                    'productions',
+                ])
+                ->select(['id', 'branch_id', 'type', 'status', 'created_at'])
+                ->orderBy('created_at', $pendingFollowUpSort === 'newest' ? 'desc' : 'asc')
+                ->limit(15)
+                ->get()
+                ->map(function ($sale) {
+                    $estimatedFinishAt = $sale->productions
+                        ->whereNotNull('estimated_finish_at')
+                        ->max('estimated_finish_at');
+
+                    return [
+                        'id' => $sale->id,
+                        'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
+                        'client' => $sale->branch?->name ?? 'N/A',
+                        'status' => $sale->status,
+                        'created_at' => $sale->created_at?->toDateString(),
+                        'estimated_finish_at' => $estimatedFinishAt?->toDateString(),
+                        'products' => $sale->saleProducts
+                            ->map(fn ($saleProduct) => [
+                                'id' => $saleProduct->id,
+                                'name' => $saleProduct->product?->name,
+                                'quantity' => $saleProduct->quantity,
+                            ])
+                            ->filter(fn ($product) => $product['name'])
+                            ->values(),
+                    ];
+                });
+        }
+
         // 3. My Pending Tasks
         if ( $authUser->hasRole('Auxiliar de producción') ) {
             $myPendingTasks = ProductionTask::with('production.sale', 'production.saleProduct')
@@ -415,6 +458,8 @@ class DashboardController extends Controller
             'upcomingBirthdays' => $upcomingBirthdays,
             'myPendingInvoices' => $myPendingInvoices,
             'mySalesOrders' => $mySalesOrders,
+            'pendingFollowUpSales' => $pendingFollowUpSales,
+            'pendingFollowUpSort' => $pendingFollowUpSort,
             'myPendingTasks' => $myPendingTasks ?? null,
             'myProjectTasks' => $myProjectTasks,
             'authUserName' => $authUser?->name,

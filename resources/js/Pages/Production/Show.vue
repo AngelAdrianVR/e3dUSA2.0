@@ -47,6 +47,44 @@
             </div>
         </header>
 
+        <!-- === ALERTA DE FECHA DE TÉRMINO VENCIDA === -->
+        <div v-if="isProductionOverdue"
+            class="mb-3 animate-fade-in rounded-xl border-2 border-red-500 bg-red-50 dark:bg-red-900/30 p-4 shadow-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-red-500 text-white text-xl">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </span>
+                <div>
+                    <p class="font-extrabold uppercase tracking-wide text-red-700 dark:text-red-300">Fecha de término vencida</p>
+                    <p class="text-sm text-red-700 dark:text-red-200">
+                        La producción debía terminar el
+                        <span class="font-bold">{{ formatDateOnly(estimatedFinishAt) }}</span>
+                        y aún no está terminada ({{ overdueDays === 1 ? 'hace 1 día' : `hace ${overdueDays} días` }}).
+                    </p>
+                </div>
+            </div>
+            <el-tag type="danger" size="large" effect="dark" class="!font-bold">VENCIDA</el-tag>
+        </div>
+
+        <!-- === FECHA TENTATIVA DE TÉRMINO DE PRODUCCIÓN === -->
+        <div v-if="estimatedFinishAt"
+            class="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <i class="fa-regular fa-calendar-check text-2xl text-amber-500"></i>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                        Fecha tentativa de término de producción
+                    </p>
+                    <p class="text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                        {{ formatDateOnly(estimatedFinishAt) }}
+                    </p>
+                </div>
+            </div>
+            <el-tag v-if="isProductionFinished" type="success" size="small" effect="light">
+                <i class="fa-solid fa-check mr-1"></i> Producción terminada
+            </el-tag>
+        </div>
+
         <!-- === CONTENIDO PRINCIPAL === -->
         <main class="grid grid-cols-1 lg:grid-cols-3 gap-5 mt-3 dark:text-white">
             <!-- COLUMNA IZQUIERDA -->
@@ -493,6 +531,27 @@ export default {
             const date = new Date(this.sale.created_at);
             return format(date, "d 'de' MMMM, yyyy", { locale: es });
         },
+        // Fecha tentativa de término más lejana entre las producciones de la venta.
+        estimatedFinishAt() {
+            return this.sale.production_summary?.estimated_finish_at ?? null;
+        },
+        // La orden se considera terminada cuando todas sus producciones lo están.
+        isProductionFinished() {
+            return this.sale.production_summary?.status === 'Terminada';
+        },
+        // Vencida solo si la fecha ya pasó y la producción sigue sin terminar.
+        isProductionOverdue() {
+            if (!this.estimatedFinishAt || this.isProductionFinished) return false;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return this.parseDateOnly(this.estimatedFinishAt) < today;
+        },
+        overdueDays() {
+            if (!this.isProductionOverdue) return 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return Math.round((today - this.parseDateOnly(this.estimatedFinishAt)) / 86400000);
+        },
         selectedProduction() {
             if (!this.selectedSaleProduct) return null;
             return this.sale.productions.find(p => p.sale_product_id === this.selectedSaleProduct.id);
@@ -617,6 +676,19 @@ export default {
         formatDateTime(dateString) {
             const date = new Date(dateString);
             return date.toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }).replace('.', '');
+        },
+        // Interpreta una fecha YYYY-MM-DD (o ISO) sin desfase de zona horaria.
+        parseDateOnly(dateString) {
+            const [y, m, d] = String(dateString).split('T')[0].split('-').map(Number);
+            return new Date(y, (m || 1) - 1, d || 1);
+        },
+        formatDateOnly(dateString) {
+            if (!dateString) return '-';
+            return this.parseDateOnly(dateString).toLocaleDateString('es-MX', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
         },
         formatDistanceToNowWithLocale(dateString) {
             if (!dateString) return '';
@@ -875,7 +947,7 @@ export default {
             
             // Reiniciamos el formulario
             this.finishTaskForm = {
-                good_units: remainingToProduce, 
+                good_units: 0,
                 scrap_items: [],
                 scrap_reason: '',
             };

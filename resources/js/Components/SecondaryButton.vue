@@ -9,13 +9,17 @@ defineProps({
         type: Boolean,
         default: false,
     },
+    disabled: {
+        type: Boolean,
+        default: false,
+    },
 });
 </script>
 
 <template>
     <button 
         :type="type" 
-        :disabled="loading"
+        :disabled="loading || disabled"
         class="
             relative inline-flex items-center justify-center px-7 py-2 overflow-hidden
             bg-primary border border-transparent rounded-xl 

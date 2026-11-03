@@ -558,7 +558,7 @@ export default {
             
             // Reiniciamos el formulario
             this.finishTaskForm = {
-                good_units: remainingToProduce, 
+                good_units: 0,
                 scrap_items: [],
                 scrap_reason: '',
             };

@@ -20,6 +20,7 @@ class Production extends Model implements Auditable
         'sale_product_id',
         'created_by_user_id',
         'quantity_to_produce',
+        'estimated_finish_at',
         'status',
         'started_at',
         'finished_at',
@@ -39,6 +40,7 @@ class Production extends Model implements Auditable
     protected $appends = ['total_estimated_time_minutes'];
 
     protected $casts = [
+        'estimated_finish_at' => 'date',
         'started_at' => 'datetime',
         'finished_at' => 'datetime',
     ];
