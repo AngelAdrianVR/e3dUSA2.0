@@ -21,6 +21,7 @@ class Production extends Model implements Auditable
         'created_by_user_id',
         'quantity_to_produce',
         'estimated_finish_at',
+        'estimated_finish_note',
         'status',
         'started_at',
         'finished_at',

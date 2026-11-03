@@ -188,32 +188,46 @@
                                         Fecha tentativa de término de producción <span class="text-red-500">*</span>
                                     </p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Asigna una fecha por cada folio de venta. Se mostrará en la orden de venta y se usará para su seguimiento.
+                                        Asigna una fecha por cada folio de venta o, si aún no la tienes, escribe una nota libre.
+                                        Se mostrará en la orden de venta y se usará para su seguimiento.
                                     </p>
                                 </div>
                             </div>
 
                             <div class="mt-3 space-y-2">
                                 <div v-for="sale in selectedSales" :key="sale.id"
-                                    class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2.5 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700">
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <span class="font-bold text-primary">{{ getSaleFolio(sale) }}</span>
-                                        <span class="text-sm text-gray-600 dark:text-gray-300">{{ sale.branch?.name ?? 'N/A' }}</span>
-                                        <span class="text-xs text-gray-400">({{ sale.sale_products?.length ?? 0 }} producto(s))</span>
+                                    class="flex flex-col gap-2 p-2.5 rounded-lg bg-gray-50 dark:bg-slate-900/50 border border-gray-200 dark:border-slate-700">
+                                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="font-bold text-primary">{{ getSaleFolio(sale) }}</span>
+                                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ sale.branch?.name ?? 'N/A' }}</span>
+                                            <span class="text-xs text-gray-400">({{ sale.sale_products?.length ?? 0 }} producto(s))</span>
+                                        </div>
+                                        <el-date-picker
+                                            v-model="form.estimated_finish_dates[sale.id]"
+                                            :teleported="false"
+                                            type="date"
+                                            value-format="YYYY-MM-DD"
+                                            placeholder="Fecha tentativa"
+                                            clearable
+                                            class="!w-full sm:!w-56"
+                                        />
                                     </div>
-                                    <el-date-picker
-                                        v-model="form.estimated_finish_dates[sale.id]"
-                                        :teleported="false"
-                                        type="date"
-                                        value-format="YYYY-MM-DD"
-                                        placeholder="Selecciona una fecha"
-                                        class="!w-full sm:!w-56"
-                                    />
+                                    <div class="flex items-center gap-2">
+                                        <i class="fa-solid fa-comment-dots text-gray-400"></i>
+                                        <input
+                                            v-model="form.estimated_finish_notes[sale.id]"
+                                            type="text"
+                                            maxlength="255"
+                                            placeholder="O escribe una nota: Ej. Esperando respuesta de fábrica"
+                                            class="w-full text-sm rounded-lg border-gray-300 dark:border-gray-700 dark:bg-slate-900 dark:text-gray-200 focus:border-primary focus:ring-primary"
+                                        >
+                                    </div>
                                 </div>
                             </div>
 
-                            <p v-if="form.errors.estimated_finish_dates" class="text-xs text-red-500 mt-2">
-                                {{ form.errors.estimated_finish_dates }}
+                            <p v-if="form.errors.estimated_finish_dates || form.errors.estimated_finish_notes" class="text-xs text-red-500 mt-2">
+                                {{ form.errors.estimated_finish_dates || form.errors.estimated_finish_notes }}
                             </p>
                         </div>
                         
@@ -366,6 +380,7 @@ export default {
             },
             form: useForm({
                 estimated_finish_dates: {},
+                estimated_finish_notes: {},
                 products_with_tasks: []
             }),
         };
@@ -385,10 +400,14 @@ export default {
             const product = this.form.products_with_tasks.find(p => p.sale_product_id === this.currentProduct.id);
             return product ? product.tasks : [];
         },
-        // Cada folio de venta seleccionado debe tener su fecha tentativa de término.
+        // Cada folio de venta seleccionado debe tener su fecha tentativa de término
+        // o, si aún no hay fecha, una nota libre.
         hasAllEstimatedDates() {
             return this.selectedSales.length > 0
-                && this.selectedSales.every(sale => !!this.form.estimated_finish_dates[sale.id]);
+                && this.selectedSales.every(sale =>
+                    !!this.form.estimated_finish_dates[sale.id]
+                    || !!(this.form.estimated_finish_notes?.[sale.id] ?? '').trim()
+                );
         }
     },
     mounted() {
@@ -427,12 +446,14 @@ export default {
             const selectedProductIds = this.productsToProduce.map(p => p.id);
             this.form.products_with_tasks = this.form.products_with_tasks.filter(p => selectedProductIds.includes(p.sale_product_id));
 
-            // Conserva únicamente las fechas de los folios que siguen seleccionados.
+            // Conserva únicamente las fechas/notas de los folios que siguen seleccionados.
             const selectedSaleIds = selection.map(s => String(s.id));
-            Object.keys(this.form.estimated_finish_dates).forEach(saleId => {
-                if (!selectedSaleIds.includes(String(saleId))) {
-                    delete this.form.estimated_finish_dates[saleId];
-                }
+            ['estimated_finish_dates', 'estimated_finish_notes'].forEach(key => {
+                Object.keys(this.form[key] ?? {}).forEach(saleId => {
+                    if (!selectedSaleIds.includes(String(saleId))) {
+                        delete this.form[key][saleId];
+                    }
+                });
             });
         },
         loadMoreSales() {
@@ -548,7 +569,7 @@ export default {
         },
         store() {
             if (!this.hasAllEstimatedDates) {
-                ElMessage.warning('Selecciona la fecha tentativa de término de cada folio de venta.');
+                ElMessage.warning('Asigna la fecha tentativa de término o una nota a cada folio de venta.');
                 return;
             }
 

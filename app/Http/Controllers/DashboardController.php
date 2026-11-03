@@ -269,6 +269,10 @@ class DashboardController extends Controller
                         ->whereNotNull('estimated_finish_at')
                         ->max('estimated_finish_at');
 
+                    $estimatedFinishNote = $sale->productions
+                        ->first(fn ($production) => filled($production->estimated_finish_note))
+                        ?->estimated_finish_note;
+
                     return [
                         'id' => $sale->id,
                         'folio' => ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, '0', STR_PAD_LEFT),
@@ -276,6 +280,7 @@ class DashboardController extends Controller
                         'status' => $sale->status,
                         'created_at' => $sale->created_at?->toDateString(),
                         'estimated_finish_at' => $estimatedFinishAt?->toDateString(),
+                        'estimated_finish_note' => $estimatedFinishNote,
                         'products' => $sale->saleProducts
                             ->map(fn ($saleProduct) => [
                                 'id' => $saleProduct->id,

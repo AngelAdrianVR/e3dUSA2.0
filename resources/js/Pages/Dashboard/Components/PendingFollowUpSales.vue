@@ -73,6 +73,12 @@
                     <span v-else-if="scope.row.estimated_finish_at" class="text-xs text-gray-600 dark:text-gray-300">
                         {{ formatDate(scope.row.estimated_finish_at) }}
                     </span>
+                    <el-tooltip v-else-if="scope.row.estimated_finish_note" placement="top" content="Nota de la fecha tentativa de término">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-700 max-w-full">
+                            <i class="fa-solid fa-comment-dots"></i>
+                            <span class="truncate">{{ scope.row.estimated_finish_note }}</span>
+                        </span>
+                    </el-tooltip>
                     <span v-else class="text-xs text-gray-400">Sin fecha</span>
                 </template>
             </el-table-column>

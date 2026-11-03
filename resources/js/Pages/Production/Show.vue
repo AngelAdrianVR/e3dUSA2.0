@@ -67,7 +67,7 @@
         </div>
 
         <!-- === FECHA TENTATIVA DE TÉRMINO DE PRODUCCIÓN === -->
-        <div v-if="estimatedFinishAt"
+        <div v-if="estimatedFinishAt || estimatedFinishNote || canEditEstimatedFinish"
             class="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div class="flex items-center gap-3">
                 <i class="fa-regular fa-calendar-check text-2xl text-amber-500"></i>
@@ -75,14 +75,30 @@
                     <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">
                         Fecha tentativa de término de producción
                     </p>
-                    <p class="text-xl font-extrabold text-amber-600 dark:text-amber-400">
+                    <p v-if="estimatedFinishAt" class="text-xl font-extrabold text-amber-600 dark:text-amber-400">
                         {{ formatDateOnly(estimatedFinishAt) }}
+                    </p>
+                    <p v-if="estimatedFinishNote"
+                        class="text-amber-700 dark:text-amber-300"
+                        :class="estimatedFinishAt ? 'text-sm font-semibold italic' : 'text-xl font-extrabold'">
+                        {{ estimatedFinishNote }}
+                    </p>
+                    <p v-if="!estimatedFinishAt && !estimatedFinishNote" class="text-sm text-gray-500 dark:text-gray-400 italic">
+                        Sin fecha tentativa registrada
                     </p>
                 </div>
             </div>
-            <el-tag v-if="isProductionFinished" type="success" size="small" effect="light">
-                <i class="fa-solid fa-check mr-1"></i> Producción terminada
-            </el-tag>
+            <div class="flex items-center gap-2">
+                <el-tag v-if="isProductionFinished" type="success" size="small" effect="light">
+                    <i class="fa-solid fa-check mr-1"></i> Producción terminada
+                </el-tag>
+                <el-tooltip v-if="canEditEstimatedFinish" content="Editar fecha tentativa o nota" placement="top">
+                    <button @click="openEstimatedFinishModal"
+                        class="h-9 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold flex items-center gap-2 transition-colors">
+                        <i class="fa-solid fa-pen-to-square"></i> Editar
+                    </button>
+                </el-tooltip>
+            </div>
         </div>
 
         <!-- === CONTENIDO PRINCIPAL === -->
@@ -464,6 +480,70 @@
                 </div>
             </template>
         </el-dialog>
+
+        <!-- Modal para editar la fecha tentativa de término (solo Jefe de Producción) -->
+        <el-dialog v-model="estimatedFinishModalVisible" title="Fecha tentativa de término" width="560px" class="dark:bg-slate-800">
+            <div class="space-y-4">
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Fecha tentativa</label>
+                        <button v-if="estimatedFinishForm.estimated_finish_at"
+                            type="button"
+                            @click="estimatedFinishForm.estimated_finish_at = null"
+                            class="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline">
+                            <i class="fa-solid fa-xmark mr-1"></i>Quitar fecha
+                        </button>
+                    </div>
+                    <el-date-picker
+                        v-model="estimatedFinishForm.estimated_finish_at"
+                        :teleported="false"
+                        type="date"
+                        value-format="YYYY-MM-DD"
+                        placeholder="Selecciona una fecha"
+                        clearable
+                        class="!w-full"
+                    />
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Nota libre</label>
+                        <button v-if="estimatedFinishForm.estimated_finish_note"
+                            type="button"
+                            @click="estimatedFinishForm.estimated_finish_note = ''"
+                            class="text-xs font-semibold text-red-500 hover:text-red-600 hover:underline">
+                            <i class="fa-solid fa-xmark mr-1"></i>Quitar texto
+                        </button>
+                    </div>
+                    <el-input
+                        v-model="estimatedFinishForm.estimated_finish_note"
+                        type="textarea"
+                        :rows="2"
+                        maxlength="255"
+                        show-word-limit
+                        clearable
+                        placeholder="Ej. Esperando respuesta de fábrica"
+                    />
+                </div>
+
+                <div class="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Se mostrará así</p>
+                    <p class="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                        {{ estimatedFinishPreview }}
+                    </p>
+                </div>
+
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Puedes dejar solo la fecha, solo la nota, ambas o ninguna.
+                </p>
+            </div>
+
+            <template #footer>
+                <div class="flex justify-end gap-2">
+                    <el-button @click="estimatedFinishModalVisible = false">Cancelar</el-button>
+                    <el-button type="primary" :loading="estimatedFinishSaving" @click="saveEstimatedFinish">Guardar</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </AppLayout>
 </template>
 
@@ -508,6 +588,13 @@ export default {
                 scrap_items: [],
                 scrap_reason: '',
             },
+            // Modal para editar la fecha tentativa de término (Jefe de Producción)
+            estimatedFinishModalVisible: false,
+            estimatedFinishSaving: false,
+            estimatedFinishForm: {
+                estimated_finish_at: null,
+                estimated_finish_note: '',
+            },
         };
     },
     computed: {
@@ -523,6 +610,27 @@ export default {
         // Fecha tentativa de término más lejana entre las producciones de la venta.
         estimatedFinishAt() {
             return this.sale.production_summary?.estimated_finish_at ?? null;
+        },
+        // Nota libre registrada cuando no se tiene una fecha tentativa.
+        estimatedFinishNote() {
+            return this.sale.production_summary?.estimated_finish_note ?? null;
+        },
+        // Solo producción/dirección puede ajustar la fecha tentativa desde el show.
+        canEditEstimatedFinish() {
+            return ['Jefe de producción', 'Super Administrador', 'Samuel']
+                .includes(this.$page.props.auth?.user?.role);
+        },
+        // Vista previa de lo que se guardará (fecha, nota, ambas o ninguna).
+        estimatedFinishPreview() {
+            const parts = [];
+            if (this.estimatedFinishForm.estimated_finish_at) {
+                parts.push(this.formatDateOnly(this.estimatedFinishForm.estimated_finish_at));
+            }
+            const note = (this.estimatedFinishForm.estimated_finish_note ?? '').trim();
+            if (note) {
+                parts.push(note);
+            }
+            return parts.length ? parts.join(' — ') : 'Sin fecha tentativa registrada';
         },
         // La orden se considera terminada cuando todas sus producciones lo están.
         isProductionFinished() {
@@ -670,6 +778,32 @@ export default {
         parseDateOnly(dateString) {
             const [y, m, d] = String(dateString).split('T')[0].split('-').map(Number);
             return new Date(y, (m || 1) - 1, d || 1);
+        },
+        openEstimatedFinishModal() {
+            this.estimatedFinishForm = {
+                estimated_finish_at: this.estimatedFinishAt ? String(this.estimatedFinishAt).slice(0, 10) : null,
+                estimated_finish_note: this.estimatedFinishNote ?? '',
+            };
+            this.estimatedFinishModalVisible = true;
+        },
+        saveEstimatedFinish() {
+            this.estimatedFinishSaving = true;
+            const payload = {
+                estimated_finish_at: this.estimatedFinishForm.estimated_finish_at || null,
+                estimated_finish_note: (this.estimatedFinishForm.estimated_finish_note ?? '').trim() || null,
+            };
+
+            router.put(route('productions.updateEstimatedFinish', this.sale.id), payload, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    this.estimatedFinishModalVisible = false;
+                    ElMessage.success('Fecha tentativa actualizada correctamente.');
+                },
+                onError: () => ElMessage.error('No se pudo actualizar la fecha tentativa.'),
+                onFinish: () => {
+                    this.estimatedFinishSaving = false;
+                },
+            });
         },
         formatDateOnly(dateString) {
             if (!dateString) return '-';

@@ -235,7 +235,14 @@
                                 Fecha tentativa de término de producción:
                             </span>
                             <span class="text-right">
-                                {{ formatDateOnly(sale.production_summary?.estimated_finish_at) }}
+                                <template v-if="sale.production_summary?.estimated_finish_at">
+                                    {{ formatDateOnly(sale.production_summary.estimated_finish_at) }}
+                                </template>
+                                <span v-else>-</span>
+                                <span v-if="sale.production_summary?.estimated_finish_note"
+                                    class="block text-xs italic text-amber-600 dark:text-amber-400">
+                                    {{ sale.production_summary.estimated_finish_note }}
+                                </span>
                             </span>
                         </li>
                         <li class="flex justify-between">

@@ -324,6 +324,7 @@ Route::get('/billing/invoice-template', [BillingDashboardController::class, 'inv
 Route::resource('productions', ProductionController::class)->except('show')->middleware('auth');
 Route::get('/productions/{sale}', [ProductionController::class, 'show'])->middleware('auth')->name('productions.show');
 Route::put('/productions/{production}/update-status', [ProductionController::class, 'updateStatus'])->middleware('auth')->name('productions.updateStatus');
+Route::put('/productions/{sale}/estimated-finish', [ProductionController::class, 'updateEstimatedFinish'])->middleware('auth')->name('productions.updateEstimatedFinish');
 Route::get('productions/print/{sale}', [ProductionController::class, 'print'])->middleware('auth')->name('productions.print');
 
 
