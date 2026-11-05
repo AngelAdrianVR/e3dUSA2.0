@@ -221,37 +221,32 @@
                 </div>
             </div>
             
-            <!-- TOTAL CON TOGGLE DE IVA -->
+            <!-- TOTAL -->
             <div class="mt-1 pt-1 border-t print:border-t-gray-200">
-                <div class="flex justify-between items-center text-sm print:text-[10px]">
-                    <div class="flex items-center gap-2">
+                <template v-if="!showTaxes">
+                    <div class="flex justify-between items-center text-sm print:text-[10px]">
                         <span class="font-bold">{{ quote.is_spanish_template ? 'Total' : 'Total' }}</span>
-                        <button v-show="showAdditionalElements" 
-                                @click="showIva = !showIva"
-                                class="text-[9px] px-1.5 py-0.5 rounded border transition-colors print:hidden outline-none focus:outline-none"
-                                :class="showIva ? 'bg-sky-100 text-sky-700 border-sky-300 font-bold' : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'"
-                                title="Agregar/Quitar IVA al desglose de esta tarjeta">
-                            + IVA
-                        </button>
+                        <span class="font-bold text-sky-700">
+                            ${{ formatNumber(lineSubtotal) }}
+                        </span>
                     </div>
-                    
-                    <span v-if="!showIva" class="font-bold text-sky-700">
-                        ${{ formatNumber(item.quantity * item.unit_price) }}
-                    </span>
-                </div>
+                    <p class="text-[10px] print:text-[9px] font-bold uppercase tracking-wide text-gray-500">
+                        {{ quote.is_spanish_template ? 'Precio más IVA' : 'Price plus tax' }}
+                    </p>
+                </template>
 
-                <div v-if="showIva" class="mt-1 text-[10px] print:text-[9px] leading-tight space-y-0.5">
+                <div v-else class="mt-1 text-[10px] print:text-[9px] leading-tight space-y-0.5">
                     <div class="flex justify-between text-gray-500">
                         <span>Subtotal:</span>
-                        <span>${{ formatNumber(item.quantity * item.unit_price) }}</span>
+                        <span>${{ formatNumber(lineSubtotal) }}</span>
                     </div>
-                    <div class="flex justify-between text-gray-500">
-                        <span>IVA (16%):</span>
-                        <span>${{ formatNumber((item.quantity * item.unit_price) * 0.16) }}</span>
+                    <div class="flex justify-between text-amber-600 font-semibold">
+                        <span>IVA ({{ taxPercentage }}%):</span>
+                        <span>${{ formatNumber(lineTax) }}</span>
                     </div>
-                    <div class="flex justify-between font-bold text-sky-700 pt-0.5 mt-0.5 border-t border-gray-100 text-xs print:text-[10px]">
+                    <div class="flex justify-between font-extrabold text-sky-700 pt-1 mt-1 border-t border-gray-200 text-base print:text-xs">
                         <span>{{ quote.is_spanish_template ? 'Total Neto' : 'Net Total' }}:</span>
-                        <span>${{ formatNumber((item.quantity * item.unit_price) * 1.16) }}</span>
+                        <span>${{ formatNumber(lineTotalWithTax) }}</span>
                     </div>
                 </div>
             </div>
@@ -384,13 +379,15 @@ export default {
         showAdditionalElements: { type: Boolean, default: true },
         labelChanged: { type: Boolean, default: false },
         showVariantToggles: { type: Boolean, default: false },
+        // Cuando la cotización muestra precios con IVA, todas las tarjetas lo desglosan.
+        showTaxes: { type: Boolean, default: false },
+        taxPercentage: { type: Number, default: 16 },
         // Últimas ventas por producto de catálogo, indexadas por product_id.
         salesHistories: { type: Object, default: () => ({}) }
     },
     emits: ['update-status'],
     data() {
         return {
-            showIva: false,
             activeImageIndex: 0,
             showPriceModal: false,
             priceForm: {
@@ -414,6 +411,18 @@ export default {
         }
     },
     computed: {
+        taxRate() {
+            return (Number(this.taxPercentage) || 0) / 100;
+        },
+        lineSubtotal() {
+            return Number(this.item.quantity || 0) * Number(this.item.unit_price || 0);
+        },
+        lineTax() {
+            return this.lineSubtotal * this.taxRate;
+        },
+        lineTotalWithTax() {
+            return this.lineSubtotal + this.lineTax;
+        },
         productMedia() {
             return this.item.product ? this.item.product.media : this.item.media;
         },

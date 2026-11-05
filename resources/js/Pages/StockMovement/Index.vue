@@ -13,7 +13,7 @@
                         <div class="flex flex-wrap items-end gap-3">
                             <div>
                                 <label class="block mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Buscar</label>
-                                <el-input v-model="search" placeholder="Código o nombre del producto" clearable
+                                <el-input v-model="search" placeholder="Código, nombre o notas" clearable
                                     class="!w-64" @keyup.enter="applyFilters" @clear="applyFilters">
                                     <template #prefix>
                                         <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
@@ -45,6 +45,12 @@
                                 </el-select>
                             </div>
 
+                            <div>
+                                <label class="block mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Productos</label>
+                                <el-checkbox v-model="withoutComponentsFilter" label="Sin componentes" border
+                                    class="!h-8 !px-3" @change="applyFilters" />
+                            </div>
+
                             <el-button type="primary" @click="applyFilters">
                                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Buscar
                             </el-button>
@@ -53,9 +59,15 @@
                                 <i class="fa-solid fa-broom mr-1"></i> Limpiar
                             </el-button>
 
-                            <span class="ml-auto self-center text-sm text-gray-500 dark:text-gray-400">
-                                <i class="fa-solid fa-list-ul mr-1"></i>
-                                {{ movements.total }} {{ movements.total === 1 ? 'movimiento' : 'movimientos' }}
+                            <span class="ml-auto self-center flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                                <span>
+                                    <i class="fa-solid fa-list-ul mr-1"></i>
+                                    {{ movements.total }} {{ movements.total === 1 ? 'movimiento' : 'movimientos' }}
+                                </span>
+                                <span class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                                    <i class="fa-solid fa-cubes mr-1"></i>
+                                    {{ productsCount }} {{ productsCount === 1 ? 'producto distinto' : 'productos distintos' }}
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -133,6 +145,17 @@
                                 </template>
                             </el-table-column>
 
+                            <el-table-column label="Stock actual" width="140" align="right">
+                                <template #default="scope">
+                                    <span v-if="scope.row.storage"
+                                        :class="Number(scope.row.storage.quantity) <= 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'"
+                                        class="font-semibold">
+                                        {{ formatQuantity(scope.row.storage.quantity) }}
+                                    </span>
+                                    <span v-else class="text-gray-400">—</span>
+                                </template>
+                            </el-table-column>
+
                             <el-table-column label="Notas" min-width="220">
                                 <template #default="scope">
                                     <span class="text-sm text-gray-600 dark:text-gray-400">
@@ -193,6 +216,10 @@ export default {
     },
     props: {
         movements: Object,
+        productsCount: {
+            type: Number,
+            default: 0,
+        },
         filters: Object,
         canDelete: {
             type: Boolean,
@@ -204,6 +231,7 @@ export default {
             search: this.filters.search ?? '',
             typeFilter: this.filters.type ?? null,
             sortFilter: this.filters.sort ?? 'recent',
+            withoutComponentsFilter: !!this.filters.without_components,
             dateRangeFilter: this.filters.date_from && this.filters.date_to
                 ? [this.filters.date_from, this.filters.date_to]
                 : [],
@@ -217,7 +245,8 @@ export default {
             return Array.isArray(this.dateRangeFilter) && this.dateRangeFilter.length === 2;
         },
         hasActiveFilters() {
-            return !!this.search || !!this.typeFilter || this.hasDateRange || this.sortFilter !== 'recent';
+            return !!this.search || !!this.typeFilter || this.hasDateRange || this.sortFilter !== 'recent'
+                || this.withoutComponentsFilter;
         },
     },
     methods: {
@@ -242,6 +271,7 @@ export default {
             const params = { ...extra };
             if (this.search) params.search = this.search;
             if (this.typeFilter) params.type = this.typeFilter;
+            if (this.withoutComponentsFilter) params.without_components = 1;
             if (this.hasDateRange) {
                 params.date_from = this.dateRangeFilter[0];
                 params.date_to = this.dateRangeFilter[1];
@@ -267,6 +297,7 @@ export default {
             this.search = '';
             this.typeFilter = null;
             this.sortFilter = 'recent';
+            this.withoutComponentsFilter = false;
             this.dateRangeFilter = [];
             this.fetchData();
         },

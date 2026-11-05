@@ -25,16 +25,12 @@ class StockMovementController extends Controller
             'date_from' => $this->parseDate($request->input('date_from')),
             'date_to' => $this->parseDate($request->input('date_to')),
             'sort' => $request->input('sort') === 'oldest' ? 'oldest' : 'recent',
+            'without_components' => $request->boolean('without_components'),
         ];
 
         $direction = $filters['sort'] === 'oldest' ? 'asc' : 'desc';
 
-        $movements = StockMovement::query()
-            ->with([
-                'product:id,code,name,measure_unit',
-                'product.media',
-                'storage:id,location',
-            ])
+        $query = StockMovement::query()
             ->when($filters['type'], function ($query, $type) {
                 $query->where('type', $type);
             })
@@ -45,11 +41,30 @@ class StockMovementController extends Controller
                 $query->whereDate('created_at', '<=', $dateTo);
             })
             ->when($filters['search'], function ($query, $search) {
-                $query->whereHas('product', function ($productQuery) use ($search) {
-                    $productQuery->where('name', 'LIKE', "%{$search}%")
-                        ->orWhere('code', 'LIKE', "%{$search}%");
+                $query->where(function ($searchQuery) use ($search) {
+                    $searchQuery->whereHas('product', function ($productQuery) use ($search) {
+                        $productQuery->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('code', 'LIKE', "%{$search}%");
+                    })->orWhere('notes', 'LIKE', "%{$search}%");
                 });
             })
+            ->when($filters['without_components'], function ($query) {
+                // Excluye productos ensamblados, tanto con componentes propios como heredados del padre.
+                $query->whereHas('product', function ($productQuery) {
+                    $productQuery->whereDoesntHave('components')
+                        ->whereDoesntHave('parent.components');
+                });
+            });
+
+        // Productos distintos involucrados en todos los movimientos que cumplen los filtros.
+        $productsCount = (clone $query)->distinct()->count('product_id');
+
+        $movements = $query
+            ->with([
+                'product:id,code,name,measure_unit,parent_id',
+                'product.media',
+                'storage:id,location,quantity',
+            ])
             ->orderBy('created_at', $direction)
             ->orderBy('id', $direction)
             ->paginate(50)
@@ -57,6 +72,7 @@ class StockMovementController extends Controller
 
         return Inertia::render('StockMovement/Index', [
             'movements' => $movements,
+            'productsCount' => $productsCount,
             'filters' => $filters,
             'canDelete' => $user->checkPermissionTo('Eliminar movimientos de stock'),
         ]);

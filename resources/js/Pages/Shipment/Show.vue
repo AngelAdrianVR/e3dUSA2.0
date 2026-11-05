@@ -234,7 +234,7 @@
         </el-dialog>
 
         <!-- Modal Evidencia -->
-        <el-dialog v-model="showEvidenceModal" title="Subir Evidencia de Entrega" width="500px">
+        <el-dialog v-model="showEvidenceModal" :title="evidenceForm.evidence_type === 'received' ? 'Subir Evidencia de Recibido' : 'Subir Evidencia de Salida'" width="500px">
             <div class="space-y-4">
                 <div class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer relative">
                     <input type="file" @change="handleEvidenceFileChange" multiple accept="image/*,.pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
@@ -401,6 +401,7 @@ export default {
             showEvidenceModal: false,
             evidenceForm: useForm({
                 shipment_id: null,
+                evidence_type: 'shipment',
                 evidence_files: [],
             }),
             newShipmentModalVisible: false,
@@ -705,9 +706,10 @@ export default {
                 onError: () => ElMessage.error('Error al actualizar la información.')
             });
         },
-        openEvidenceModal(shipment) {
+        openEvidenceModal(shipment, evidenceType = 'shipment') {
             this.evidenceForm.reset();
             this.evidenceForm.shipment_id = shipment.id;
+            this.evidenceForm.evidence_type = evidenceType;
             this.showEvidenceModal = true;
         },
         handleEvidenceFileChange(e) {

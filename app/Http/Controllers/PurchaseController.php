@@ -7,7 +7,6 @@ use App\Models\FavoredProduct;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
 use App\Models\Requisition;
-use App\Models\StockMovement;
 use App\Support\RequisitionPermissions;
 // use App\Models\Storage;
 use Illuminate\Support\Facades\Storage;
@@ -496,26 +495,13 @@ class PurchaseController extends Controller
 
                     $quantityToReceive = $itemData['quantity_received'];
 
-                    // Actualizar el contador de recibido en el item
+                    // Actualizar el contador de recibido en el item.
+                    // El inventario no se actualiza automáticamente: se registra manualmente.
                     $item->increment('quantity_received', $quantityToReceive);
-
-                    // --- MOVIMIENTO DE STOCK ---
-                    if ($item->product) {
-                        $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-                        $storage->increment('quantity', $quantityToReceive);
-                        
-                        StockMovement::create([
-                            'product_id' => $item->product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $quantityToReceive,
-                            'type' => 'Entrada',
-                            'notes' => 'Entrada parcial por compra OC-' . $purchase->id . '. ' . $item->description
-                        ]);
-                    }
                 }
             });
 
-            return back()->with('success', 'Productos recibidos e inventario actualizado correctamente.');
+            return back()->with('success', 'Productos recibidos correctamente. El inventario no se actualiza automáticamente, regístralo manualmente.');
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error al recibir productos: ' . $e->getMessage());
@@ -597,31 +583,13 @@ class PurchaseController extends Controller
                             }
                         }
 
-                        $purchase->load('items.product');
+                        $purchase->load('items');
 
-                        // --- MODIFICACIÓN IMPORTANTE: Solo sumar lo que FALTA por recibir ---
+                        // Se marca como recibido todo lo pendiente, sin tocar el inventario:
+                        // la entrada de stock se registra manualmente.
                         foreach ($purchase->items as $item) {
-                            if ($item->product) {
-                                // Calculamos si queda algo pendiente por recibir
-                                $remainingQuantity = $item->quantity - $item->quantity_received;
-
-                                // Si queda stock pendiente (por ejemplo, el usuario no hizo recepción parcial
-                                // o le faltó recibir una parte), lo sumamos todo al cerrar la orden.
-                                if ($remainingQuantity > 0) {
-                                    // Actualizamos recibido al total para que cuadre
-                                    $item->update(['quantity_received' => $item->quantity]);
-
-                                    $storage = $item->product->storages()->firstOrCreate([], ['quantity' => 0]);
-                                    $storage->increment('quantity', $remainingQuantity);
-                                    
-                                    StockMovement::create([
-                                        'product_id' => $item->product->id,
-                                        'storage_id' => $storage->id,
-                                        'quantity_change' => $remainingQuantity, 
-                                        'type' => 'Entrada',
-                                        'notes' => 'Entrada final por cierre de compra OC-' . $purchase->id
-                                    ]);
-                                }
+                            if ($item->product && $item->quantity_received < $item->quantity) {
+                                $item->update(['quantity_received' => $item->quantity]);
                             }
                         }
                         break;

@@ -594,7 +594,7 @@ class SaleController extends Controller
             'saleProducts.product.parent.components.storages', // Almacenes de los componentes (si es hijo/variante)
             // -----------------------------------------------------
 
-            'shipments',
+            'shipments.media',
             'contact:id,name,prefix',
             'contact.details',
             'productExchanges.returnedProduct',

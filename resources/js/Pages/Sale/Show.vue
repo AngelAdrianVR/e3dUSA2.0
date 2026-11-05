@@ -423,6 +423,16 @@
                                 {{ invoiceFiles.length }}/2
                             </span>
                         </button>
+                        <button 
+                            @click="activeTab = 'evidence'" 
+                            class="pb-2 text-sm font-semibold transition-colors relative flex items-center gap-2"
+                            :class="activeTab === 'evidence' ? 'text-purple-600 dark:text-purple-400 border-b-2 border-purple-600 dark:border-purple-400' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                        >
+                            Evidencias
+                            <span class="bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs px-1.5 py-0.5 rounded-full">
+                                {{ evidenceLoaded }}/{{ evidenceExpected }}
+                            </span>
+                        </button>
                     </div>
 
                     <!-- TAB 1: LISTA ORIGINAL DE PRODUCTOS -->
@@ -632,6 +642,71 @@
                                 <i class="fa-solid fa-circle-info mr-1"></i>
                                 Una orden puede tener varias facturas: sube todos los PDF y XML que necesites.
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: EVIDENCIAS DE LOS ENVÍOS -->
+                    <div v-if="activeTab === 'evidence'" class="space-y-4 max-h-[65vh] overflow-auto">
+                        <div v-if="!sale.shipments?.length" class="text-center text-gray-500 dark:text-gray-400 py-10">
+                            <i class="fa-solid fa-camera-retro text-3xl mb-3 opacity-50"></i>
+                            <p>Esta órden no tiene envíos registrados, por lo que aún no hay evidencias.</p>
+                        </div>
+
+                        <div v-for="(shipment, index) in sale.shipments" :key="shipment.id"
+                            class="bg-gray-50 dark:bg-slate-700/50 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                            <!-- Encabezado de la parcialidad -->
+                            <div class="flex flex-wrap justify-between items-center gap-2 border-b dark:border-gray-600 pb-2 mb-3">
+                                <span class="font-bold text-gray-800 dark:text-gray-100 text-sm flex items-center gap-2">
+                                    <i class="fa-solid fa-truck-fast text-gray-400"></i> Parcialidad #{{ index + 1 }}
+                                    <el-tag size="small" :type="shipment.status === 'Enviado' ? 'success' : 'warning'">{{ shipment.status }}</el-tag>
+                                    <span class="text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40 px-1.5 py-0.5 rounded-full">
+                                        {{ evidenceLoadedFor(shipment) }}/{{ evidenceBoxes.length }}
+                                    </span>
+                                </span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    <span class="mr-3"><i class="fa-solid fa-truck mr-1"></i>{{ shipment.shipping_company || 'Sin paquetería' }}</span>
+                                    <span><i class="fa-solid fa-barcode mr-1"></i>{{ shipment.tracking_guide || 'Sin guía' }}</span>
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div v-for="box in evidenceBoxes" :key="box.type"
+                                    class="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-slate-800/60">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <div>
+                                            <p class="text-xs font-bold uppercase text-gray-700 dark:text-gray-300">
+                                                <i :class="box.icon" class="mr-1 text-gray-400"></i> {{ box.title }}
+                                            </p>
+                                            <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ box.hint }}</p>
+                                        </div>
+                                        <label
+                                            :class="uploadingEvidence === `${shipment.id}-${box.type}` ? 'pointer-events-none opacity-50' : 'cursor-pointer'"
+                                            class="text-[11px] bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 transition-colors">
+                                            <i class="fa-solid fa-plus mr-1"></i> Añadir
+                                            <input type="file" class="hidden" multiple accept="image/*,.pdf"
+                                                @change="uploadShipmentEvidence(shipment, box.type, $event)" />
+                                        </label>
+                                    </div>
+
+                                    <div v-if="shipmentEvidence(shipment, box.type).length" class="grid grid-cols-2 gap-2">
+                                        <div v-for="file in shipmentEvidence(shipment, box.type)" :key="file.id" class="relative group">
+                                            <button type="button" title="Eliminar archivo"
+                                                class="absolute -top-1 -right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-600"
+                                                @click="deleteShipmentEvidence(file)">✕</button>
+                                            <a :href="file.original_url" target="_blank"
+                                                class="flex flex-col items-center justify-center border dark:border-gray-600 rounded-lg p-2 hover:border-blue-400 transition-colors text-center shadow-sm h-full">
+                                                <img v-if="file.mime_type.includes('image')" :src="file.original_url"
+                                                    alt="Evidencia" class="w-full h-16 object-cover rounded mb-1" />
+                                                <i v-else class="fa-regular fa-file-pdf text-2xl text-red-500 mb-1"></i>
+                                                <span class="text-[10px] text-gray-600 dark:text-gray-400 truncate w-full" :title="file.file_name">{{ file.file_name }}</span>
+                                            </a>
+                                        </div>
+                                    </div>
+                                    <div v-else class="flex items-center justify-center py-4 border border-dashed border-gray-300 dark:border-gray-600 rounded">
+                                        <p class="text-[11px] text-gray-400 italic">Sin evidencia</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -868,6 +943,7 @@ export default {
 
             activeTab: 'products',
             uploadingInvoiceFile: null,
+            uploadingEvidence: null,
             showExchangeModal: false,
             evidencePreviews: [], 
             exchangeForm: useForm({
@@ -935,6 +1011,33 @@ export default {
         },
         invoiceFiles() {
             return [...this.invoicePdfs, ...this.invoiceXmls];
+        },
+        // Evidencias de los envíos: una imagen para la salida de mercancía y otra para el recibido.
+        evidenceBoxes() {
+            return [
+                {
+                    type: 'shipment',
+                    title: 'Salida de mercancía',
+                    hint: 'Cuando la paquetería se la lleva',
+                    icon: 'fa-solid fa-truck-fast',
+                },
+                {
+                    type: 'received',
+                    title: 'Recibido por el cliente',
+                    hint: 'Documento de la paquetería',
+                    icon: 'fa-solid fa-box-open',
+                },
+            ];
+        },
+        // Evidencias cargadas vs esperadas: una por recuadro (salida y recibido) en cada parcialidad.
+        evidenceLoaded() {
+            return (this.sale.shipments || []).reduce(
+                (total, shipment) => total + this.evidenceLoadedFor(shipment),
+                0
+            );
+        },
+        evidenceExpected() {
+            return (this.sale.shipments?.length ?? 0) * this.evidenceBoxes.length;
         },
         // Solo el personal con el permiso "Crear facturas" puede subir estos archivos
         canUploadInvoiceFiles() {
@@ -1102,6 +1205,48 @@ export default {
                     onSuccess: () => ElMessage.success('Archivo de factura eliminado.'),
                     onError: () => ElMessage.error('No se pudo eliminar el archivo.'),
                 });
+            }).catch(() => {});
+        },
+        shipmentEvidence(shipment, type) {
+            const collection = type === 'received' ? 'shipment-received-evidence' : 'shipment-evidence';
+            return (shipment.media || []).filter(file => file.collection_name === collection);
+        },
+        evidenceLoadedFor(shipment) {
+            return this.evidenceBoxes.filter(box => this.shipmentEvidence(shipment, box.type).length > 0).length;
+        },
+        uploadShipmentEvidence(shipment, type, event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+
+            this.uploadingEvidence = `${shipment.id}-${type}`;
+
+            router.post(route('shipments.store-evidence', shipment.id), {
+                evidence_files: files,
+                evidence_type: type,
+            }, {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => ElMessage.success('Evidencia subida correctamente.'),
+                onError: (errors) => ElMessage.error(Object.values(errors)[0] ?? 'No se pudo subir la evidencia.'),
+                onFinish: () => {
+                    this.uploadingEvidence = null;
+                    event.target.value = '';
+                },
+            });
+        },
+        deleteShipmentEvidence(file) {
+            ElMessageBox.confirm(`¿Eliminar el archivo "${file.file_name}"?`, 'Eliminar evidencia', {
+                confirmButtonText: 'Eliminar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(async () => {
+                try {
+                    await axios.delete(route('media.delete-file', file.id));
+                    ElMessage.success('Evidencia eliminada correctamente.');
+                    router.reload({ only: ['sale'], preserveScroll: true });
+                } catch (error) {
+                    ElMessage.error('No se pudo eliminar el archivo.');
+                }
             }).catch(() => {});
         },
         handleOceUpload(event) {

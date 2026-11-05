@@ -188,6 +188,8 @@
                                 :show-additional-elements="showAdditionalElements"
                                 :label-changed="labelChanged"
                                 :show-variant-toggles="showVariantToggles"
+                                :show-taxes="showTaxes"
+                                :tax-percentage="Number(taxPercentage) || 0"
                                 :sales-histories="salesHistories"
                                 @update-status="updateProductStatus" 
                             />
@@ -200,54 +202,80 @@
                 </section>
                 
                 <!-- Totales -->
-                <section v-if="quote.show_breakdown" class="mt-8 flex justify-end">
-                    <div class="w-full sm:w-1/2 lg:w-1/3 space-y-2 text-sm print:text-xs print:break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
-                        <div class="flex items-center justify-end gap-3 mb-2 print:hidden bg-gray-50 p-2 rounded border">
-                            <label class="flex items-center gap-2 cursor-pointer text-xs select-none">
+                <section v-if="quote.show_breakdown" class="mt-10 flex justify-end print:mt-5">
+                    <div class="w-full sm:w-2/3 lg:w-1/2 xl:w-2/5 print:w-3/5 print:break-inside-avoid rounded-2xl border-2 border-sky-200 shadow-xl bg-white overflow-hidden"
+                        style="page-break-inside: avoid; break-inside: avoid;">
+                        <!-- Encabezado del resumen de costos -->
+                        <div class="bg-gradient-to-r from-sky-600 to-cyan-500 px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 print:px-3 print:py-2 print:bg-white print:border-b print:border-gray-300">
+                            <h3 class="text-white font-extrabold text-lg print:text-sm print:text-white tracking-wide uppercase flex items-center gap-2">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                                {{ quote.is_spanish_template ? 'Resumen de Costos' : 'Cost Summary' }}
+                            </h3>
+                            <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none bg-white/20 hover:bg-white/30 transition-colors text-white px-3 py-1.5 rounded-full print:hidden">
                                 <input type="checkbox" v-model="showTaxes" class="rounded text-sky-600 focus:ring-sky-500">
                                 {{ quote.is_spanish_template ? 'Mostrar precios con IVA' : 'Show prices with Tax' }}
                             </label>
-                            <div v-if="showTaxes" class="flex items-center gap-1">
-                                <span class="text-xs text-gray-500">IVA %:</span>
-                                <input type="number" v-model.number="taxPercentage" class="w-16 h-7 text-xs border-gray-300 rounded focus:ring-sky-500 focus:border-sky-500 text-right" min="0" step="0.1">
+                        </div>
+
+                        <div class="px-5 py-4 space-y-3 text-base print:px-3 print:py-2 print:space-y-1 print:text-xs">
+                            <div v-if="showTaxes" class="flex items-center justify-between print:hidden">
+                                <span class="text-xs font-bold uppercase tracking-wide text-gray-500">
+                                    {{ quote.is_spanish_template ? 'Porcentaje de IVA' : 'Tax rate' }}
+                                </span>
+                                <div class="flex items-center gap-1">
+                                    <input type="number" v-model.number="taxPercentage"
+                                        class="w-20 h-9 text-sm text-right border-gray-300 rounded-lg focus:ring-sky-500 focus:border-sky-500" min="0" step="0.1">
+                                    <span class="text-sm font-bold text-gray-500">%</span>
+                                </div>
                             </div>
-                        </div>
 
-                         <div class="flex justify-between p-2 rounded-md bg-gray-100">
-                            <span class="font-semibold text-gray-600">{{ quote.is_spanish_template ? 'Subtotal (Aprobados)' : 'Subtotal (Approved)' }}:</span>
-                            <span class="font-bold text-gray-800">{{ formatNumber(quote.total_data.subtotal) }} {{ quote.currency }}</span>
-                        </div>
-                        <div v-if="!quote.is_freight_cost_stroked" class="flex justify-between p-2">
-                            <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Flete' : 'Freight Cost' }}:</span>
-                            <span class="font-semibold text-gray-800">{{ formatNumber(quote.freight_cost) }} {{ quote.currency }}</span>
-                        </div>
-                         <div v-if="!quote.is_tooling_cost_stroked" class="flex justify-between p-2">
-                            <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Herramental' : 'Tooling Cost' }}:</span>
-                            <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }}</span>
-                        </div>
-                        <div v-if="quote.has_early_payment_discount" class="flex justify-between p-2 text-green-600 border-t border-dashed">
-                            <span class="font-semibold">{{ quote.is_spanish_template ? 'Descuento' : 'Discount' }} ({{ quote.early_payment_discount_amount }}%):</span>
-                            <span class="font-bold">- {{ formatNumber(quote.total_data.discount_amount) }} {{ quote.currency }}</span>
-                        </div>
-                        
-                        <div v-if="showTaxes" class="flex justify-between p-2 text-gray-600 border-t">
-                            <span class="font-semibold">IVA ({{ taxPercentage }}%):</span>
-                            <span class="font-bold text-gray-700">{{ formatNumber(taxAmount) }} {{ quote.currency }}</span>
-                        </div>
+                            <div class="flex justify-between items-center rounded-lg bg-gray-100 px-3 py-2">
+                                <span class="font-semibold text-gray-600">{{ quote.is_spanish_template ? 'Subtotal (Aprobados)' : 'Subtotal (Approved)' }}:</span>
+                                <span class="font-bold text-lg print:text-sm text-gray-900">{{ formatNumber(quote.total_data.subtotal) }} {{ quote.currency }}</span>
+                            </div>
 
-                        <div class="flex justify-between p-3 rounded-md bg-gray-800 text-white">
-                            <span class="text-base font-bold">
-                                {{ showTaxes ? (quote.is_spanish_template ? 'Total Neto' : 'Net Total') : (quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes') }}:
-                            </span>
-                            <span class="text-base font-bold">{{ formatNumber(showTaxes ? totalWithTax : quote.total_data.total_after_discount) }} {{ quote.currency }}</span>
+                            <div v-if="!quote.is_freight_cost_stroked" class="flex justify-between items-center px-1">
+                                <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Flete' : 'Freight Cost' }}:</span>
+                                <span class="font-semibold text-gray-800">{{ formatNumber(quote.freight_cost) }} {{ quote.currency }}</span>
+                            </div>
+
+                            <div v-if="!quote.is_tooling_cost_stroked" class="flex justify-between items-center px-1">
+                                <span class="text-gray-600">{{ quote.is_spanish_template ? 'Costo de Herramental' : 'Tooling Cost' }}:</span>
+                                <span class="font-semibold text-gray-800">{{ formatNumber(quote.tooling_cost) }}</span>
+                            </div>
+
+                            <div v-if="quote.has_early_payment_discount" class="flex justify-between items-center rounded-lg bg-green-50 border-l-4 border-green-400 px-3 py-2 text-green-700">
+                                <span class="font-bold">{{ quote.is_spanish_template ? 'Descuento' : 'Discount' }} ({{ quote.early_payment_discount_amount }}%):</span>
+                                <span class="font-extrabold text-lg print:text-sm">- {{ formatNumber(quote.total_data.discount_amount) }} {{ quote.currency }}</span>
+                            </div>
+
+                            <!-- IVA destacado -->
+                            <div v-if="showTaxes" class="flex justify-between items-center rounded-lg bg-amber-50 border-l-4 border-amber-400 px-3 py-2.5 print:py-1.5 shadow-sm">
+                                <span class="font-extrabold uppercase tracking-wide text-amber-700 flex items-center gap-2">
+                                    <i class="fa-solid fa-percent text-sm"></i>
+                                    IVA ({{ taxPercentage }}%):
+                                </span>
+                                <span class="font-extrabold text-xl print:text-sm text-amber-700">{{ formatNumber(taxAmount) }} {{ quote.currency }}</span>
+                            </div>
+
+                            <div class="flex justify-between items-center rounded-xl bg-gradient-to-r from-slate-900 to-slate-700 px-4 py-3 print:px-3 print:py-2 text-white shadow-lg print:bg-white print:text-white print:border-2 print:border-gray-800 print:shadow-none">
+                                <span class="text-lg print:text-sm font-extrabold uppercase tracking-wide">
+                                    {{ showTaxes ? (quote.is_spanish_template ? 'Total Neto' : 'Net Total') : (quote.is_spanish_template ? 'Total sin IVA' : 'Total before taxes') }}:
+                                </span>
+                                <span class="text-2xl print:text-base font-extrabold">{{ formatNumber(showTaxes ? totalWithTax : quote.total_data.total_after_discount) }} {{ quote.currency }}</span>
+                            </div>
+
+                            <p v-if="!showTaxes" class="text-right text-[11px] print:text-[9px] font-bold uppercase tracking-wide text-gray-500">
+                                {{ quote.is_spanish_template ? 'Precios más IVA' : 'Prices plus tax' }}
+                            </p>
                         </div>
                     </div>
                 </section>
 
                 <!-- Notas Importantes -->
-                <section class="w-full border-t-4 border-amber-400 bg-amber-50 px-5 py-4 mt-10 rounded-b-lg text-gray-700 print:break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid; font-size: 11px;">
-                    <h2 class="text-center font-extrabold text-base uppercase mb-3">{{ quote.is_spanish_template ? 'Información Importante' : 'Important Information' }}</h2>
-                    <ol class="list-decimal list-inside space-y-2">
+                <section class="w-full border-t-4 border-amber-400 bg-amber-50 px-5 py-5 mt-10 rounded-b-lg text-gray-700 text-[15px] leading-relaxed print:text-xs print:break-inside-avoid" style="page-break-inside: avoid; break-inside: avoid;">
+                    <h2 class="text-center font-extrabold text-xl print:text-base uppercase mb-4">{{ quote.is_spanish_template ? 'Información Importante' : 'Important Information' }}</h2>
+                    <ol class="list-decimal list-inside space-y-2.5 print:space-y-1.5">
                         <li v-if="quote.notes" v-html="quote.notes"></li>
                         <li>{{ quote.is_spanish_template ? 'Precios antes de IVA' : 'Prices before taxes' }}.</li>
                         <li>{{ quote.is_spanish_template ? 'Costo de herramental' : 'Tooling cost' }}: <span class="font-bold text-blue-600" :class="{ 'line-through': quote.is_tooling_cost_stroked }">{{ formatNumber(quote.tooling_cost) }}</span>.</li>
