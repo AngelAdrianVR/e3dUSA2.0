@@ -627,7 +627,10 @@ class QuoteController extends Controller
 
         $this->recordAuthorizationAudit($quote, $oldValues, $this->authorizationSnapshot($quote, $fields));
 
-        if (auth()->id() != $quote->user->id) {
+        // Se notifica siempre al creador de la cotización, salvo que él mismo la autorice.
+        $quote->loadMissing('user');
+
+        if ($quote->user && (int) auth()->id() !== (int) $quote->user->id) {
             $quote_folio = 'COT-' . str_pad($quote->id, 4, "0", STR_PAD_LEFT);
             $quote->user->notify(new ApprovalQuoteNotification(
                 'Cotización',

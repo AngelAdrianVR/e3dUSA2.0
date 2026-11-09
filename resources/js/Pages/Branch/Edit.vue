@@ -137,8 +137,12 @@
 
                                 <div v-if="existingCsf" class="flex items-center gap-2 mb-3 text-sm">
                                     <i class="fa-regular fa-file-pdf text-red-600"></i>
-                                    <a :href="existingCsf.original_url" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Ver CSF actual</a>
+                                    <a :href="existingCsf.original_url" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">Ver CSF actual</a>
                                 </div>
+                                <p v-if="existingCsf && !form.csf" class="text-xs text-amber-700 dark:text-amber-400 mb-3">
+                                    <i class="fa-solid fa-circle-info mr-1"></i>
+                                    Ya existe una CSF registrada. Si sigue vigente no necesitas subir otro archivo; al guardar se te pedirá confirmarlo.
+                                </p>
 
                                 <FileUploader
                                     @files-selected="form.csf = $event[0] ?? null"
@@ -530,7 +534,7 @@ import InputError from "@/Components/InputError.vue";
 import TextInput from "@/Components/TextInput.vue";
 import Back from "@/Components/MyComponents/Back.vue";
 import FileUploader from "@/Components/MyComponents/FileUploader.vue";
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
 
@@ -767,7 +771,7 @@ export default {
         }
     },
     methods: {
-        update() {
+        async update() {
             // Se descartan los contactos completamente vacíos antes de enviar
             this.pruneEmptyContacts();
 
@@ -783,6 +787,10 @@ export default {
             }
 
             const willRequireAuthorization = this.hasDuplicatedContacts && !this.allowDuplicateContacts;
+
+            // Si el cliente ya tiene una CSF y no se subió una nueva, se pide al usuario
+            // revisarla y confirmar que sigue vigente antes de guardar.
+            if (!(await this.confirmCsfIsCurrent())) return;
 
             // Buscamos si existe el parámetro redirect_to en la URL
             const urlParams = new URLSearchParams(window.location.search);
@@ -824,6 +832,31 @@ export default {
                     ElMessage.error('Por favor, revisa los errores marcados en los pasos.');
                 }
             });
+        },
+        async confirmCsfIsCurrent() {
+            // Con una CSF existente y sin archivo nuevo no se obliga a subir otro,
+            // pero sí se confirma que el usuario revisó que sigue vigente.
+            if (!this.existingCsf || this.form.csf) return true;
+
+            const csfUrl = this.existingCsf.original_url;
+            const message = `
+                <p>Revisa que la <strong>Constancia de Situación Fiscal (CSF)</strong> registrada siga vigente y corresponda a los datos fiscales del cliente.</p>
+                ${csfUrl ? `<p style="margin-top:8px;"><a href="${csfUrl}" target="_blank" rel="noopener noreferrer">Ver CSF actual</a></p>` : ''}
+                <p style="margin-top:8px;">¿Confirmas que la CSF es actual y deseas continuar?</p>
+            `;
+
+            try {
+                await ElMessageBox.confirm(message, 'Verificar Constancia de Situación Fiscal', {
+                    confirmButtonText: 'Sí, la CSF está actualizada',
+                    cancelButtonText: 'Revisar CSF',
+                    type: 'warning',
+                    dangerouslyUseHTMLString: true,
+                });
+                return true;
+            } catch {
+                this.goToStep(2);
+                return false;
+            }
         },
         handleMetodoPagoChange(value) {
             // Ajusta el sub-método según el método seleccionado
@@ -950,8 +983,12 @@ export default {
                     ['payment_method', 'Selecciona un Método de Pago.'],
                     ['payment_submethod', 'Selecciona el sub-método de pago.'],
                     ['cfdi_use', 'Selecciona el Uso de CFDI.'],
-                    ['csf', 'Sube la CSF actualizada.'],
                 ];
+
+                // Solo se exige subir la CSF cuando el cliente aún no tiene una registrada.
+                if (!this.existingCsf) {
+                    required.push(['csf', 'Sube la CSF actualizada.']);
+                }
                 for (const [field, message] of required) {
                     if (!this.form[field]) {
                         ElMessage.warning(message);

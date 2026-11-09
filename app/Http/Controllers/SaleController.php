@@ -1219,22 +1219,22 @@ class SaleController extends Controller
 
         $this->recordAuthorizationAudit($sale, $oldValues, $this->authorizationSnapshot($sale, $fields));
 
-        $sale->load('user');
+        $sale->load(['user', 'quote.user']);
 
-        // Notificar al creador de la orden si quien autoriza no es el mismo usuario
-        if (auth()->id() != $sale->user->id) {
-            // Generamos un folio legible para la notificación (OM- para muestra/regalo)
-            $sale_folio = ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT);
-            
-            // Enviamos la notificación al usuario que creó la venta
-            $sale->user->notify(new SaleAuthorizedNotification(
+        // Se notifica a los creadores involucrados: quien creó la orden de venta y, cuando
+        // la orden proviene de una cotización, también quien creó esa cotización.
+        $sale_folio = ($sale->type === 'muestra' ? 'OM-' : 'OV-') . str_pad($sale->id, 4, "0", STR_PAD_LEFT);
+
+        collect([$sale->user, $sale->quote?->user])
+            ->filter()
+            ->unique('id')
+            ->reject(fn ($user) => (int) $user->id === (int) auth()->id())
+            ->each(fn ($user) => $user->notify(new SaleAuthorizedNotification(
                 'Orden autorizada', // Título de la notificación
                 $sale_folio, // Folio para mostrar
                 $sale->type, // El tipo de orden ('venta' o 'stock')
                 route('sales.show', $sale->id) // URL para redirigir al usuario
-            ));
-        }
-        // --- FIN: LÓGICA DE NOTIFICACIÓN ACTUALIZADA ---
+            )));
 
         return response()->json(['message' => 'Orden autorizada', 'item' => $sale]);
     }

@@ -87,9 +87,13 @@ class StockMovementController extends Controller
         abort_unless($user && $user->checkPermissionTo('Ver almacenes'), 403);
         abort_unless($user->checkPermissionTo('Eliminar movimientos de stock'), 403);
 
-        DB::transaction(function () use ($stockMovement) {
-            $this->deleteWithStockReversal([$stockMovement->id]);
+        $clamped = DB::transaction(function () use ($stockMovement) {
+            return $this->deleteWithStockReversal([$stockMovement->id]);
         });
+
+        if ($clamped) {
+            return back()->with('warning', $this->stockClampedMessage($clamped));
+        }
 
         return back();
     }
@@ -111,9 +115,13 @@ class StockMovementController extends Controller
             'ids.*.exists' => 'Uno de los movimientos seleccionados ya no existe.',
         ]);
 
-        DB::transaction(function () use ($validated) {
-            $this->deleteWithStockReversal($validated['ids']);
+        $clamped = DB::transaction(function () use ($validated) {
+            return $this->deleteWithStockReversal($validated['ids']);
         });
+
+        if ($clamped) {
+            return back()->with('warning', $this->stockClampedMessage($clamped));
+        }
 
         return back();
     }
@@ -121,8 +129,10 @@ class StockMovementController extends Controller
     /**
      * Elimina los movimientos indicados revirtiendo el stock de cada almacén.
      * Se aplica el efecto neto por almacén para soportar entradas y salidas combinadas.
+     *
+     * @return array<int, array{product: string, stock: float, adjustment: float}>
      */
-    private function deleteWithStockReversal(array $ids): void
+    private function deleteWithStockReversal(array $ids): array
     {
         $movements = StockMovement::query()
             ->whereIn('id', $ids)
@@ -153,6 +163,8 @@ class StockMovementController extends Controller
             ->get()
             ->keyBy('id');
 
+        $clamped = [];
+
         foreach ($adjustments as $storageId => $adjustment) {
             $storage = $storages->get($storageId);
 
@@ -164,21 +176,53 @@ class StockMovementController extends Controller
 
             $newQuantity = (float) $storage->quantity + $adjustment;
 
+            // El stock nunca puede ser negativo: si el ajuste excede la existencia, se deja en 0.
             if ($newQuantity < 0) {
-                $productName = optional($movements->firstWhere('storage_id', $storageId)->product)->name
-                    ?? 'producto desconocido';
+                $clamped[] = [
+                    'product' => optional($movements->firstWhere('storage_id', $storageId)->product)->name
+                        ?? 'producto desconocido',
+                    'stock' => (float) $storage->quantity,
+                    'adjustment' => $adjustment,
+                ];
 
-                throw ValidationException::withMessages([
-                    'stock' => 'No se puede eliminar: el stock del producto "' . $productName . '" quedaría en '
-                        . $newQuantity . '. Stock actual: ' . $storage->quantity
-                        . ', ajuste requerido: ' . $adjustment . '.',
-                ]);
+                $newQuantity = 0;
             }
 
             $storage->update(['quantity' => $newQuantity]);
         }
 
         StockMovement::whereIn('id', $movements->pluck('id'))->delete();
+
+        return $clamped;
+    }
+
+    /**
+     * Mensaje de advertencia cuando el ajuste de stock tuvo que limitarse a cero.
+     */
+    private function stockClampedMessage(array $clamped): string
+    {
+        $products = collect($clamped)
+            ->map(function ($item) {
+                return '"' . $item['product'] . '" (existencia: ' . $this->formatQuantity($item['stock'])
+                    . ', ajuste: ' . $this->formatQuantity($item['adjustment']) . ')';
+            })
+            ->unique()
+            ->implode(', ');
+
+        return 'Movimiento(s) eliminado(s). El stock de ' . $products
+            . ' quedó en 0 porque el ajuste superaba la existencia disponible; el stock no puede ser negativo.';
+    }
+
+    /**
+     * Formatea una cantidad sin decimales innecesarios para los mensajes de advertencia.
+     */
+    private function formatQuantity(float $value): string
+    {
+        $rounded = round($value, 2);
+
+        return fmod($rounded, 1.0) === 0.0
+            ? number_format($rounded, 0, '.', ',')
+            : number_format($rounded, 2, '.', ',');
     }
 
     /**
