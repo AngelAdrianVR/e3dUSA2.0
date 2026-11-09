@@ -140,37 +140,43 @@
             </div>
 
             <!-- Sección Derecha: Evidencias -->
-            <div class="border dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-slate-700/30 flex flex-col">
-                <div class="flex justify-between items-center mb-3">
-                    <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 flex items-center">
-                        <i class="fa-solid fa-camera mr-2 text-gray-400"></i> Evidencia de Entrega
-                    </h4>
-                    <button @click="$emit('open-evidence', shipment)" class="text-[11px] bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 transition-colors">
-                        <i class="fa-solid fa-plus mr-1"></i> Añadir
-                    </button>
-                </div>
-                
-                <div v-if="shipment.media?.length" class="flex-1 overflow-y-auto pr-1">
-                    <div class="grid grid-cols-2 gap-2">
-                        <div v-for="file in shipment.media" :key="file.id" class="relative group">
-                            <!-- Popconfirm eliminar -->
-                            <el-popconfirm title="¿Eliminar archivo?" confirm-button-text="Sí" cancel-button-text="No" @confirm="$emit('delete-media', file.id)">
-                                <template #reference>
-                                    <button class="absolute -top-1 -right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-600" title="Eliminar">✕</button>
-                                </template>
-                            </el-popconfirm>
+            <div class="flex flex-col gap-3">
+                <div v-for="box in evidenceBoxes" :key="box.type"
+                    class="border dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-slate-700/30 flex flex-col">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h4 class="font-semibold text-sm text-gray-700 dark:text-gray-300 flex items-center">
+                                <i :class="box.icon" class="mr-2 text-gray-400"></i> {{ box.title }}
+                            </h4>
+                            <p class="text-[10px] text-gray-400 dark:text-gray-500">{{ box.hint }}</p>
+                        </div>
+                        <button @click="$emit('open-evidence', shipment, box.type)" class="text-[11px] bg-blue-100 text-blue-700 font-semibold px-2.5 py-1 rounded hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 transition-colors">
+                            <i class="fa-solid fa-plus mr-1"></i> Añadir
+                        </button>
+                    </div>
 
-                            <!-- Archivo -->
-                            <a :href="file.original_url" target="_blank" class="flex flex-col items-center justify-center bg-white dark:bg-slate-800 border dark:border-gray-600 rounded-lg p-2 hover:border-blue-400 transition-colors text-center shadow-sm h-full">
-                                <img v-if="file.mime_type.includes('image')" :src="file.original_url" @error="handleImageError" alt="Evidencia" class="w-full h-16 object-cover rounded mb-1" />
-                                <i v-else class="fa-regular fa-file-pdf text-2xl text-red-500 mb-1"></i>
-                                <span class="text-[10px] text-gray-600 dark:text-gray-400 truncate w-full" :title="file.file_name">{{ file.file_name }}</span>
-                            </a>
+                    <div v-if="mediaFor(box.type).length" class="max-h-32 overflow-y-auto pr-1">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div v-for="file in mediaFor(box.type)" :key="file.id" class="relative group">
+                                <!-- Popconfirm eliminar -->
+                                <el-popconfirm title="¿Eliminar archivo?" confirm-button-text="Sí" cancel-button-text="No" @confirm="$emit('delete-media', file.id)">
+                                    <template #reference>
+                                        <button class="absolute -top-1 -right-1 z-10 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-md hover:bg-red-600" title="Eliminar">✕</button>
+                                    </template>
+                                </el-popconfirm>
+
+                                <!-- Archivo -->
+                                <a :href="file.original_url" target="_blank" class="flex flex-col items-center justify-center bg-white dark:bg-slate-800 border dark:border-gray-600 rounded-lg p-2 hover:border-blue-400 transition-colors text-center shadow-sm h-full">
+                                    <img v-if="file.mime_type.includes('image')" :src="file.original_url" @error="handleImageError" alt="Evidencia" class="w-full h-16 object-cover rounded mb-1" />
+                                    <i v-else class="fa-regular fa-file-pdf text-2xl text-red-500 mb-1"></i>
+                                    <span class="text-[10px] text-gray-600 dark:text-gray-400 truncate w-full" :title="file.file_name">{{ file.file_name }}</span>
+                                </a>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div v-else class="flex-1 flex items-center justify-center py-4 bg-white dark:bg-slate-800 rounded border border-dashed border-gray-300 dark:border-gray-600">
-                    <p class="text-xs text-gray-400 italic">Sin evidencias adjuntas</p>
+                    <div v-else class="flex-1 flex items-center justify-center py-4 bg-white dark:bg-slate-800 rounded border border-dashed border-gray-300 dark:border-gray-600">
+                        <p class="text-xs text-gray-400 italic">Sin evidencias adjuntas</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -222,6 +228,22 @@ export default {
         isShipped() {
             return this.shipment.status === 'Enviado';
         },
+        evidenceBoxes() {
+            return [
+                {
+                    type: 'shipment',
+                    title: 'Salida de mercancía',
+                    hint: 'Evidencia de cuando la paquetería se la lleva',
+                    icon: 'fa-solid fa-truck-fast',
+                },
+                {
+                    type: 'received',
+                    title: 'Recibido por el cliente',
+                    hint: 'Documento de la paquetería',
+                    icon: 'fa-solid fa-box-open',
+                },
+            ];
+        },
         isOverdueAlert() {
             if (!this.shipment.promise_date || this.isShipped) return false;
             const today = new Date();
@@ -231,6 +253,10 @@ export default {
         }
     },
     methods: {
+        mediaFor(type) {
+            const collection = type === 'received' ? 'shipment-received-evidence' : 'shipment-evidence';
+            return (this.shipment.media || []).filter(file => file.collection_name === collection);
+        },
         formatDate(dateString) {
             if (!dateString) return '';
             let date;

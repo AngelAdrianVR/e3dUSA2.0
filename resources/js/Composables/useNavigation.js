@@ -119,16 +119,17 @@ export function useNavigation(route) {
         {
             label: 'Más',
             icon: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
-            active: route().current('machines.*') || route().current('production-costs.*') || route().current('manuals.*') || route().current('sample-trackings.*') || route().current('audits.*'),
+            active: route().current('machines.*') || route().current('production-costs.*') || route().current('manuals.*') || route().current('sample-trackings.*') || route().current('audits.*') || route().current('diagram.*'),
             options: [
                 { label: 'Tutoriales y manuales', route: 'manuals.index', active: route().current('manuals.*'), show: can('Ver tutoriales y manuales'), },
                 { label: 'Máquinaria', route: 'machines.index', active: route().current('machines.*'), show: can('Ver maquinas'), },
                 { label: 'Procesos de producción', route: 'production-costs.index', active: route().current('production-costs.*'), show: can('Ver costos de produccion'), },
                 { label: 'Seguimiento de muestras', route: 'sample-trackings.index', active: route().current('sample-trackings.*'), show: can('Ver muestras'), },
                 { label: 'Historial de acciones', route: 'audits.index', active: route().current('audits.*'), show: can('Ver historial de acciones') },
+                { label: 'Diagrama del proceso', route: 'diagram.index', active: route().current('diagram.*'), show: true },
             ],
             dropdown: true,
-            show: can('Ver maquinas') || can('Ver historial de acciones') || can('Ver costos de produccion') || can('Ver muestras')
+            show: true
         },
     ]);
 

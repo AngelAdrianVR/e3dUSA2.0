@@ -13,7 +13,7 @@
                         <div class="flex flex-wrap items-end gap-3">
                             <div>
                                 <label class="block mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Buscar</label>
-                                <el-input v-model="search" placeholder="Código o nombre del producto" clearable
+                                <el-input v-model="search" placeholder="Código, nombre o notas" clearable
                                     class="!w-64" @keyup.enter="applyFilters" @clear="applyFilters">
                                     <template #prefix>
                                         <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
@@ -45,6 +45,12 @@
                                 </el-select>
                             </div>
 
+                            <div>
+                                <label class="block mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">Productos</label>
+                                <el-checkbox v-model="withoutComponentsFilter" label="Sin componentes" border
+                                    class="!h-8 !px-3" @change="applyFilters" />
+                            </div>
+
                             <el-button type="primary" @click="applyFilters">
                                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Buscar
                             </el-button>
@@ -53,9 +59,15 @@
                                 <i class="fa-solid fa-broom mr-1"></i> Limpiar
                             </el-button>
 
-                            <span class="ml-auto self-center text-sm text-gray-500 dark:text-gray-400">
-                                <i class="fa-solid fa-list-ul mr-1"></i>
-                                {{ movements.total }} {{ movements.total === 1 ? 'movimiento' : 'movimientos' }}
+                            <span class="ml-auto self-center flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+                                <span>
+                                    <i class="fa-solid fa-list-ul mr-1"></i>
+                                    {{ movements.total }} {{ movements.total === 1 ? 'movimiento' : 'movimientos' }}
+                                </span>
+                                <span class="border-l border-gray-300 dark:border-gray-600 pl-3">
+                                    <i class="fa-solid fa-cubes mr-1"></i>
+                                    {{ productsCount }} {{ productsCount === 1 ? 'producto distinto' : 'productos distintos' }}
+                                </span>
                             </span>
                         </div>
                     </div>
@@ -133,6 +145,17 @@
                                 </template>
                             </el-table-column>
 
+                            <el-table-column label="Stock actual" width="140" align="right">
+                                <template #default="scope">
+                                    <span v-if="scope.row.storage"
+                                        :class="Number(scope.row.storage.quantity) <= 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'"
+                                        class="font-semibold">
+                                        {{ formatQuantity(scope.row.storage.quantity) }}
+                                    </span>
+                                    <span v-else class="text-gray-400">—</span>
+                                </template>
+                            </el-table-column>
+
                             <el-table-column label="Notas" min-width="220">
                                 <template #default="scope">
                                     <span class="text-sm text-gray-600 dark:text-gray-400">
@@ -193,6 +216,10 @@ export default {
     },
     props: {
         movements: Object,
+        productsCount: {
+            type: Number,
+            default: 0,
+        },
         filters: Object,
         canDelete: {
             type: Boolean,
@@ -204,6 +231,7 @@ export default {
             search: this.filters.search ?? '',
             typeFilter: this.filters.type ?? null,
             sortFilter: this.filters.sort ?? 'recent',
+            withoutComponentsFilter: !!this.filters.without_components,
             dateRangeFilter: this.filters.date_from && this.filters.date_to
                 ? [this.filters.date_from, this.filters.date_to]
                 : [],
@@ -217,7 +245,8 @@ export default {
             return Array.isArray(this.dateRangeFilter) && this.dateRangeFilter.length === 2;
         },
         hasActiveFilters() {
-            return !!this.search || !!this.typeFilter || this.hasDateRange || this.sortFilter !== 'recent';
+            return !!this.search || !!this.typeFilter || this.hasDateRange || this.sortFilter !== 'recent'
+                || this.withoutComponentsFilter;
         },
     },
     methods: {
@@ -242,6 +271,7 @@ export default {
             const params = { ...extra };
             if (this.search) params.search = this.search;
             if (this.typeFilter) params.type = this.typeFilter;
+            if (this.withoutComponentsFilter) params.without_components = 1;
             if (this.hasDateRange) {
                 params.date_from = this.dateRangeFilter[0];
                 params.date_to = this.dateRangeFilter[1];
@@ -267,6 +297,7 @@ export default {
             this.search = '';
             this.typeFilter = null;
             this.sortFilter = 'recent';
+            this.withoutComponentsFilter = false;
             this.dateRangeFilter = [];
             this.fetchData();
         },
@@ -280,6 +311,68 @@ export default {
             this.selectedRows = [];
             this.$refs.movementsTable?.clearSelection();
         },
+        escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            }[char]));
+        },
+        /**
+         * Agrupa los movimientos por almacén y calcula el ajuste neto que se aplicará al stock.
+         */
+        stockImpact(rows) {
+            const grouped = new Map();
+
+            rows.forEach((row) => {
+                const key = row.storage_id ?? row.storage?.id ?? row.id;
+                const quantity = Math.abs(Number(row.quantity_change) || 0);
+                const adjustment = row.type === 'Entrada' ? -quantity : quantity;
+                const entry = grouped.get(key) ?? {
+                    product: row.product?.name ?? 'producto desconocido',
+                    unit: row.product?.measure_unit ?? '',
+                    stock: Number(row.storage?.quantity ?? 0),
+                    hasStorage: !!row.storage,
+                    adjustment: 0,
+                };
+                entry.adjustment += adjustment;
+                grouped.set(key, entry);
+            });
+
+            const items = [...grouped.values()];
+
+            // Almacenes cuyo ajuste dejaría el stock en negativo (se limitará a 0).
+            return items.filter(item => item.hasStorage && item.stock + item.adjustment < 0);
+        },
+        stockWarningHtml(overflow) {
+            if (!overflow.length) return '';
+
+            const details = overflow.map((item) => {
+                const unit = item.unit ? ` ${this.escapeHtml(item.unit)}` : '';
+                const adjustment = `${item.adjustment < 0 ? '−' : '+'}${this.formatQuantity(item.adjustment)}`;
+
+                return `<li class="mb-1"><strong>${this.escapeHtml(item.product)}</strong>: `
+                    + `stock actual ${this.formatQuantity(item.stock)}${unit}, ajuste ${adjustment}${unit} `
+                    + `→ quedará en 0${unit}.</li>`;
+            }).join('');
+
+            return `<div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-left text-sm text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300">`
+                + `<p class="font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i> El ajuste supera el stock disponible</p>`
+                + `<p class="mt-1">El stock no puede ser negativo, por lo que se limitará a 0:</p>`
+                + `<ul class="mt-1 list-disc pl-5">${details}</ul></div>`;
+        },
+        showDeletionFeedback(page, successMessage) {
+            const warning = page?.props?.flash?.warning;
+
+            if (warning) {
+                ElMessage({ type: 'warning', message: warning, duration: 6000, showClose: true });
+                return;
+            }
+
+            ElMessage.success(successMessage);
+        },
         confirmBulkDelete() {
             if (!this.selectedRows.length) return;
 
@@ -291,23 +384,30 @@ export default {
                 exits ? `${exits} ${exits === 1 ? 'salida' : 'salidas'}` : null,
             ].filter(Boolean).join(' y ');
 
+            const overflow = this.stockImpact(this.selectedRows);
+
             ElMessageBox.confirm(
-                `Se eliminarán ${ids.length} ${ids.length === 1 ? 'movimiento' : 'movimientos'} (${breakdown}) y el stock se ajustará según su tipo: las entradas se restan y las salidas se devuelven. Esta acción no se puede deshacer.`,
+                `<p>Se eliminarán ${ids.length} ${ids.length === 1 ? 'movimiento' : 'movimientos'} (${breakdown}) y el stock se ajustará según su tipo: las entradas se restan y las salidas se devuelven. Esta acción no se puede deshacer.</p>`
+                    + this.stockWarningHtml(overflow),
                 'Eliminar movimientos',
                 {
-                    confirmButtonText: 'Sí, eliminar',
+                    confirmButtonText: overflow.length ? 'Sí, eliminar y ajustar a 0' : 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
                     type: 'warning',
-                    iconColor: '#EF4444',
+                    iconColor: overflow.length ? '#F59E0B' : '#EF4444',
+                    dangerouslyUseHTMLString: true,
                 }
             ).then(() => {
                 this.bulkDeleting = true;
                 router.delete(route('stock-movements.bulk-destroy'), {
                     data: { ids },
                     preserveScroll: true,
-                    onSuccess: () => {
+                    onSuccess: (page) => {
                         this.clearSelection();
-                        ElMessage.success(`${ids.length} ${ids.length === 1 ? 'movimiento eliminado' : 'movimientos eliminados'} y stock actualizado`);
+                        this.showDeletionFeedback(
+                            page,
+                            `${ids.length} ${ids.length === 1 ? 'movimiento eliminado' : 'movimientos eliminados'} y stock actualizado`
+                        );
                     },
                     onError: (errors) => {
                         ElMessage.error(errors?.stock || errors?.ids || 'No se pudieron eliminar los movimientos');
@@ -324,21 +424,25 @@ export default {
                 ? `Se eliminará la entrada de ${quantity} y esa cantidad se restará del stock actual del producto.`
                 : `Se eliminará la salida de ${quantity} y esa cantidad se devolverá al stock del producto.`;
 
+            const overflow = this.stockImpact([movement]);
+
             ElMessageBox.confirm(
-                `${detail} Esta acción no se puede deshacer.`,
+                `<p>${this.escapeHtml(detail)} Esta acción no se puede deshacer.</p>`
+                    + this.stockWarningHtml(overflow),
                 'Eliminar movimiento',
                 {
-                    confirmButtonText: 'Sí, eliminar',
+                    confirmButtonText: overflow.length ? 'Sí, eliminar y ajustar a 0' : 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
                     type: 'warning',
-                    iconColor: '#EF4444',
+                    iconColor: overflow.length ? '#F59E0B' : '#EF4444',
+                    dangerouslyUseHTMLString: true,
                 }
             ).then(() => {
                 router.delete(route('stock-movements.destroy', movement.id), {
                     preserveScroll: true,
-                    onSuccess: () => {
+                    onSuccess: (page) => {
                         this.clearSelection();
-                        ElMessage.success('Movimiento eliminado y stock actualizado');
+                        this.showDeletionFeedback(page, 'Movimiento eliminado y stock actualizado');
                     },
                     onError: (errors) => {
                         ElMessage.error(errors?.stock || 'No se pudo eliminar el movimiento');

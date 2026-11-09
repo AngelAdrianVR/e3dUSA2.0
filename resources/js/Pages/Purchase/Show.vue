@@ -335,6 +335,10 @@
                         </tbody>
                     </table>
                 </div>
+                <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    Esta recepción solo registra las cantidades recibidas en la orden. El inventario deberá actualizarse manualmente.
+                </p>
             </template>
             <template #footer>
                 <div class="flex space-x-2">
@@ -354,7 +358,7 @@
             <template #content>
                 <div v-if="hasPendingItems" class="mb-4 p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-700">
                     <p class="font-bold"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Atención</p>
-                    <p>Aún quedan productos pendientes por recibir. Al finalizar esta evaluación, <strong>todo el stock restante se marcará como recibido automáticamente</strong>.</p>
+                    <p>Aún quedan productos pendientes por recibir. Al finalizar esta evaluación, <strong>todo lo pendiente se marcará como recibido automáticamente</strong>. El inventario no se actualizará: regístralo manualmente.</p>
                 </div>
                 <p class="text-gray-600 dark:text-gray-400">Por favor, completa la siguiente evaluación del proveedor.</p>
                 <form @submit.prevent="submitRating" class="mt-5 space-y-4">

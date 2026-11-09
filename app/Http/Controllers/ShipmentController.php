@@ -452,11 +452,17 @@ class ShipmentController extends Controller
     {
         $request->validate([
             'evidence_files.*' => 'required|file|mimes:jpg,jpeg,png,pdf,webp|max:5120', // Máx 5MB por archivo
+            'evidence_type' => 'nullable|in:shipment,received',
         ]);
+
+        // 'shipment' = salida de la mercancía; 'received' = evidencia de recibido por el cliente.
+        $collection = $request->input('evidence_type') === 'received'
+            ? 'shipment-received-evidence'
+            : 'shipment-evidence';
 
         if ($request->hasFile('evidence_files')) {
             foreach ($request->file('evidence_files') as $file) {
-                $shipment->addMedia($file)->toMediaCollection('shipment-evidence');
+                $shipment->addMedia($file)->toMediaCollection($collection);
             }
         }
 

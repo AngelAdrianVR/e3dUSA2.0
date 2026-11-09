@@ -14,6 +14,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DesignAuthorizationController;
 use App\Http\Controllers\DesignCategoryController;
 use App\Http\Controllers\DesignOrderController;
+use App\Http\Controllers\DiagramController;
 use App\Http\Controllers\DiscountController;
 use App\Http\Controllers\FavoredProductController;
 use App\Http\Controllers\FavoredStockRequestController;
@@ -89,6 +90,9 @@ Route::middleware([
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 });
 Route::get('/dashboard/production-stats', [DashboardController::class, 'getProductionStats'])->name('dashboard.production-stats')->middleware('auth');
+
+// Diagrama visual del proceso de venta y operativo (documentación interna)
+Route::get('/diagrama', [DiagramController::class, 'index'])->middleware('auth')->name('diagram.index');
 
 // importar archivos de ruta
 Route::middleware('auth')->group(function () {
