@@ -7,13 +7,13 @@ use App\Models\NewProductProposal;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\Sale;
-use App\Models\SaleProduct;
 use App\Models\SampleTracking;
 use App\Models\StockMovement;
 use App\Models\Storage;
 use App\Notifications\SaleAuthorizedNotification;
 use App\Services\BranchGroupService;
 use App\Services\MuestraProductService;
+use App\Services\SaleStockService;
 use App\Services\ShippingRateSuggestionService;
 use App\Traits\RecordsAuthorizationAudit;
 use Illuminate\Http\Request;
@@ -30,8 +30,10 @@ class SaleController extends Controller
 {
     use RecordsAuthorizationAudit;
 
-    public function __construct(private BranchGroupService $branchGroups)
-    {
+    public function __construct(
+        private BranchGroupService $branchGroups,
+        private SaleStockService $saleStock
+    ) {
     }
 
     public function index(Request $request)
@@ -445,82 +447,10 @@ class SaleController extends Controller
             // --- 6. LÓGICA DE INVENTARIO Y PRODUCCIÓN (PARA VENTAS Y STOCK) ---
             // NOTA: las órdenes de muestra/regalo NO mueven inventario ni generan
             // producción; se crean únicamente para poder facturar la muestra/regalo.
-            foreach ($validated['products'] as $productData) {
-                if ($isMuestraType) {
-                    continue;
-                }
-
-                // CORRECCIÓN: Cargar parent.components.storages para que las variantes encuentren el stock de sus componentes heredados
-                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
-                $quantityInTransaction = $productData['quantity']; // Renombrado para mayor claridad
-
-                $quantityToProduce = 0;
-
-                // --- Lógica específica para ventas ---
-                if ($isSaleType) {
-                    $saleProduct = SaleProduct::where('sale_id', $sale->id)->where('product_id', $product->id)->first();
-                    $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
-
-                    // 6.1 Calcular cuánto se toma de stock y cuánto se produce
-                    $takenFromStock = min($quantityInTransaction, $stockFinishedProduct);
-                    $quantityToProduce = $quantityInTransaction - $takenFromStock;
-                    
-                    $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
-
-                    // 6.2 Descontar stock del producto terminado y registrar movimiento
-                    if ($takenFromStock > 0) {
-                        $storage = $product->storages->first();
-                        $storage->decrement('quantity', $takenFromStock);
-                        
-                        StockMovement::create([
-                            'product_id' => $product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $takenFromStock,
-                            'type' => 'Salida',
-                            'notes' => "Descuento por Orden de venta #{$sale->id}"
-                        ]);
-                    }
-                } else {
-                    // Para movimientos que no son ventas (ej. ajustes de stock para producción),
-                    // se asume que toda la cantidad es para producir.
-                    $quantityToProduce = $quantityInTransaction;
-                }
-
-                // 6.3 Descontar stock de los componentes del producto vendido.
-                // CORRECCIÓN: Antes solo se descontaban componentes si había algo "por producir"
-                // (quantityToProduce > 0); si el producto terminado tenía stock, los componentes
-                // NUNCA se descontaban ni se registraba su movimiento. Ahora, si el producto tiene
-                // componentes, se descuenta la cantidad COMPLETA de la orden y se registra el
-                // movimiento de stock correspondiente.
-                if ($product->actual_components->isNotEmpty()) {
-                    foreach ($product->actual_components as $component) {
-                        $requiredQuantity = $component->pivot->quantity * $quantityInTransaction;
-                        $componentStorage = $component->storages->first();
-
-                        if ($componentStorage && $componentStorage->quantity > 0) {
-                            $currentStock = $componentStorage->quantity;
-                            $discountQuantity = min($requiredQuantity, $currentStock);
-
-                            // Se utiliza decrement() para hacer la operación más segura (evitar race conditions)
-                            $componentStorage->decrement('quantity', $discountQuantity);
-
-                            if ($discountQuantity > 0) {
-                                // La nota se ajusta dinámicamente si es una venta o un movimiento de stock.
-                                $notes = $isSaleType 
-                                    ? "Descuento de componentes para {$quantityInTransaction} de {$product->name} (Orden #{$sale->id})"
-                                    : "Descuento de componentes para {$quantityInTransaction} de {$product->name} para stock.";
-
-                                StockMovement::create([
-                                    'product_id' => $component->id,
-                                    'storage_id' => $componentStorage->id,
-                                    'quantity_change' => $discountQuantity,
-                                    'type' => 'Salida',
-                                    'notes' => $notes
-                                ]);
-                            }
-                        }
-                    }
-                }
+            // SaleStockService además guarda los faltantes (adeudos) de producto terminado
+            // y de componentes para rebajarlos cuando se registre su entrada al almacén.
+            if (!$isMuestraType) {
+                $this->saleStock->apply($sale);
             }
 
             // --- 6b. DESCUENTO DE STOCK DE PRODUCTOS DE "MUESTRAS Y REGALOS" ---
@@ -743,8 +673,8 @@ class SaleController extends Controller
         try {
 
             // --- 3. REVERTIR MOVIMIENTOS DE STOCK ANTERIORES (SOLO VENTAS) ---
-            if ($isVentaType && method_exists($this, 'revertStockForSale')) {
-                $this->revertStockForSale($sale);
+            if ($isVentaType) {
+                $this->saleStock->revert($sale);
             }
 
             // --- 3b. REVERTIR EL DESCUENTO DE PIEZAS DE "MUESTRAS Y REGALOS" ---
@@ -859,57 +789,9 @@ class SaleController extends Controller
 
             // --- 7. RE-APLICAR LÓGICA DE INVENTARIO (COMO EN EL STORE) ---
             // Las órdenes de muestra/regalo no mueven inventario ni generan producción.
+            // El servicio vuelve a calcular los faltantes (adeudos) de la orden.
             if ($isVentaType) {
-                foreach ($validated['products'] as $productData) {
-                    // CORRECCIÓN: Cargar parent.components.storages igual que en store
-                    $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($productData['id']);
-                    $saleProduct = $sale->saleProducts()->where('product_id', $product->id)->first();
-                    $quantityInSale = $productData['quantity'];
-                    
-                    $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
-
-                    $takenFromStock = min($quantityInSale, $stockFinishedProduct);
-                    $quantityToProduce = $quantityInSale - $takenFromStock;
-                    
-                    $saleProduct->update(['quantity_to_produce' => $quantityToProduce]);
-                    
-                    if ($takenFromStock > 0) {
-                        $storage = $product->storages->first();
-                        $storage->decrement('quantity', $takenFromStock);
-                        StockMovement::create([
-                            'product_id' => $product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $takenFromStock,
-                            'type' => 'Salida',
-                            'notes' => "Descuento por Orden de venta #{$sale->id} (Actualizado)"
-                        ]);
-                    }
-
-                    // Lógica para descontar componentes (si aplica)
-                    // CORRECCIÓN: Igual que en store(), ahora se descuentan los componentes de la
-                    // cantidad COMPLETA de la orden (no solo lo que falta por producir) y se registra
-                    // el movimiento, aunque el producto terminado tenga stock.
-                    if ($product->actual_components->isNotEmpty()) {
-                        foreach ($product->actual_components as $component) {
-                            $requiredQuantity = $component->pivot->quantity * $quantityInSale;
-                            $componentStorage = $component->storages->first();
-                            
-                            if ($componentStorage && $componentStorage->quantity > 0) {
-                                $discountQuantity = min($requiredQuantity, $componentStorage->quantity);
-                                
-                                $componentStorage->decrement('quantity', $discountQuantity);
-                                
-                                StockMovement::create([
-                                    'product_id' => $component->id,
-                                    'storage_id' => $componentStorage->id,
-                                    'quantity_change' => $discountQuantity,
-                                    'type' => 'Salida',
-                                    'notes' => "Descuento de componentes para {$quantityInSale} de {$product->name} (Orden #{$sale->id}, Actualizado)"
-                                ]);
-                            }
-                        }
-                    }
-                }
+                $this->saleStock->apply($sale);
             }
             
             // --- 8. MANEJAR ARCHIVOS ADJUNTOS ---
@@ -1047,6 +929,23 @@ class SaleController extends Controller
     }
 
     /**
+     * Descarga un archivo (PDF o XML) de las facturas adjuntas a la orden.
+     */
+    public function downloadInvoiceFile(Sale $sale, int $media)
+    {
+        $invoiceMedia = $sale->media()
+            ->whereKey($media)
+            ->whereIn('collection_name', ['invoice_pdf', 'invoice_xml'])
+            ->firstOrFail();
+
+        $path = $invoiceMedia->getPath();
+
+        abort_unless($path && is_file($path), 404, 'El archivo no está disponible.');
+
+        return response()->download($path, $invoiceMedia->file_name);
+    }
+
+    /**
      * Elimina una orden de venta y revierte el stock comprometido.
      */
     public function destroy(Sale $sale)
@@ -1055,7 +954,7 @@ class SaleController extends Controller
         try {
             // Solo revertimos stock para las órdenes de tipo 'venta'
             if ($sale->type === 'venta') {
-                $this->revertStockForSale($sale);
+                $this->saleStock->revert($sale);
             }
 
             // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
@@ -1103,7 +1002,7 @@ class SaleController extends Controller
                 if ($sale) {
                     // Solo revertimos stock para las órdenes de tipo 'venta'
                     if ($sale->type === 'venta') {
-                        $this->revertStockForSale($sale);
+                        $this->saleStock->revert($sale);
                     }
                     // Si la orden se creó desde una cotización, limpiar el sale_id en la cotización
                     if ($sale->quote_id) {
@@ -1316,62 +1215,6 @@ class SaleController extends Controller
     }
 
     /**
-     * Método privado para revertir el stock de una orden de venta.
-     * Incrementa el stock de productos terminados y componentes.
-     */
-    private function revertStockForSale(Sale $sale)
-    {
-        // Carga las relaciones necesarias para acceder a los datos de stock
-        // CORRECCIÓN: se cargan también los componentes del padre (parent.components.storages)
-        // para que las variantes hereden correctamente los componentes al revertir.
-        $sale->load('saleProducts.product.components.storages', 'saleProducts.product.parent.components.storages', 'saleProducts.product.storages');
-
-        foreach ($sale->saleProducts as $saleProduct) {
-            $product = $saleProduct->product;
-            $totalQuantity = $saleProduct->quantity;
-            $quantityToProduce = $saleProduct->quantity_to_produce;
-
-            // 1. Revertir stock de producto terminado (solo la parte que se tomó de stock)
-            $takenFromStock = $totalQuantity - $quantityToProduce;
-            if ($takenFromStock > 0 && $product->storages->first()) {
-                $storage = $product->storages->first();
-                $storage->increment('quantity', $takenFromStock);
-                
-                StockMovement::create([
-                    'product_id' => $product->id,
-                    'storage_id' => $storage->id,
-                    'quantity_change' => $takenFromStock, // Positivo para devolver
-                    'type' => 'Entrada',
-                    'notes' => "Reversión por " . $sale->type === 'venta' ? "OV-" : "OS-" . $sale->id 
-                ]);
-            }
-
-            // 2. Revertir stock de componentes (cantidad completa de la orden, ya que en
-            // store/update ahora se descuentan los componentes de la cantidad total vendida).
-            // CORRECCIÓN: se usa actual_components para soportar variantes que heredan
-            // componentes del producto padre.
-            $components = $product->actual_components;
-            if ($components->isNotEmpty()) {
-                foreach ($components as $component) {
-                    $requiredQuantity = $component->pivot->quantity * $totalQuantity;
-                    if ($component->storages->first()) {
-                        $componentStorage = $component->storages->first();
-                        $componentStorage->increment('quantity', $requiredQuantity);
-
-                        StockMovement::create([
-                            'product_id' => $component->id,
-                            'storage_id' => $componentStorage->id,
-                            'quantity_change' => $requiredQuantity, // Positivo para devolver
-                            'type' => 'Entrada',
-                            'notes' => "Reversión de material para Orden #{$sale->id}"
-                        ]);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
      * Descuenta del stock las piezas de los productos de la categoría "Muestras y regalos"
      * en una orden de tipo muestra/regalo. No se genera producción: solo se comprometen
      * las piezas disponibles del inventario.
@@ -1521,85 +1364,18 @@ class SaleController extends Controller
                 $newItem->quantity_produced = 0;
                 $newItem->quantity_shipped = 0;
                 // Inicialmente ponemos todo para producir, la lógica de abajo ajustará esto
-                $newItem->quantity_to_produce = $newItem->quantity; 
+                $newItem->quantity_to_produce = $newSale->type === 'muestra' ? 0 : $newItem->quantity;
                 $newItem->created_at = now();
                 $newItem->updated_at = now();
                 $newItem->save();
 
                 $productToNewSaleProductId[$originalItem->product_id] = $newItem->id;
+            }
 
-                // --- LÓGICA DE STOCK (Idéntica a store) ---
-                // Determinar si es venta, stock o muestra para ajustar la lógica
-                $isSaleType = $newSale->type === 'venta';
-                $isMuestraType = $newSale->type === 'muestra';
-
-                $product = Product::with(['storages', 'components.storages', 'parent.components.storages'])->find($newItem->product_id);
-                $quantityInTransaction = $newItem->quantity;
-                $quantityToProduce = 0;
-
-                if ($isSaleType) {
-                    $stockFinishedProduct = $product->storages->first()?->quantity ?? 0;
-
-                    // Calcular cuánto se toma de stock y cuánto se produce
-                    $takenFromStock = min($quantityInTransaction, $stockFinishedProduct);
-                    $quantityToProduce = $quantityInTransaction - $takenFromStock;
-                    
-                    // Actualizar el item con lo que realmente falta por producir
-                    $newItem->update(['quantity_to_produce' => $quantityToProduce]);
-
-                    // Descontar stock del producto terminado
-                    if ($takenFromStock > 0) {
-                        $storage = $product->storages->first();
-                        $storage->decrement('quantity', $takenFromStock);
-                        
-                        StockMovement::create([
-                            'product_id' => $product->id,
-                            'storage_id' => $storage->id,
-                            'quantity_change' => $takenFromStock,
-                            'type' => 'Salida',
-                            'notes' => "Descuento por Orden de venta (Clon) #{$newSale->id}"
-                        ]);
-                    }
-                } elseif ($isMuestraType) {
-                    // Las órdenes de muestra/regalo no mueven inventario ni generan producción.
-                    $quantityToProduce = 0;
-                    $newItem->update(['quantity_to_produce' => 0]);
-                } else {
-                    // Si es tipo stock, todo es para producir
-                    $quantityToProduce = $quantityInTransaction;
-                }
-
-                // Descontar stock de componentes (materia prima)
-                // CORRECCIÓN: igual que en store(), se descuentan los componentes de la cantidad
-                // completa y se usa actual_components para soportar variantes que heredan
-                // componentes del producto padre.
-                if (!$isMuestraType && $product->actual_components->isNotEmpty()) {
-                    foreach ($product->actual_components as $component) {
-                        $requiredQuantity = $component->pivot->quantity * $quantityInTransaction;
-                        $componentStorage = $component->storages->first();
-
-                        if ($componentStorage) {
-                            $currentStock = $componentStorage->quantity;
-                            $discountQuantity = min($requiredQuantity, $currentStock);
-
-                            $componentStorage->update(['quantity' => max(0, $currentStock - $requiredQuantity)]);
-
-                            if ($discountQuantity > 0) {
-                                $notes = $isSaleType 
-                                    ? "Descuento de componentes para {$quantityInTransaction} de {$product->name} (Orden #{$newSale->id})"
-                                    : "Descuento de componentes para {$quantityInTransaction} de {$product->name} para stock (Clon).";
-
-                                StockMovement::create([
-                                    'product_id' => $component->id,
-                                    'storage_id' => $componentStorage->id,
-                                    'quantity_change' => $discountQuantity,
-                                    'type' => 'Salida',
-                                    'notes' => $notes
-                                ]);
-                            }
-                        }
-                    }
-                }
+            // 2a. DESCONTAR STOCK DE LA COPIA (incluye faltantes/adeudos de la nueva orden).
+            // Las órdenes de muestra/regalo no mueven inventario ni generan producción.
+            if ($newSale->type !== 'muestra') {
+                $this->saleStock->apply($newSale);
             }
 
             // 2b. DESCONTAR LAS PIEZAS DE "MUESTRAS Y REGALOS" DE LA COPIA

@@ -41,6 +41,10 @@ class ProductionController extends Controller
                     'saleProducts:id,sale_id,product_id,quantity_to_produce',
                     'saleProducts.product:id,name,code,measure_unit',
                     'saleProducts.product.media',
+                    // Adeudos (piezas pendientes de rebajar) para el indicador del manager
+                    'saleProducts.shortages' => function ($query) {
+                        $query->pending()->with('product:id,name,code,measure_unit');
+                    },
                 ]);
 
             // --- Aplicar filtro por estatus general de producción ---
@@ -276,6 +280,15 @@ class ProductionController extends Controller
             'saleProducts.product.media',
             'saleProducts.product.components.media', 
             'saleProducts.product.parent.components.media', // <--- ESTO ES VITAL
+
+            // Adeudos (piezas pendientes de rebajar) de cada producto de la venta:
+            // sirven para mostrar qué componente tuvo faltante y cuántas piezas se deben.
+            'saleProducts.shortages' => function ($query) {
+                $query->pending()->with([
+                    'product:id,name,code,measure_unit',
+                    'product.media',
+                ]);
+            },
 
             // Productos de la venta
             // 'saleProducts.product:id,name,code,measure_unit,archived_at,currency,large,height,width,diameter,caracteristics', 

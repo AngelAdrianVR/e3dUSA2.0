@@ -9,8 +9,8 @@
               <button @click="$emit('close')" class="text-gray-400 hover:text-red-500 text-2xl transition">&times;</button>
           </div>
           <LoadingIsoLogo v-if="isLoading" class="my-3" />
-          <div v-else-if="customerAmountSeries.length">
-              <div class="mb-6">
+          <div v-else-if="customerAmountSeries.length || customerQuantitySeries.length">
+              <div v-if="canSeeMoney" class="mb-6">
                   <h4 class="text-md font-semibold dark:text-white mb-2">Ventas por Monto ({{ currency }}) por Familia</h4>
                   <apexchart type="area" height="300" :options="customerChartOptions" :series="customerAmountSeries"></apexchart>
               </div>
@@ -41,6 +41,7 @@ export default {
     customerQuantitySeries: Array,
     isLoading: Boolean,
     currency: String,
+    canSeeMoney: { type: Boolean, default: false },
   },
   emits: ['close'],
 }

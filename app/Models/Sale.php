@@ -108,6 +108,12 @@ class Sale extends Model implements HasMedia, Auditable
         return $this->hasMany(SaleProduct::class);
     }
 
+    /** Faltantes de inventario (adeudos) generados por la orden */
+    public function shortages(): HasMany
+    {
+        return $this->hasMany(StockShortage::class);
+    }
+
     /** Una venta tiene muchos envíos */
     public function shipments(): HasMany
     {

@@ -50,6 +50,12 @@ class SaleProduct extends Model
         return $this->belongsTo(Product::class);
     }
 
+    /** Faltantes de inventario (adeudos) generados por esta línea de la orden */
+    public function shortages(): HasMany
+    {
+        return $this->hasMany(StockShortage::class);
+    }
+
     /** * Un producto de venta tiene UNA orden de producción.
      * La lógica principal usa esta relación (HasOne) para verificar si ya existe una orden.
      */

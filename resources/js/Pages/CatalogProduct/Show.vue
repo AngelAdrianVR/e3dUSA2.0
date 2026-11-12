@@ -24,6 +24,14 @@
                             <i class="fa-solid fa-arrow-down"></i>
                         </button>
                     </el-tooltip>
+                    <el-tooltip v-if="activePendingShortages.length" content="Piezas pendientes de rebajar por órdenes de venta" placement="top">
+                        <button @click="showShortageModal = true" class="relative size-9 flex items-center justify-center rounded-lg bg-amber-100 hover:bg-amber-200 dark:bg-amber-800 dark:hover:bg-amber-700 text-amber-600 dark:text-amber-300 transition-colors">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                {{ activePendingShortages.length }}
+                            </span>
+                        </button>
+                    </el-tooltip>
                     <el-tooltip v-if="$page.props.auth.user.permissions.includes('Editar catalogo de productos')" content="Editar Producto" placement="top">
                         <Link :href="route('catalog-products.edit', selectedCatalogProduct)">
                             <button class="size-9 flex items-center justify-center rounded-lg bg-gray-200 hover:bg-gray-300 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors">
@@ -155,6 +163,20 @@
                         <p class="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
                             Código: <span class="font-bold">{{ activeProduct.code }}</span>
                         </p>
+
+                        <!-- Aviso de adeudo: qué componente/producto falta y cuánto se debe -->
+                        <button v-if="activePendingShortages.length" type="button" @click="showShortageModal = true"
+                            class="mt-3 w-full flex items-start gap-3 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 p-3 text-left hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-lg mt-0.5"></i>
+                            <span class="text-sm">
+                                <span class="block font-bold text-amber-700 dark:text-amber-300">
+                                    Adeudo pendiente: {{ pendingShortagesTotal.toLocaleString('es-MX') }} {{ activeProduct.measure_unit }}
+                                </span>
+                                <span class="block text-xs text-amber-600 dark:text-amber-400">
+                                    Piezas por rebajar de {{ activePendingShortages.length }} orden(es) de venta. Clic para ver el detalle.
+                                </span>
+                            </span>
+                        </button>
                     </div>
 
                     <article class="max-h-[62vh] overflow-auto space-y-5 mt-5 pr-2">
@@ -462,6 +484,79 @@
             </div>
         </Modal>
 
+        <!-- Modal de adeudos: piezas pendientes de rebajar -->
+        <Modal :show="showShortageModal" @close="showShortageModal = false" maxWidth="2xl">
+            <div class="p-6 dark:bg-slate-800">
+                <div class="flex items-start space-x-3">
+                    <div class="size-10 flex-shrink-0 flex items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Piezas pendientes por rebajar</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            <template v-if="activePendingShortages.length">
+                                Hay {{ pendingShortagesTotal.toLocaleString('es-MX') }} {{ activeProduct.measure_unit }} pendientes de rebajar de {{ activePendingShortages.length }} orden(es) de venta. Confirma la rebaja de las órdenes que quieras liquidar.
+                            </template>
+                            <template v-else>
+                                No hay piezas pendientes de rebajar para este producto.
+                            </template>
+                        </p>
+                    </div>
+                </div>
+
+                <ul v-if="activePendingShortages.length" class="mt-5 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    <li v-for="shortage in activePendingShortages" :key="shortage.id"
+                        class="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/20">
+                        <div class="flex items-center flex-1 min-w-0">
+                            <div class="size-14 flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-md overflow-hidden">
+                                <img v-if="shortage.order_product_image_url" :src="shortage.order_product_image_url"
+                                    @error="handleImageError" alt="Producto de la orden" class="w-full h-full object-cover" />
+                                <i v-else class="fa-regular fa-image text-gray-400"></i>
+                            </div>
+                            <div class="ml-3 min-w-0">
+                                <p class="font-semibold text-gray-800 dark:text-gray-100 truncate" :title="shortage.order_product_name">
+                                    {{ shortage.order_product_name }}
+                                </p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    Código: {{ shortage.order_product_code || '--' }}
+                                    <span v-if="shortage.is_component" class="ml-1">· Componente: {{ shortage.product_name }}</span>
+                                </p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    {{ shortage.sale_folio }}
+                                    <span v-if="shortage.branch_name">· {{ shortage.branch_name }}</span>
+                                    · {{ formatDate(shortage.sale_date) }}
+                                </p>
+                                <p v-if="shortage.seller_name" class="text-xs text-gray-500 dark:text-gray-400">
+                                    <i class="fa-solid fa-user mr-1"></i>Vendedor: {{ shortage.seller_name }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end gap-3 sm:gap-4">
+                            <div class="text-right">
+                                <p class="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Se debe</p>
+                                <p class="font-bold text-amber-600 dark:text-amber-400">
+                                    {{ Number(shortage.quantity_pending).toLocaleString('es-MX') }} {{ shortage.measure_unit }}
+                                </p>
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                    de {{ Number(shortage.order_product_quantity).toLocaleString('es-MX') }} en la orden
+                                </p>
+                            </div>
+                            <SecondaryButton @click="resolveShortage(shortage)"
+                                :class="{ 'opacity-25': resolvingShortageId === shortage.id }"
+                                :disabled="resolvingShortageId === shortage.id || !activeStorage || Number(activeStorage.quantity) <= 0">
+                                Confirmar rebaja
+                            </SecondaryButton>
+                        </div>
+                    </li>
+                </ul>
+
+                <div class="mt-6 flex justify-end">
+                    <CancelButton @click="showShortageModal = false">Cerrar</CancelButton>
+                </div>
+            </div>
+        </Modal>
+
         <!-- Confirmación para Finalizar Precio -->
         <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
             <template #title>
@@ -547,6 +642,10 @@ export default {
     },
     props: {
         product: Object,
+        pending_shortages: {
+            type: Array,
+            default: () => [],
+        },
     },
     data() {
         return {
@@ -575,6 +674,10 @@ export default {
             }),
             catalog_products: [],
             loadingProductList: false,
+
+            // Adeudos (faltantes) de órdenes de venta pendientes de rebajar
+            showShortageModal: false,
+            resolvingShortageId: null,
         };
     },
     computed: {
@@ -586,6 +689,19 @@ export default {
         // ALMACEN ACTIVO
         activeStorage() {
             return this.activeProduct.storages?.[0] || null;
+        },
+
+        // ADEUDOS (faltantes) PENDIENTES DEL PRODUCTO ACTIVO
+        activePendingShortages() {
+            return (this.pending_shortages || []).filter(
+                (shortage) => Number(shortage.product_id) === Number(this.activeProduct.id)
+            );
+        },
+        pendingShortagesTotal() {
+            return this.activePendingShortages.reduce(
+                (total, shortage) => total + Number(shortage.quantity_pending || 0),
+                0
+            );
         },
 
         // IMAGEN PRINCIPAL (Sabe si mostrar la imagen base o la variante)
@@ -793,18 +909,59 @@ export default {
             this.showStockModal = true;
         },
         submitStockMovement() {
+            const movementType = this.stockMovementForm.type;
+
             this.stockMovementForm.post(this.route('products.stock-movement', this.activeProduct.id), {
                 preserveScroll: true,
                 replace: true,
-                onSuccess: () => {
+                onSuccess: (page) => {
                     this.showStockModal = false;
                     this.stockMovementForm.reset();
-                    ElMessage.success('Movimiento de stock realizado');
+
+                    // Si es una entrada y el producto tiene adeudos de órdenes de venta,
+                    // se abre el modal para preguntar si se rebajan las piezas pendientes.
+                    const pending = (page.props.pending_shortages || []).filter(
+                        (shortage) => Number(shortage.product_id) === Number(this.activeProduct.id)
+                    );
+
+                    if (movementType === 'Entrada' && pending.length) {
+                        this.showShortageModal = true;
+                        ElMessage.warning('Se detectaron piezas pendientes de órdenes de venta.');
+                    } else {
+                        ElMessage.success('Movimiento de stock realizado');
+                    }
                 },
                 onError: () => {
                     ElMessage.error('Hubo un error al realizar el movimiento');
                 }
             });
+        },
+        async resolveShortage(shortage) {
+            this.resolvingShortageId = shortage.id;
+
+            try {
+                const { data } = await axios.post(
+                    route('products.stock-shortage.resolve', [this.activeProduct.id, shortage.id])
+                );
+
+                ElMessage.success(data.message);
+
+                router.reload({
+                    only: ['product', 'pending_shortages'],
+                    preserveScroll: true,
+                    onSuccess: () => {
+                        if (!this.activePendingShortages.length) {
+                            this.showShortageModal = false;
+                        }
+                    },
+                });
+            } catch (error) {
+                ElMessage.error(
+                    error.response?.data?.message || 'No se pudo aplicar la rebaja de las piezas pendientes.'
+                );
+            } finally {
+                this.resolvingShortageId = null;
+            }
         },
 
         confirmCloseSpecialPrice(historyId) {

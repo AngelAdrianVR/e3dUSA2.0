@@ -9,114 +9,128 @@
         <p class="text-gray-400 mt-1">Dashboard interactivo para visualizar el rendimiento de ventas.</p>
       </header>
 
-      <!-- Currency Tabs -->
+      <!-- Currency / Section Tabs -->
       <div class="mb-4 border-b border-gray-300 dark:border-gray-500">
-          <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-              <button @click="changeCurrency('MXN')" :class="[activeCurrency === 'MXN' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']">
+          <nav class="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+              <button @click="changeTab('sales', 'MXN')" :class="tabClass(activeTab === 'sales' && activeCurrency === 'MXN')">
                   Ventas MXN
               </button>
-              <button @click="changeCurrency('USD')" :class="[activeCurrency === 'USD' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300', 'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm']">
+              <button @click="changeTab('sales', 'USD')" :class="tabClass(activeTab === 'sales' && activeCurrency === 'USD')">
                   Ventas USD
+              </button>
+              <button @click="changeTab('products')" :class="tabClass(activeTab === 'products')">
+                  <i class="fa-solid fa-ranking-star mr-1"></i> Productos Más Vendidos
               </button>
           </nav>
       </div>
 
-      <!-- Filters -->
-      <DashboardFilters
-        :active-period="activePeriod"
-        :periods="periods"
-        v-model:custom-date-range="customDateRange"
-        :is-loading-any="isLoadingAny"
-        @change-period="changePeriod"
-        @handle-date-change="handleDateChange"
-      />
+      <!-- ===== TAB: Ventas (dashboard actual) ===== -->
+      <template v-if="activeTab === 'sales'">
+        <!-- Filters -->
+        <DashboardFilters
+          :active-period="activePeriod"
+          :periods="periods"
+          v-model:custom-date-range="customDateRange"
+          :is-loading-any="isLoadingAny"
+          @change-period="changePeriod"
+          @handle-date-change="handleDateChange"
+        />
 
-      <!-- KPIs and Main Charts -->
-      <LoadingIsoLogo v-if="isLoading.salesMetrics" class="my-3" />
-      <div v-else-if="salesMetrics">
-        <KpiCards
-          :sales-metrics="salesMetrics"
-          :margin-chart-options="marginChartOptions"
-          :margin-chart-series="marginChartSeries"
-          :format-currency="formatCurrency"
-        />
-        <SalesCostsChart
-          :options="salesCostsChartOptions"
-          :series="salesCostsChartSeries"
-          :currency="activeCurrency"
-        />
-      </div>
+        <!-- KPIs and Main Charts -->
+        <LoadingIsoLogo v-if="isLoading.salesMetrics" class="my-3" />
+        <div v-else-if="salesMetrics">
+          <KpiCards
+            v-if="canSeeMoney"
+            :sales-metrics="salesMetrics"
+            :margin-chart-options="marginChartOptions"
+            :margin-chart-series="marginChartSeries"
+            :format-currency="formatCurrency"
+          />
+          <SalesCostsChart
+            v-if="canSeeMoney"
+            :options="salesCostsChartOptions"
+            :series="salesCostsChartSeries"
+            :currency="activeCurrency"
+          />
+        </div>
 
-      <!-- Product and Customer Lists -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
-        <TopProductsList
-          :top-products="topProducts"
-          :is-loading="isLoading.topProducts"
-          :selected-product="selectedProduct"
-          @select-product="selectProduct"
-        />
-        <ProductDetails class="col-span-2"
-          v-if="selectedProduct"
-          :selected-product="selectedProduct"
-          :product-sales="productSales"
-          :is-loading="isLoading.productSales"
-          @close="selectedProduct = null"
-          :format-currency="formatCurrency"
-          :format-date="formatDate"
-          :currency="activeCurrency"
-        />
-        
-      </div>
+        <!-- Product and Customer Lists -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+          <TopProductsList
+            :top-products="topProducts"
+            :is-loading="isLoading.topProducts"
+            :selected-product="selectedProduct"
+            @select-product="selectProduct"
+          />
+          <ProductDetails class="col-span-2"
+            v-if="selectedProduct"
+            :selected-product="selectedProduct"
+            :product-sales="productSales"
+            :is-loading="isLoading.productSales"
+            @close="selectedProduct = null"
+            :format-currency="formatCurrency"
+            :format-date="formatDate"
+            :currency="activeCurrency"
+          />
+          
+        </div>
 
-      <!-- Details Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
-        <TopCustomersList
-          :top-customers="topCustomers"
-          :is-loading="isLoading.topCustomers"
-          :selected-customer="selectedCustomer"
-          @select-customer="selectCustomer"
-          :format-currency="formatCurrency"
-        />
-        <CustomerDetails class="col-span-2"
-          v-if="selectedCustomer"
-          :selected-customer="selectedCustomer"
-          :customer-chart-options="customerChartOptions"
-          :customer-amount-series="customerAmountSeries"
-          :customer-quantity-series="customerQuantitySeries"
-          :is-loading="isLoading.customerDetails"
-          :currency="activeCurrency"
-          @close="selectedCustomer = null"
-        />
-      </div>
+        <!-- Details Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+          <TopCustomersList
+            :top-customers="topCustomers"
+            :is-loading="isLoading.topCustomers"
+            :selected-customer="selectedCustomer"
+            @select-customer="selectCustomer"
+            :format-currency="formatCurrency"
+          />
+          <CustomerDetails class="col-span-2"
+            v-if="selectedCustomer"
+            :selected-customer="selectedCustomer"
+            :customer-chart-options="customerChartOptions"
+            :customer-amount-series="customerAmountSeries"
+            :customer-quantity-series="customerQuantitySeries"
+            :is-loading="isLoading.customerDetails"
+            :currency="activeCurrency"
+            :can-see-money="canSeeMoney"
+            @close="selectedCustomer = null"
+          />
+        </div>
 
-      <!-- Sellers Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
-        <TopSellersList
-          :top-sellers="topSellers"
-          :is-loading="isLoading.topSellers"
-          :selected-seller="selectedSeller"
-          @select-seller="selectSeller"
-          :format-currency="formatCurrency"
-        />
-        <SellerDetails class="col-span-2"
-          v-if="selectedSeller"
-          :selected-seller="selectedSeller"
-          :seller-chart-options="sellerChartOptions"
-          :seller-chart-series="sellerChartSeries"
-          :is-loading="isLoading.sellerDetails"
-          @close="selectedSeller = null"
-          :format-currency="formatCurrency"
-        />
-      </div>
+        <!-- Sellers Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-5">
+          <TopSellersList
+            :top-sellers="topSellers"
+            :is-loading="isLoading.topSellers"
+            :selected-seller="selectedSeller"
+            @select-seller="selectSeller"
+            :format-currency="formatCurrency"
+          />
+          <SellerDetails class="col-span-2"
+            v-if="selectedSeller"
+            :selected-seller="selectedSeller"
+            :seller-chart-options="sellerChartOptions"
+            :seller-chart-series="sellerChartSeries"
+            :is-loading="isLoading.sellerDetails"
+            @close="selectedSeller = null"
+            :format-currency="formatCurrency"
+          />
+        </div>
 
-      <!-- Product Families Donut Charts -->
-      <FamiliesDonutCharts
-          class="mt-5"
-          :product-families-sales="productFamiliesSales"
-          :is-loading="isLoading.productFamiliesSales"
-          :get-family-donut-options="getFamilyDonutOptions"
-          :format-currency="formatCurrency"
-          :currency="activeCurrency"
+        <!-- Product Families Donut Charts -->
+        <FamiliesDonutCharts
+            class="mt-5"
+            :product-families-sales="productFamiliesSales"
+            :is-loading="isLoading.productFamiliesSales"
+            :get-family-donut-options="getFamilyDonutOptions"
+            :format-currency="formatCurrency"
+            :currency="activeCurrency"
+        />
+      </template>
+
+      <!-- ===== TAB: Productos más vendidos ===== -->
+      <TopSellingProductsAnalysis
+        v-else-if="activeTab === 'products'"
       />
     </div>
   </div>
@@ -136,6 +150,7 @@ import CustomerDetails from './Components/CustomerDetails.vue';
 import TopSellersList from './Components/TopSellersList.vue';
 import SellerDetails from './Components/SellerDetails.vue';
 import FamiliesDonutCharts from './Components/FamiliesDonutCharts.vue';
+import TopSellingProductsAnalysis from './Components/TopSellingProductsAnalysis.vue';
 import axios from 'axios';
 // import { useDark } from '@vueuse/core';
 import { ref, watch } from 'vue';
@@ -155,6 +170,7 @@ export default {
     FamiliesDonutCharts,
     TopSellersList,
     SellerDetails,
+    TopSellingProductsAnalysis,
   },
   setup() {
     // Composition API hook to get dark mode reactivity
@@ -177,6 +193,7 @@ export default {
       sellerSalesDetails: [],
 
       // State
+      activeTab: 'sales', // 'sales' | 'products'
       activePeriod: 'month',
       activeCurrency: 'MXN', // New state for currency
       customDateRange: [],
@@ -203,6 +220,13 @@ export default {
   computed: {
     isLoadingAny() {
         return Object.values(this.isLoading).some(val => val);
+    },
+    /**
+     * Solo los usuarios con el permiso "Ver cantidades de dinero" pueden ver importes.
+     */
+    canSeeMoney() {
+        const permissions = this.$page?.props?.auth?.user?.permissions ?? [];
+        return Array.isArray(permissions) && permissions.includes('Ver cantidades de dinero');
     },
     apiParams() {
         const params = {
@@ -475,6 +499,54 @@ export default {
       this.activeCurrency = currency;
       this.fetchAllData();
     },
+    /**
+     * Cambia entre la pestaña de ventas (MXN / USD) y la de productos más vendidos.
+     */
+    changeTab(tab, currency = null) {
+      const targetCurrency = currency ?? this.activeCurrency;
+      const tabChanged = this.activeTab !== tab;
+      const currencyChanged = this.activeCurrency !== targetCurrency;
+
+      this.activeTab = tab;
+      this.activeCurrency = targetCurrency;
+
+      // Refleja la pestaña activa en la URL (?tab=mxn|usd|products).
+      this.syncTabParam();
+
+      // El panel de productos maneja sus propias peticiones.
+      if (tab === 'products') return;
+
+      if (currencyChanged) {
+        this.selectedProduct = null;
+        this.selectedCustomer = null;
+        this.selectedSeller = null;
+        this.fetchAllData();
+      } else if (tabChanged) {
+        this.fetchAllData();
+      }
+    },
+    /**
+     * Escribe (sin recargar) la pestaña activa en el query string.
+     */
+    syncTabParam() {
+      if (typeof window === 'undefined') return;
+
+      const url = new URL(window.location.href);
+      const value = this.activeTab === 'products'
+        ? 'products'
+        : (this.activeCurrency === 'USD' ? 'usd' : 'mxn');
+
+      url.searchParams.set('tab', value);
+      window.history.replaceState(window.history.state, '', url.toString());
+    },
+    tabClass(isActive) {
+      return [
+        isActive
+          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+        'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200',
+      ];
+    },
     handleDateChange(dates) {
         if (dates && dates.length === 2) {
             this.fetchAllData();
@@ -514,6 +586,9 @@ export default {
         };
     },
     formatCurrency(value) {
+      // Sin permiso, cualquier importe se muestra enmascarado.
+      if (!this.canSeeMoney) return '***';
+
       const currencyCode = this.activeCurrency === 'USD' ? 'USD' : 'MXN';
       const locale = this.activeCurrency === 'USD' ? 'en-US' : 'es-MX';
       return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(value ?? 0);
@@ -530,7 +605,21 @@ export default {
         `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`,
         `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`
     ];
-    this.fetchAllData();
+
+    // Restaura la pestaña activa desde la URL (?tab=mxn|usd|products).
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+
+    if (tabParam === 'products') {
+      this.activeTab = 'products';
+    } else {
+      this.activeTab = 'sales';
+      this.activeCurrency = tabParam === 'usd' ? 'USD' : 'MXN';
+    }
+
+    // El panel de productos hace sus propias peticiones al montarse.
+    if (this.activeTab === 'sales') {
+      this.fetchAllData();
+    }
   },
 };
 </script>

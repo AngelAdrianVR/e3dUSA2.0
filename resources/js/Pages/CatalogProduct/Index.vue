@@ -29,26 +29,59 @@
                             Nueva muestra/regalo
                         </SecondaryButton>
 
-                        <!-- Filtros Rápidos -->
-                        <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                             <el-select v-model="productType" placeholder="Seleccionar tipo" class="!w-44">
-                                <el-option
-                                    v-for="item in productTypes"
-                                    :key="item.value"
-                                    :label="item.label"
-                                    :value="item.value"
-                                />
-                            </el-select>
+                        <!-- Filtros agrupados en un dropdown -->
+                        <el-popover placement="bottom-end" trigger="click" :width="320" popper-class="!p-0">
+                            <template #reference>
+                                <button type="button"
+                                    class="relative inline-flex items-center gap-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors">
+                                    <i class="fa-solid fa-filter text-gray-400"></i>
+                                    Filtros
+                                    <span v-if="activeFiltersCount"
+                                        class="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">
+                                        {{ activeFiltersCount }}
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                                </button>
+                            </template>
 
-                            <el-select v-if="!isMuestra" v-model="familyId" placeholder="Filtrar por familia" clearable class="!w-48">
-                                <el-option
-                                    v-for="fam in product_families"
-                                    :key="fam.id"
-                                    :label="fam.name"
-                                    :value="fam.id"
-                                />
-                            </el-select>
-                        </div>
+                            <div class="p-4 space-y-4 text-left">
+                                <div>
+                                    <p class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Tipo de producto</p>
+                                    <el-select v-model="productType" class="!w-full" :teleported="false">
+                                        <el-option
+                                            v-for="item in productTypes"
+                                            :key="item.value"
+                                            :label="item.label"
+                                            :value="item.value"
+                                        />
+                                    </el-select>
+                                </div>
+
+                                <div v-if="!isMuestra">
+                                    <p class="text-[11px] uppercase font-bold text-gray-500 dark:text-gray-400 mb-1">Familia</p>
+                                    <el-select v-model="familyId" placeholder="Todas las familias" clearable class="!w-full" :teleported="false">
+                                        <el-option
+                                            v-for="fam in product_families"
+                                            :key="fam.id"
+                                            :label="fam.name"
+                                            :value="fam.id"
+                                        />
+                                    </el-select>
+                                </div>
+
+                                <div v-if="!isMuestra" class="flex items-center justify-between gap-3 border-t border-gray-200 dark:border-slate-700 pt-3">
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-700 dark:text-gray-200">Solo con adeudos</p>
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">Productos con piezas pendientes de rebajar.</p>
+                                    </div>
+                                    <el-switch v-model="withShortages" />
+                                </div>
+
+                                <div class="flex justify-end border-t border-gray-200 dark:border-slate-700 pt-3">
+                                    <el-button size="small" @click="clearFilters">Limpiar filtros</el-button>
+                                </div>
+                            </div>
+                        </el-popover>
 
                         <!-- Acciones y Reportes Agrupados (no aplican a Muestras y regalos) -->
                         <div v-if="!isMuestra" class="flex items-center space-x-3">
@@ -156,7 +189,20 @@
                                                 </template>
                                             </el-table-column>
                                             <el-table-column prop="code" label="Código" width="160" />
-                                            <el-table-column prop="name" label="Nombre" />
+                                            <el-table-column prop="name" label="Nombre">
+                                                <template #default="variantScope">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="truncate">{{ variantScope.row.name }}</span>
+                                                        <el-tooltip v-if="shortagesForRow(variantScope.row).length"
+                                                            placement="top" :content="shortageTooltip(variantScope.row)">
+                                                            <button @click.stop="openShortages(variantScope.row)"
+                                                                class="text-amber-500 hover:text-amber-600 transition-colors shrink-0">
+                                                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                                            </button>
+                                                        </el-tooltip>
+                                                    </div>
+                                                </template>
+                                            </el-table-column>
                                             
                                             <el-table-column align="right" width="205">
                                                 <template #default="scope">
@@ -227,12 +273,21 @@
 
                             <el-table-column label="Imagen" width="85">
                                 <template #default="scope">
-                                    <figure class="border rounded-md size-14 flex items-center justify-center bg-white overflow-hidden shadow-sm">
-                                        <img @click.stop="openPreview($event)"
-                                            style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"
-                                            :src="scope.row.media?.[0]?.original_url"
-                                            @error="handleImageError" />
-                                    </figure>
+                                    <div class="relative w-max">
+                                        <figure class="border rounded-md size-14 flex items-center justify-center bg-white overflow-hidden shadow-sm">
+                                            <img @click.stop="openPreview($event)"
+                                                style="width: 100%; height: 100%; object-fit: contain; cursor: pointer;"
+                                                :src="scope.row.media?.[0]?.original_url"
+                                                @error="handleImageError" />
+                                        </figure>
+                                        <!-- Adeudo (piezas pendientes de rebajar): visible a simple vista -->
+                                        <el-tooltip v-if="shortagesForRow(scope.row).length" placement="top" :content="shortageTooltip(scope.row)">
+                                            <button @click.stop="openShortages(scope.row)"
+                                                class="absolute -top-1.5 -left-1.5 size-5 rounded-full bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-center shadow ring-2 ring-white dark:ring-slate-900 transition-colors">
+                                                <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                            </button>
+                                        </el-tooltip>
+                                    </div>
                                 </template>
                             </el-table-column>
                             
@@ -299,7 +354,8 @@
                                                 <div>
                                                     <p class="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Stock mínimo</p>
                                                     <el-input-number
-                                                        v-model="stockDrafts[scope.row.id].min_quantity"
+                                                        :model-value="getStockDraft(scope.row).min_quantity"
+                                                        @update:model-value="updateStockDraft(scope.row, 'min_quantity', $event)"
                                                         :min="0"
                                                         size="small"
                                                         controls-position="right"
@@ -309,7 +365,8 @@
                                                 <div>
                                                     <p class="text-[11px] text-gray-500 dark:text-gray-400 mb-1">Stock máximo</p>
                                                     <el-input-number
-                                                        v-model="stockDrafts[scope.row.id].max_quantity"
+                                                        :model-value="getStockDraft(scope.row).max_quantity"
+                                                        @update:model-value="updateStockDraft(scope.row, 'max_quantity', $event)"
                                                         :min="0"
                                                         size="small"
                                                         controls-position="right"
@@ -561,6 +618,61 @@
         </el-dialog>
         <!-- ======================================= -->
 
+        <!-- ====== MODAL: ADEUDOS (PIEZAS PENDIENTES DE REBAJAR) ====== -->
+        <el-dialog v-model="showShortagesModal" title="Piezas pendientes por rebajar" width="680px">
+            <div class="space-y-3">
+                <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    <template v-if="shortagesRow">
+                        <strong>{{ shortagesRow.name }}</strong> tiene
+                        {{ selectedRowShortagesTotal.toLocaleString('es-MX') }} {{ shortagesRow.measure_unit || 'pieza(s)' }}
+                        pendientes de rebajar de {{ selectedRowShortages.length }} orden(es) de venta.
+                    </template>
+                    La rebaja se confirma al registrar la entrada del producto desde su ficha.
+                </p>
+
+                <div v-for="shortage in selectedRowShortages" :key="shortage.id"
+                    class="flex items-start gap-3 p-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-900/20">
+                    <div class="size-14 flex-shrink-0 flex items-center justify-center bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-md overflow-hidden">
+                        <img v-if="shortage.order_product_image_url" :src="shortage.order_product_image_url"
+                            @error="handleImageError" alt="Producto de la orden" class="w-full h-full object-cover" />
+                        <i v-else class="fa-regular fa-image text-gray-400"></i>
+                    </div>
+
+                    <div class="flex-1 min-w-0">
+                        <p class="font-semibold text-sm text-gray-800 dark:text-gray-100 truncate" :title="shortage.order_product_name">
+                            {{ shortage.order_product_name }}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Código: {{ shortage.order_product_code || '--' }}
+                            <span v-if="shortage.is_component" class="ml-1">· Componente: {{ shortage.product_name }}</span>
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            {{ shortage.sale_folio }}
+                            <span v-if="shortage.branch_name">· {{ shortage.branch_name }}</span>
+                            · {{ formatShortageDate(shortage.sale_date) }}
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            <i class="fa-solid fa-user mr-1"></i>Vendedor: {{ shortage.seller_name || 'Sin asignar' }}
+                        </p>
+                    </div>
+
+                    <div class="text-right shrink-0">
+                        <p class="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">Se debe</p>
+                        <p class="font-bold text-amber-600 dark:text-amber-400">
+                            {{ Number(shortage.quantity_pending).toLocaleString('es-MX') }} {{ shortage.measure_unit }}
+                        </p>
+                        <p class="text-[10px] text-gray-500 dark:text-gray-400">
+                            de {{ Number(shortage.order_product_quantity).toLocaleString('es-MX') }} en la orden
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <template #footer>
+                <el-button @click="showShortagesModal = false">Cerrar</el-button>
+            </template>
+        </el-dialog>
+        <!-- ======================================= -->
+
         <!-- Visor de imagen manual -->
         <ElImageViewer
             v-if="showImageViewer"
@@ -595,6 +707,10 @@ export default {
             search: this.filters.search,
             productType: this.filters.product_type ?? 'Producto', // Simplificado
             familyId: this.filters.family_id ?? null,
+            // Filtro: solo productos con adeudos (piezas pendientes de rebajar)
+            withShortages: ['1', 1, true].includes(this.filters.with_shortages),
+            // Evita recargar la lista varias veces al limpiar los filtros en bloque
+            batchingFilters: false,
             selectedItems: [],
             showMassiveEditModal: false,
             // Selección de variantes por producto padre (para desvincular en lote)
@@ -612,6 +728,10 @@ export default {
             showMuestraModal: false,
             editingMuestraId: null,
             editingMuestraImage: null,
+
+            // --- Adeudos (faltantes) de órdenes de venta pendientes de rebajar ---
+            showShortagesModal: false,
+            shortagesRow: null,
             muestraForm: useForm({
                 _method: 'post',
                 name: '',
@@ -680,8 +800,37 @@ export default {
         products: Object,
         filters: Object,
         product_families: Array,
+        pending_shortages: {
+            type: Array,
+            default: () => [],
+        },
     },
     computed:{
+        // Número de filtros activos (para el badge del dropdown)
+        activeFiltersCount() {
+            let count = 0;
+
+            if (this.productType && this.productType !== 'Producto') count++;
+            if (this.familyId) count++;
+            if (this.withShortages) count++;
+
+            return count;
+        },
+        // Adeudos de la fila seleccionada (incluye los de sus variantes)
+        selectedRowShortages() {
+            if (!this.shortagesRow) return [];
+
+            const ids = [this.shortagesRow.id, ...(this.shortagesRow.variants || []).map(v => v.id)]
+                .map(Number);
+
+            return this.pending_shortages.filter(shortage => ids.includes(Number(shortage.product_id)));
+        },
+        selectedRowShortagesTotal() {
+            return this.selectedRowShortages.reduce(
+                (total, shortage) => total + Number(shortage.quantity_pending || 0),
+                0
+            );
+        },
         isMuestra() {
             return this.productType === 'Muestra';
         },
@@ -701,6 +850,38 @@ export default {
         }
     },
     methods: {
+        // Adeudos (faltantes) pendientes de rebajar de una fila (producto + variantes)
+        shortagesForRow(row) {
+            const ids = [row.id, ...(row.variants || []).map(v => v.id)].map(Number);
+
+            return this.pending_shortages.filter(
+                (shortage) => ids.includes(Number(shortage.product_id))
+            );
+        },
+        // Resumen del adeudo de una fila (producto + variantes) para el tooltip
+        shortageTooltip(row) {
+            const shortages = this.shortagesForRow(row);
+
+            const detail = shortages.map((shortage) => {
+                const quantity = Number(shortage.quantity_pending || 0).toLocaleString('es-MX');
+                const unit = shortage.measure_unit || 'pieza(s)';
+                const folio = shortage.sale_folio ? ` (${shortage.sale_folio})` : '';
+
+                return `${quantity} ${unit}${folio}`;
+            });
+
+            return `${shortages.length} adeudo(s) pendiente(s) de rebajar: ${detail.join(' · ')}`;
+        },
+        openShortages(row) {
+            this.shortagesRow = row;
+            this.showShortagesModal = true;
+        },
+        formatShortageDate(value) {
+            if (!value) return '';
+            return new Date(value).toLocaleDateString('es-MX', {
+                year: 'numeric', month: 'short', day: 'numeric',
+            });
+        },
         openVariantModal(parent) {
             this.variantParent = parent;
             
@@ -811,6 +992,7 @@ export default {
                 search: this.search,
                 product_type: this.productType,
                 family_id: this.familyId,
+                with_shortages: this.withShortages ? 1 : 0,
             }, {
                 preserveState: true,
                 replace: true,
@@ -819,14 +1001,39 @@ export default {
                 }
             });
         },
+        clearFilters() {
+            this.batchingFilters = true;
+            this.productType = 'Producto';
+            this.familyId = null;
+            this.withShortages = false;
+
+            this.$nextTick(() => {
+                this.batchingFilters = false;
+                this.fetchData();
+            });
+        },
         getProductStock(product) {
             if (product.storages && product.storages.length > 0) {
                 return product.storages[0];
             }
             return { quantity: 0, location: 'N/A' };
         },
+        // Borrador de límites de stock de una fila. Si aún no existe (p. ej. justo
+        // después de aplicar un filtro), se construye con los valores actuales.
+        getStockDraft(row) {
+            return this.stockDrafts[row.id] ?? {
+                min_quantity: row.min_quantity ?? null,
+                max_quantity: row.max_quantity ?? null,
+            };
+        },
+        updateStockDraft(row, field, value) {
+            this.stockDrafts[row.id] = {
+                ...this.getStockDraft(row),
+                [field]: value,
+            };
+        },
         async saveStockLimits(row) {
-            const draft = this.stockDrafts[row.id] || {};
+            const draft = this.getStockDraft(row);
             this.savingStockLimitsId = row.id;
             try {
                 const response = await axios.put(route('products.update-stock-limits', row.id), {
@@ -1132,14 +1339,31 @@ export default {
             this.fetchData();
         }, 300),
         productType(newType) {
-            // Las muestras/regalos no pertenecen a familias: limpiamos el filtro para no dejar la lista vacía.
-            if (newType === 'Muestra' && this.familyId !== null) {
-                this.familyId = null; // Su watcher se encarga de recargar la lista
+            if (this.batchingFilters) return;
+
+            // Las muestras/regalos no pertenecen a familias ni manejan adeudos:
+            // limpiamos esos filtros para no dejar la lista vacía.
+            if (newType === 'Muestra' && (this.familyId !== null || this.withShortages)) {
+                this.batchingFilters = true;
+                this.familyId = null;
+                this.withShortages = false;
+
+                this.$nextTick(() => {
+                    this.batchingFilters = false;
+                    this.fetchData();
+                });
+
                 return;
             }
+
             this.fetchData();
         },
         familyId() {
+            if (this.batchingFilters) return;
+            this.fetchData();
+        },
+        withShortages() {
+            if (this.batchingFilters) return;
             this.fetchData();
         },
         // Mantiene los borradores de stock sincronizados con la página actual

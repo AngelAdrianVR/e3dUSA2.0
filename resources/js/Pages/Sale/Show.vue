@@ -585,10 +585,18 @@
                                                 :title="file.file_name">
                                                 <i class="fa-regular fa-file-pdf mr-1"></i>{{ file.file_name }}
                                             </a>
-                                            <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
-                                                class="text-gray-400 hover:text-red-500 shrink-0" @click="deleteInvoiceFile(file)">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <el-tooltip content="Descargar" placement="top">
+                                                    <a :href="route('sales.invoice-files.download-file', [sale.id, file.id])"
+                                                        class="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                                        <i class="fa-solid fa-download text-xs"></i>
+                                                    </a>
+                                                </el-tooltip>
+                                                <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
+                                                    class="text-gray-400 hover:text-red-500" @click="deleteInvoiceFile(file)">
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                                </button>
+                                            </div>
                                         </li>
                                     </ul>
                                 </div>
@@ -620,10 +628,18 @@
                                                 :title="file.file_name">
                                                 <i class="fa-regular fa-file-code mr-1"></i>{{ file.file_name }}
                                             </a>
-                                            <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
-                                                class="text-gray-400 hover:text-red-500 shrink-0" @click="deleteInvoiceFile(file)">
-                                                <i class="fa-solid fa-trash-can text-xs"></i>
-                                            </button>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                <el-tooltip content="Descargar" placement="top">
+                                                    <a :href="route('sales.invoice-files.download-file', [sale.id, file.id])"
+                                                        class="text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                                        <i class="fa-solid fa-download text-xs"></i>
+                                                    </a>
+                                                </el-tooltip>
+                                                <button v-if="canUploadInvoiceFiles" type="button" title="Eliminar archivo"
+                                                    class="text-gray-400 hover:text-red-500" @click="deleteInvoiceFile(file)">
+                                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                                </button>
+                                            </div>
                                         </li>
                                     </ul>
                                 </div>
