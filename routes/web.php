@@ -148,6 +148,7 @@ Route::post('catalog-products/massive-obsolet', [ProductController::class, 'mass
 Route::post('catalog-products/detach-variants', [ProductController::class, 'detachVariants'])->middleware('auth')->name('catalog-products.detach-variants');
 Route::get('products-find-similar', [ProductController::class, 'findSimilar'])->middleware('auth')->name('catalog-products.find-similar');
 Route::post('products/{product}/stock-movement', [ProductController::class, 'handleStockMovement'])->middleware('auth')->name('products.stock-movement');
+Route::post('products/{product}/stock-shortages/{stockShortage}/resolve', [ProductController::class, 'resolveStockShortage'])->middleware('auth')->name('products.stock-shortage.resolve');
 Route::post('products-fetch-products', [ProductController::class, 'fetchProducts'])->middleware('auth')->name('products.fetch-products');
 Route::post('catalog-products/QR-search-catalog-product', [ProductController::class, 'QRSearchCatalogProduct'])->middleware('auth')->name('catalog-products.QR-search-catalog-product');
 Route::put('/products/{product}/simple-update', [ProductController::class, 'simpleUpdate'])->middleware('auth')->name('products.simple-update');
@@ -286,6 +287,7 @@ Route::post('sales/{sale}/clone', [SaleController::class, 'clone'])->middleware(
 Route::post('sales/{sale}/oce-media', [SaleController::class, 'uploadOceMedia'])->middleware('auth')->name('sales.oce-media');
 Route::post('sales/{sale}/invoice-media', [SaleController::class, 'uploadInvoiceMedia'])->middleware('auth')->name('sales.invoice-media');
 Route::delete('sales/{sale}/invoice-media/{media}', [SaleController::class, 'destroyInvoiceMedia'])->middleware('auth')->name('sales.invoice-media.destroy');
+Route::get('sales/{sale}/invoice-files/{media}/download', [SaleController::class, 'downloadInvoiceFile'])->middleware('auth')->name('sales.invoice-files.download-file');
 Route::put('sales/authorize/{sale}', [SaleController::class, 'authorizeSale'])->middleware('auth')->name('sales.authorize');
 Route::put('sales/unauthorize/{sale}', [SaleController::class, 'unauthorizeSale'])->middleware('auth')->name('sales.unauthorize');
 Route::post('sales-get-matches', [SaleController::class, 'getMatches'])->middleware('auth')->name('sales.get-matches');

@@ -75,6 +75,27 @@
                                         <span class="font-semibold text-gray-700 dark:text-gray-200">{{ sale.production_summary.completed_productions }} / {{ sale.production_summary.total_productions }}</span>
                                     </div>
 
+                                    <!-- Indicador de adeudos (faltantes de material) de la orden -->
+                                    <el-tooltip v-if="saleShortages(sale).length" placement="top" effect="dark" :hide-after="0">
+                                        <template #content>
+                                            <div class="text-xs space-y-1 min-w-[190px]">
+                                                <p class="font-semibold border-b border-slate-600 pb-1 mb-1">Adeudo pendiente de rebajar</p>
+                                                <div v-for="shortage in saleShortages(sale)" :key="shortage.id" class="flex justify-between gap-3">
+                                                    <span>{{ shortage.product?.name }}</span>
+                                                    <span class="font-bold text-amber-400">{{ formatShortageQuantity(shortage.quantity_pending) }} {{ shortage.product?.measure_unit }}</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <div class="flex justify-between items-center cursor-help rounded-md bg-amber-100 dark:bg-amber-900/40 px-2 py-1">
+                                            <span class="flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300">
+                                                <i class="fa-solid fa-triangle-exclamation"></i> Adeudo
+                                            </span>
+                                            <span class="font-bold text-amber-700 dark:text-amber-300">
+                                                {{ formatShortageQuantity(saleShortageTotal(sale)) }} pz
+                                            </span>
+                                        </div>
+                                    </el-tooltip>
+
                                     <!-- Collapse para detallar productos y sus tareas -->
                                      <div @click.stop="" class="mt-2 -mx-4">
                                         <el-collapse class="products-collapse">
@@ -125,6 +146,13 @@
                                                                     </p>
                                                                     <p class="text-xs text-gray-400">Cantidad: {{ item.quantity_to_produce }}</p>
                                                                     <p class="text-xs text-red-400">Merma: {{ getProductionForProduct(sale, item.id)?.scrap || 0 }}</p>
+                                                                    <p v-if="item.shortages?.length" class="text-xs text-amber-500 flex items-center gap-1">
+                                                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                        Adeudo:
+                                                                        <span v-for="(shortage, idx) in item.shortages" :key="shortage.id">
+                                                                            {{ idx > 0 ? ', ' : '' }}{{ shortage.product?.name }} ({{ formatShortageQuantity(shortage.quantity_pending) }})
+                                                                        </span>
+                                                                    </p>
                                                                 </div>
                                                             </div>
                                                         </el-tooltip>
@@ -225,6 +253,26 @@
                             </span>
                         </template>
                     </el-table-column>
+                    <el-table-column label="Adeudo" width="110" align="center">
+                        <template #default="scope">
+                            <el-tooltip v-if="saleShortages(scope.row).length" placement="top" effect="dark">
+                                <template #content>
+                                    <div class="text-xs space-y-1 min-w-[190px]">
+                                        <p class="font-semibold border-b border-slate-600 pb-1 mb-1">Adeudo pendiente de rebajar</p>
+                                        <div v-for="shortage in saleShortages(scope.row)" :key="shortage.id" class="flex justify-between gap-3">
+                                            <span>{{ shortage.product?.name }}</span>
+                                            <span class="font-bold text-amber-400">{{ formatShortageQuantity(shortage.quantity_pending) }} {{ shortage.product?.measure_unit }}</span>
+                                        </div>
+                                    </div>
+                                </template>
+                                <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-0.5 text-xs font-bold cursor-help">
+                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                    {{ formatShortageQuantity(saleShortageTotal(scope.row)) }}
+                                </span>
+                            </el-tooltip>
+                            <span v-else class="text-gray-400 dark:text-gray-600">--</span>
+                        </template>
+                    </el-table-column>
                     <el-table-column label="Progreso Tareas" width="220">
                          <template #default="scope">
                             <div>
@@ -300,6 +348,27 @@ export default {
         }
     },
     methods: {
+        // Adeudos (piezas pendientes de rebajar) de una orden de producción.
+        saleShortages(sale) {
+            const items = [];
+
+            (sale.sale_products || []).forEach(saleProduct => {
+                (saleProduct.shortages || []).forEach(shortage => {
+                    items.push({ ...shortage, order_product_name: saleProduct.product?.name });
+                });
+            });
+
+            return items;
+        },
+        saleShortageTotal(sale) {
+            return this.saleShortages(sale).reduce(
+                (total, shortage) => total + Number(shortage.quantity_pending || 0),
+                0
+            );
+        },
+        formatShortageQuantity(value) {
+            return Number(value || 0).toLocaleString('es-MX');
+        },
         getProgressBarStyle(percentage) {
              const red = [239, 68, 68], yellow = [245, 158, 11], green = [34, 197, 94];
              let color;

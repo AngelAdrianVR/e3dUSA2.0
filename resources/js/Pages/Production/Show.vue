@@ -191,10 +191,29 @@
                                     <div v-else class="text-gray-300 dark:text-gray-600 text-center">
                                         <i class="fa-regular fa-image text-5xl"></i>
                                     </div>
+                                    <!-- Adeudo pendiente: piezas que se deben de este producto/componente -->
+                                    <el-tooltip v-if="item.shortages?.length" placement="top" effect="dark">
+                                        <template #content>
+                                            <div class="text-xs space-y-1 min-w-[170px]">
+                                                <p class="font-semibold border-b border-slate-600 pb-1 mb-1">Adeudo pendiente</p>
+                                                <div v-for="shortage in item.shortages" :key="shortage.id" class="flex justify-between gap-3">
+                                                    <span>{{ shortage.product?.name }}</span>
+                                                    <span class="font-bold dark:text-amber-700 text-amber-400">{{ Number(shortage.quantity_pending).toLocaleString('es-MX') }}</span>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <span class="absolute -top-1.5 -left-1.5 size-5 rounded-full bg-amber-500 text-white flex items-center justify-center shadow ring-2 ring-white dark:ring-slate-900">
+                                            <i class="fa-solid fa-triangle-exclamation text-[10px]"></i>
+                                        </span>
+                                    </el-tooltip>
                                 </div>
                                 <div class="flex-1 ml-4">
                                     <p class="font-semibold">{{ item.product.name }}</p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ item.product.code }}</p>
+                                    <p v-if="item.shortages?.length" class="text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-start gap-1 mt-0.5">
+                                        <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                                        <span>{{ shortageSummary(item) }}</span>
+                                    </p>
                                 </div>
                                 <span class="font-bold text-gray-700 dark:text-gray-300">{{ item.quantity.toLocaleString() }} pz.</span>
                             </div>
@@ -311,13 +330,44 @@
                                         <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
                                         <!-- <p class="text-3xl font-bold text-sky-800 dark:text-sky-100 mt-1">{{ (selectedProduction?.quantity_to_produce ?? selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p> -->
                                     </div>
-                                    <div class="bg-indigo-50 dark:bg-indigo-900/40 rounded-lg p-4 text-center">
-                                        <p class="text-sm font-medium text-indigo-600 dark:text-indigo-300">Producido / Avances</p>
-                                        <p class="text-3xl font-bold text-indigo-800 dark:text-indigo-100 mt-1">{{ selectedProduction?.good_units?.toLocaleString() || 0 }}</p>
-                                    </div>
                                     <div class="bg-emerald-50 dark:bg-emerald-900/40 rounded-lg p-4 text-center">
                                         <p class="text-sm font-medium text-emerald-600 dark:text-emerald-300">Tomado de Stock</p>
                                         <p class="text-3xl font-bold text-emerald-800 dark:text-emerald-100 mt-1">{{ (selectedSaleProduct.quantity - selectedSaleProduct.quantity_to_produce).toLocaleString() }}</p>
+                                    </div>
+
+                                    <!-- Adeudo de piezas pendientes de rebajar (desaparece al liquidarlo) -->
+                                    <div v-if="selectedSaleProduct.shortages?.length"
+                                        class="bg-amber-50 dark:bg-amber-900/30 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                                        <p class="text-sm font-medium text-amber-700 dark:text-amber-300 text-center mb-2">
+                                            <i class="fa-solid fa-triangle-exclamation mr-1"></i>Adeudo pendiente
+                                        </p>
+                                        <ul class="space-y-2">
+                                            <li v-for="shortage in selectedSaleProduct.shortages" :key="shortage.id"
+                                                class="flex items-center justify-between gap-2 bg-white dark:bg-slate-800 p-2 rounded border border-amber-100 dark:border-amber-800">
+                                                <div class="flex items-center gap-2 min-w-0">
+                                                    <img v-if="shortage.product?.media?.length"
+                                                        :src="shortage.product.media[0].original_url"
+                                                        @error="handleImageError"
+                                                        :alt="shortage.product?.name"
+                                                        class="size-8 rounded object-cover bg-gray-100 flex-shrink-0">
+                                                    <div v-else class="size-8 rounded bg-gray-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                                        <i class="fa-solid fa-image text-gray-400 text-xs"></i>
+                                                    </div>
+                                                    <div class="min-w-0">
+                                                        <p class="text-xs font-semibold text-gray-700 dark:text-gray-200 truncate" :title="shortage.product?.name">
+                                                            {{ shortage.product?.name || 'Producto' }}
+                                                        </p>
+                                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                                            {{ shortage.is_component ? 'Componente' : 'Producto terminado' }}
+                                                            · Código: {{ shortage.product?.code || '--' }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span class="font-bold text-amber-600 dark:text-amber-400 shrink-0 text-sm">
+                                                    {{ Number(shortage.quantity_pending).toLocaleString('es-MX') }} {{ shortage.product?.measure_unit || 'pz' }}
+                                                </span>
+                                            </li>
+                                        </ul>
                                     </div>
                                     
                                     <!-- Nueva vista para Merma -->
@@ -719,6 +769,14 @@ export default {
         }
     },
     methods: {
+        // Resumen del adeudo de una línea de la orden (componentes y piezas pendientes).
+        shortageSummary(item) {
+            const shortages = item.shortages || [];
+
+            return 'Adeudo: ' + shortages
+                .map(shortage => `${shortage.product?.name || 'Componente'} (${Number(shortage.quantity_pending).toLocaleString('es-MX')})`)
+                .join(', ');
+        },
         handleImageError(event) {
             const img = event.target;
             const currentSrc = img.src;

@@ -203,6 +203,12 @@ class Product extends Model implements HasMedia, Auditable
         return $this->hasMany(Product::class, 'parent_id');
     }
 
+    /** Faltantes de inventario (adeudos) generados por órdenes de venta */
+    public function shortages(): HasMany
+    {
+        return $this->hasMany(StockShortage::class);
+    }
+
     public function scopeBaseProducts(Builder $query): Builder
     {
         return $query->whereNull('parent_id');

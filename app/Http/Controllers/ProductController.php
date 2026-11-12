@@ -19,6 +19,7 @@ use App\Exports\CatalogProductPricesExportABC;
 use App\Exports\CatalogProductPricesExportPriceABC;
 use App\Models\Branch;
 use App\Models\SaleProduct;
+use App\Models\StockShortage;
 use App\Services\MuestraProductService;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -30,6 +31,7 @@ class ProductController extends Controller
         $productType = $request->input('product_type', 'Producto'); 
         $familyId = $request->input('family_id');
         $searchTerm = $request->input('search');
+        $withShortages = $request->boolean('with_shortages');
 
         // Iniciar la consulta base para el index (sin baseProducts() todavía)
         $query = Product::query()
@@ -60,6 +62,14 @@ class ProductController extends Controller
             $query->where('product_family_id', $familyId);
         }
 
+        // Solo productos con piezas pendientes de rebajar (las propias o las de sus variantes).
+        if ($withShortages) {
+            $query->where(function ($q) {
+                $q->whereHas('shortages', fn ($shortageQuery) => $shortageQuery->pending())
+                  ->orWhereHas('variants.shortages', fn ($shortageQuery) => $shortageQuery->pending());
+            });
+        }
+
         if ($searchTerm) {
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
@@ -74,10 +84,15 @@ class ProductController extends Controller
 
         $products = $query->latest('id')->paginate(20)->withQueryString();
 
+        // Adeudos (faltantes) de órdenes de venta de los productos listados y sus variantes.
+        $pendingShortageProductIds = $products->getCollection()
+            ->flatMap(fn (Product $item) => collect([$item->id])->merge($item->variants->pluck('id')));
+
         return Inertia::render('CatalogProduct/Index', [
             'products' => $products,
-            'filters' => $request->only(['product_type', 'family_id', 'search']),
+            'filters' => $request->only(['product_type', 'family_id', 'search', 'with_shortages']),
             'product_families' => ProductFamily::all(),
+            'pending_shortages' => $this->pendingShortagesForIds($pendingShortageProductIds),
         ]);
     }
 
@@ -328,6 +343,145 @@ class ProductController extends Controller
 
         return Inertia::render('CatalogProduct/Show', [
             'product' => $catalog_product,
+            'pending_shortages' => $this->pendingShortagesFor($catalog_product),
+        ]);
+    }
+
+    /**
+     * Faltantes (adeudos) de órdenes de venta que aún no se han rebajado del almacén.
+     * Se incluyen los del producto y los de sus variantes para que la vista pueda
+     * filtrarlos según el producto que se esté consultando.
+     */
+    private function pendingShortagesFor(Product $product)
+    {
+        return $this->pendingShortagesForIds(
+            collect([$product->id])->merge($product->variants->pluck('id'))
+        );
+    }
+
+    /**
+     * Faltantes pendientes para un conjunto de productos (incluye datos de la orden,
+     * del producto vendido y del vendedor que creó la OV).
+     */
+    private function pendingShortagesForIds($productIds)
+    {
+        $productIds = collect($productIds)->unique()->values();
+
+        if ($productIds->isEmpty()) {
+            return [];
+        }
+
+        return StockShortage::with([
+            'product:id,name,code,measure_unit',
+            'product.media',
+            'sale:id,type,branch_id,user_id,created_at',
+            'sale.branch:id,name',
+            'sale.user:id,name',
+            'saleProduct:id,sale_id,product_id,quantity',
+            'saleProduct.product:id,name,code,parent_id',
+            'saleProduct.product.media',
+            'saleProduct.product.parent:id,name,code',
+            'saleProduct.product.parent.media',
+        ])
+            ->whereIn('product_id', $productIds)
+            ->pending()
+            ->orderBy('created_at')
+            ->get()
+            ->map(function (StockShortage $shortage) {
+                $orderProduct = $shortage->saleProduct?->product;
+                $imageUrl = $orderProduct?->getFirstMediaUrl('images')
+                    ?: $orderProduct?->parent?->getFirstMediaUrl('images')
+                    ?: null;
+
+                return [
+                    'id' => $shortage->id,
+                    'product_id' => $shortage->product_id,
+                    'product_name' => $shortage->product?->name,
+                    'product_code' => $shortage->product?->code,
+                    'measure_unit' => $shortage->product?->measure_unit,
+                    'is_component' => (bool) $shortage->is_component,
+                    'quantity' => (float) $shortage->quantity,
+                    'quantity_pending' => (float) $shortage->quantity_pending,
+                    'sale_folio' => $shortage->folio,
+                    'sale_date' => $shortage->sale?->created_at,
+                    'branch_name' => $shortage->sale?->branch?->name,
+                    'seller_name' => $shortage->sale?->user?->name,
+                    'order_product_name' => $orderProduct?->name,
+                    'order_product_code' => $orderProduct?->code,
+                    'order_product_quantity' => (float) ($shortage->saleProduct?->quantity ?? 0),
+                    'order_product_image_url' => $imageUrl,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rebaja del almacén las piezas que se debían de una orden de venta, una vez que
+     * el usuario confirma la rebaja al registrar la entrada del producto.
+     */
+    public function resolveStockShortage(Request $request, Product $product, StockShortage $stockShortage)
+    {
+        abort_unless((int) $stockShortage->product_id === (int) $product->id, 404);
+
+        try {
+            $result = DB::transaction(function () use ($product, $stockShortage) {
+                $shortage = StockShortage::whereKey($stockShortage->id)->lockForUpdate()->first();
+
+                if (!$shortage || (float) $shortage->quantity_pending <= 0) {
+                    return ['deducted' => 0.0, 'remaining' => 0.0, 'folio' => null];
+                }
+
+                $storage = $product->storages()->lockForUpdate()->first();
+
+                if (!$storage || (float) $storage->quantity <= 0) {
+                    throw ValidationException::withMessages([
+                        'quantity' => 'No hay existencias de este producto para rebajar el adeudo.',
+                    ]);
+                }
+
+                $toDeduct = min((float) $shortage->quantity_pending, (float) $storage->quantity);
+                $remaining = round((float) $shortage->quantity_pending - $toDeduct, 2);
+
+                $storage->decrement('quantity', $toDeduct);
+
+                $folio = $shortage->folio;
+
+                $storage->stockMovements()->create([
+                    'product_id' => $product->id,
+                    'quantity_change' => $toDeduct,
+                    'type' => 'Salida',
+                    'notes' => "Rebaja de piezas pendientes de {$folio} ({$shortage->saleProduct?->product?->name})",
+                ]);
+
+                $shortage->update([
+                    'quantity_pending' => max($remaining, 0),
+                    'resolved_at' => $remaining <= 0 ? now() : null,
+                    'resolved_by' => auth()->id(),
+                ]);
+
+                return ['deducted' => $toDeduct, 'remaining' => max($remaining, 0), 'folio' => $folio];
+            });
+        } catch (ValidationException $e) {
+            return response()->json([
+                'message' => collect($e->errors())->flatten()->first(),
+            ], 422);
+        }
+
+        if ($result['deducted'] <= 0) {
+            return response()->json([
+                'message' => 'El adeudo ya no tiene piezas pendientes.',
+            ], 422);
+        }
+
+        $message = $result['remaining'] > 0
+            ? "Se rebajaron {$result['deducted']} piezas de {$result['folio']}. Quedan {$result['remaining']} pendientes."
+            : "Se rebajaron {$result['deducted']} piezas de {$result['folio']}.";
+
+        return response()->json([
+            'message' => $message,
+            'deducted' => $result['deducted'],
+            'remaining' => $result['remaining'],
         ]);
     }
 

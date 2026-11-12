@@ -403,6 +403,9 @@
                                                 <p v-if="currentProduct.isClientProduct" class="text-green-600 dark:text-green-400 font-semibold mt-1">
                                                     Precio actual a este cliente: <strong>${{ formatNumber(currentProduct.current_price) ?? '0.00' }}</strong>
                                                 </p>
+                                                <p v-if="currentProduct.isClientProduct && !currentProduct.price_history?.length" class="text-xs text-gray-500 dark:text-gray-400 italic mt-1">
+                                                    Este cliente aún no tiene un precio de referencia registrado para este producto.
+                                                </p>
 
                                                 <!-- Precios especiales por volumen del cliente -->
                                                 <el-tooltip v-if="currentProduct.isClientProduct && currentProduct.volume_prices?.length" placement="right" :teleported="false">
@@ -419,6 +422,21 @@
                                                         <i class="fa-solid fa-layer-group mr-1"></i> Ver precios especiales por volumen
                                                     </span>
                                                 </el-tooltip>
+
+                                                <!-- Antigüedad del precio de referencia (semáforo) -->
+                                                <div v-if="currentProduct.isClientProduct && clientPriceAge"
+                                                    class="mt-2 inline-flex items-center gap-2 rounded-md py-1 px-2 text-xs font-medium"
+                                                    :class="clientPriceAge.classMap">
+                                                    <i class="fa-solid fa-clock-rotate-left opacity-70"></i>
+                                                    Último cambio de precio: {{ clientPriceAge.text }}
+                                                </div>
+
+                                                <!-- Actualizar precio de referencia del cliente -->
+                                                <button v-if="currentProduct.isClientProduct" type="button" @click="openClientPriceModal"
+                                                    class="mt-2 flex items-center gap-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 transition-colors">
+                                                    <i class="fa-solid fa-dollar-sign"></i>
+                                                    Actualizar precio de referencia para este cliente
+                                                </button>
                                             </template>
                                         </div>
                                     </div>
@@ -748,6 +766,15 @@
             @close="vendorAlert.show = false"
         />
 
+        <!-- Actualización del precio de referencia del cliente -->
+        <ClientPriceUpdateModal
+            :show="showClientPriceModal"
+            :branch-id="form.branch_id"
+            :product="priceModalProduct"
+            @close="showClientPriceModal = false"
+            @updated="handleClientPriceUpdated"
+        />
+
     </AppLayout>
 </template>
 
@@ -771,6 +798,7 @@ import { useForm, router } from "@inertiajs/vue3";
 import axios from 'axios';
 import Editor from '@tinymce/tinymce-vue';
 import ClientProductsDrawer from "@/Pages/Sale/Components/ClientProductsDrawer.vue";
+import ClientPriceUpdateModal from "@/Components/MyComponents/ClientPriceUpdateModal.vue";
 import VendorAssignmentAlert from "@/Components/MyComponents/VendorAssignmentAlert.vue";
 
 export default {
@@ -838,6 +866,7 @@ export default {
                 customization_details: [],
                 isClientProduct: false,
                 current_price: null,
+                price_history: [],
                 volume_prices: [],
                 show_image: true,
                 media: null,
@@ -858,6 +887,9 @@ export default {
             clientProducts: [],
             loadingClientProducts: false,
             loadingProductData: false,
+            // Actualización del precio de referencia del cliente
+            showClientPriceModal: false,
+            priceModalProduct: null,
             firstProductionDaysList: ['Inmediata', '1 a 2 días', '2 a 3 días', '3 a 4 días', '4 a 5 días', '5 a 6 días', '1 semana', '1 a 2 semanas', '3 a 4 semanas', '5 a 6 semanas', '7 a 8 semanas', '9 a 10 semanas', '11 a 12 semanas', '13 a 14 semanas', '15 a 16 semanas', '17 a 18 semanas'],
             firstProductionDaysListEnglish: ['Immediate', '1 to 2 days', '2 to 3 days', '3 to 4 days', '4 to 5 days', '5 to 6 days', '1 to 2 weeks', '3 to 4 weeks', '5 to 6 weeks', '7 to 8 weeks', '9 to 10 weeks', '11 to 12 weeks', '13 to 14 weeks', '15 to 16 weeks', '17 to 18 weeks'],
             tinyApiKey: '6wv6th13eisrze7klszq4wnlmgjcgaodezi469shqsn3v1zc',
@@ -873,13 +905,42 @@ export default {
     components: {
         Back, Editor, Checkbox, TextInput, AppLayout, InputError, InputLabel, BranchNotes,
         CancelButton, PrimaryButton, LoadingIsoLogo, SecondaryButton, ConfirmationModal,
-        ClientProductsDrawer, VendorAssignmentAlert,
+        ClientProductsDrawer, ClientPriceUpdateModal, VendorAssignmentAlert,
     },
     props: {
         catalogProducts: Array,
         branches: Array,
     },
     computed: {
+        // Antigüedad del precio de referencia del cliente (semáforo como en el drawer de productos del cliente).
+        clientPriceAge() {
+            const history = this.currentProduct.price_history ?? [];
+            const active = history.find(h => !h.valid_to) ?? history[0];
+
+            if (!active?.valid_from) return null;
+
+            const from = new Date(active.valid_from);
+            const now = new Date();
+            const diffMonths = (now - from) / (1000 * 60 * 60 * 24 * 30);
+
+            let months = Math.floor(diffMonths);
+            let text;
+
+            if (diffMonths < 1) {
+                text = 'menos de un mes';
+            } else if (diffMonths < 12) {
+                text = `hace ${months} mes${months > 1 ? 'es' : ''}`;
+            } else {
+                const years = Math.floor(diffMonths / 12);
+                text = `hace ${years} año${years > 1 ? 's' : ''}`;
+            }
+
+            const classMap = diffMonths <= 6
+                ? 'bg-green-200 text-green-900'
+                : (diffMonths < 12 ? 'bg-amber-300 text-amber-900' : 'bg-red-400 text-red-950');
+
+            return { text, classMap };
+        },
         // Productos disponibles en el selector según la fuente elegida (todos o solo del cliente).
         selectableBaseProducts() {
             if (this.productSource === 'all') return this.localCatalogProducts;
@@ -1122,6 +1183,7 @@ export default {
                 customization_details: [],
                 isClientProduct: false,
                 current_price: null,
+                price_history: [],
                 volume_prices: [],
                 media: null,
                 storages: [],
@@ -1179,6 +1241,33 @@ export default {
             }
             return `${min} - ${this.formatQuantity(tier.max_quantity)}`;
         },
+        // Abre el modal para actualizar el precio de referencia del cliente.
+        openClientPriceModal() {
+            const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+
+            if (!clientProduct) {
+                ElMessage.warning('Este producto no está registrado para este cliente.');
+                return;
+            }
+
+            this.priceModalProduct = clientProduct;
+            this.showClientPriceModal = true;
+        },
+        // Refresca el precio vigente del producto seleccionado tras actualizarlo.
+        async handleClientPriceUpdated() {
+            await this.fetchClientProducts(this.form.branch_id);
+
+            const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
+            if (!clientProduct) return;
+
+            this.currentProduct.price_history = clientProduct.price_history ?? [];
+            this.currentProduct.current_price = (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price)
+                ? clientProduct.price_history[0].price
+                : clientProduct.base_price;
+            this.currentProduct.unit_price = this.currentProduct.current_price;
+            this.currentProduct.min_price = this.currentProduct.unit_price || 0;
+            this.currentProduct.volume_prices = clientProduct.volume_prices ?? [];
+        },
         // Limpia la selección de producto base cuando deja de estar disponible (cambio de fuente).
         resetBaseProductSelection() {
             this.selectedBaseProductId = null;
@@ -1188,6 +1277,7 @@ export default {
             this.currentProduct.id = null;
             this.currentProduct.isClientProduct = false;
             this.currentProduct.current_price = null;
+            this.currentProduct.price_history = [];
             this.currentProduct.unit_price = null;
             this.currentProduct.min_price = 0;
             this.currentProduct.volume_prices = [];
@@ -1221,6 +1311,7 @@ export default {
                     const clientProduct = this.clientProducts.find(p => p.id === this.currentProduct.id);
                     if (clientProduct) {
                         this.currentProduct.isClientProduct = true;
+                        this.currentProduct.price_history = clientProduct.price_history ?? [];
                         this.currentProduct.current_price = (!clientProduct.price_history?.[0]?.valid_to && clientProduct.price_history?.[0]?.price) 
                             ? clientProduct.price_history[0].price : clientProduct.base_price;
                         this.currentProduct.unit_price = this.currentProduct.current_price;
@@ -1228,6 +1319,7 @@ export default {
                     } else {
                         this.currentProduct.isClientProduct = false;
                         this.currentProduct.current_price = null;
+                        this.currentProduct.price_history = [];
                         this.currentProduct.volume_prices = [];
                     }
                     this.currentProduct.min_price = this.currentProduct.unit_price || 0;
