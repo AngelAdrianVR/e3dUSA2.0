@@ -240,8 +240,9 @@ class BranchController extends Controller
             'contacts.*.birth_day' => 'nullable|integer|between:1,31',
             'contacts.*.prefix' => 'nullable|string|max:50',
 
-            // Justificación obligatoria cuando el candado de contactos repetidos está activo.
+            // Justificación y evidencia obligatorias cuando hay contactos repetidos y el candado está activo.
             'duplicate_contacts_reason' => 'nullable|string|max:1000',
+            'duplicate_contacts_evidence' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
 
             // Validación para productos asignados
             'products' => 'nullable|array',
@@ -260,7 +261,8 @@ class BranchController extends Controller
         $this->validateContactRules(
             $validated['contacts'] ?? [],
             $duplicatedContacts,
-            $validated['duplicate_contacts_reason'] ?? null
+            $validated['duplicate_contacts_reason'] ?? null,
+            $request->hasFile('duplicate_contacts_evidence')
         );
 
         DB::transaction(function () use ($validated, $request, $duplicatedContacts, &$branch) {
@@ -378,6 +380,13 @@ class BranchController extends Controller
             // 5. Guardar el documento CSF (Constancia de Situación Fiscal)
             if ($request->hasFile('csf')) {
                 $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
+            }
+
+            if (!empty($duplicatedContactIds)
+                && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)
+                && $request->hasFile('duplicate_contacts_evidence')) {
+                $branch->addMediaFromRequest('duplicate_contacts_evidence')
+                    ->toMediaCollection('duplicate_contacts_evidence');
             }
 
             // 6. Consolida los productos del grupo al que pertenece la nueva sucursal.
@@ -705,8 +714,9 @@ class BranchController extends Controller
             'suggested_products' => 'nullable|array',
             'suggested_products.*' => 'exists:products,id',
 
-            // Justificación obligatoria cuando el candado de contactos repetidos está activo.
+            // Justificación y evidencia obligatorias cuando hay contactos repetidos y el candado está activo.
             'duplicate_contacts_reason' => 'nullable|string|max:1000',
+            'duplicate_contacts_evidence' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240',
         ]);
 
         // Reglas adicionales para los contactos (al menos un medio de contacto, áreas
@@ -715,7 +725,9 @@ class BranchController extends Controller
         $this->validateContactRules(
             $validated['contacts'] ?? [],
             $duplicatedContacts,
-            $validated['duplicate_contacts_reason'] ?? null
+            $validated['duplicate_contacts_reason'] ?? null,
+            $branch->hasMedia('duplicate_contacts_evidence')
+                || $request->hasFile('duplicate_contacts_evidence')
         );
 
         // Matriz/grupo del que dependían los productos ANTES de la edición, para detectar
@@ -735,7 +747,14 @@ class BranchController extends Controller
             }
 
             // 1. Actualizar datos de la sucursal (excluimos relaciones y el archivo CSF)
-            $branch->update(collect($validated)->except(['contacts', 'products', 'suggested_products', 'csf', 'duplicate_contacts_reason'])->all());
+            $branch->update(collect($validated)->except([
+                'contacts',
+                'products',
+                'suggested_products',
+                'csf',
+                'duplicate_contacts_reason',
+                'duplicate_contacts_evidence',
+            ])->all());
 
             // 2. Sincronizar contactos
             $contactIdsToKeep = [];
@@ -843,6 +862,15 @@ class BranchController extends Controller
                 $branch->addMediaFromRequest('csf')->toMediaCollection('csf');
             }
 
+            if (!empty($duplicatedContactIds)
+                && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)
+                && $request->hasFile('duplicate_contacts_evidence')) {
+                $branch->addMediaFromRequest('duplicate_contacts_evidence')
+                    ->toMediaCollection('duplicate_contacts_evidence');
+            } elseif (empty($duplicatedContactIds) || Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS)) {
+                $branch->clearMediaCollection('duplicate_contacts_evidence');
+            }
+
             // 6. Reconsolidar los grupos afectados por el cambio de grupo
             if ($branch->group_name) {
                 $this->branchGroups->rebalance($branch->group_name);
@@ -922,8 +950,12 @@ class BranchController extends Controller
      * - Con el candado de contactos repetidos activo, repetir teléfono o correo ya no
      *   bloquea el registro: se exige una justificación que deberá autorizarse después.
      */
-    private function validateContactRules(array $contacts, array $duplicatedContacts = [], ?string $justification = null): void
-    {
+    private function validateContactRules(
+        array $contacts,
+        array $duplicatedContacts = [],
+        ?string $justification = null,
+        bool $hasDuplicateEvidence = false
+    ): void {
         $errors = [];
 
         foreach ($contacts as $index => $contact) {
@@ -950,6 +982,10 @@ class BranchController extends Controller
 
         if ($hasDuplicates && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS) && trim((string) $justification) === '') {
             $errors['duplicate_contacts_reason'] = 'Debes justificar por qué se repite el contacto. Sin esa justificación no se puede continuar.';
+        }
+
+        if ($hasDuplicates && !Setting::getBool(Setting::ALLOW_DUPLICATE_CONTACTS) && !$hasDuplicateEvidence) {
+            $errors['duplicate_contacts_evidence'] = 'Debes adjuntar una imagen de evidencia para solicitar la autorización de contactos repetidos.';
         }
 
         if (!empty($errors)) {

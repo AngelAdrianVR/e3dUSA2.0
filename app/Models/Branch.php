@@ -71,6 +71,11 @@ class Branch extends Model implements Auditable, HasMedia
     {
         // Documento de Constancia de Situación Fiscal (CSF)
         $this->addMediaCollection('csf')->useDisk('public');
+
+        // Evidencia de solicitudes para autorizar contactos repetidos
+        $this->addMediaCollection('duplicate_contacts_evidence')
+            ->useDisk('public')
+            ->singleFile();
     }
 
     /**

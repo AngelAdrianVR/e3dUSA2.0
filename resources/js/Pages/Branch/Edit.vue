@@ -321,7 +321,7 @@
                                         </li>
                                     </ul>
                                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
-                                        El cliente se guardará, pero quedará pendiente de autorización hasta que un responsable revise la justificación.
+                                        El cliente se guardará, pero quedará pendiente de autorización hasta que Dirección revise la justificación y la evidencia.
                                     </p>
 
                                     <div class="mt-3">
@@ -335,6 +335,44 @@
                                             placeholder="Ej. Es el mismo gerente de compras y también autoriza pagos."
                                         />
                                         <InputError :message="form.errors.duplicate_contacts_reason" class="mt-1" />
+                                    </div>
+                                    <div class="mt-3">
+                                        <InputLabel value="Imagen de evidencia*" />
+                                        <div
+                                            v-if="existingDuplicateContactsEvidence && !form.duplicate_contacts_evidence"
+                                            class="mb-3"
+                                        >
+                                            <p class="mb-1 text-xs text-gray-600 dark:text-gray-300">
+                                                Ya hay una evidencia registrada. Puedes conservarla o subir una nueva.
+                                            </p>
+                                            <a
+                                                :href="existingDuplicateContactsEvidence.original_url"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                            >
+                                                <img
+                                                    :src="existingDuplicateContactsEvidence.original_url"
+                                                    alt="Evidencia registrada"
+                                                    class="max-h-64 rounded-lg border border-gray-200 object-contain"
+                                                />
+                                            </a>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            @change="handleDuplicateContactsEvidenceChange"
+                                            class="mt-1 block w-full text-sm text-gray-600 dark:text-gray-300"
+                                        />
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Adjunta una imagen JPG, PNG o WEBP (máximo 10 MB).
+                                        </p>
+                                        <InputError :message="form.errors.duplicate_contacts_evidence" class="mt-1" />
+                                        <img
+                                            v-if="duplicateContactsEvidencePreview"
+                                            :src="duplicateContactsEvidencePreview"
+                                            alt="Vista previa de evidencia"
+                                            class="mt-3 max-h-64 rounded-lg border border-gray-200 object-contain"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -564,11 +602,13 @@ export default {
                 csf: null,
                 contacts: this.formattedContacts,
                 duplicate_contacts_reason: this.branch.duplicate_contacts_reason || '',
+                duplicate_contacts_evidence: null,
                 products: this.formattedProducts,
                 suggested_products: this.suggestedProductIds ?? [],
                 // Necesario para que Laravel reciba el PUT cuando se envian archivos (multipart)
                 _method: 'put',
             }),
+            duplicateContactsEvidencePreview: null,
             currentProduct: {
                 product_id: null,
                 price: null,
@@ -596,7 +636,7 @@ export default {
                 0: ['parent_branch_id'],
                 1: ['name', 'client_number', 'group_name', 'status', 'account_manager_id', 'meet_way'],
                 2: ['business_name', 'rfc', 'bank_account', 'post_code', 'address', 'payment_method', 'payment_submethod', 'cfdi_use', 'csf'],
-                3: ['contacts', 'duplicate_contacts_reason'],
+                3: ['contacts', 'duplicate_contacts_reason', 'duplicate_contacts_evidence'],
                 4: ['products', 'suggested_products'],
             },
             months: [
@@ -671,6 +711,9 @@ export default {
         existingCsf() {
             return (this.branch.media || []).find(m => m.collection_name === 'csf') || null;
         },
+        existingDuplicateContactsEvidence() {
+            return (this.branch.media || []).find(m => m.collection_name === 'duplicate_contacts_evidence') || null;
+        },
         groupedContacts() {
             const groups = this.contactAreas.map(area => ({
                 key: area,
@@ -735,6 +778,9 @@ export default {
         hasDuplicatedContacts() {
             return this.duplicatedContacts.length > 0;
         },
+        requiresDuplicateContactsEvidence() {
+            return this.hasDuplicatedContacts && !this.allowDuplicateContacts;
+        },
         hasErrors() {
             return this.stepsWithErrors.length > 0;
         },
@@ -780,6 +826,17 @@ export default {
                 && String(this.form.duplicate_contacts_reason || '').trim() === '') {
                 this.currentStep = 3;
                 ElMessage.warning('Debes justificar por qué se repite el contacto para poder continuar.');
+                this.$nextTick(() => {
+                    this.$refs.formContainer?.scrollIntoView({ behavior: 'smooth' });
+                });
+                return;
+            }
+
+            if (this.requiresDuplicateContactsEvidence
+                && !this.form.duplicate_contacts_evidence
+                && !this.existingDuplicateContactsEvidence) {
+                this.currentStep = 3;
+                ElMessage.warning('Debes adjuntar una imagen de evidencia para solicitar la autorización.');
                 this.$nextTick(() => {
                     this.$refs.formContainer?.scrollIntoView({ behavior: 'smooth' });
                 });
@@ -857,6 +914,11 @@ export default {
                 this.goToStep(2);
                 return false;
             }
+        },
+        handleDuplicateContactsEvidenceChange(event) {
+            const file = event.target.files?.[0] ?? null;
+            this.form.duplicate_contacts_evidence = file;
+            this.duplicateContactsEvidencePreview = file ? URL.createObjectURL(file) : null;
         },
         handleMetodoPagoChange(value) {
             // Ajusta el sub-método según el método seleccionado
@@ -1035,6 +1097,12 @@ export default {
                 if (this.hasDuplicatedContacts && !this.allowDuplicateContacts
                     && String(this.form.duplicate_contacts_reason || '').trim() === '') {
                     ElMessage.warning('Debes justificar por qué se repite el contacto para poder continuar.');
+                    return false;
+                }
+                if (this.requiresDuplicateContactsEvidence
+                    && !this.form.duplicate_contacts_evidence
+                    && !this.existingDuplicateContactsEvidence) {
+                    ElMessage.warning('Debes adjuntar una imagen de evidencia para poder continuar.');
                     return false;
                 }
             }

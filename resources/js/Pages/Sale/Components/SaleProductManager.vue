@@ -106,13 +106,13 @@
             
             <div class="lg:col-span-2">
                 <!-- En orden de stock y muestra/regalo el precio es opcional, en venta es obligatorio -->
-                <!-- Si la orden viene de cotización, el precio se bloquea -->
+                <!-- Solo el Super Administrador (Dirección) puede modificar el precio en la OV -->
                 <TextInput :label="saleType === 'venta' ? 'Precio Unitario (Venta)*' : 'Precio Unitario (Opcional)'" v-model="currentProduct.price" type="number" :formatAsNumber="true" :disabled="isPriceLocked">
                     <template #icon-left><i class="fa-solid fa-dollar-sign"></i></template>
                 </TextInput>
-                <!-- <p v-if="isPriceLocked && saleType === 'venta'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                    <i class="fa-solid fa-lock mr-1"></i> Precio bloqueado por provenir de cotización.
-                </p> -->
+                <p v-if="isPriceLocked && saleType === 'venta'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <i class="fa-solid fa-lock mr-1"></i> Solo Dirección (Super Administrador) puede editar el precio.
+                </p>
             </div>
 
             <!-- ALERTA DE PRECIO BAJO (SOLO VENTAS) -->
@@ -339,6 +339,12 @@
                 <SecondaryButton @click="addProduct" type="button" :disabled="isAddProductDisabled">
                     {{ editIndex !== null ? 'Actualizar producto' : 'Agregar producto a la orden' }}
                 </SecondaryButton>
+                <ul
+                    v-if="editIndex !== null && isAddProductDisabled"
+                    class="mt-2 list-disc pl-5 text-sm text-red-600 dark:text-red-400"
+                >
+                    <li v-for="reason in addProductDisabledReasons" :key="reason">{{ reason }}</li>
+                </ul>
                 <button @click="resetCurrentProduct" v-if="editIndex !== null" type="button" class="text-sm text-gray-500 hover:text-red-500 ml-3 transition-colors">
                     Cancelar edición
                 </button>
@@ -440,7 +446,7 @@ export default {
             default: () => [],
         },
         productsError: String,
-        isPriceLocked: { // Cuando la orden viene de una cotización, los precios no se pueden modificar
+        isPriceLocked: { // Solo el Super Administrador (Dirección) puede modificar los precios de la OV
             type: Boolean,
             default: false,
         },
@@ -516,12 +522,22 @@ export default {
             if (this.saleType !== 'venta') return true;
             return this.clientProducts.some(p => p.id === this.selectedBaseProductId);
         },
+        addProductDisabledReasons() {
+            const reasons = [];
+
+            if (!this.currentProduct.id) reasons.push('Falta seleccionar un producto.');
+            if (!this.currentProduct.quantity) reasons.push('Falta capturar la cantidad.');
+            if (this.saleType === 'venta' && (this.currentProduct.price === null || this.currentProduct.price === '')) {
+                reasons.push('Falta capturar el precio unitario.');
+            }
+            if (this.isPriceLow && !String(this.currentProduct.low_price_reason || '').trim()) {
+                reasons.push('Falta agregar la justificación del precio bajo.');
+            }
+
+            return reasons;
+        },
         isAddProductDisabled() {
-            if (!this.currentProduct.id || !this.currentProduct.quantity) return true;
-            // Para ventas, se requiere el precio obligatoriamente
-            if (this.saleType === 'venta' && (this.currentProduct.price === null || this.currentProduct.price === '')) return true;
-            if (this.isPriceLow && !this.currentProduct.low_price_reason) return true;
-            return false;
+            return this.addProductDisabledReasons.length > 0;
         },
         isPriceLow() {
             if (this.saleType !== 'venta' || !this.currentProduct.id || !this.currentProduct.price) return false;
