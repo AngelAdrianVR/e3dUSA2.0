@@ -300,7 +300,7 @@
                                         </li>
                                     </ul>
                                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-200">
-                                        El cliente se creará, pero quedará pendiente de autorización hasta que un responsable revise la justificación.
+                                        El cliente se creará, pero quedará pendiente de autorización hasta que Dirección revise la justificación y la evidencia.
                                     </p>
 
                                     <div class="mt-3">
@@ -314,6 +314,25 @@
                                             placeholder="Ej. Es el mismo gerente de compras y también autoriza pagos."
                                         />
                                         <InputError :message="form.errors.duplicate_contacts_reason" class="mt-1" />
+                                    </div>
+                                    <div class="mt-3">
+                                        <InputLabel value="Imagen de evidencia*" />
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp"
+                                            @change="handleDuplicateContactsEvidenceChange"
+                                            class="mt-1 block w-full text-sm text-gray-600 dark:text-gray-300"
+                                        />
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Adjunta una imagen JPG, PNG o WEBP (máximo 10 MB).
+                                        </p>
+                                        <InputError :message="form.errors.duplicate_contacts_evidence" class="mt-1" />
+                                        <img
+                                            v-if="duplicateContactsEvidencePreview"
+                                            :src="duplicateContactsEvidencePreview"
+                                            alt="Vista previa de evidencia"
+                                            class="mt-3 max-h-64 rounded-lg border border-gray-200 object-contain"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -541,12 +560,14 @@ export default {
             csf: null,
             contacts: [],
             duplicate_contacts_reason: '',
+            duplicate_contacts_evidence: null,
             products: [],
             suggested_products: [],
         });
 
         return {
             form,
+            duplicateContactsEvidencePreview: null,
             currentProduct: {
                 product_id: null,
                 price: null,
@@ -575,7 +596,7 @@ export default {
                 0: ['parent_branch_id'],
                 1: ['name', 'client_number', 'group_name', 'status', 'account_manager_id', 'meet_way'],
                 2: ['business_name', 'rfc', 'bank_account', 'post_code', 'address', 'payment_method', 'payment_submethod', 'cfdi_use', 'csf'],
-                3: ['contacts', 'duplicate_contacts_reason'],
+                3: ['contacts', 'duplicate_contacts_reason', 'duplicate_contacts_evidence'],
                 4: ['products', 'suggested_products'],
             },
              months: [
@@ -682,6 +703,9 @@ export default {
         },
         hasDuplicatedContacts() {
             return this.duplicatedContacts.length > 0;
+        },
+        requiresDuplicateContactsEvidence() {
+            return this.hasDuplicatedContacts && !this.allowDuplicateContacts;
         },
         hasErrors() {
             return this.stepsWithErrors.length > 0;
@@ -853,6 +877,10 @@ export default {
                     ElMessage.warning('Debes justificar por qué se repite el contacto para poder continuar.');
                     return false;
                 }
+                if (this.requiresDuplicateContactsEvidence && !this.form.duplicate_contacts_evidence) {
+                    ElMessage.warning('Debes adjuntar una imagen de evidencia para poder continuar.');
+                    return false;
+                }
             }
 
             return true;
@@ -912,6 +940,15 @@ export default {
                 return;
             }
 
+            if (this.requiresDuplicateContactsEvidence && !this.form.duplicate_contacts_evidence) {
+                this.currentStep = 3;
+                ElMessage.warning('Debes adjuntar una imagen de evidencia para solicitar la autorización.');
+                this.$nextTick(() => {
+                    this.$refs.formContainer?.scrollIntoView({ behavior: 'smooth' });
+                });
+                return;
+            }
+
             const willRequireAuthorization = this.hasDuplicatedContacts && !this.allowDuplicateContacts;
 
             this.form.post(route("branches.store"), {
@@ -934,6 +971,11 @@ export default {
                     ElMessage.error('Por favor, revisa los errores marcados en los pasos.');
                 }
             });
+        },
+        handleDuplicateContactsEvidenceChange(event) {
+            const file = event.target.files?.[0] ?? null;
+            this.form.duplicate_contacts_evidence = file;
+            this.duplicateContactsEvidencePreview = file ? URL.createObjectURL(file) : null;
         },
         removeContact(index) {
             this.form.contacts.splice(index, 1);

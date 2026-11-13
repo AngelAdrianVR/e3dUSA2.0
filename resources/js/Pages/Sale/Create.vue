@@ -126,7 +126,7 @@
                             :available-products="availableBaseProducts"
                             :client-products="clientProducts"
                             :products-error="form.errors.products"
-                            :is-price-locked="!!form.quote_id"
+                            :is-price-locked="form.type === 'venta' && !canEditPrices"
                         />
 
                         <!-- PRODUCTOS NUEVOS DE LA MUESTRA QUE FALTAN POR REGISTRAR -->
@@ -681,6 +681,10 @@ export default {
                 .map(p => ({ id: p.id, name: p.name, code: p.code, media: p.media, variants: [] }));
 
             return [...fromCatalog, ...extras];
+        },
+        // Solo el Super Administrador (Dirección) puede capturar o modificar precios en la OV.
+        canEditPrices() {
+            return this.$page.props.auth.user.role === 'Super Administrador';
         },
         hasLowPrices() {
             if (this.form.type !== 'venta' || !this.form.products.length) return false;

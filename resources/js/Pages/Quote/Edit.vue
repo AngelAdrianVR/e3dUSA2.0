@@ -259,7 +259,7 @@
 
                                         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 max-h-96 overflow-auto">
                                             <!-- Base Product Card (Option to not use variant) -->
-                                            <div v-show="!variantSearchQuery" @click="selectVariant(null)"
+                                            <div v-show="!variantSearchQuery && showBaseProductOption" @click="selectVariant(null)"
                                                  :class="['cursor-pointer border rounded-xl p-2 transition-all shadow-sm hover:shadow-md flex flex-col items-center justify-between', selectedVariantId === null ? 'border-primary ring-2 ring-primary bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-slate-700 hover:border-primary/50 bg-gray-50 dark:bg-slate-800/50']">
                                                 <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
                                                     <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
@@ -844,19 +844,32 @@ export default {
         selectableBaseProducts() {
             if (this.productSource === 'all') return this.localCatalogProducts;
 
-            const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+            const clientProductIds = this.clientProductIds;
 
             return this.localCatalogProducts.filter(base =>
-                clientProductIds.has(base.id) ||
-                (base.variants || []).some(variant => clientProductIds.has(variant.id))
+                clientProductIds.has(String(base.id)) ||
+                (base.variants || []).some(variant => clientProductIds.has(String(variant.id)))
             );
         },
+        clientProductIds() {
+            return new Set(this.clientProducts.map(product => String(product.id)));
+        },
+        showBaseProductOption() {
+            return this.productSource === 'all'
+                || this.clientProductIds.has(String(this.selectedBaseProductId));
+        },
         filteredVariants() {
+            let variants = this.availableVariants;
+
+            if (this.productSource === 'client') {
+                variants = variants.filter(variant => this.clientProductIds.has(String(variant.id)));
+            }
+
             if (!this.variantSearchQuery) {
-                return this.availableVariants;
+                return variants;
             }
             const query = this.variantSearchQuery.toLowerCase().trim();
-            return this.availableVariants.filter(variant => {
+            return variants.filter(variant => {
                 return (variant.name && variant.name.toLowerCase().includes(query)) ||
                        (variant.code && variant.code.toLowerCase().includes(query));
             });

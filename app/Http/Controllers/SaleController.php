@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Branch;
+use App\Models\BranchPriceHistory;
 use App\Models\NewProductProposal;
 use App\Models\Product;
 use App\Models\Quote;
+use App\Models\QuoteProduct;
 use App\Models\Sale;
 use App\Models\SampleTracking;
 use App\Models\StockMovement;
@@ -265,6 +267,86 @@ class SaleController extends Controller
         return $validated;
     }
 
+    /**
+     * Solo el Super Administrador (Dirección) puede capturar o modificar los precios
+     * de los productos de una OV. Para el resto de los usuarios el precio se toma de
+     * la cotización de origen y, si el producto no está en ella (o la orden no tiene
+     * cotización), del precio vigente del cliente (o del precio base como respaldo).
+     *
+     * @param  array<int, array<string, mixed>>  $products
+     * @param  array<int, float|string>  $existingPrices  Precios ya guardados en la OV (solo edición).
+     * @return array<int, array<string, mixed>>
+     */
+    private function applyLockedProductPrices(array $products, ?int $branchId, ?int $quoteId, array $existingPrices = []): array
+    {
+        $quotePrices = [];
+        if ($quoteId) {
+            $quotePrices = QuoteProduct::where('quote_id', $quoteId)
+                ->whereNotNull('product_id')
+                ->pluck('unit_price', 'product_id')
+                ->map(fn ($price) => (float) $price)
+                ->all();
+        }
+
+        $clientPrices = [];
+        $basePrices = [];
+        if ($branchId) {
+            $branch = Branch::with('parent')->find($branchId);
+            $productIds = collect($products)->pluck('id')->all();
+
+            if ($branch) {
+                $sourceBranch = $this->branchGroups->getProductTargetBranch($branch);
+                $relatedBranchIds = $this->branchGroups->getRelatedBranchIds($branch);
+
+                // Mismo criterio que fetchBranchProducts: se prefiere el historial de la
+                // sucursal destino (matriz/líder del grupo) y se usa la fila más reciente.
+                $allHistory = BranchPriceHistory::whereIn('branch_id', $relatedBranchIds)
+                    ->whereIn('product_id', $productIds)
+                    ->orderByDesc('valid_from')
+                    ->get()
+                    ->groupBy('product_id');
+
+                foreach ($allHistory as $productId => $rows) {
+                    $leaderRows = $rows->where('branch_id', $sourceBranch->id);
+
+                    if ($leaderRows->isNotEmpty()) {
+                        $latest = $leaderRows->first();
+                    } else {
+                        $firstBranchId = $rows->first()->branch_id;
+                        $latest = $rows->where('branch_id', $firstBranchId)->first();
+                    }
+
+                    // Un precio cerrado (valid_to) equivale a no tener precio especial.
+                    if ($latest && !$latest->valid_to) {
+                        $clientPrices[$productId] = (float) $latest->price;
+                    }
+                }
+            }
+
+            $basePrices = Product::whereIn('id', $productIds)
+                ->pluck('base_price', 'id')
+                ->map(fn ($price) => (float) $price)
+                ->all();
+        }
+
+        foreach ($products as &$product) {
+            $productId = $product['id'];
+
+            if (isset($existingPrices[$productId])) {
+                $product['price'] = (float) $existingPrices[$productId];
+            } elseif (isset($quotePrices[$productId])) {
+                $product['price'] = $quotePrices[$productId];
+            } elseif (isset($clientPrices[$productId])) {
+                $product['price'] = $clientPrices[$productId];
+            } elseif (isset($basePrices[$productId])) {
+                $product['price'] = $basePrices[$productId];
+            }
+        }
+        unset($product);
+
+        return $products;
+    }
+
     public function store(Request $request)
     {
         // --- 1. DETERMINAR TIPO Y REGLAS BASE ---
@@ -334,6 +416,15 @@ class SaleController extends Controller
 
         // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
+
+        // --- PRECIOS: SOLO SUPER ADMINISTRADOR PUEDE CAPTURARLOS/MODIFICARLOS ---
+        if ($isVentaType && !Auth::user()->hasRole('Super Administrador')) {
+            $validated['products'] = $this->applyLockedProductPrices(
+                $validated['products'],
+                $validated['branch_id'] ?? null,
+                $validated['quote_id'] ?? null
+            );
+        }
 
         // --- VALIDAR QUE EL SEGUIMIENTO DE MUESTRA NO TENGA YA UNA ORDEN VINCULADA ---
         // Cada seguimiento de muestra solo puede generar UNA Orden de Venta. Además, la OV de
@@ -667,6 +758,18 @@ class SaleController extends Controller
 
         // --- OBTENER LA FECHA PROMESA DEL PRIMER ENVÍO ---
         $firstPromiseDate = ($isSaleType && !empty($validated['shipments'])) ? ($validated['shipments'][0]['promise_date'] ?? null) : null;
+
+        // --- PRECIOS: SOLO SUPER ADMINISTRADOR PUEDE MODIFICARLOS ---
+        // El resto de usuarios conserva los precios ya guardados en la OV y, para
+        // productos nuevos, se toman de la cotización o del precio vigente del cliente.
+        if ($isVentaType && !Auth::user()->hasRole('Super Administrador')) {
+            $validated['products'] = $this->applyLockedProductPrices(
+                $validated['products'],
+                $validated['branch_id'] ?? $sale->branch_id,
+                $validated['quote_id'] ?? $sale->quote_id,
+                $sale->saleProducts()->pluck('price', 'product_id')->all()
+            );
+        }
 
         DB::beginTransaction();
 

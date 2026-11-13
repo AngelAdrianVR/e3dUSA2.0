@@ -280,6 +280,19 @@
                                     <span class="font-semibold">Justificación:</span>
                                     {{ branch.duplicate_contacts_reason || 'Sin justificación registrada' }}
                                 </p>
+                                <div v-if="duplicateContactsEvidence" class="mt-3">
+                                    <p class="mb-1 text-sm font-semibold text-gray-700 dark:text-gray-200">Imagen de evidencia:</p>
+                                    <a :href="duplicateContactsEvidence.original_url" target="_blank" rel="noopener noreferrer">
+                                        <img
+                                            :src="duplicateContactsEvidence.original_url"
+                                            alt="Evidencia de contactos repetidos"
+                                            class="max-h-64 rounded-lg border border-amber-300 object-contain"
+                                        />
+                                    </a>
+                                </div>
+                                <p v-else class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Sin imagen de evidencia registrada.
+                                </p>
                                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                     Solicitado el {{ formatDateTime(branch.duplicate_contacts_requested_at) }}
                                     <span v-if="branch.creator?.name"> por {{ branch.creator.name }}</span>
@@ -915,6 +928,9 @@ export default {
         },
         hasPendingDuplicateContacts() {
             return this.branch.duplicate_contacts_status === 'Pendiente';
+        },
+        duplicateContactsEvidence() {
+            return (this.branch.media || []).find(media => media.collection_name === 'duplicate_contacts_evidence') || null;
         },
         // Contactos agrupados por área (misma lógica que el formulario de creación).
         contactGroups() {
