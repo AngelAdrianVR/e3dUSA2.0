@@ -102,6 +102,7 @@
 
                         <!-- COMPONENTE HIJO PARA PRODUCTOS -->
                         <SaleProductManager v-else
+                            ref="saleProductManager"
                             v-model="form.products"
                             :branch-id="form.branch_id"
                             :sale-type="form.type"
@@ -109,6 +110,8 @@
                             :client-products="clientProducts"
                             :products-error="form.errors.products"
                             :is-price-locked="form.type === 'venta' && !canEditPrices"
+                            :is-quantity-locked="form.type === 'venta' && !!form.quote_id && !canEditPrices"
+                            @base-product-assigned="handleBaseProductAssigned"
                         />
 
                         <!-- ALERTA GLOBAL DE PRECIO BAJO -->
@@ -404,7 +407,7 @@
                 <div v-if="!productToAssign.isNewProduct" class="w-full text-left bg-gray-50 dark:bg-slate-800 p-4 rounded-lg">
                     <p class="text-xs text-gray-500 mb-2">Establece el precio que tendrá este producto para el cliente:</p>
                     <div class="grid grid-cols-2 gap-3 items-end">
-                        <TextInput label="Precio Especial (Opcional)" v-model="assignProductForm.price" type="number" step="0.01" />
+                        <TextInput label="Precio de referencia (Opcional)" v-model="assignProductForm.price" type="number" step="0.01" />
                         <div>
                             <InputLabel value="Moneda" />
                             <el-select v-model="assignProductForm.currency" class="!w-full">
@@ -821,6 +824,14 @@ export default {
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
             } finally {
                 this.loadingClientProducts = false;
+            }
+        },
+        // Tras asignar un producto base desde el selector de variantes, se refresca
+        // la lista del cliente y se deja seleccionado el producto base.
+        async handleBaseProductAssigned({ shouldSelect = false } = {}) {
+            await this.fetchClientProducts();
+            if (shouldSelect) {
+                this.$nextTick(() => this.$refs.saleProductManager?.selectVariant(null));
             }
         },
         async fetchQuoteDetails(quoteId) {

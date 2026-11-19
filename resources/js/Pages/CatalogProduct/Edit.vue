@@ -188,7 +188,7 @@
                                 v-if="form.is_sellable"
                                 v-model="form.base_price" 
                                 :error="form.errors.base_price"
-                                :helpContent="'Si no hay precio especial para el cliente se toma el precio base'"
+                                :helpContent="'Si no hay precio de referencia para el cliente se toma el precio base'"
                                 label="Precio base para cliente*"
                                 :formatAsNumber="true">
                                 <template #icon-left>

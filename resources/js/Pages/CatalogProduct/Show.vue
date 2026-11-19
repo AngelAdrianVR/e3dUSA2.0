@@ -330,7 +330,7 @@
                                             <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-slate-700 dark:text-gray-300">
                                                 <tr>
                                                     <th scope="col" class="px-4 py-2">Producto / Variante</th>
-                                                    <th scope="col" class="px-4 py-2">Precio Especial</th>
+                                                    <th scope="col" class="px-4 py-2">Precio de referencia</th>
                                                     <th scope="col" class="px-4 py-2">Vigente Desde</th>
                                                     <th scope="col" class="px-4 py-2">Vigente Hasta</th>
                                                 </tr>
@@ -560,10 +560,10 @@
         <!-- Confirmación para Finalizar Precio -->
         <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
             <template #title>
-                Finalizar Precio Especial
+                Finalizar Precio de referencia
             </template>
             <template #content>
-                ¿Estás seguro de que deseas finalizar la vigencia de este precio especial? El producto volverá a su precio base para este cliente.
+                ¿Estás seguro de que deseas finalizar la vigencia de este precio de referencia? El producto volverá a su precio base para este cliente.
             </template>
             <template #footer>
                 <div class="flex space-x-2">
@@ -656,7 +656,7 @@ export default {
             currentImage: 0,
             selectedVariant: null,
 
-            // Para finalizar precio especial
+            // Para finalizar precio de referencia
             showClosePriceConfirmModal: false,
             priceHistoryToClose: null,
 
@@ -748,7 +748,7 @@ export default {
 
         groupedPrices() {
             // Juntamos el historial del producto padre y de TODAS sus variantes,
-            // así se muestran todos los clientes con precio especial sin importar
+            // así se muestran todos los clientes con precio de referencia sin importar
             // en qué producto (base o variante) lo tengan asignado.
             const allHistory = [];
 
@@ -974,7 +974,7 @@ export default {
             try {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
-                    ElMessage.success('El precio especial ha sido finalizado.');
+                    ElMessage.success('El precio de referencia ha sido finalizado.');
                     this.$inertia.reload({ preserveScroll: true });
                 }
             } catch (error) {

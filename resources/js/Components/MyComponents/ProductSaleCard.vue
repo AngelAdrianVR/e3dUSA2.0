@@ -366,7 +366,7 @@
 
 
         <div v-if="branchId && !isSpecialProduct" class="absolute top-5 right-4">
-            <el-tooltip content="Actualizar precio especial para este cliente" placement="top">
+            <el-tooltip content="Actualizar precio de referencia para este cliente" placement="top">
                 <button @click="openPriceModal" class="flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 rounded-full size-9 transition-colors">
                     <i class="fa-solid fa-dollar-sign text-sm text-gray-500 dark:text-gray-400"></i>
                 </button>
@@ -374,7 +374,7 @@
         </div>
     </div>
 
-    <!-- Modal para actualizar precio especial -->
+    <!-- Modal para actualizar precio de referencia -->
     <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
         <template #title>
             Actualizar precio de <span class="text-primary dark:text-sky-400">{{ saleProduct.product?.name }}</span>
@@ -436,10 +436,10 @@
 
     <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
         <template #title>
-            Finalizar Precio Especial
+            Finalizar Precio de referencia
         </template>
         <template #content>
-            ¿Estás seguro de que deseas finalizar la vigencia de este precio especial? El producto volverá a su precio base para este cliente en futuras compras.
+            ¿Estás seguro de que deseas finalizar la vigencia de este precio de referencia? El producto volverá a su precio base para este cliente en futuras compras.
         </template>
         <template #footer>
             <div class="flex space-x-2">
@@ -586,7 +586,7 @@ export default {
         },
         
         canBypassPriceRule() {
-            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio de referencia') || false;
         },
         // Productos especiales: obsoletos o de la categoría "Muestras y regalos".
         // Para ellos no se muestra precio actual, stock mínimo ni la opción de actualizar precio.
@@ -667,7 +667,7 @@ export default {
             const relativeTime = formatDistanceToNow(fromDate, { addSuffix: true, locale: es });
 
             return {
-                text: `Precio especial actualizado ${relativeTime}`,
+                text: `Precio de referencia actualizado ${relativeTime}`,
                 colorClass: colorClass
             };
         },
@@ -819,7 +819,7 @@ export default {
             try {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
-                    ElMessage.success('El precio especial ha sido finalizado.');
+                    ElMessage.success('El precio de referencia ha sido finalizado.');
                     const historyItem = this.saleProduct.product.price_history.find(h => h.id === this.priceHistoryToClose);
                     if (historyItem) {
                         historyItem.valid_to = new Date().toISOString();

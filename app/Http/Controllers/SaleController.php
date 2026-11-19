@@ -64,9 +64,11 @@ class SaleController extends Controller
             $query->where('status', 'Autorizada');
         }
 
-        // Filtro: Pendiente por autorizar
+        // Filtro: Pendiente por autorizar. Se usa 'authorized_at' (y no el estatus)
+        // porque el contador del dashboard cuenta las órdenes sin autorizar y una
+        // orden puede avanzar de estatus sin haberse autorizado.
         if ($filterPendingAuth) {
-            $query->where('status', 'Pendiente');
+            $query->whereNull('authorized_at');
         }
 
         // AGREGADO: 'productExchanges.returnedProduct:id,name' y 'productExchanges.newProduct:id,name'
@@ -698,6 +700,11 @@ class SaleController extends Controller
 
     public function update(Request $request, Sale $sale)
     {
+        // Si la autorización se retiró solo para editar, al guardar la orden se autoriza
+        // de nuevo automáticamente, sin importar quién la edite (agiliza las ediciones
+        // de órdenes que ya estaban autorizadas).
+        $reauthAfterEdit = (bool) $sale->authorization_withdrawn_for_edit;
+
         // --- 1. DETERMINAR TIPO Y REGLAS BASE ---
         // 'muestra' comparte las reglas de 'venta' (cliente, contacto, logística y envíos),
         // pero el precio es opcional y NO mueve inventario ni genera producción.
@@ -807,11 +814,11 @@ class SaleController extends Controller
                 }, 0) : 0,
             ];
 
-            // Validar si debemos resetear el estatus a "Pendiente"
+            // Validar si debemos resetear el estatus a "Pendiente". Se conserva
+            // 'authorized_user_name' para que siempre se sepa quién autorizó la orden.
             if (in_array($sale->status, ['Pendiente', 'Autorizada'])) {
                 $updateData['status'] = 'Pendiente';
                 $updateData['authorized_at'] = null;
-                $updateData['authorized_user_name'] = null;
             }
 
             $sale->update($updateData);
@@ -902,6 +909,11 @@ class SaleController extends Controller
                 $sale->addMultipleMediaFromRequest(['oce_media'])->each(function ($fileAdder) {
                     $fileAdder->toMediaCollection('oce_media');
                 });
+            }
+
+            // --- 9. REAUTORIZAR SI LA AUTORIZACIÓN SE RETIRÓ PARA EDITAR ---
+            if ($reauthAfterEdit) {
+                $this->reauthorizeAfterEdit($sale);
             }
             
             DB::commit();
@@ -1216,6 +1228,8 @@ class SaleController extends Controller
                 // Al reautorizar una órden que ya avanzó (producción, envío) se conserva su estatus;
                 // las órdenes de muestra/regalo mantienen su comportamiento original.
                 'status' => ($sale->status === 'Pendiente' || $sale->type === 'muestra') ? 'Autorizada' : $sale->status,
+                // Al autorizarla manualmente ya no queda pendiente la reautorización por edición.
+                'authorization_withdrawn_for_edit' => false,
             ]);
         });
 
@@ -1243,12 +1257,13 @@ class SaleController extends Controller
 
     /**
      * Retira la autorización de la órden para habilitar su edición (permiso "Autorizar edición de
-     * ordenes de venta"). Después de editarla deberá revisarse y autorizarse de nuevo.
+     * ordenes de venta"). Al guardar la edición la órden se autoriza de nuevo automáticamente y se
+     * conserva el nombre de quien la autorizó originalmente (solo se limpia 'authorized_at').
      *
      * Estatus (comportamiento híbrido):
      *  - "Autorizada" pasa a "Pendiente" (queda pendiente de autorización).
      *  - Si la órden ya avanzó (En Proceso, En Producción, Enviada, etc.) conserva su estatus, y
-     *    authorizeSale() tampoco lo sobrescribe al reautorizarla.
+     *    la reautorización tampoco lo sobrescribe.
      */
     public function unauthorizeSale(Request $request, Sale $sale)
     {
@@ -1260,15 +1275,42 @@ class SaleController extends Controller
             return response()->json(['message' => 'La orden no está autorizada.'], 409);
         }
 
+        // Solo se retira la fecha de autorización: el nombre de quien autorizó se
+        // conserva para saber siempre quién la aprobó originalmente. Al guardar la
+        // edición la orden se autoriza de nuevo automáticamente.
         $sale->update([
-            'authorized_user_name' => null,
             'authorized_at' => null,
             'status' => $sale->status === 'Autorizada' ? 'Pendiente' : $sale->status,
+            'authorization_withdrawn_for_edit' => true,
         ]);
 
         Log::info("Autorización retirada de la órden #{$sale->id} por el usuario " . auth()->id());
 
-        return response()->json(['message' => 'Autorización retirada: la órden ya puede editarse', 'item' => $sale]);
+        return response()->json(['message' => 'Autorización retirada: la órden ya puede editarse y se autorizará de nuevo al guardar los cambios', 'item' => $sale]);
+    }
+
+    /**
+     * Autoriza de nuevo la órden después de la edición que se hizo con la autorización
+     * retirada, sin importar qué usuario realice la edición. Se conserva el nombre de
+     * quien autorizó originalmente y se registra la acción "authorized" en el historial.
+     */
+    private function reauthorizeAfterEdit(Sale $sale): void
+    {
+        $fields = ['status', 'authorized_user_name', 'authorized_at'];
+        $oldValues = $this->authorizationSnapshot($sale, $fields);
+
+        Sale::withoutAuditing(function () use ($sale) {
+            $sale->update([
+                'authorized_at' => now(),
+                // Si la órden ya avanzó (producción, envío) conserva su estatus.
+                'status' => $sale->status === 'Pendiente' ? 'Autorizada' : $sale->status,
+                'authorization_withdrawn_for_edit' => false,
+            ]);
+        });
+
+        $this->recordAuthorizationAudit($sale, $oldValues, $this->authorizationSnapshot($sale, $fields));
+
+        Log::info("Órden #{$sale->id} reautorizada automáticamente tras su edición por el usuario " . auth()->id());
     }
 
     /**
@@ -1445,6 +1487,7 @@ class SaleController extends Controller
             $newSale->user_id = auth()->id();
             $newSale->authorized_at = null;
             $newSale->authorized_user_name = null;
+            $newSale->authorization_withdrawn_for_edit = false;
             $newSale->created_at = now();
             $newSale->updated_at = now();
             

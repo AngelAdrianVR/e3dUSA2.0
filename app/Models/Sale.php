@@ -40,6 +40,7 @@ class Sale extends Model implements HasMedia, Auditable
         'tooling_cost',
         'authorized_user_name',
         'authorized_at',
+        'authorization_withdrawn_for_edit', // autorización retirada solo para editar
         'shipping_option', // indica cuantas parcialidades tiene la venta
 
         // campos de facturación
@@ -55,6 +56,7 @@ class Sale extends Model implements HasMedia, Auditable
         'promise_date' => 'date',
         'is_high_priority' => 'boolean',
         'has_low_price' => 'boolean', // NUEVO: Casteo a booleano
+        'authorization_withdrawn_for_edit' => 'boolean',
     ];
 
     protected $appends = ['utility_data', 'production_summary'];

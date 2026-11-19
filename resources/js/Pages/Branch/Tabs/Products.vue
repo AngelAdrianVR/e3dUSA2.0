@@ -33,7 +33,7 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ product.code }}</p>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <el-tooltip content="Actualizar precio especial" placement="top">
+                    <el-tooltip content="Actualizar precio de referencia" placement="top">
                         <button @click="openPriceModal(product)" class="size-8 flex-shrink-0 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900 transition-colors">
                             <i class="fa-solid fa-dollar-sign text-sm"></i>
                         </button>
@@ -209,10 +209,10 @@
 <!-- Confirmación para Finalizar Precio -->
 <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
     <template #title>
-        Finalizar Precio Especial
+        Finalizar Precio de referencia
     </template>
     <template #content>
-        ¿Estás seguro de que deseas finalizar la vigencia de este precio especial? El producto volverá a su precio base para este cliente.
+        ¿Estás seguro de que deseas finalizar la vigencia de este precio de referencia? El producto volverá a su precio base para este cliente.
     </template>
     <template #footer>
         <div class="flex space-x-2">
@@ -292,7 +292,7 @@ props:{
 },
 computed: {
     canBypassPriceRule() {
-        return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+        return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio de referencia') || false;
     },
     isPriceInvalid() {
         if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;
@@ -371,7 +371,7 @@ methods:{
         return "bg-red-400";
     },
     currentPrice(product) {
-        // si tiene precio especial y está vigente, lo toma como precio actual, si no, toma el precio base
+        // si tiene precio de referencia y está vigente, lo toma como precio actual, si no, toma el precio base
         const specialPrice = product.price_history?.[0];
         
         if (specialPrice && (!specialPrice.valid_to || specialPrice.valid_to === null)) {
@@ -477,7 +477,7 @@ methods:{
             // Usamos PATCH para indicar una actualización parcial del recurso
             const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
             if (response.status === 200) {
-                ElMessage.success('El precio especial ha sido finalizado.');
+                ElMessage.success('El precio de referencia ha sido finalizado.');
                 this.$inertia.reload({ preserveScroll: true });
             }
         } catch (error) {

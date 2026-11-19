@@ -79,8 +79,8 @@
                 <!--
                     Autorizar edición: solo se muestra con el permiso "Autorizar edición de ordenes de
                     venta" y cuando la órden ya está autorizada. Abre un modal de confirmación; al
-                    aceptar se retira la autorización (la órden queda editable) y, una vez editada,
-                    debe revisarse y autorizarse de nuevo.
+                    aceptar se retira la autorización (la órden queda editable) y, al guardar la
+                    edición, se autoriza de nuevo automáticamente conservando a quien la autorizó.
                 -->
                 <el-tooltip v-if="$page.props.auth.user.permissions.includes('Autorizar edición de ordenes de venta') && sale.authorized_at !== null" content="Autorizar edición" placement="top">
                     <button @click="showUnauthorizeModal = true" class="size-9 flex items-center justify-center rounded-lg bg-amber-300 hover:bg-amber-400 dark:bg-amber-800 dark:hover:bg-amber-700 transition-colors">
@@ -855,9 +855,9 @@
                 <p>Autorizar la edición de esta Órden funciona así:</p>
                 <ul class="mt-2 space-y-1 list-disc list-inside">
                     <li>Se retira la autorización y la Órden queda habilitada para editarse.</li>
-                    <li>Una vez editada, debe revisarse y autorizarse de nuevo.</li>
+                    <li>Al guardar la edición, la Órden se autoriza de nuevo automáticamente.</li>
                     <li v-if="sale.status === 'Autorizada'">
-                        Su estatus pasará a <strong>Pendiente</strong> hasta que se autorice otra vez.
+                        Mientras se edita, su estatus pasará a <strong>Pendiente</strong> y volverá a <strong>Autorizada</strong> al guardar.
                     </li>
                     <li v-else>
                         La Órden ya avanzó, así que <strong>conservará su estatus actual
@@ -1325,12 +1325,12 @@ export default {
             }
         },
         // Retira la autorización para habilitar la edición de la órden (permiso "Autorizar edición de
-        // ordenes de venta"). Flujo: autorizada -> se retira la autorización -> se edita -> se revisa
-        // -> se autoriza de nuevo.
+        // ordenes de venta"). Flujo: autorizada -> se retira la autorización -> se edita -> al guardar
+        // la edición se autoriza de nuevo automáticamente.
         // Estatus (comportamiento híbrido, definido en el backend):
-        //   - Si estaba "Autorizada" pasa a "Pendiente" (pendiente de nueva revisión).
-        //   - Si ya avanzó (En Proceso, En Producción, Enviada, etc.) conserva su estatus, y al
-        //     reautorizar tampoco se pierde el avance.
+        //   - Si estaba "Autorizada" pasa a "Pendiente" mientras se edita.
+        //   - Si ya avanzó (En Proceso, En Producción, Enviada, etc.) conserva su estatus, y la
+        //     reautorización tampoco lo sobrescribe.
         async unauthorize() {
             this.processingUnauthorize = true;
 
@@ -1338,7 +1338,8 @@ export default {
                 const response = await axios.put(route('sales.unauthorize', this.sale.id));
                 if (response.status === 200) {
                     this.sale.authorized_at = null;
-                    this.sale.authorized_user_name = null;
+                    // El nombre de quien autorizó se conserva en el backend
+                    this.sale.authorized_user_name = response.data.item?.authorized_user_name ?? this.sale.authorized_user_name;
                     // Si la órden ya avanzó (producción, envío) el backend conserva su estatus
                     this.sale.status = response.data.item?.status ?? this.sale.status;
                     ElMessage.success(response.data.message);

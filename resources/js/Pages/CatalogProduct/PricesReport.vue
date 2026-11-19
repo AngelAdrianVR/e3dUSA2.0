@@ -91,7 +91,7 @@
         <!-- Modal to update SPECIAL price -->
         <DialogModal :show="showUpdatePriceModal" @close="showUpdatePriceModal = false" maxWidth="2xl">
             <template #title>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Actualizar Precio Especial</h2>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Actualizar Precio de referencia</h2>
                 <p v-if="itemToUpdatePrice" class="text-sm text-gray-600 dark:text-gray-400">
                     {{ itemToUpdatePrice.product_name }} para <span class="font-bold">{{ itemToUpdatePrice.branch_name }}</span>
                 </p>
@@ -310,13 +310,13 @@ export default {
                 const response = await axios.post(route(routeName, routeParams), this.priceForm);
 
                 if (response.status === 200) {
-                    ElMessage.success('Precio especial actualizado correctamente.');
+                    ElMessage.success('Precio de referencia actualizado correctamente.');
                     this.showUpdatePriceModal = false;
                     this.priceForm.reset();
                     router.reload({ only: ['catalog_products'] });
                 }
             } catch (error) {
-                console.error("Error al actualizar el precio especial:", error);
+                console.error("Error al actualizar el precio de referencia:", error);
                 ElMessage.error(error.response?.data?.message || 'Ocurrió un error al guardar el precio.');
             }
         },
