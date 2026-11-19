@@ -102,6 +102,7 @@
 
                         <!-- COMPONENTE HIJO PARA PRODUCTOS -->
                         <SaleProductManager v-else
+                            ref="saleProductManager"
                             v-model="form.products"
                             :branch-id="form.branch_id"
                             :sale-type="form.type"
@@ -109,6 +110,8 @@
                             :client-products="clientProducts"
                             :products-error="form.errors.products"
                             :is-price-locked="form.type === 'venta' && !canEditPrices"
+                            :is-quantity-locked="form.type === 'venta' && !!form.quote_id && !canEditPrices"
+                            @base-product-assigned="handleBaseProductAssigned"
                         />
 
                         <!-- ALERTA GLOBAL DE PRECIO BAJO -->
@@ -821,6 +824,14 @@ export default {
                 ElMessage.error('No se pudieron cargar los productos del cliente.');
             } finally {
                 this.loadingClientProducts = false;
+            }
+        },
+        // Tras asignar un producto base desde el selector de variantes, se refresca
+        // la lista del cliente y se deja seleccionado el producto base.
+        async handleBaseProductAssigned({ shouldSelect = false } = {}) {
+            await this.fetchClientProducts();
+            if (shouldSelect) {
+                this.$nextTick(() => this.$refs.saleProductManager?.selectVariant(null));
             }
         },
         async fetchQuoteDetails(quoteId) {

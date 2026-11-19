@@ -240,7 +240,7 @@
                                         <TextInput label="Nombre del contacto*" v-model="item.contact.name" type="text" :error="form.errors[`contacts.${item.index}.name`]" />
                                         <TextInput label="Cargo" v-model="item.contact.charge" type="text" :error="form.errors[`contacts.${item.index}.charge`]" />
                                         <TextInput label="Teléfono" v-model="item.contact.phone" type="text" :error="form.errors[`contacts.${item.index}.phone`]" helpContent="Teléfono y correo obligatorios" />
-                                        <TextInput label="Email" v-model="item.contact.email" type="email" :error="form.errors[`contacts.${item.index}.email`]" />
+                                        <TextInput :id="`contact-email-${item.index}`" label="Email" v-model="item.contact.email" type="email" :error="form.errors[`contacts.${item.index}.email`]" @blur="validateContactEmail(item.index)" />
 
                                         <div class="md:col-span-2 grid grid-cols-2 gap-x-5">
                                             <div>
@@ -536,6 +536,8 @@ import { ElMessage } from 'element-plus';
 import { useForm } from "@inertiajs/vue3";
 import axios from 'axios';
 
+const INVALID_CONTACT_EMAIL_MESSAGE = 'El correo no es válido: revisa que no tenga espacios ni símbolos no permitidos (ejemplo: nombre@dominio.com).';
+
 export default {
     data() {
         const form = useForm({
@@ -806,6 +808,51 @@ export default {
                 this.currentStep--;
             }
         },
+        isValidContactEmail(email) {
+            const value = String(email ?? '').trim();
+            if (value === '') return true;
+            // Misma regla que la validación `email` de Laravel/HTML5, para avisar
+            // antes de que el servidor rechace el contacto sin explicación.
+            const pattern = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+            return value.length <= 255 && !value.includes('..') && pattern.test(value);
+        },
+        validateContactEmail(index) {
+            const contact = this.form.contacts[index];
+            if (!contact) return true;
+
+            const key = `contacts.${index}.email`;
+            const email = String(contact.email ?? '').trim();
+            if (email === '' || this.isValidContactEmail(email)) {
+                if (this.form.errors[key]) this.form.clearErrors(key);
+                return true;
+            }
+
+            this.form.setError(key, INVALID_CONTACT_EMAIL_MESSAGE);
+            return false;
+        },
+        invalidEmailContact() {
+            for (let index = 0; index < this.form.contacts.length; index++) {
+                const email = String(this.form.contacts[index].email ?? '').trim();
+                if (email !== '' && !this.isValidContactEmail(email)) {
+                    return { contact: this.form.contacts[index], index };
+                }
+            }
+            return null;
+        },
+        showInvalidEmailFeedback({ contact, index }) {
+            const email = String(contact.email ?? '').trim();
+            this.form.setError(`contacts.${index}.email`, INVALID_CONTACT_EMAIL_MESSAGE);
+            this.openContactGroup(contact.area || 'Por definir');
+            ElMessage.warning(`El correo de "${contact.name || 'contacto'}" no es válido: "${email}". Debe tener el formato nombre@dominio.com, sin espacios ni símbolos no permitidos.`);
+
+            // Se espera a que el acordeón termine de abrirse para poder enfocar el campo.
+            setTimeout(() => {
+                const input = document.getElementById(`contact-email-${index}`);
+                if (!input) return;
+                input.focus({ preventScroll: true });
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 350);
+        },
         validateStep(stepIndex) {
             // Validación ligera para guiar al usuario entre pasos
             if (stepIndex === 1) {
@@ -856,6 +903,14 @@ export default {
                         ElMessage.warning(`Falta el Email de "${contact.name}".`);
                         return false;
                     }
+                }
+
+                // Formato de los correos: se avisa antes de avanzar para que el usuario
+                // sepa por qué el servidor rechazaría el contacto.
+                const invalidEmail = this.invalidEmailContact();
+                if (invalidEmail) {
+                    this.showInvalidEmailFeedback(invalidEmail);
+                    return false;
                 }
 
                 // El contacto Comercial y el de Pagos son obligatorios
@@ -927,6 +982,14 @@ export default {
         store() {
             // Se descartan los contactos completamente vacíos (los bloques pre-creados sin llenar)
             this.pruneEmptyContacts();
+
+            // Refuerzo por si el correo se modificó después de validar el paso de contactos.
+            const invalidEmail = this.invalidEmailContact();
+            if (invalidEmail) {
+                this.currentStep = 3;
+                this.showInvalidEmailFeedback(invalidEmail);
+                return;
+            }
 
             // Validación de contactos repetidos: se avisa y se exige la justificación
             // antes de enviar el formulario.

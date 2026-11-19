@@ -70,12 +70,20 @@
                         </div>
 
                         <!-- No asignado al cliente (Producto base no permitido) -->
-                        <div v-show="!variantSearchQuery && !isBaseProductAllowed" class="cursor-not-allowed opacity-50 border rounded-xl p-2 transition-all shadow-sm flex flex-col items-center justify-between border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
+                        <div v-show="!variantSearchQuery && !isBaseProductAllowed" class="border rounded-xl p-2 transition-all shadow-sm flex flex-col items-center justify-between border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50">
                             <div class="w-full aspect-square bg-gray-200 dark:bg-slate-700 flex items-center justify-center rounded-lg mb-2">
                                 <i class="fa-solid fa-box text-gray-400 text-3xl"></i>
                             </div>
                             <p class="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Sin personalización</p>
                             <p class="text-[10px] text-red-500 text-center mt-1">(No asignado al cliente)</p>
+                            <!-- Asignación rápida del producto base al cliente (sin abrir el drawer) -->
+                            <button type="button"
+                                @click.stop="assignBaseProduct"
+                                :disabled="assigningBaseProduct"
+                                class="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-primary hover:bg-primary/90 rounded-md px-2 py-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                                <i :class="assigningBaseProduct ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-link'"></i>
+                                {{ assigningBaseProduct ? 'Asignando...' : 'Asignar' }}
+                            </button>
                         </div>
 
                         <!-- Mensaje si no hay resultados en la búsqueda -->
@@ -101,7 +109,12 @@
 
             <!-- Siempre visibles: Cantidad y Precio -->
             <div class="lg:col-span-2">
-                <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" />
+                <!-- En una OV que viene de una cotización, al editar un producto la cantidad no
+                     se modifica (solo Dirección). Al agregar un producto nuevo sí se captura. -->
+                <TextInput label="Cantidad*" v-model="currentProduct.quantity" type="number" :disabled="isQuantityLocked && editIndex !== null" />
+                <p v-if="isQuantityLocked && editIndex !== null" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    <i class="fa-solid fa-lock mr-1"></i> Solo Dirección (Super Administrador) puede editar la cantidad de una orden con cotización.
+                </p>
             </div>
             
             <div class="lg:col-span-2">
@@ -112,6 +125,16 @@
                 </TextInput>
                 <p v-if="isPriceLocked && saleType === 'venta'" class="text-xs text-amber-600 dark:text-amber-400 mt-1">
                     <i class="fa-solid fa-lock mr-1"></i> Solo Dirección (Super Administrador) puede editar el precio.
+                </p>
+            </div>
+
+            <!-- NOTA: cómo modificar cantidad o precio de un producto ya capturado -->
+            <div v-if="editIndex !== null && isQuantityLocked" class="col-span-full mt-3 p-3 rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+                <p class="text-xs text-blue-700 dark:text-blue-300">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    Si necesitas modificar la cantidad o el precio, hazlo desde la cotización y vuelve a crear la orden
+                    (elimina esta y genérala de nuevo con la cotización actualizada), o comunícate con Dirección para
+                    que realice las modificaciones correspondientes.
                 </p>
             </div>
 
@@ -450,8 +473,12 @@ export default {
             type: Boolean,
             default: false,
         },
+        isQuantityLocked: { // En una OV con cotización solo Dirección puede modificar la cantidad
+            type: Boolean,
+            default: false,
+        },
     },
-    emits: ['update:modelValue'],
+    emits: ['update:modelValue', 'base-product-assigned'],
     data() {
         return {
             selectedBaseProductId: null,
@@ -460,6 +487,7 @@ export default {
             variantSearchQuery: '',
             editIndex: null,
             loadingProductData: false,
+            assigningBaseProduct: false,
 
             currentProduct: {
                 id: null,
@@ -592,6 +620,44 @@ export default {
                 this.currentProduct.id = variant.id;
             }
             this.getProductData();
+        },
+        /**
+         * Asigna el producto base al cliente cuando solo sus personalizaciones
+         * estaban asignadas. Se toma como referencia el precio de una de esas
+         * personalizaciones (mismo criterio que el drawer de productos del cliente).
+         */
+        async assignBaseProduct() {
+            if (this.assigningBaseProduct || !this.selectedBaseProductId || !this.branchId) return;
+
+            this.assigningBaseProduct = true;
+
+            try {
+                const clientProductIds = new Set(this.clientProducts.map(p => p.id));
+                const referenceVariant = this.availableVariants.find(v => clientProductIds.has(v.id));
+                const clientVariant = referenceVariant
+                    ? this.clientProducts.find(p => p.id === referenceVariant.id)
+                    : null;
+                // Solo se considera un precio vigente (sin fecha de término).
+                const activePrice = (clientVariant?.price_history || []).find(price => !price.valid_to);
+
+                await axios.post(route('branches.add-products', this.branchId), {
+                    products: [{
+                        product_id: this.selectedBaseProductId,
+                        price: activePrice?.price ?? clientVariant?.base_price ?? null,
+                        currency: activePrice?.currency || 'MXN',
+                    }],
+                });
+
+                ElMessage.success('Producto base asignado al cliente.');
+                // Al agregar un producto nuevo, se deja seleccionado el base para capturarlo.
+                // Si se está editando una línea existente no se cambia el producto en edición.
+                this.$emit('base-product-assigned', { shouldSelect: this.editIndex === null });
+            } catch (error) {
+                console.error('Error al asignar el producto base:', error);
+                ElMessage.error('No se pudo asignar el producto base al cliente.');
+            } finally {
+                this.assigningBaseProduct = false;
+            }
         },
         addProduct() {
             if (this.saleType === 'stock') {
