@@ -257,7 +257,7 @@
                     <i class="fa-solid mt-0.5 text-[14px]" :class="!quote.authorized_by_user_id ? 'fa-triangle-exclamation text-amber-500' : 'fa-check-circle text-green-500'"></i>
                     <div class="flex-1">
                         <p class="text-xs font-bold leading-tight" :class="!quote.authorized_by_user_id ? 'text-amber-800' : 'text-green-800'">
-                            {{ !quote.authorized_by_user_id ? 'Precio por debajo de lo establecido' : 'Precio especial autorizado' }}
+                            {{ !quote.authorized_by_user_id ? 'Precio por debajo de lo establecido' : 'Precio de referencia autorizado' }}
                         </p>
                         <div class="flex justify-between text-[10px] mt-1">
                             <span class="text-gray-500">Precio a este cliente: <strong class="text-gray-700">${{ formatNumber(getEstablishedPrice(item)) }}</strong></span>
@@ -293,7 +293,7 @@
             </div>
         </div>
 
-        <!-- Modal para actualizar precio especial -->
+        <!-- Modal para actualizar precio de referencia -->
         <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
             <template #title>
                 Actualizar precio de <span class="text-blue-500">{{ item.product?.name }}</span>
@@ -431,7 +431,7 @@ export default {
             return Array.isArray(sales) ? sales : [];
         },
         canBypassPriceRule() {
-            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio especial') || false;
+            return this.$page.props.auth?.user?.permissions?.includes('Cambiar precio de referencia') || false;
         },
         isPriceInvalid() {
             if (!this.priceForm.amount || this.priceForm.amount <= 0) return true;

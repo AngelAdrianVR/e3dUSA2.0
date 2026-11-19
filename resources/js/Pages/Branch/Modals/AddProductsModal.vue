@@ -21,7 +21,7 @@
                             </el-select>
                         </div>
                         <TextInput label="Precio para este cliente (Opcional)" v-model="currentProduct.price"
-                            :helpContent="'Si no agregas precio especial se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
+                            :helpContent="'Si no agregas precio de referencia se tomará en cuenta el precio base del producto'" type="number" :step="0.01" placeholder="Dejar vacío para usar precio base" />
 
                         <div>
                             <label>Moneda*</label>
@@ -82,7 +82,7 @@
                             </span>
                             <div class="flex items-center space-x-3 text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">
-                                    Precio Especial: <strong>{{ product.price ? '$' + product.price : 'Precio base' }}</strong>
+                                    Precio de referencia: <strong>{{ product.price ? '$' + product.price : 'Precio base' }}</strong>
                                 </span>
                                 <button @click="removeProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                     <i class="fa-solid fa-trash"></i>

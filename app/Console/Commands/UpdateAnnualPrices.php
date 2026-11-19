@@ -79,7 +79,7 @@ class UpdateAnnualPrices extends Command
                 'valid_to' => null,
             ]);
 
-            $logMessage = "Precio especial actualizado para producto ID {$oldPrice->product_id} y cliente ID {$oldPrice->branch_id}. Precio anterior: {$oldPrice->price}, Nuevo precio: " . round($newPriceAmount, 2);
+            $logMessage = "Precio de referencia actualizado para producto ID {$oldPrice->product_id} y cliente ID {$oldPrice->branch_id}. Precio anterior: {$oldPrice->price}, Nuevo precio: " . round($newPriceAmount, 2);
             $this->line($logMessage);
             Log::info($logMessage);
         }

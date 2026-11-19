@@ -72,7 +72,7 @@
 
                         <!-- BOTONES DE ACCIÓN -->
                         <div class="absolute top-2 right-2 flex items-center space-x-1">
-                            <el-tooltip content="Actualizar precio especial" placement="top">
+                            <el-tooltip content="Actualizar precio de referencia" placement="top">
                                 <button @click="openPriceModal(product)" class="flex items-center justify-center size-7 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm text-gray-600 dark:text-gray-300 shadow-sm hover:bg-white hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
                                     <i class="fa-solid fa-dollar-sign text-[11px]"></i>
                                 </button>
@@ -159,7 +159,7 @@
                         </el-collapse-item>
                     </el-collapse>
 
-                    <p class="px-3 text-sm text-gray-600 dark:text-gray-500 italic mt-2" v-else>No cuenta con precio especial, así que se toma el precio base del producto</p>
+                    <p class="px-3 text-sm text-gray-600 dark:text-gray-500 italic mt-2" v-else>No cuenta con precio de referencia, así que se toma el precio base del producto</p>
 
                     <!-- Precios especiales por volumen (plegable) -->
                     <div v-if="product.volume_prices?.length" class="mt-1 px-1">
@@ -254,7 +254,7 @@
                         </div>
                     </div>
                     <div class="md:col-span-4 mt-2">
-                        <TextInput label="Precio Especial (Opcional)" v-model="currentCatalogProduct.price"
+                        <TextInput label="Precio de referencia (Opcional)" v-model="currentCatalogProduct.price"
                             :helpContent="'Si no agregas precio se tomará el precio base'" type="number" :step="0.01" placeholder="Ej. 150.00" />
                     </div>
 
@@ -299,7 +299,7 @@
                             </span>
                             <div class="flex items-center space-x-3 text-sm">
                                 <span class="text-gray-600 dark:text-gray-400">
-                                    Precio Especial: <strong>${{ product.price ?? 'N/A' }} {{ product.price ? product.currency : '' }}</strong>
+                                    Precio de referencia: <strong>${{ product.price ?? 'N/A' }} {{ product.price ? product.currency : '' }}</strong>
                                 </span>
                                 <button @click="removeBranchProduct(index)" type="button" class="text-gray-500 hover:text-red-500 transition-colors">
                                     <i class="fa-solid fa-trash"></i>
@@ -322,7 +322,7 @@
         </template>
     </DialogModal>
 
-    <!-- Modal para actualizar precio especial -->
+    <!-- Modal para actualizar precio de referencia -->
     <ConfirmationModal :show="showPriceModal" @close="showPriceModal = false">
         <template #title>
             Actualizar precio de <span class="text-blue-500">{{ productForUpdate?.name }}</span>
@@ -383,10 +383,10 @@
     <!-- Confirmación para Finalizar Precio -->
     <ConfirmationModal :show="showClosePriceConfirmModal" @close="showClosePriceConfirmModal = false">
         <template #title>
-            Finalizar Precio Especial
+            Finalizar Precio de referencia
         </template>
         <template #content>
-            ¿Estás seguro de que deseas finalizar la vigencia de este precio especial? El producto volverá a su precio base para este cliente.
+            ¿Estás seguro de que deseas finalizar la vigencia de este precio de referencia? El producto volverá a su precio base para este cliente.
         </template>
         <template #footer>
             <div class="flex space-x-2">
@@ -680,7 +680,7 @@ export default {
             try {
                 const response = await axios.patch(route('branch-price-history.close', this.priceHistoryToClose));
                 if (response.status === 200) {
-                    ElMessage.success('El precio especial ha sido finalizado.');
+                    ElMessage.success('El precio de referencia ha sido finalizado.');
                     this.fetchClientProducts();
                 }
             } catch (error) {

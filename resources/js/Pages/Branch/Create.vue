@@ -437,9 +437,9 @@
                                     </p>
                                     <p class="text-xs text-gray-500 dark:text-gray-400">Código: {{ product.code ?? 'N/A' }}</p>
                                     <p class="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                        Costo base:
+                                        <!-- Costo base:
                                         <strong>{{ product.base_price != null ? '$' + Number(product.base_price).toFixed(2) : 'N/A' }}</strong>
-                                        <span class="mx-2">|</span>
+                                        <span class="mx-2">|</span> -->
                                         Precio referencia:
                                         <strong>{{ product.price != null ? '$' + Number(product.price).toFixed(2) : 'N/A' }}</strong>
                                         <span class="ml-2">{{ product.currency ?? 'MXN' }}</span>
